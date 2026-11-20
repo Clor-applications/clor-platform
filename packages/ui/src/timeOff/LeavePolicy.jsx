@@ -319,7 +319,7 @@ export default function LeavePolicy() {
     { key: 'name', label: 'Leave type', always: true, render: (t) => (
       <span className="inline-flex items-center gap-2 min-w-0">
         <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: swatchOf(t) }} aria-hidden="true" />
-        <span className="truncate font-medium">{t.name}</span>
+        <span className="truncate">{t.name}</span>
         {t.isPrivate ? <span className="ui-pill ui-pill-neutral">Private</span> : null}
       </span>
     ) },
@@ -379,7 +379,7 @@ export default function LeavePolicy() {
           onRowClick={(t) => start(formOf(t))}
           card={(t) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{t.name}</span>{t.isPrivate ? <span className="ui-pill ui-pill-neutral">Private</span> : null}</span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{t.name}</span>{t.isPrivate ? <span className="ui-pill ui-pill-neutral">Private</span> : null}</span>
               <span className="block truncate ui-caption">{rulesOf(t, typeNames, leaveNames).join('; ')}</span>
             </span>
           )}
@@ -759,7 +759,7 @@ function TryOnPeople({ body }) {
                   return (
                     <tr key={r.employeeId || r.name}>
                       <td>
-                        <span className="block font-medium">{r.name}</span>
+                        <span className="block">{r.name}</span>
                         <span className="block ui-caption">{[r.why, r.dateOfJoining ? `joined ${day(r.dateOfJoining)}` : null].filter(Boolean).join(' · ')}</span>
                         {r.open && r.note ? <span className="block ui-caption ui-text-warn whitespace-normal">{r.note}</span> : null}
                       </td>
@@ -793,7 +793,7 @@ export function PeriodLocked() {
     <p className="ui-setting-locked text-sm" role="note">
       <Lock size={14} aria-hidden="true" />
       <span>
-        <span className="font-medium">The leave period is locked</span>
+        <span>The leave period is locked</span>
         <span className="ui-muted">: leave is already recorded in it, and balances are worked out from its start. To start it on another day, the balances move first: ask CLOR support from Help, and they move them with you.</span>
       </span>
     </p>

@@ -33,7 +33,7 @@ export default function MyRequests() {
   const [open, setOpen] = useState(null);
 
   const columns = [
-    { key: 'form', label: 'Request', always: true, render: (r) => <span className="font-medium">{r.formName}</span> },
+    { key: 'form', label: 'Request', always: true, render: (r) => <span>{r.formName}</span> },
     { key: 'what', label: 'What you wrote', render: (r) => <span className="block max-w-sm truncate">{r.lines.map((l) => l.value).join(' · ')}</span> },
     { key: 'asked', label: 'Asked', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.askedAt)}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || enumWords(r.status)}</span> },
@@ -64,7 +64,7 @@ export default function MyRequests() {
         onRowClick={(r) => setOpen(r)}
         card={(r) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.formName}</span><span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || enumWords(r.status)}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.formName}</span><span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || enumWords(r.status)}</span></span>
             <span className="block truncate ui-caption">{day(r.askedAt)} · {r.lines.map((l) => l.value).join(' · ')}</span>
           </span>
         )}

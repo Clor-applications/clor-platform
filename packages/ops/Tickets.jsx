@@ -310,7 +310,7 @@ export function TicketPage({ id, back, openCustomer, openTicket, lookUp, me }) {
               </dl>
               {about.others?.length ? (
                 <div className="grid gap-1" style={{ marginTop: 8 }}>
-                  <h3 id="tk-others" className="text-sm font-medium">Other open tickets</h3>
+                  <h3 id="tk-others" className="text-sm font-semibold">Other open tickets</h3>
                   <ul className="grid gap-1" aria-labelledby="tk-others">
                     {about.others.map((x) => (
                       <li key={x.id}>

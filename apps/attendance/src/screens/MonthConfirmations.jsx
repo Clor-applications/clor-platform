@@ -115,7 +115,7 @@ export default function MonthConfirmations() {
       ] : null)}
     >
       <LoadFailed message={error} onRetry={load} />
-      {message ? <p className="text-sm font-medium" role="status" style={{ color: 'rgb(var(--pos))' }}>{message}</p> : null}
+      {message ? <p className="text-sm" role="status" style={{ color: 'rgb(var(--pos))' }}>{message}</p> : null}
       {!data ? (
         error ? null : <SkeletonCard lines={5} />
       ) : (
@@ -193,7 +193,7 @@ export default function MonthConfirmations() {
               <span className="ui-label">Your reply</span>
               <textarea className="ui-input w-full" rows={4} maxLength={1000} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="e.g. Corrected the 12th to on duty. Your payable days are now 22." />
             </label>
-            {sendError ? <p className="text-sm font-medium" role="alert" style={{ color: 'rgb(var(--neg))' }}>{sendError}</p> : null}
+            {sendError ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{sendError}</p> : null}
           </div>
         ) : null}
       </Drawer>

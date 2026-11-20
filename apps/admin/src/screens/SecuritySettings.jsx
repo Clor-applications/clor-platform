@@ -296,7 +296,7 @@ export const SecuritySettings = ({ openScreen }) => {
                 <div className="grid gap-4 sm:grid-cols-2">
                   {NUMBERS.map((f) => (
                     <label key={f.key} className="grid gap-1">
-                      <span className="text-sm font-medium">{f.label}</span>
+                      <span className="text-sm font-semibold">{f.label}</span>
                       <input type="number" className="ui-input" min={f.min} max={f.max} value={policy[f.key]} onChange={(e) => setField({ [f.key]: Number(e.target.value) })} />
                     </label>
                   ))}
@@ -305,11 +305,11 @@ export const SecuritySettings = ({ openScreen }) => {
 
               <Section title="Passwords" id="ws-rules-passwords">
                 <label className="grid gap-1" style={{ maxWidth: 260 }}>
-                  <span className="text-sm font-medium">Minimum length</span>
+                  <span className="text-sm font-semibold">Minimum length</span>
                   <input type="number" className="ui-input" min={8} max={64} value={policy.passwordMinLength} onChange={(e) => setField({ passwordMinLength: Number(e.target.value) })} />
                 </label>
                 <fieldset className="grid gap-2">
-                  <legend className="text-sm font-medium mb-1">A password must</legend>
+                  <legend className="text-sm font-semibold mb-1">A password must</legend>
                   {PASSWORD_RULES.map((f) => (
                     <Check key={f.key} checked={Boolean(policy[f.key])} onChange={(e) => setField({ [f.key]: e.target.checked })}>{f.label}</Check>
                   ))}
@@ -318,7 +318,7 @@ export const SecuritySettings = ({ openScreen }) => {
 
               <Section title="Who may sign in" id="ws-rules-who">
                 <label className="grid gap-1">
-                  <span className="text-sm font-medium">Allowed email domains</span>
+                  <span className="text-sm font-semibold">Allowed email domains</span>
                   <input className="ui-input" value={policy.allowedEmailDomains || ''} onChange={(e) => setField({ allowedEmailDomains: e.target.value })} placeholder="yourcompany.com, group.com" />
                   <span className="ui-caption">Only addresses at these domains can be invited, added or open this company. Blank: any address.</span>
                 </label>

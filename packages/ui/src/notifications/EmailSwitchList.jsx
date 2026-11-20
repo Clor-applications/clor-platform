@@ -20,7 +20,7 @@ export default function EmailSwitchList({ events = [], onToggle, disabled = fals
               onChange={(ev) => onToggle?.(e.key, ev.target.checked)}
             />
             <span className="min-w-0 grid gap-0.5">
-              <span className="text-sm font-medium" style={{ color: 'rgb(var(--fg))' }}>{e.label}</span>
+              <span className="text-sm font-semibold" style={{ color: 'rgb(var(--fg))' }}>{e.label}</span>
               {e.description ? <span className="ui-caption">{e.description}</span> : null}
             </span>
           </label>

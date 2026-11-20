@@ -74,14 +74,14 @@ export default function LateMarks({ params = {}, updateParams }) {
   const due = rows.filter((r) => r.status === 'DUE').length;
   const stepRule = d?.rules?.cutMode === 'HALF_DAY_PER_N';
   const columns = [
-    { key: 'name', label: 'Employee', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span> },
+    { key: 'name', label: 'Employee', always: true, render: (r) => <span className="min-w-0"><span className="block truncate">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span> },
     { key: 'late', label: 'Late', align: 'right', render: (r) => <span className="tabular-nums">{r.lateMarks}</span> },
     ...(d?.rules?.early?.on ? [{ key: 'early', label: 'Early', align: 'right', render: (r) => <span className="tabular-nums">{r.earlyMarks}</span> }] : []),
     { key: 'days', label: 'Penalty', align: 'right', render: (r) => <span className="tabular-nums">{dayAmount(r.days)}</span> },
     /* Every N marks can cut more than the time missed (Code on Wages s.20): each person's two figures side by side. */
-    ...(stepRule ? [{ key: 'missed', label: 'Time missed', align: 'right', render: (r) => <span className={`tabular-nums ${r.days > r.timeMissedDays ? 'font-medium' : ''}`}>{r.timeMissedMinutes ? `${minutesText(r.timeMissedMinutes)} · ${dayAmount(r.timeMissedDays)}` : '—'}</span> }] : []),
+    ...(stepRule ? [{ key: 'missed', label: 'Time missed', align: 'right', render: (r) => <span className="tabular-nums">{r.timeMissedMinutes ? `${minutesText(r.timeMissedMinutes)} · ${dayAmount(r.timeMissedDays)}` : '—'}</span> }] : []),
     { key: 'leave', label: 'From leave', render: (r) => <span className="tabular-nums">{r.status === 'WAIVED' ? '—' : leaveText(r.fromLeave)}</span> },
-    { key: 'lop', label: 'Unpaid', align: 'right', render: (r) => <span className="tabular-nums font-medium">{dayAmount(r.lossOfPayDays)}</span> },
+    { key: 'lop', label: 'Unpaid', align: 'right', render: (r) => <span className="tabular-nums">{dayAmount(r.lossOfPayDays)}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0] || enumWords(r.status)}</span> },
     { key: 'act', label: '', align: 'right', render: (r) => (
       <span className="inline-flex gap-1 whitespace-nowrap">
@@ -101,7 +101,7 @@ export default function LateMarks({ params = {}, updateParams }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
           <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
-          <span className="min-w-36 text-center font-medium" aria-live="polite">{monthTitle(month)}</span>
+          <span className="min-w-36 text-center font-semibold" aria-live="polite">{monthTitle(month)}</span>
           <button type="button" className="ui-icon-btn" aria-label="Next month" disabled={month >= thisMonth} onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
         </div>
         {d && d.rules?.on ? <p className="text-sm tabular-nums">{d.totals.people} {d.totals.people === 1 ? 'person' : 'people'} · {dayAmount(d.totals.fromLeaveDays)} from leave · {dayAmount(d.totals.lossOfPayDays)} unpaid{d.totals.waived ? ` · ${d.totals.waived} waived` : ''}</p> : null}
@@ -121,7 +121,7 @@ export default function LateMarks({ params = {}, updateParams }) {
           onRowClick={(r) => setOpen(r)}
           card={(r) => (
             <span className="block min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0]}</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0]}</span></span>
               <span className="block ui-caption tabular-nums">{r.lateMarks} late{d?.rules?.early?.on ? `, ${r.earlyMarks} early` : ''}{r.days ? ` · ${dayAmount(r.days)}` : ''}{r.lossOfPayDays ? `, ${dayAmount(r.lossOfPayDays)} unpaid` : ''}</span>            </span>
           )}
           empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState title={`No late marks in ${monthTitle(month)}`} />}

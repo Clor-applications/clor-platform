@@ -402,7 +402,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
       {/* The one part that grows without limit, so it is the part that
           scrolls — the sort buttons and the footer stay reachable. */}
       <div className="min-h-52 flex-1 min-w-0 overflow-y-auto border p-2 space-y-1">
-        <label className="flex items-center gap-2 cursor-pointer font-medium">
+        <label className="flex items-center gap-2 cursor-pointer font-semibold">
           <input
             type="checkbox"
             className="ui-checkbox"
@@ -420,7 +420,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
         {shown.length === 0 ? <div className="ui-muted text-xs px-1">No values</div> : null}
         {isDate ? dateTree.map(([year, months]) => (
           <details key={year} open className="rounded-lg">
-            <summary className="cursor-pointer font-medium">{year}</summary>
+            <summary className="cursor-pointer font-semibold">{year}</summary>
             <div className="pl-3 space-y-1">
               {[...months.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([month, days]) => (
                 <details key={`${year}-${month}`}>

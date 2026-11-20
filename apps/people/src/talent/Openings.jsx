@@ -86,7 +86,7 @@ export default function Openings({ params = {}, openScreen }) {
   ].filter(Boolean);
 
   const columns = [
-    { key: 'title', label: 'Job', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.title}</span><span className="block truncate ui-caption">{[r.departmentName, r.designationName, r.branchName || r.location].filter(Boolean).join(' · ')}</span></span> },
+    { key: 'title', label: 'Job', always: true, render: (r) => <span className="min-w-0"><span className="block truncate">{r.title}</span><span className="block truncate ui-caption">{[r.departmentName, r.designationName, r.branchName || r.location].filter(Boolean).join(' · ')}</span></span> },
     { key: 'active', label: 'Candidates', align: 'right', render: (r) => (r.active ? <button type="button" className="ui-link tabular-nums" onClick={(e) => { e.stopPropagation(); openScreen?.('candidates', { opening: r.id }); }}>{r.active}</button> : <span className="ui-muted tabular-nums">0</span>) },
     /* Hired of places: a declined offer frees a place, a hire takes one (People plan 8 Nov 2026, step 4). */
     { key: 'hired', label: 'Filled', align: 'right', render: (r) => <span className={`tabular-nums whitespace-nowrap ${r.hired ? '' : 'ui-muted'}`}>{r.hired} of {r.places}</span> },
@@ -130,7 +130,7 @@ export default function Openings({ params = {}, openScreen }) {
           onRowClick={(r) => setOpen(r.id)} rowActions={rowActions}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span>{openingTag(r)}</span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.title}</span>{openingTag(r)}</span>
               <span className="block truncate ui-caption">{[r.departmentName, `${r.active} candidate${r.active === 1 ? '' : 's'}`, r.targetDate ? `fill by ${day(r.targetDate)}` : null].filter(Boolean).join(' · ')}</span>
             </span>
           )}

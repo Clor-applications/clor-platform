@@ -80,7 +80,7 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
     { key: 'steps', label: 'Steps', render: (r) => <StepsMeter done={r.done} total={r.total} late={r.late} /> },
     { key: 'readers', label: 'Readers', render: (r) => (r.readers ? <span className={`ui-pill ${READER_PILL[r.readers.state] || 'ui-pill-neutral'}`}>{r.readers.word}</span> : <span className="ui-caption">—</span>) },
     { key: 'wages', label: 'Final wages', render: (r) => (r.wages
-      ? <span className={`whitespace-nowrap ${r.wages.late ? 'ui-text-neg font-medium' : ''}`}>{r.wages.paid ? 'Paid' : r.wages.late ? `Late since ${formatDate(r.wages.dueDate)}` : `Due ${formatDate(r.wages.dueDate)}`}</span>
+      ? <span className={`whitespace-nowrap ${r.wages.late ? 'ui-text-neg' : ''}`}>{r.wages.paid ? 'Paid' : r.wages.late ? `Late since ${formatDate(r.wages.dueDate)}` : `Due ${formatDate(r.wages.dueDate)}`}</span>
       : <span className="ui-caption">—</span>) },
     { key: 'signin', label: 'CLOR sign-in', render: (r) => (r.signIn ? <span className="whitespace-nowrap">{r.signIn.open ? (r.status === 'LEFT' ? 'Still on' : 'On until the last day') : 'Turned off'}</span> : <span className="ui-caption">None</span>) },
   ];
@@ -116,7 +116,7 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
         rowActions={(r) => [{ key: 'plan', label: 'Open plan', onSelect: () => setOpen(r) }, { key: 'record', label: 'Open their record', onSelect: () => openScreen?.('employee', { id: r.id }) }]}
         card={(r) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><span className={`ui-pill ${STAGE_PILL[r.stage] || 'ui-pill-neutral'}`}>{r.stageLabel}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><span className={`ui-pill ${STAGE_PILL[r.stage] || 'ui-pill-neutral'}`}>{r.stageLabel}</span></span>
             <span className="block truncate ui-caption tabular-nums">Last day {formatDate(r.dateOfLeaving)} · {r.total ? `${r.done} of ${r.total} steps` : 'no plan'}</span>
             <span className="block truncate ui-caption">{[r.readers ? `Readers: ${r.readers.word.toLowerCase()}` : null, r.wages ? (r.wages.paid ? 'wages paid' : r.wages.late ? 'wages late' : `wages due ${formatDate(r.wages.dueDate)}`) : null].filter(Boolean).join(' · ')}</span>
           </span>

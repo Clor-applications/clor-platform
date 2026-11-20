@@ -427,7 +427,7 @@ export default function Employees({ description = '' } = {}) {
             <button key={p.id} type="button" className="ui-card flex items-start gap-3 p-4 text-left ui-hover-sunken" onClick={() => setOpenId(p.id)}>
               <Avatar person={p} size={44} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{p.name}</span>
+                <span className="block truncate">{p.name}</span>
                 <span className="block truncate ui-caption">{[p.designation, p.department].filter(Boolean).join(' · ') || 'No department or position'}</span>
                 <span className="mt-1.5 flex flex-wrap items-center gap-1">
                   <span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span>
@@ -945,11 +945,11 @@ export function EmploymentHistory({ employeeId }) {
       {events.map((e) => (
         <li key={e.id}>
           <span className="ui-history-when">
-            <span className="tabular-nums font-medium">{formatDateShort(e.effectiveDate)}</span>
+            <span className="tabular-nums">{formatDateShort(e.effectiveDate)}</span>
             <span className="ui-caption">effective</span>
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-medium">{e.title}</span>
+            <span className="block text-sm">{e.title}</span>
             {e.field ? <span className="block text-sm"><span className="ui-muted">{e.from || 'None'}</span> <span aria-hidden="true">→</span><span className="sr-only">to</span> {e.to || 'None'}</span> : null}
             {e.note ? <span className="block text-sm ui-muted">{e.note}</span> : null}
             {e.payrollImpact ? <span className="block ui-caption">{e.payrollImpact}</span> : null}
@@ -1008,7 +1008,7 @@ export function Journey({ employeeId }) {
                 <li key={e.key} className="py-2.5 flex flex-wrap items-start gap-2">
                   <span className={`ui-pill ui-pill-${JOURNEY_TONE[e.kind] || 'neutral'}`}>{JOURNEY_KIND[e.kind] || e.kind}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{e.summary}</p>
+                    <p className="text-sm">{e.summary}</p>
                     <p className="ui-caption">{whenAt(e.at)} · {e.how}{e.by ? ` · ${e.by}` : ''}{e.reason ? ` · ${e.reason}` : ''}</p>
                     {e.changes.length ? (
                       <ul className="ui-caption mt-0.5">
@@ -1117,7 +1117,7 @@ function PayQuestion({ employeeId }) {
             <table className="w-full">
               <tbody className="divide-y">
                 {data.payslip.lines.map((l) => <tr key={l.code}><td className="py-1">{l.label}{l.basis ? <span className="ui-caption"> · {l.basis}</span> : null}</td><td className="py-1 text-right tabular-nums">{l.kind === 'DEDUCTION' ? '−' : ''}{Number(l.amount).toLocaleString('en-IN')}</td></tr>)}
-                <tr><td className="py-1 font-medium">Net</td><td className="py-1 text-right tabular-nums font-medium">{Number(data.payslip.net).toLocaleString('en-IN')}</td></tr>
+                <tr><td className="py-1 font-semibold">Net</td><td className="py-1 text-right tabular-nums font-semibold">{Number(data.payslip.net).toLocaleString('en-IN')}</td></tr>
               </tbody>
             </table>
           ) : null}
@@ -1223,7 +1223,7 @@ export function EmployeeChecklist({ person }) {
                   <p className={`text-sm ${t.done ? 'line-through ui-muted' : ''}`}>{t.title}</p>
                   <p className="ui-caption">
                     {t.ownerName ? `${t.ownerName} (${CHECKLIST_OWNER[t.owner] || t.owner})` : CHECKLIST_OWNER[t.owner] || t.owner}
-                    {t.dueDate ? <span className={t.overdue ? 'ui-text-neg font-medium' : ''}> · {t.overdue ? 'was due' : 'due'} {formatDateShort(t.dueDate)}</span> : null}
+                    {t.dueDate ? <span className={t.overdue ? 'ui-text-neg' : ''}> · {t.overdue ? 'was due' : 'due'} {formatDateShort(t.dueDate)}</span> : null}
                     {t.done && t.doneBy ? ` · done by ${t.doneBy}` : ''}
                   </p>
                   {taskNote(t.note) ? <p className="ui-caption">{taskNote(t.note)}</p> : null}
@@ -1532,7 +1532,7 @@ export function ImportDrawer({ file, onClose, onDone }) {
           </>
         ) : (
           <section className="space-y-2" aria-label="Result">
-            <p className="text-sm font-medium">{result.imported} {mode === 'update' ? 'taken' : 'imported'}, {result.failed} not.</p>
+            <p className="text-sm">{result.imported} {mode === 'update' ? 'taken' : 'imported'}, {result.failed} not.</p>
             {result.failed ? <ul className="divide-y text-sm max-h-72 overflow-y-auto">{result.results.filter((r) => !r.ok).map((r) => <li key={r.row} className="py-1.5"><span className="tabular-nums ui-muted">Row {r.row}</span> · {r.error}</li>)}</ul> : null}
             {result.batchId ? <p className="ui-caption">This import can be undone until {new Date(result.undoUntil).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}.</p> : null}
           </section>
@@ -1653,7 +1653,7 @@ export function JoiningDetails({ person, onChecked }) {
         <>
           <p className="ui-caption">Sent, not checked. What they typed is on the right; correct anything before you save it to the record. {latest.submitted?.declarations?.policiesRead ? 'They confirmed reading the policies.' : 'They did not tick the policies box.'}{latest.submitted?.documentIds?.length ? ` ${latest.submitted.documentIds.length} document${latest.submitted.documentIds.length === 1 ? '' : 's'} added under Documents.` : ''}</p>
           <table className="w-full text-sm">
-            <thead><tr className="ui-caption text-left"><th className="py-1 font-medium">Detail</th><th className="py-1 font-medium">On the record</th><th className="py-1 font-medium">They sent</th></tr></thead>
+            <thead><tr className="ui-caption text-left"><th className="py-1 font-semibold">Detail</th><th className="py-1 font-semibold">On the record</th><th className="py-1 font-semibold">They sent</th></tr></thead>
             <tbody className="divide-y">
               {JOINER_FIELDS.filter(([k]) => sent[k] !== undefined).map(([k, label]) => (
                 <tr key={k}>
@@ -1902,7 +1902,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       <form id="employee-form" onSubmit={save} className="space-y-6">
         {dupes ? (
           <section className="ui-card p-3 space-y-2" aria-label="Possibly the same person" style={{ borderColor: 'rgb(var(--neg))' }}>
-            <p className="text-sm font-medium">Someone here already has this {dupes.list[0]?.field}.</p>
+            <p className="text-sm">Someone here already has this {dupes.list[0]?.field}.</p>
             <ul className="text-sm">
               {dupes.list.map((d) => (
                 <li key={d.id}>{d.name}{d.code ? ` · ${d.code}` : ''} <span className="ui-caption">— same {d.field}</span></li>
@@ -1914,7 +1914,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
         ) : null}
         {moved ? (
           <section className="ui-card p-3 space-y-2" aria-label="Employment change">
-            <p className="text-sm font-medium">This changes where or how {form.name || 'they'} work. It goes into their employment history. A date in the future waits on the record and takes effect that day.</p>
+            <p className="text-sm">This changes where or how {form.name || 'they'} work. It goes into their employment history. A date in the future waits on the record and takes effect that day.</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="ui-label">Counts from</span>
@@ -1931,7 +1931,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
                 <ul className="space-y-1">
                   {impact.map((i) => (
                     <li key={i.key} className="text-sm">
-                      <span className="font-medium">{i.title}</span>
+                      <span>{i.title}</span>
                       <span className="ui-caption"> · {IMPACT_TARGET[i.target] || i.target}</span>
                       <p className="ui-caption">{i.detail}</p>
                     </li>
@@ -2338,7 +2338,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
           <form id="doc-upload" className="grid gap-4" onSubmit={async (e) => { if (await upload(e)) setUploading(false); }}>
             <label className="ui-dropzone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}>
               <Upload size={18} aria-hidden="true" />
-              <span className="text-sm font-medium">{file ? file.name : 'Choose a file'}</span>
+              <span className="text-sm">{file ? file.name : 'Choose a file'}</span>
               <span className="ui-caption">{file ? kb(file.size) : 'or drop it here · PDF, image or Word, up to 5 MB'}</span>
               <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} aria-label="File" />
             </label>

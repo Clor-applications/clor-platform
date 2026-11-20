@@ -297,7 +297,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
             ) : (
               <form className="grid gap-4" onSubmit={save}>
                 <label className="grid gap-1">
-                  <span className="text-sm font-medium">Status</span>
+                  <span className="text-sm font-semibold">Status</span>
                   <select className="ui-select" value={status} onChange={(e) => setStatus(e.target.value)}>
                     {SETTABLE.map((k) => (
                       <option key={k} value={k}>{DEMO_STATUS[k]}</option>
@@ -305,7 +305,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
                   </select>
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-sm font-medium">Looked after by</span>
+                  <span className="text-sm font-semibold">Looked after by</span>
                   <select className="ui-select" value={owner} onChange={(e) => setOwner(e.target.value)}>
                     <option value="">Nobody yet</option>
                     {team.map((t) => (
@@ -315,11 +315,11 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
                   </select>
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-sm font-medium">Follow up on</span>
+                  <span className="text-sm font-semibold">Follow up on</span>
                   <input type="date" className="ui-input" value={followUp} onChange={(e) => setFollowUp(e.target.value)} disabled={status === 'NOT_A_FIT'} />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-sm font-medium">Note</span>
+                  <span className="text-sm font-semibold">Note</span>
                   <textarea className="ui-input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} placeholder="Called, demo on Thursday at 11" />
                 </label>
                 <Err>{saveError}</Err>
@@ -471,7 +471,7 @@ function CreateAccount({ open, request, onClose, onDone }) {
       <form id="ops-demo-create" className="grid gap-5" onSubmit={submit}>
         <Err>{error}</Err>
         <div className="grid gap-1">
-          <label htmlFor="ops-demo-state" className="text-sm font-medium">State of the head office</label>
+          <label htmlFor="ops-demo-state" className="text-sm font-semibold">State of the head office</label>
           <select id="ops-demo-state" className="ui-select" value={state} onChange={(e) => setState(e.target.value)} required aria-describedby="ops-demo-state-hint">
             <option value="">Choose</option>
             {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -479,7 +479,7 @@ function CreateAccount({ open, request, onClose, onDone }) {
           <span id="ops-demo-state-hint" className="ws-card-blurb">They said {request.city}. The state decides CGST and SGST or IGST on every invoice.</span>
         </div>
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>Apps</legend>
+          <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>Apps</legend>
           {APPS.map(([k, label]) => (
             <label key={k}>
               <input type="checkbox" checked={apps.has(k)} onChange={() => setApps((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; })} /> {label}
@@ -488,7 +488,7 @@ function CreateAccount({ open, request, onClose, onDone }) {
           ))}
         </fieldset>
         <label className="grid gap-1">
-          <span className="text-sm font-medium">Trial length, days</span>
+          <span className="text-sm font-semibold">Trial length, days</span>
           <input className="ui-input ui-num" style={{ maxWidth: 128 }} type="number" min={1} max={90} value={trialDays} onChange={(e) => setTrialDays(e.target.value)} />
         </label>
         <p className="ws-card-blurb">

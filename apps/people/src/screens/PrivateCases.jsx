@@ -48,10 +48,10 @@ export default function PrivateCases() {
   const [report, setReport] = useState(false);
   const cases = req.data?.cases || [];
   const columns = [
-    { key: 'reference', label: 'Case', always: true, render: (c) => <span className="font-medium tabular-nums">{c.reference}</span> },
+    { key: 'reference', label: 'Case', always: true, render: (c) => <span className="tabular-nums">{c.reference}</span> },
     { key: 'kind', label: 'Kind', render: (c) => (c.kind === 'POSH' ? 'POSH' : 'Grievance') },
     { key: 'received', label: 'Received', render: (c) => <span className="tabular-nums whitespace-nowrap">{day(c.receivedOn)}</span> },
-    { key: 'next', label: 'Next date', render: (c) => <span className={`tabular-nums whitespace-nowrap ${c.overdue ? 'ui-text-neg font-medium' : ''}`}>{nextDate(c) || '—'}</span> },
+    { key: 'next', label: 'Next date', render: (c) => <span className={`tabular-nums whitespace-nowrap ${c.overdue ? 'ui-text-neg' : ''}`}>{nextDate(c) || '—'}</span> },
     { key: 'role', label: 'Your role', render: (c) => roleWord(c.myRole).replace(/^./, (x) => x.toUpperCase()) },
     { key: 'status', label: 'Status', render: (c) => <span className={`ui-pill ${STATUS[c.status]?.[1] || ''}`}>{STATUS[c.status]?.[0] || enumWords(c.status)}</span> },
   ];
@@ -66,7 +66,7 @@ export default function PrivateCases() {
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable label="Confidential cases" columns={columns} rows={cases} loading={req.loading} refreshing={req.refreshing}
           total={cases.length} pageSize={Math.max(25, cases.length)} noun="cases" onRowClick={(c) => setOpen(c.id)}
-          card={(c) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium tabular-nums">{c.reference}</span><span className={`ui-pill ${STATUS[c.status]?.[1] || ''}`}>{STATUS[c.status]?.[0] || enumWords(c.status)}</span></span><span className={`block truncate ui-caption ${c.overdue ? 'ui-text-neg' : ''}`}>{[c.kind === 'POSH' ? 'POSH' : 'Grievance', nextDate(c)].filter(Boolean).join(' · ')}</span></span>}
+          card={(c) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate tabular-nums">{c.reference}</span><span className={`ui-pill ${STATUS[c.status]?.[1] || ''}`}>{STATUS[c.status]?.[0] || enumWords(c.status)}</span></span><span className={`block truncate ui-caption ${c.overdue ? 'ui-text-neg' : ''}`}>{[c.kind === 'POSH' ? 'POSH' : 'Grievance', nextDate(c)].filter(Boolean).join(' · ')}</span></span>}
           empty={<EmptyState icon={Lock} title="No cases for you" description="Cases you are named on appear here, and only those." />} />
       )}
       {open ? <CaseDrawer id={open} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
@@ -176,7 +176,7 @@ function CaseDrawer({ id, onClose, onChanged }) {
               <li>Inquiry by {day(c.clock.inquiryDue)}{c.clock.inquiryClosedOn ? ` · closed ${day(c.clock.inquiryClosedOn)}` : ''}</li>
               {c.clock.reportDue ? <li>Report by {day(c.clock.reportDue)}{c.clock.reportOn ? ` · given ${day(c.clock.reportOn)}` : ''}</li> : null}
               {c.clock.actionDue ? <li>Action by {day(c.clock.actionDue)}{c.clock.actionOn ? ` · taken ${day(c.clock.actionOn)}` : ''}</li> : null}
-              {c.clock.overdue ? <li className="ui-text-neg font-medium">{c.clock.overdue}</li> : null}
+              {c.clock.overdue ? <li className="ui-text-neg">{c.clock.overdue}</li> : null}
             </ul>
             {canMove && c.clock.lateFiling && !c.clock.extendedTo ? <button type="button" className="ui-link" onClick={() => setAsk({ kind: 'extend' })}>Extend the filing window</button> : null}
           </section>

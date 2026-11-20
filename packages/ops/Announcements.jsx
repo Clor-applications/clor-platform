@@ -29,7 +29,7 @@ const toIso = (v) => (v ? new Date(v).toISOString() : null);
 function Field({ id, label, hint, children }) {
   return (
     <div className="grid gap-1 content-start">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-semibold">
         {label}
       </label>
       {children}
@@ -91,7 +91,7 @@ function Editor({ editing, apps, onClose, onSaved }) {
           <textarea id="ann-body" className="ui-input" rows={3} maxLength={600} value={body} onChange={(e) => setBody(e.target.value)} />
         </Field>
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium">Kind</legend>
+          <legend className="text-sm font-semibold">Kind</legend>
           {['info', 'maintenance', 'incident', 'release'].map((k) => (
             <label key={k} className="flex items-center gap-2 text-sm">
               <input type="radio" name="ann-kind" value={k} checked={kind === k} onChange={() => setKind(k)} />
@@ -101,7 +101,7 @@ function Editor({ editing, apps, onClose, onSaved }) {
           ))}
         </fieldset>
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium">Which customers</legend>
+          <legend className="text-sm font-semibold">Which customers</legend>
           <span className="ws-card-blurb">Tick none for every customer, or only the apps it is about.</span>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             {apps.map((code) => (
@@ -113,7 +113,7 @@ function Editor({ editing, apps, onClose, onSaved }) {
           </div>
         </fieldset>
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium">Who in the account</legend>
+          <legend className="text-sm font-semibold">Who in the account</legend>
           {['everyone', 'admins'].map((k) => (
             <label key={k} className="flex items-center gap-2 text-sm">
               <input type="radio" name="ann-audience" value={k} checked={audience === k} onChange={() => setAudience(k)} />
@@ -133,7 +133,7 @@ function Editor({ editing, apps, onClose, onSaved }) {
         </div>
         {title.trim() || body.trim() ? (
           <div className="grid gap-1">
-            <span className="text-sm font-medium">What customers will see</span>
+            <span className="text-sm font-semibold">What customers will see</span>
             <div style={{ border: '1px solid rgb(var(--ws-line))', borderRadius: 12, overflow: 'hidden' }}>
               <AnnouncementNotice a={{ id: 'preview', title: title.trim() || 'Title', body: body.trim(), kind, endsAt: toIso(endsAt), dismissible: kind !== 'incident' }} onClose={() => {}} />
             </div>

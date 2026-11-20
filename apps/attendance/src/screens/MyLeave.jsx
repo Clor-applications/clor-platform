@@ -354,7 +354,7 @@ function LeavePreview({ preview, checking }) {
       {preview.total ? (
         <p>
           {/* An hourly type says hours (gap 23). */}
-          <span className="font-medium tabular-nums">{isHourly(preview.type) ? amountWords(preview.total, preview.type) : daysText(preview.total)}</span>
+          <span className="tabular-nums">{isHourly(preview.type) ? amountWords(preview.total, preview.type) : daysText(preview.total)}</span>
           {preview.type?.isPaid === false ? ', unpaid' : ''}
           {saved.length === 1 && saved[0].balance?.after != null ? <> · <span className="tabular-nums">{isHourly(preview.type) ? amountWords(saved[0].balance.after, preview.type) : saved[0].balance.after}</span> left after this</> : null}
         </p>

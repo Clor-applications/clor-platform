@@ -80,7 +80,7 @@ function CountAllDialog({ reader, month, onClose, onDone }) {
         <p className="text-sm">Every held punch from this reader{scope} whose time has come goes on its person’s day, and the days are worked out again.</p>
         {ahead > 0 ? (
           <fieldset className="space-y-2" disabled={working}>
-            <legend className="text-sm font-medium">This reader’s clock looks <span className="tabular-nums">{ahead}</span> min ahead.</legend>
+            <legend className="text-sm font-semibold">This reader’s clock looks <span className="tabular-nums">{ahead}</span> min ahead.</legend>
             <label className="flex items-start gap-2 text-sm">
               <input type="radio" name="count-as" className="mt-1" checked={moveBack} onChange={() => setMoveBack(true)} />
               <span>Count, moved back <span className="tabular-nums">{ahead}</span> min<span className="ui-caption block">A punch the reader wrote as {asWritten} counts as 09:00. The reader’s own time is kept beside it.</span></span>
@@ -191,7 +191,7 @@ export default function HeldPunches({ canDecide = true, onChanged, month = null 
           {readers.map((r) => (
             <li key={r.deviceId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{r.reader}</p>
+                <p className="text-sm">{r.reader}</p>
                 <p className="ui-caption">
                   <span className="tabular-nums">{r.count.toLocaleString('en-IN')}</span> held{month ? ` in ${monthName(month)}` : ''}
                   {r.countable < r.count ? <>, <span className="tabular-nums">{r.countable.toLocaleString('en-IN')}</span> can be counted now</> : null}

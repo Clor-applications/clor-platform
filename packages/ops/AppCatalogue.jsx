@@ -81,7 +81,7 @@ export function AppCatalogue({ role }) {
         onConfirm={save}
       >
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>Status</legend>
+          <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>Status</legend>
           {Object.keys(LISTING).map((k) => (
             <label key={k} className="flex items-start gap-2">
               <input type="radio" name="ops-listing" value={k} checked={form.status === k} disabled={edit?.code === 'workspace' && k !== 'AVAILABLE'} onChange={() => setForm((f) => ({ ...f, status: k }))} style={{ marginTop: 4 }} />
@@ -95,7 +95,7 @@ export function AppCatalogue({ role }) {
         </fieldset>
         <div className="grid gap-1">
           <label className="grid gap-1">
-            <span className="text-sm font-medium">One line</span>
+            <span className="text-sm font-semibold">One line</span>
             <input className="ui-input" maxLength={160} value={form.blurb} onChange={(e) => setForm((f) => ({ ...f, blurb: e.target.value }))} />
           </label>
           <span className="ws-card-blurb tabular-nums">{form.blurb.length} of 160 characters</span>

@@ -235,7 +235,7 @@ export default function PeopleReports({ params = {}, updateParams }) {
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="font-medium">
+                    <tr className="font-semibold">
                       <th scope="row" className="text-left">Whole period</th>
                       <td className="text-right tabular-nums">{t.headcountAtStart}</td>
                       <td className="text-right tabular-nums">{t.joiners}</td>

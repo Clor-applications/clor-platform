@@ -125,9 +125,9 @@
   align-items: center;
   gap: 0 10px;
   font-family: var(--font-brand);
-  font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem);
-  line-height: 1.15;
-  font-weight: 800;
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 700;
   letter-spacing: -0.03em;
   color: rgb(var(--fg));
 }
@@ -150,8 +150,8 @@
 .wsh-lede {
   margin: 14px 0 0;
   max-width: 34rem;
-  font-size: 1rem;
-  line-height: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   color: rgb(var(--fg-muted));
 }
 .wsh-facts {
@@ -377,9 +377,9 @@ button.wsh-today-row:focus-visible {
   white-space: nowrap;
 }
 .wsh-today-value {
-  font-size: 1.125rem;
+  font-size: 1.0625rem;
   line-height: 1.5rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -493,9 +493,9 @@ button.wsh-tile:focus-visible {
 }
 .wsh-tile-value {
   text-align: left;
-  font-size: 1.5rem;
-  line-height: 1.875rem;
-  font-weight: 800;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: rgb(var(--fg));
@@ -598,8 +598,8 @@ button.wsh-app:focus-visible {
   min-width: 0;
 }
 .wsh-app-name {
-  font-size: 1rem;
-  line-height: 1.25rem;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
   font-weight: 700;
   color: rgb(var(--fg));
 }
@@ -706,9 +706,9 @@ button.wsh-app:focus-visible {
   text-align: center;
 }
 .wsh-ring-n {
-  font-size: 1.75rem;
-  line-height: 2rem;
-  font-weight: 800;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 700;
   text-align: center;
   color: rgb(var(--fg));
 }
@@ -788,11 +788,12 @@ button.wsh-app:focus-visible {
 .wsh-seat-n {
   min-width: 2.5rem;
   text-align: right;
-  font-weight: 700;
+  font-weight: 600;
   color: rgb(var(--fg));
 }
 .wsh-seat-n small {
-  font-weight: 500;
+  font-size: 0.75rem;
+  font-weight: 400;
   color: rgb(var(--fg-subtle));
 }
 @media (max-width: 900px) {
@@ -1022,7 +1023,7 @@ button.wsh-attn-row:hover {
   flex: 1 1 120px;
 }
 .wsh-co-name {
-  font-size: 1rem;
+  font-size: 1.0625rem;
   line-height: 1.5rem;
   font-weight: 700;
   color: rgb(var(--fg));
@@ -1049,7 +1050,7 @@ button.wsh-attn-row:hover {
 }
 .wsh-co-figs dd {
   margin: 2px 0 0;
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   line-height: 1.75rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;

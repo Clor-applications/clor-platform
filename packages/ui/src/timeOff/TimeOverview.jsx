@@ -45,7 +45,7 @@ function Person({ r }) {
     <span className="flex items-center gap-2.5 min-w-0 flex-1">
       <Avatar person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={28} />
       <span className="min-w-0">
-        <span className="block truncate font-medium">{r.employeeName}</span>
+        <span className="block truncate">{r.employeeName}</span>
         <span className="flex items-center gap-1.5 ui-caption truncate"><TypeDot row={r} />{r.leaveTypeName}{r.department ? ` · ${r.department}` : ''}</span>
       </span>
     </span>
@@ -127,7 +127,7 @@ export default function TimeOverview({ openScreen }) {
                 <span className="flex items-center gap-2.5 min-w-0 flex-1">
                   <Avatar person={{ name: w.employeeName, photoUrl: w.photoUrl }} size={28} />
                   <span className="min-w-0">
-                    <span className="block truncate font-medium">{w.employeeName}</span>
+                    <span className="block truncate">{w.employeeName}</span>
                     <span className="block ui-caption truncate">{[w.place, w.department].filter(Boolean).join(' · ') || 'Working'}</span>
                   </span>
                 </span>
@@ -143,7 +143,7 @@ export default function TimeOverview({ openScreen }) {
           {clashes.map((c) => (
             <li key={`${c.date}:${c.group || ''}`} className="flex flex-wrap items-center gap-3 py-2">
               <span className="ui-pill ui-pill-warn whitespace-nowrap">{clashWords(c.count)}</span>
-              <span className="tabular-nums whitespace-nowrap font-medium">{range(c.date, c.to)}</span>
+              <span className="tabular-nums whitespace-nowrap">{range(c.date, c.to)}</span>
               <span className="min-w-0 flex-1">{c.group ? `${c.group}: ` : ''}{c.names.join(', ')}{c.waiting ? <span className="ui-caption"> ({c.waiting} waiting)</span> : null}</span>
             </li>
           ))}
@@ -166,7 +166,7 @@ export default function TimeOverview({ openScreen }) {
         <Group title={`Lapsing on ${formatDate(d.lapsing.periodEnd)}`} count={d.lapsing.rows.length} action={<button type="button" className="ui-link text-sm" onClick={() => openScreen?.('leaveBalances')}>Balances</button>}>
           {d.lapsing.rows.map((x) => (
             <li key={`${x.employeeId}:${x.leaveTypeName}`} className="flex flex-wrap items-center gap-3 py-2">
-              <span className="min-w-0 flex-1 font-medium">{x.employeeName}</span>
+              <span className="min-w-0 flex-1">{x.employeeName}</span>
               <span>{x.leaveTypeName}</span>
               <span className="tabular-nums w-20 text-right">{daysText(x.days)}</span>
             </li>

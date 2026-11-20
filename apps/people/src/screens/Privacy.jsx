@@ -81,7 +81,7 @@ function AccessReport() {
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable label="Views" columns={columns} rows={data?.views || []} loading={req.loading} refreshing={req.refreshing}
           total={data?.views?.length || 0} pageSize={Math.max(25, data?.views?.length || 0)} noun="views"
-          card={(v) => <span className="min-w-0 flex-1"><span className="block truncate"><span className="font-medium">{v.user}</span> · {v.label}</span><span className="block truncate ui-caption tabular-nums">{[when(v.at), v.employee].filter(Boolean).join(' · ')}</span></span>}
+          card={(v) => <span className="min-w-0 flex-1"><span className="block truncate"><span>{v.user}</span> · {v.label}</span><span className="block truncate ui-caption tabular-nums">{[when(v.at), v.employee].filter(Boolean).join(' · ')}</span></span>}
           empty={<EmptyState title="No views in this period" description="Opening statutory details, confidential files or auditor evidence shows here." />}
           toolbar={<>
             <div className="w-full"><RangePresets from={from} to={to} onPick={(f, t) => { setFrom(f); setTo(t); }} /></div>
@@ -116,7 +116,7 @@ function Retention({ canEdit }) {
     } catch (e) { notify.error(errorWords(e, 'make the change')); }
   };
   const columns = [
-    { key: 'label', label: 'Data', always: true, render: (r) => <span className="min-w-0"><span className="block font-medium">{r.label}</span><span className="block ui-caption">{r.basis}{r.erasable ? '' : ' Never erased by a request.'}</span></span> },
+    { key: 'label', label: 'Data', always: true, render: (r) => <span className="min-w-0"><span className="block">{r.label}</span><span className="block ui-caption">{r.basis}{r.erasable ? '' : ' Never erased by a request.'}</span></span> },
     { key: 'keep', label: 'Keep', align: 'right', render: (r) => <span className="tabular-nums whitespace-nowrap">{r.keepYears} years<span className="block ui-caption">at least {r.minYears}</span></span> },
     { key: 'after', label: 'Counted from', render: (r) => r.after },
     { key: 'hold', label: 'Legal hold', render: (r) => (r.legalHold ? <span><span className="ui-pill ui-pill-warn">On hold</span>{r.holdReason ? <span className="block ui-caption">{r.holdReason}</span> : null}</span> : <span className="ui-muted">None</span>) },
@@ -131,7 +131,7 @@ function Retention({ canEdit }) {
         <DataTable label="Retention" columns={columns} rows={rows} rowKey={(r) => r.dataType} loading={req.loading} refreshing={req.refreshing}
           total={rows.length} pageSize={Math.max(25, rows.length)} noun="kinds of data" rowActions={canEdit ? rowActions : null}
           onRowClick={canEdit ? (r) => setEditing({ row: r, mode: 'years' }) : null}
-          card={(r) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.label}</span><span className="tabular-nums ui-caption">{r.keepYears} years</span></span><span className="block truncate ui-caption">{r.legalHold ? 'On hold' : r.after}</span></span>}
+          card={(r) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{r.label}</span><span className="tabular-nums ui-caption">{r.keepYears} years</span></span><span className="block truncate ui-caption">{r.legalHold ? 'On hold' : r.after}</span></span>}
           empty={<EmptyState title="No retention schedule" />} />
       )}
       {editing ? <RetentionDrawer {...editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); req.reload(); }} /> : null}
@@ -180,7 +180,7 @@ function DeletionReview({ canKeep, canErase }) {
   const data = req.data;
   const [open, setOpen] = useState(null);
   const columns = [
-    { key: 'label', label: 'Former employee', always: true, render: (r) => <span className="font-medium">{r.label}</span> },
+    { key: 'label', label: 'Former employee', always: true, render: (r) => <span>{r.label}</span> },
     { key: 'due', label: 'Past retention since', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.dueSince)}</span> },
     { key: 'decision', label: 'Decision', render: (r) => (r.status === 'PENDING' ? <span className="ui-muted">Waiting</span> : <span>{r.status === 'APPROVED' ? 'Erased' : 'Kept'}{r.decidedAt ? ` on ${day(r.decidedAt)}` : ''}{r.note ? <span className="block ui-caption">{r.note}</span> : null}</span>) },
   ];
@@ -195,7 +195,7 @@ function DeletionReview({ canKeep, canErase }) {
         <DataTable label="Deletion review" columns={columns} rows={data?.rows || []} loading={req.loading} refreshing={req.refreshing}
           total={data?.rows?.length || 0} pageSize={Math.max(25, data?.rows?.length || 0)} noun="people"
           onRowClick={status === 'PENDING' && (canKeep || canErase) ? (r) => setOpen(r) : null}
-          card={(r) => <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.label}</span><span className="block truncate ui-caption tabular-nums">Past retention since {day(r.dueSince)}</span></span>}
+          card={(r) => <span className="min-w-0 flex-1"><span className="block truncate">{r.label}</span><span className="block truncate ui-caption tabular-nums">Past retention since {day(r.dueSince)}</span></span>}
           empty={<EmptyState title={status === 'PENDING' ? 'Nothing past its time' : status === 'APPROVED' ? 'Nothing erased' : 'Nothing kept'} description={status === 'PENDING' ? 'Former employees whose records are past retention wait here for a decision.' : 'Decisions made show here.'} />} />
       )}
       {open ? <ReviewDrawer row={open} hold={data?.hold} canKeep={canKeep} canErase={canErase} onClose={() => setOpen(null)} onDone={() => { setOpen(null); req.reload(); }} /> : null}
@@ -247,7 +247,7 @@ function Auditors({ canEdit }) {
     } catch (e) { notify.error(errorWords(e, 'make the change')); }
   };
   const columns = [
-    { key: 'who', label: 'Auditor', always: true, render: (g) => <span className="font-medium">{name(g.userId)}</span> },
+    { key: 'who', label: 'Auditor', always: true, render: (g) => <span>{name(g.userId)}</span> },
     { key: 'for', label: 'For', render: (g) => g.purpose },
     { key: 'docs', label: 'Documents', align: 'right', render: (g) => <span className="tabular-nums">{(g.documentIds || []).length}</span> },
     { key: 'until', label: 'Until', render: (g) => <span className="tabular-nums whitespace-nowrap">{day(g.untilAt)}</span> },
@@ -259,7 +259,7 @@ function Auditors({ canEdit }) {
         <DataTable label="Auditor access" columns={columns} rows={grants} loading={req.loading} refreshing={req.refreshing}
           total={grants.length} pageSize={Math.max(25, grants.length)} noun="grants"
           rowActions={canEdit ? (g) => [g.live ? { key: 'end', label: 'End now', onSelect: () => revoke(g) } : null] : null}
-          card={(g) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{name(g.userId)}</span>{g.live ? <span className="ui-pill ui-pill-pos">Open</span> : null}</span><span className="block truncate ui-caption">{g.purpose} · until {day(g.untilAt)}</span></span>}
+          card={(g) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{name(g.userId)}</span>{g.live ? <span className="ui-pill ui-pill-pos">Open</span> : null}</span><span className="block truncate ui-caption">{g.purpose} · until {day(g.untilAt)}</span></span>}
           empty={<EmptyState title="No auditor access given" description="An auditor sees only the documents named, until the end date, and every open is recorded." />} />
       )}
     </section>

@@ -88,7 +88,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
             <span>{[c.openingTitle, hr ? word(SOURCES, c.source) + (c.sourceDetail ? ` (${c.sourceDetail})` : '') : null, `since ${day(c.stageAt)}`].filter(Boolean).join(' · ')}</span>
           </p>
           <AppliedBefore candidate={c} hr={hr} />
-          {d.referral ? <p className="text-sm">Referred by <span className="font-medium">{d.referral.referrer}</span>{d.referral.via === 'LINK' ? ', through their link' : ''} on <span className="tabular-nums">{day(d.referral.referredAt)}</span>{d.referral.relation ? `. How they know them: ${d.referral.relation}` : ''}.{d.referral.note ? <span className="block whitespace-pre-wrap ui-muted">{d.referral.note}</span> : null}</p> : null}
+          {d.referral ? <p className="text-sm">Referred by <span>{d.referral.referrer}</span>{d.referral.via === 'LINK' ? ', through their link' : ''} on <span className="tabular-nums">{day(d.referral.referredAt)}</span>{d.referral.relation ? `. How they know them: ${d.referral.relation}` : ''}.{d.referral.note ? <span className="block whitespace-pre-wrap ui-muted">{d.referral.note}</span> : null}</p> : null}
           {c.closedReason ? <p className="text-sm"><span className="ui-label">Why</span> {c.closedReason}</p> : null}
           {c.offerAcceptedOn ? <p className="text-sm">Offer accepted on <span className="tabular-nums">{day(c.offerAcceptedOn)}</span>.</p> : null}
           {live && c.stage === 'OFFER' && waiting && !accepted ? <p className="text-sm ui-muted">Waiting for them to accept the offer. Hire opens when they do.</p> : null}
@@ -131,7 +131,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
                 {d.interviews.map((iv) => (
                   <li key={iv.id} className="ui-history-row space-y-1.5">
                     <p className="text-sm flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="font-medium tabular-nums">{when(iv.at)}</span>
+                      <span className="tabular-nums">{when(iv.at)}</span>
                       <span className="ui-muted">{word(MODES, iv.mode)}{iv.minutes ? `, ${iv.minutes} min` : ''}</span>
                       <Pill map={INTERVIEW_STATUS} value={iv.status} />
                     </p>
@@ -139,7 +139,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
                     <p className="ui-caption">{iv.interviewers.map((u) => `${u.name}${u.gave ? ' ✓' : ''}`).join(', ')}</p>
                     {iv.feedback.map((f) => (
                       <div key={f.byUserId} className="text-sm">
-                        <span className="font-medium">{f.by}</span>: {word(RECOMMENDATIONS, f.recommendation)}<RatedAnswers answers={f.answers} />{f.notes ? <span className="block whitespace-pre-wrap ui-muted">{f.notes}</span> : null}
+                        <span>{f.by}</span>: {word(RECOMMENDATIONS, f.recommendation)}<RatedAnswers answers={f.answers} />{f.notes ? <span className="block whitespace-pre-wrap ui-muted">{f.notes}</span> : null}
                       </div>
                     ))}
                     {iv.feedbackHidden ? <p className="ui-caption">Others have given feedback. You see it once you give yours.</p> : null}
@@ -182,7 +182,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
               <ol className="ui-history-list">
                 {d.timeline.map((e) => (
                   <li key={e.id} className="ui-history-row">
-                    <p className="ui-caption flex flex-wrap gap-x-2"><span className="font-medium">{e.by}</span><span className="tabular-nums ms-auto">{when(e.at)}</span></p>
+                    <p className="ui-caption flex flex-wrap gap-x-2"><span>{e.by}</span><span className="tabular-nums ms-auto">{when(e.at)}</span></p>
                     <p className="text-sm whitespace-pre-wrap">{eventText(e)}</p>
                   </li>
                 ))}

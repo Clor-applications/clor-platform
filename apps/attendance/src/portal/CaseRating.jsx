@@ -20,7 +20,7 @@ export default function CaseRating({ id, busy, onReopen }) {
   };
   return (
     <div className="r52-case-rate space-y-2" role="group" aria-labelledby={`rate-${id}`}>
-      <p id={`rate-${id}`} className="text-sm font-medium">Did this solve it?</p>
+      <p id={`rate-${id}`} className="text-sm font-semibold">Did this solve it?</p>
       <div className="flex gap-2">
         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={yes}>Yes, solved</button>
         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={onReopen}>No, reopen</button>

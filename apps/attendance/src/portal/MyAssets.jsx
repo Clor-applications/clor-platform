@@ -65,7 +65,7 @@ export default function MyAssets({ guard }) {
         <ul className="divide-y" aria-label="Company things with you">
           {data.assets.map((a) => (
             <li key={a.id} className="py-3">
-              <div className="font-medium">{a.title}</div>
+              <div>{a.title}</div>
               <div className="ui-caption">{assetLine(a, today)}</div>
               {a.problem ? <div className="ui-caption ui-text-warn">Problem reported{a.problemOn ? ` on ${day(a.problemOn)}` : ''}: {a.problem}</div> : null}
               <div className="mt-2 flex flex-wrap gap-2">

@@ -248,7 +248,7 @@ export const RolePermissionManager = () => {
             <aside className="ws-side">
               <Panel title="Role">
                 <div className="grid gap-1">
-                  <label className="text-sm font-medium" htmlFor="rpm-role">Editing</label>
+                  <label className="text-sm font-semibold" htmlFor="rpm-role">Editing</label>
                   <select id="rpm-role" className="ui-select w-full" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
                     {roles.map((r) => (
                       <option key={r.id} value={r.id}>

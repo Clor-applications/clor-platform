@@ -126,7 +126,7 @@ function Row({ r, open, onToggle, guard, onDone }) {
     <li className="py-3 text-sm">
       <button type="button" className="flex w-full items-start justify-between gap-2 text-left" aria-expanded={open} onClick={onToggle}>
         <span className="min-w-0">
-          <span className="block font-medium">{r.formName}</span>
+          <span className="block">{r.formName}</span>
           <span className="ui-caption">{when(r.askedAt)}</span>
         </span>
         <RowState label={words} pill={pill} kind={kindOfPill(pill)} />

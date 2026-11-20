@@ -72,7 +72,7 @@ export default function YearEnd() {
   };
 
   const columns = [
-    { key: 'name', label: 'Employee', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span>{r.code ? <span className="block truncate ui-caption">{r.code}</span> : null}</span> },
+    { key: 'name', label: 'Employee', always: true, render: (r) => <span className="min-w-0"><span className="block truncate">{r.name}</span>{r.code ? <span className="block truncate ui-caption">{r.code}</span> : null}</span> },
     { key: 'leaveType', label: 'Leave type', render: (r) => r.leaveType },
     { key: 'closing', label: 'Closing', align: 'right', render: (r) => <span className="tabular-nums">{r.closing}</span> },
     { key: 'carry', label: 'Carries forward', align: 'right', render: (r) => <span className="tabular-nums">{r.carry}</span> },
@@ -122,7 +122,7 @@ export default function YearEnd() {
         refreshing={req.refreshing}
         card={(r) => (
           <span className="min-w-0">
-            <span className="block truncate font-medium">{r.name} · {r.leaveType}</span>
+            <span className="block truncate">{r.name} · {r.leaveType}</span>
             <span className="block ui-caption tabular-nums">Closing {r.closing} · carries {r.carry} · paid out {r.payOut} · lapses {Math.round((r.lapse - r.payOut) * 100) / 100}</span>
           </span>
         )}

@@ -203,7 +203,7 @@ function MyRequests({ requests, guard, reload }) {
         {requests.map((r) => (
           <li key={r.id} className="space-y-2 py-3 text-sm">
             <div className="flex items-start justify-between gap-2">
-              <span className="font-medium">{r.kind === 'LEAVING' ? 'Resignation' : 'Change to my details'}<span className="ui-caption block font-normal">Asked {shortDate(r.createdAt)}</span></span>
+              <span>{r.kind === 'LEAVING' ? 'Resignation' : 'Change to my details'}<span className="ui-caption block font-normal">Asked {shortDate(r.createdAt)}</span></span>
               <RowState label={r.statusLabel} pill={REQ_PILL[r.status]} kind={kindOfPill(REQ_PILL[r.status])} />
             </div>
             <ul className="ui-caption">
@@ -262,7 +262,7 @@ export function Policies({ guard }) {
           return (
             <li key={p.versionId} className="space-y-2 py-3 text-sm">
               <div className="flex items-start justify-between gap-2">
-                <span className="min-w-0"><span className="block font-medium">{p.title}</span><span className="ui-caption">{p.categoryLabel} · from {longDate(p.effectiveFrom)}{p.acceptedAt ? ` · accepted ${shortDate(p.acceptedAt)}` : ''}</span></span>
+                <span className="min-w-0"><span className="block">{p.title}</span><span className="ui-caption">{p.categoryLabel} · from {longDate(p.effectiveFrom)}{p.acceptedAt ? ` · accepted ${shortDate(p.acceptedAt)}` : ''}</span></span>
                 {waiting ? <span className="ui-pill ui-pill-warn shrink-0">To accept</span> : null}
               </div>
               <div className="flex gap-2">

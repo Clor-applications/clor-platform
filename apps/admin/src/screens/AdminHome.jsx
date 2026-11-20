@@ -829,7 +829,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   }
                 >
                   <div className="flex items-center gap-2">
-                    <strong style={{ fontSize: '1.125rem' }}>{plan.name}</strong>
+                    <strong className="text-[1.0625rem] leading-6 font-semibold">{plan.name}</strong>
                     {/* Tags only on exceptions (DESIGN.md "Status tags"): a plan in good standing says so to a screen reader only. */}
                     {plan.inGoodStanding && renewal?.status !== 'trialing' ? <span className="sr-only">Active</span> : <span className={plan.inGoodStanding ? 'ws-pill ws-pill--warn' : 'ws-pill ws-pill--danger'}>{plan.inGoodStanding ? 'Trial' : planWord(plan.status)}</span>}
                   </div>

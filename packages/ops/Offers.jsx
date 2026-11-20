@@ -29,7 +29,7 @@ const isoDay = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
 function Field({ id, label, hint, children }) {
   return (
     <div className="grid gap-1 content-start">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-semibold">
         {label}
       </label>
       {children}
@@ -128,7 +128,7 @@ function Editor({ editing, plans, onClose, onSaved }) {
           <input id="offer-desc" className="ui-input" value={f.description} onChange={set('description')} maxLength={300} />
         </Field>
         <fieldset className="grid gap-2" disabled={taken}>
-          <legend className="text-sm font-medium">Takes off</legend>
+          <legend className="text-sm font-semibold">Takes off</legend>
           <div className="flex flex-wrap items-center gap-3">
             {[
               ['PERCENT', 'A percent'],
@@ -147,7 +147,7 @@ function Editor({ editing, plans, onClose, onSaved }) {
           </div>
         </fieldset>
         <fieldset className="grid gap-2" disabled={taken}>
-          <legend className="text-sm font-medium">For which plans</legend>
+          <legend className="text-sm font-semibold">For which plans</legend>
           <span className="ws-card-blurb">None ticked means every plan, custom plans too.</span>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {plans.length ? (
@@ -163,7 +163,7 @@ function Editor({ editing, plans, onClose, onSaved }) {
           </div>
         </fieldset>
         <fieldset className="grid gap-2" disabled={taken}>
-          <legend className="text-sm font-medium">For which billing</legend>
+          <legend className="text-sm font-semibold">For which billing</legend>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {[
               ['MONTHLY', 'Monthly'],

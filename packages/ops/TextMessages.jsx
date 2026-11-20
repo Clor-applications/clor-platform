@@ -94,7 +94,7 @@ export function TextMessages({ role }) {
           <label className="flex gap-2 items-start">
             <input type="checkbox" checked={f.enabled} disabled={!mayChange} onChange={set('enabled')} />
             <span>
-              <span className="font-medium">Offer sign-in codes by text message</span>
+              <span className="font-semibold">Offer sign-in codes by text message</span>
               <span className="ws-card-blurb" style={{ display: 'block' }}>
                 Off: only the authenticator app is offered to anyone setting up. On: people can choose a code texted to an Indian mobile number instead. People who
                 already turned text messages on keep getting their codes while a key is saved.
@@ -102,7 +102,7 @@ export function TextMessages({ role }) {
             </span>
           </label>
           <div className="grid gap-1">
-            <label htmlFor="ops-sms-key" className="text-sm font-medium">
+            <label htmlFor="ops-sms-key" className="text-sm font-semibold">
               Auth key
             </label>
             <input
@@ -120,14 +120,14 @@ export function TextMessages({ role }) {
           </div>
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
             <div className="grid gap-1">
-              <label htmlFor="ops-sms-template" className="text-sm font-medium">
+              <label htmlFor="ops-sms-template" className="text-sm font-semibold">
                 Template ID
               </label>
               <input id="ops-sms-template" className="ui-input ui-mono" maxLength={60} value={f.templateId} disabled={!mayChange} onChange={set('templateId')} />
               <span className="ws-card-blurb">The ID MSG91 shows beside the approved template. Name its blank “otp”.</span>
             </div>
             <div className="grid gap-1">
-              <label htmlFor="ops-sms-sender" className="text-sm font-medium">
+              <label htmlFor="ops-sms-sender" className="text-sm font-semibold">
                 Sender ID
               </label>
               <input id="ops-sms-sender" className="ui-input ui-mono" maxLength={6} value={f.senderId} disabled={!mayChange} onChange={(e) => setF((x) => ({ ...x, senderId: e.target.value.toUpperCase() }))} placeholder="CLORIN" />
@@ -150,7 +150,7 @@ export function TextMessages({ role }) {
         {mayChange ? (
           <form className="flex flex-wrap items-end gap-2" onSubmit={test}>
             <label className="grid gap-1">
-              <span className="text-sm font-medium">Indian mobile number</span>
+              <span className="text-sm font-semibold">Indian mobile number</span>
               <input className="ui-input tabular-nums" inputMode="tel" autoComplete="off" maxLength={16} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" />
             </label>
             <button type="submit" className="ws-btn ws-btn--quiet" disabled={testing || phone.replace(/\D/g, '').length < 10 || !sms.authKeySaved || !sms.templateId}>

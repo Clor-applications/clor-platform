@@ -69,7 +69,7 @@ export default function Referrals({ params = {}, openScreen }) {
     </span>
   ));
   const columns = [
-    { key: 'candidate', label: 'Candidate', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.candidate}</span><span className="block truncate ui-caption">{r.job}</span></span> },
+    { key: 'candidate', label: 'Candidate', always: true, render: (r) => <span className="min-w-0"><span className="block truncate">{r.candidate}</span><span className="block truncate ui-caption">{r.job}</span></span> },
     { key: 'referrer', label: 'Referred by', render: (r) => <span className="min-w-0"><span className="block truncate">{r.referrer}{r.referrerLeft ? <span className="ui-muted"> (left)</span> : null}</span><span className="block truncate ui-caption">{r.via === 'LINK' ? 'Through their link' : r.relation || 'Referred in the app'}</span></span> },
     { key: 'stage', label: 'Stage', render: (r) => stageCell(r.stage) },
     { key: 'when', label: 'Referred', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.referredAt)}</span> },
@@ -109,7 +109,7 @@ export default function Referrals({ params = {}, openScreen }) {
           onRowClick={(r) => setOpen(r.candidateId)} rowActions={rowActions}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.candidate}</span>{stageCell(r.stage)}</span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.candidate}</span>{stageCell(r.stage)}</span>
               <span className="block truncate ui-caption">{[r.job, `by ${r.referrer}`].join(' · ')}</span>
               {r.hasBonus ? <span className="mt-1 flex items-center gap-1.5 text-sm">{money && r.bonusAmount != null ? <span className="tabular-nums">{rupees(r.bonusAmount)}</span> : null}{bonusTag(r)}</span> : null}
             </span>
@@ -143,7 +143,7 @@ function Report({ data, loading, money }) {
     <div className="space-y-6">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-b pb-4 sm:grid-cols-3 lg:grid-cols-6" style={{ borderColor: 'rgb(var(--border))' }}>
         {stats.map(([label, v, isMoney]) => (
-          <div key={label}><dt className="ui-label">{label}</dt><dd className="text-lg tabular-nums">{isMoney ? rupees(v || 0) : v ?? 0}</dd></div>
+          <div key={label}><dt className="ui-label">{label}</dt><dd className="text-[1.375rem] leading-7 font-semibold tabular-nums">{isMoney ? rupees(v || 0) : v ?? 0}</dd></div>
         ))}
       </dl>
       {!rows.length ? <EmptyState title="No referrals yet" description="When staff refer people, who referred and who joined shows here." /> : (

@@ -122,7 +122,7 @@ export default function AuthenticatorCard() {
       ) : (
         <form onSubmit={begin} className="flex flex-wrap items-end gap-2">
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Your password</span>
+            <span className="text-sm font-semibold">Your password</span>
             <input type="password" className="ui-input" autoComplete="current-password" value={setupPassword} onChange={(e) => setSetupPassword(e.target.value)} required />
           </label>
           <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !setupPassword}>

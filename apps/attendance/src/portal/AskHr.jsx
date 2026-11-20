@@ -114,7 +114,7 @@ export default function AskHr({ guard, preset, onPresetUsed, onAvailability }) {
               <li key={r.id}>
                 <button type="button" className="flex w-full items-start justify-between gap-2 py-3 text-left text-sm" onClick={() => setOpenId(r.id)} disabled={r.status === 'MOVED'}>
                   <span className="min-w-0">
-                    <span className="block font-medium">{r.subject}</span>
+                    <span className="block">{r.subject}</span>
                     <span className="ui-caption">{label(r.category)} · {when(r.createdAt)}</span>
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">

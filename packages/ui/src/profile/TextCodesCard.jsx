@@ -136,11 +136,11 @@ export default function TextCodesCard({ sms, appOn = false, payrollStepUp = fals
       ) : (
         <form onSubmit={begin} className="flex flex-wrap items-end gap-2">
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Your password</span>
+            <span className="text-sm font-semibold">Your password</span>
             <input type="password" className="ui-input" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Mobile number</span>
+            <span className="text-sm font-semibold">Mobile number</span>
             <input className="ui-input tabular-nums w-44" inputMode="tel" autoComplete="tel-national" maxLength={16} placeholder="98765 43210" value={phone} onChange={(e) => setPhone(e.target.value)} required />
           </label>
           <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !password || phone.replace(/\D/g, '').length < 10}>

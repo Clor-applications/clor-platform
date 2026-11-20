@@ -155,7 +155,7 @@ export default function ApprovalRules() {
   };
   const steps = (rule) => ruleLine(rule, variantsOf(rule.requestType), users, roles);
   const columns = [
-    { key: 'type', label: 'Kind of request', always: true, render: (t) => <span className="min-w-0"><span className="block font-medium">{typeName(t)}</span><span className="block ui-caption">{TYPE_WORDS[t]?.[1] || (FORM_NAMES.has(t) ? 'A request type from Settings → Request types.' : '')}</span></span> },
+    { key: 'type', label: 'Kind of request', always: true, render: (t) => <span className="min-w-0"><span className="block">{typeName(t)}</span><span className="block ui-caption">{TYPE_WORDS[t]?.[1] || (FORM_NAMES.has(t) ? 'A request type from Settings → Request types.' : '')}</span></span> },
     { key: 'steps', label: 'Who decides', render: (t) => { const rule = active(t); return rule ? steps(rule) : <span className="ui-muted">{t === 'LEAVE' ? 'Not set: Leave policy decides' : MONEY_RULES.includes(t) ? (versions(t).length ? 'Off: cannot be asked' : 'Not set: the default applies when first asked') : 'Nobody: applies at once'}</span>; } },
     { key: 'version', label: 'Version', render: (t) => { const rule = active(t); const all = versions(t); return rule ? <span className="tabular-nums">v{rule.version}</span> : all.length ? <span className="ui-muted tabular-nums">Off (v{all[0].version} last)</span> : '—'; } },
   ];
@@ -170,7 +170,7 @@ export default function ApprovalRules() {
         <DataTable label="Approval rules" columns={columns} rows={kinds} rowKey={(t) => t} loading={req.loading} refreshing={req.refreshing}
           total={kinds.length} pageSize={Math.max(25, kinds.length)} noun="kinds of request"
           onRowClick={open} rowActions={rowActions}
-          card={(t) => { const rule = active(t); return <span className="min-w-0 flex-1"><span className="block truncate font-medium">{typeName(t)}</span><span className="block truncate ui-caption">{rule ? steps(rule) : 'Applies at once'}</span></span>; }}
+          card={(t) => { const rule = active(t); return <span className="min-w-0 flex-1"><span className="block truncate">{typeName(t)}</span><span className="block truncate ui-caption">{rule ? steps(rule) : 'Applies at once'}</span></span>; }}
           empty={<EmptyState title="No kinds of request yet" description="They come with People. Reload the page; if this stays empty, write to support@clor.in." />} />
       )}
       {editing ? <RuleDrawer rule={editing} users={users} roles={roles} versions={versions(editing.requestType)} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); req.reload(); }} /> : null}
@@ -229,7 +229,7 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
         <label className="block"><span className="ui-label">Rule name *</span><input className="ui-input w-full" maxLength={120} readOnly={rule.readOnly} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
         {rule.readOnly ? (
           <ol className="divide-y border-t" aria-label="Steps">
-            {(rule.spec || []).map((s) => <li key={s.order} className="py-3"><span className="font-medium">Step {s.order}: </span>{specLine(s, users, roles, names)}</li>)}
+            {(rule.spec || []).map((s) => <li key={s.order} className="py-3"><span>Step {s.order}: </span>{specLine(s, users, roles, names)}</li>)}
             {autoWords(rule, names).map((w, i) => <li key={i} className="py-3">{w}</li>)}
           </ol>
         ) : <>
@@ -267,13 +267,13 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
         {rule.variants?.length ? (
           <section className="space-y-2">
             <h3 className="ui-t-sec">Variants</h3>
-            <ul className="divide-y border-t text-sm">{rule.variants.map((v) => <li key={v.id} className="py-2"><span className="font-medium">{v.name}</span>, when {andWords((v.appliesWhen || []).map((c) => conditionWords(c, names)))}: {(v.spec || []).map((st) => (v.spec.length > 1 ? `Step ${st.order}: ` : '') + specLine(st, users, roles, names)).join(' ')}</li>)}</ul>
+            <ul className="divide-y border-t text-sm">{rule.variants.map((v) => <li key={v.id} className="py-2"><span>{v.name}</span>, when {andWords((v.appliesWhen || []).map((c) => conditionWords(c, names)))}: {(v.spec || []).map((st) => (v.spec.length > 1 ? `Step ${st.order}: ` : '') + specLine(st, users, roles, names)).join(' ')}</li>)}</ul>
           </section>
         ) : null}
         {versions.length ? (
           <section className="space-y-2">
             <h3 className="ui-t-sec">Versions</h3>
-            <ul className="divide-y border-t text-sm">{versions.map((v) => <li key={v.id} className="py-2 flex flex-wrap gap-x-2"><span className="tabular-nums font-medium">v{v.version}</span><span>{v.name}</span>{v.active ? <span className="ui-pill ui-pill-pos">In use</span> : null}<span className="ui-caption ms-auto tabular-nums">{formatDate(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(v.createdAt)))} · {(v.steps || []).length} {(v.steps || []).length === 1 ? 'step' : 'steps'}</span></li>)}</ul>
+            <ul className="divide-y border-t text-sm">{versions.map((v) => <li key={v.id} className="py-2 flex flex-wrap gap-x-2"><span className="tabular-nums">v{v.version}</span><span>{v.name}</span>{v.active ? <span className="ui-pill ui-pill-pos">In use</span> : null}<span className="ui-caption ms-auto tabular-nums">{formatDate(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(v.createdAt)))} · {(v.steps || []).length} {(v.steps || []).length === 1 ? 'step' : 'steps'}</span></li>)}</ul>
           </section>
         ) : null}
       </form>

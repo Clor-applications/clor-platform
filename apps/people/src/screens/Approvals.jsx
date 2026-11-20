@@ -227,7 +227,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
       <span className="flex items-center gap-2.5 min-w-0">
         <Avatar person={{ name: i.employeeName, photoUrl: i.photoUrl }} size={32} />
         <span className="min-w-0">
-          <span className="block truncate font-medium">{i.employeeName || '—'}</span>
+          <span className="block truncate">{i.employeeName || '—'}</span>
           {i.employeeCode ? <span className="block truncate ui-caption">{i.employeeCode}</span> : null}
         </span>
       </span>
@@ -259,11 +259,11 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const taskColumns = [
     { key: 'task', label: 'Task', always: true, render: (t) => (
       <span className="block min-w-0 whitespace-normal">
-        <span className="block font-medium">{t.title}</span>
+        <span className="block">{t.title}</span>
         <span className="block ui-caption">{TASK_KIND[t.kind] || enumWords(t.kind)} · {t.employee?.name || '—'}{t.employee?.code ? ` (${t.employee.code})` : ''}</span>
       </span>
     ) },
-    { key: 'due', label: 'Due', render: (t) => <span className={`whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg font-medium' : ''}`}>{t.dueDate ? day(t.dueDate) : '—'}{t.overdue ? ' (late)' : ''}</span> },
+    { key: 'due', label: 'Due', render: (t) => <span className={`whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg' : ''}`}>{t.dueDate ? day(t.dueDate) : '—'}{t.overdue ? ' (late)' : ''}</span> },
     { key: 'act', label: <span className="sr-only">Actions</span>, align: 'right', always: true, render: (t) => (
       <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={rowBusy.has(t.id)} onClick={(e) => { e.stopPropagation(); finishTask(t); }}>
         <Check size={14} aria-hidden="true" /> {rowBusy.has(t.id) ? 'Saving…' : 'Mark done'}
@@ -271,7 +271,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     ) },
   ];
   const mineColumns = [
-    { key: 'title', label: 'Request', always: true, render: (r) => <span className="font-medium">{r.title}</span> },
+    { key: 'title', label: 'Request', always: true, render: (r) => <span>{r.title}</span> },
     { key: 'kind', label: 'Kind', render: (r) => typeOf(r.requestType, r.payload) },
     { key: 'asked', label: 'Asked', render: (r) => <span className="tabular-nums">{day(r.createdAt)}</span> },
     { key: 'status', label: 'Status', render: (r) => <ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /> },
@@ -335,7 +335,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
           <span className="flex items-center gap-3 min-w-0">
             <Avatar person={{ name: i.employeeName, photoUrl: i.photoUrl }} size={40} />
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{i.employeeName || '—'}</span><span className="ui-caption whitespace-nowrap">{waitedText(i.since)}</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{i.employeeName || '—'}</span><span className="ui-caption whitespace-nowrap">{waitedText(i.since)}</span></span>
               <span className="block truncate ui-caption">{kindText(i)} · {whatOf(i)}</span>
               {i.fromDate ? <span className="block truncate ui-caption tabular-nums">{range(i.fromDate, i.toDate)}{i.halfDay ? `, ${halfText(i.halfDay).toLowerCase()}` : i.fromTime && i.toTime ? `, ${i.fromTime}–${i.toTime}` : ''}</span> : null}
               {OWN_NOTE[i.own] ? <span className="block ui-caption">{OWN_NOTE[i.own]}</span> : null}
@@ -344,13 +344,13 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
         ) : tab === 'tasks' ? (t) => (
           <span className="flex items-center gap-3 min-w-0 flex-1">
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{t.title}</span><span className={`ui-caption whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg' : ''}`}>{t.dueDate ? day(t.dueDate) : ''}</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{t.title}</span><span className={`ui-caption whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg' : ''}`}>{t.dueDate ? day(t.dueDate) : ''}</span></span>
               <span className="block truncate ui-caption">{TASK_KIND[t.kind] || enumWords(t.kind)} · {t.employee?.name || '—'}</span>
             </span>
           </span>
         ) : (r) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.title}</span><ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /></span>
             <span className="block truncate ui-caption">{typeOf(r.requestType, r.payload)}</span>
           </span>
         )}

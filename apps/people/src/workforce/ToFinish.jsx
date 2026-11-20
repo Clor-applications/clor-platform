@@ -13,7 +13,7 @@ export default function ToFinish({ person, canEdit, go }) {
   return (
     <section className="ui-to-finish" aria-label="Details to finish">
       <p className="ui-to-finish-head">
-        <span className="font-medium">{missing.length} {missing.length === 1 ? 'detail' : 'details'} to finish</span>
+        <span className="font-semibold">{missing.length} {missing.length === 1 ? 'detail' : 'details'} to finish</span>
       </p>
       <ul className="ui-to-finish-list">
         {missing.map((d) => (

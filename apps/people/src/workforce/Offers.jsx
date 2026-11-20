@@ -114,7 +114,7 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
         ].filter(Boolean)}
         card={(o) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{o.name}</span>{status(o)}</span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{o.name}</span>{status(o)}</span>
             <span className="block truncate ui-caption">{[o.designation, rupees(o.annualCtc)].filter(Boolean).join(' · ')}</span>
             <span className="block truncate ui-caption tabular-nums">Sent {sentOn(o)}{when(o) ? ` · ${when(o)}` : ''}</span>
           </span>

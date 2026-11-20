@@ -91,19 +91,19 @@ function PurchaseOrders() {
       {adding ? (
         <div className="r67-po-form">
           <label className="grid gap-1">
-            <span className="text-sm font-medium">PO number</span>
+            <span className="text-sm font-semibold">PO number</span>
             <input className="ui-input ui-mono" maxLength={60} value={f.number} onChange={set('number')} />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium">PO date</span>
+            <span className="text-sm font-semibold">PO date</span>
             <input className="ui-input" type="date" value={f.poDate} onChange={set('poDate')} />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Covers from</span>
+            <span className="text-sm font-semibold">Covers from</span>
             <input className="ui-input" type="date" value={f.fromDate} onChange={set('fromDate')} />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Covers to</span>
+            <span className="text-sm font-semibold">Covers to</span>
             <input className="ui-input" type="date" value={f.toDate} onChange={set('toDate')} />
           </label>
           <div className="r67-po-actions">
@@ -252,7 +252,7 @@ function VendorDocs() {
       <ul className="r67-rows">
         {rows.map((d) => (
           <li key={d.id} className="r67-row">
-            <span className="font-medium">{d.title}</span>
+            <span>{d.title}</span>
             <span className="ws-item-sub">
               {KIND_WORD[d.kind] || d.kind}
               {d.validUntil ? ` · valid until ${dayOf(d.validUntil)}` : ''}

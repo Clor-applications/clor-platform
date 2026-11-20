@@ -107,7 +107,7 @@ export function RestrictedPicks({ year, onClose }) {
               {d.holidays.map((h) => (
                 <li key={h.id} className="py-2.5">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-medium">{h.name}</span>
+                    <span>{h.name}</span>
                     <span className="tabular-nums whitespace-nowrap ui-muted">{dayLabel(h.date)} · {h.people.length} picked</span>
                   </div>
                   {h.people.length ? <p className="ui-caption mt-0.5">{h.people.map((p) => p.name).join(', ')}</p> : null}

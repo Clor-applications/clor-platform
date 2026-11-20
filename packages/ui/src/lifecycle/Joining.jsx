@@ -139,7 +139,7 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
         rowActions={(r) => [{ key: 'plan', label: 'Open plan', onSelect: () => setOpen(r) }, { key: 'record', label: 'Open their record', onSelect: () => openScreen?.('employee', { id: r.id }) }]}
         card={(r) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><span className={`ui-pill ${STAGE_PILL[r.stage] || 'ui-pill-neutral'}`}>{r.stageLabel}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><span className={`ui-pill ${STAGE_PILL[r.stage] || 'ui-pill-neutral'}`}>{r.stageLabel}</span></span>
             <span className="block truncate ui-caption tabular-nums">Joins {formatDate(r.dateOfJoining)} · {r.total ? `${r.done} of ${r.total} steps` : 'no plan'}{r.late ? `, ${r.late} late` : ''}</span>
           </span>
         )}
@@ -177,7 +177,7 @@ function FormsNotBack({ rows, loading, error, reload, openScreen }) {
         const [label, pill] = formState(i);
         return (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{i.employeeName}</span><span className={`ui-pill ${pill}`}>{label}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{i.employeeName}</span><span className={`ui-pill ${pill}`}>{label}</span></span>
             <span className="block truncate ui-caption tabular-nums">Sent {formatDate(istDay(i.createdAt))} · works until {formatDate(istDay(i.expiresAt))}</span>
           </span>
         );

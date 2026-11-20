@@ -355,7 +355,7 @@ export const EmptyState = ({
                 onClick={r.onSelect}
                 className="ui-card p-3 whitespace-normal hover:border-[rgb(var(--brand))] transition-colors sm:w-[13.5rem]"
               >
-                <span className="block text-sm font-medium">{r.label}</span>
+                <span className="block text-sm font-semibold">{r.label}</span>
                 {r.description ? <span className="block ui-muted text-xs mt-0.5 leading-4">{r.description}</span> : null}
               </button>
             ))}

@@ -133,7 +133,7 @@ export function MonthReview({ guard }) {
             )
           ) : data.why ? <p className="ui-caption">{data.why}</p> : null}
           {data.canConfirm && data.cutoff ? <p className="ui-caption">Confirm or say what is wrong by {dayWords(data.cutoff)}.</p> : null}
-          {message ? <p className="text-sm font-medium" role={message.ok ? 'status' : 'alert'} style={{ color: message.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{message.text}</p> : null}
+          {message ? <p className="text-sm" role={message.ok ? 'status' : 'alert'} style={{ color: message.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{message.text}</p> : null}
         </>
       )}
     </section>
@@ -193,7 +193,7 @@ export function MyOvertime({ guard }) {
             {data.days.map((d) => (
               <li key={d.date} className="space-y-2 py-3">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium whitespace-nowrap">{dayWords(d.date)}</span>
+                  <span className="whitespace-nowrap">{dayWords(d.date)}</span>
                   <span className="ui-caption tabular-nums text-right">
                     {d.restDay ? 'Day off worked' : <span className="ui-ot-tag">+{hm(d.overtimeMinutes)} overtime</span>}{d.overtimeMinutes && d.overtimeRate ? ` · paid at ${d.overtimeRate}×` : ''}{d.overtimeApproved ? ' · approved' : ''}
                   </span>
@@ -233,7 +233,7 @@ export function MyOvertime({ guard }) {
           </ul>
         </>
       )}
-      {message ? <p className="text-sm font-medium" role={message.ok ? 'status' : 'alert'} style={{ color: message.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{message.text}</p> : null}
+      {message ? <p className="text-sm" role={message.ok ? 'status' : 'alert'} style={{ color: message.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{message.text}</p> : null}
     </section>
   );
 }

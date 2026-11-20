@@ -169,11 +169,11 @@ export function Staff({ me }) {
         {act?.kind === 'invite' ? (
           <>
             <label className="grid gap-1">
-              <span className="text-sm font-medium">Email</span>
+              <span className="text-sm font-semibold">Email</span>
               <input className="ui-input" type="email" autoComplete="off" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </label>
             <fieldset className="grid gap-2">
-              <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>Role</legend>
+              <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>Role</legend>
               {ROLE_ORDER.map((k) => (
                 <label key={k} className="flex items-start gap-2">
                   <input type="radio" name="ops-role" value={k} checked={form.role === k} onChange={() => setForm((f) => ({ ...f, role: k }))} style={{ marginTop: 4 }} />

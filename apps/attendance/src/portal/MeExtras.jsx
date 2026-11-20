@@ -86,7 +86,7 @@ export function Payslips({ guard, onAsk = null }) {
             <li key={s.id}>
               <button type="button" className="flex w-full items-center justify-between gap-3 py-3 text-left text-sm" onClick={() => { setSlip(null); setSlipFailed(''); setOpen(s.id); }} aria-label={`Open payslip for ${s.period}${s.extraPayRun ? ' · Extra pay run' : ''}`}>
                 <span className="min-w-0">
-                  <span className="block font-medium">{s.period}{s.extraPayRun ? ' · Extra pay run' : ''}</span>
+                  <span className="block">{s.period}{s.extraPayRun ? ' · Extra pay run' : ''}</span>
                   {/* Paid is expected and shows no tag; not paid yet is the exception. */}
                   <RowState kind={s.paid ? 'normal' : 'exception'} pill="ui-pill-neutral" label={s.paid ? 'Paid' : 'Not paid yet'} />
                 </span>
@@ -146,14 +146,14 @@ function PayslipView({ slip: s, onAsk = null }) {
         <h3 className="ui-label">Earnings</h3>
         <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
           {lines(s.earnings)}
-          <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm font-medium"><dt>Total earnings</dt><dd className="text-right tabular-nums">{money(s.gross)}</dd></div>
+          <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm font-semibold"><dt>Total earnings</dt><dd className="text-right tabular-nums">{money(s.gross)}</dd></div>
         </dl>
       </div>
       <div>
         <h3 className="ui-label">Deductions</h3>
         <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
           {shownLines(s.deductions).length ? lines(s.deductions) : <p className="ui-caption py-1.5">None</p>}
-          <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm font-medium"><dt>Total deductions</dt><dd className="text-right tabular-nums">{money(s.totalDeductions)}</dd></div>
+          <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm font-semibold"><dt>Total deductions</dt><dd className="text-right tabular-nums">{money(s.totalDeductions)}</dd></div>
         </dl>
       </div>
       {s.pf ? <CompanyPf pf={s.pf} /> : null}
@@ -169,7 +169,7 @@ function PayslipView({ slip: s, onAsk = null }) {
 
 /** A label-and-amount row, money right-aligned in tabular figures. */
 const Row = ({ label, amount, strong = false }) => (
-  <div className={`flex items-baseline justify-between gap-3 py-1.5 text-sm${strong ? ' font-medium' : ''}`}>
+  <div className={`flex items-baseline justify-between gap-3 py-1.5 text-sm${strong ? ' font-semibold' : ''}`}>
     <dt>{label}</dt>
     <dd className="text-right tabular-nums">{money(amount)}</dd>
   </div>
@@ -592,7 +592,7 @@ export function PrivateComplaint({ guard }) {
         {COMPLAINT_KINDS.map(([k, label, hint]) => (
           <label key={k} className="flex items-start gap-2">
             <input type="radio" name="pc-kind" className="mt-1" checked={form.kind === k} onChange={() => setForm({ ...form, kind: k })} />
-            <span><span className="font-medium">{label}</span><span className="ui-caption block">{hint}</span></span>
+            <span><span className="font-semibold">{label}</span><span className="ui-caption block">{hint}</span></span>
           </label>
         ))}
       </fieldset>

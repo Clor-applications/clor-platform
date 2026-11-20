@@ -1207,7 +1207,7 @@ const StatutoryChecksBlocker = ({ checks }) => (
     <div className="flex items-start gap-2 min-w-0 max-w-3xl">
       <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
       <div>
-        <div className="font-medium">Not ready to approve</div>
+        <div className="font-semibold">Not ready to approve</div>
         <div>
           This payroll uses figures CLOR could not confirm from an official notice: {checksSentence(checks)}. Check each
           against the state’s notice, then confirm it, or correct it and calculate again.
@@ -1347,7 +1347,7 @@ const ReviewStage = ({ data, byEmployee }) => {
                   <td className="ui-col-amount">{moneyCell(s.grossEarnings)}</td>
                   <td className="ui-col-amount">{moneyCell(s.totalDeductions)}</td>
                   <td className="ui-col-amount">{moneyCell(s.employerCost)}</td>
-                  <td className="ui-col-amount font-medium">
+                  <td className="ui-col-amount">
                     {money(s.netPay)}
                   </td>
                   <td className="ui-col-amount">
@@ -1523,11 +1523,11 @@ const BooksStage = ({ runId, run, onPosted }) => {
                 </tr>
               ))}
               <tr>
-                <td className="ui-col-entity font-medium">Total</td>
-                <td className="ui-col-amount font-medium">
+                <td className="ui-col-entity font-semibold">Total</td>
+                <td className="ui-col-amount font-semibold">
                   {money(preview.totalDebit)}
                 </td>
-                <td className="ui-col-amount font-medium">
+                <td className="ui-col-amount font-semibold">
                   {money(preview.totalCredit)}
                 </td>
               </tr>

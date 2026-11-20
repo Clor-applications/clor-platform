@@ -52,10 +52,10 @@ export default function HelpDesk({ params = {} }) {
   const req = useRequest(() => listDesk({ status: status === 'ALL' ? '' : status, queue: queue === 'all' ? '' : queue, mine: mine ? '1' : '', q }), [status, queue, mine, q]);
   const data = req.data;
   const catLabel = (key) => data?.categories?.find((c) => c.key === key)?.label || key;
-  const late = (flag) => (flag ? 'ui-text-neg font-medium' : '');
+  const late = (flag) => (flag ? 'ui-text-neg' : '');
 
   const columns = [
-    { key: 'subject', label: 'Request', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.subject}</span><span className="block truncate ui-caption">{catLabel(r.category)}</span></span> },
+    { key: 'subject', label: 'Request', always: true, render: (r) => <span className="min-w-0"><span className="block truncate">{r.subject}</span><span className="block truncate ui-caption">{catLabel(r.category)}</span></span> },
     { key: 'from', label: 'From', render: (r) => <span>{r.employeeName}{r.employeeCode ? <span className="ui-caption tabular-nums"> · {r.employeeCode}</span> : null}</span> },
     { key: 'queue', label: 'Queue', render: (r) => r.queue },
     { key: 'urgency', label: 'Urgency', render: (r) => <span className={`ui-pill ${r.urgency === 'URGENT' || r.urgency === 'HIGH' ? 'ui-pill-neg' : 'ui-pill-neutral'}`}>{URGENCY[r.urgency] || enumWords(r.urgency)}</span> },
@@ -104,7 +104,7 @@ export default function HelpDesk({ params = {} }) {
           onRowClick={(r) => setOpen(r.id)}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.subject}</span><ExceptionTag label={r.status === 'RESOLVED' ? '' : STATUS[r.status]?.[0] || enumWords(r.status)} normal={STATUS[r.status]?.[0]} pill={`${STATUS[r.status]?.[1] || 'ui-pill-neutral'}`} /></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.subject}</span><ExceptionTag label={r.status === 'RESOLVED' ? '' : STATUS[r.status]?.[0] || enumWords(r.status)} normal={STATUS[r.status]?.[0]} pill={`${STATUS[r.status]?.[1] || 'ui-pill-neutral'}`} /></span>
               <span className="block truncate ui-caption">{[r.employeeName, catLabel(r.category), r.resolveBy ? `resolve by ${day(r.resolveBy)}` : null].filter(Boolean).join(' · ')}</span>
             </span>
           )}
@@ -240,7 +240,7 @@ function RequestDrawer({ id, canEdit, categories, onClose, onChanged }) {
                   {r.messages.map((m) => (
                     <li key={m.id} className="ui-history-row space-y-1">
                       <p className="ui-caption flex flex-wrap items-center gap-x-2">
-                        <span className="font-medium">{m.authorName}</span>
+                        <span>{m.authorName}</span>
                         {m.internal ? <span className="ui-pill ui-pill-neutral">Internal note</span> : null}
                         {m.policyVersionId ? <span>cites a policy</span> : null}
                         <span className="tabular-nums ms-auto">{when(m.createdAt)}</span>

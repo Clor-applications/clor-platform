@@ -38,7 +38,7 @@ export function CompanyGoals({ state }) {
         <ul className="ui-company-goals-list">
           {goals.map((g) => (
             <li key={g.id} className="ui-company-goal">
-              <span className="block font-medium">{g.title}</span>
+              <span className="block">{g.title}</span>
               <span className="block ui-caption tabular-nums">
                 {[g.dueDate ? `by ${day(g.dueDate)}` : null, g.linkedGoals ? `${g.linkedGoals} goal${g.linkedGoals === 1 ? '' : 's'} linked, ${g.progress}% on average` : 'No goals linked yet'].filter(Boolean).join(' · ')}
               </span>
@@ -99,7 +99,7 @@ export function GoalScore({ score }) {
   if (!score) return null;
   return (
     <p className="ui-caption tabular-nums" aria-label="Score from goals">
-      Goals say <span className="font-medium">{score.score.toFixed(1)}</span> ({score.progress}% done across {score.goals} goal{score.goals === 1 ? '' : 's'}{score.weighted ? ', by weight' : ''})
+      Goals say <span>{score.score.toFixed(1)}</span> ({score.progress}% done across {score.goals} goal{score.goals === 1 ? '' : 's'}{score.weighted ? ', by weight' : ''})
     </p>
   );
 }

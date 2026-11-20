@@ -274,7 +274,7 @@ export default function Invitations({ tenant, companies = [], params }) {
             <span id="ws-invite-role-help" className="ui-caption">{ROLES.find(([k]) => k === role)?.[2]}</span>
           </div>
           <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>Companies</legend>
+            <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>Companies</legend>
             {accountCompanies.map((c) => (
               <label key={c.id}>
                 <input

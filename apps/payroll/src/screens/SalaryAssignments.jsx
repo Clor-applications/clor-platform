@@ -560,8 +560,8 @@ const RaiseForm = ({ person, structures, current, onCancel, onSaved }) => {
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-3">
-            <dt className="text-sm font-medium">Per month after</dt>
-            <dd className="ui-num text-sm font-medium">{money(Number(form.annualCtc || 0) / 12)}</dd>
+            <dt className="text-sm font-semibold">Per month after</dt>
+            <dd className="ui-num text-sm">{money(Number(form.annualCtc || 0) / 12)}</dd>
           </div>
         </dl>
       ) : null}

@@ -55,7 +55,7 @@ export default function LeaveBlocks() {
   };
 
   const columns = [
-    { key: 'name', label: 'Block', always: true, render: (b) => <span className="font-medium">{b.name}</span> },
+    { key: 'name', label: 'Block', always: true, render: (b) => <span>{b.name}</span> },
     { key: 'when', label: 'Dates', render: (b) => <span className="tabular-nums whitespace-nowrap">{span(b)}</span> },
     { key: 'who', label: 'Departments', render: (b) => names(b.departmentIds, maps.departments, 'Everyone') },
     { key: 'types', label: 'Leave types', render: (b) => names(b.leaveTypeIds, maps.types, 'Every type') },
@@ -84,7 +84,7 @@ export default function LeaveBlocks() {
           rowActions={canEdit ? (b) => [{ key: 'edit', label: 'Change', onSelect: () => setOpen(b) }, { key: 'remove', label: 'Remove', danger: true, onSelect: () => remove(b) }] : null}
           card={(b) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{b.name}</span><span className="ui-caption tabular-nums whitespace-nowrap">{span(b)}</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{b.name}</span><span className="ui-caption tabular-nums whitespace-nowrap">{span(b)}</span></span>
               <span className="block truncate ui-caption">{names(b.departmentIds, maps.departments, 'Everyone')} · {names(b.leaveTypeIds, maps.types, 'Every type')}</span>
             </span>
           )}

@@ -82,7 +82,7 @@ export default function LeaveBalances({ openScreen }) {
     { key: 'name', label: 'Employee', always: true, render: (r) => (
       <span className="flex items-center gap-2.5 min-w-0">
         <Avatar person={{ name: r.name }} size={32} />
-        <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span>
+        <span className="min-w-0"><span className="block truncate">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span>
       </span>
     ) },
     ...types.map((t) => ({
@@ -98,7 +98,7 @@ export default function LeaveBalances({ openScreen }) {
         const low = isLow(b);
         return (
           <span className={`tabular-nums whitespace-nowrap ${b.available < 0 ? 'ui-text-neg' : low ? 'ui-balance-low' : ''}`}>
-            <span className="font-medium">{b.available ?? '—'}</span>
+            <span>{b.available ?? '—'}</span>
             {b.locked ? <span className="ui-caption block">{`locked until ${b.lockedUntil ? formatDate(b.lockedUntil) : 'confirmed'}`}</span> : <span className="pt-of"> of {b.allocated ?? '—'}</span>}
             {!b.locked && b.allocated > 0 ? <span className="ui-bal-bar" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, ((b.available ?? 0) / b.allocated) * 100))}%` }} /></span> : null}
           </span>
@@ -142,7 +142,7 @@ export default function LeaveBalances({ openScreen }) {
                   <li key={r.employeeId}>
                     <button type="button" className="flex min-w-0 items-center gap-2.5 text-left" onClick={() => setOpen(r)}>
                       <Avatar person={{ name: r.name }} size={28} />
-                      <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span>{r.department ? <span className="block truncate ui-caption">{r.department}</span> : null}</span>
+                      <span className="min-w-0"><span className="block truncate">{r.name}</span>{r.department ? <span className="block truncate ui-caption">{r.department}</span> : null}</span>
                     </button>
                     <span>{fmt(used)} day{used === 1 ? '' : 's'}</span>
                   </li>
@@ -171,7 +171,7 @@ export default function LeaveBalances({ openScreen }) {
           refreshing={req.refreshing}
           card={(r) => (
             <span className="min-w-0">
-              <span className="block truncate font-medium">{r.name}</span>
+              <span className="block truncate">{r.name}</span>
               <span className="block ui-caption tabular-nums">{types.map((t) => `${t.code || t.name} ${r.balances[t.id]?.available ?? '—'}`).join(' · ')}</span>
             </span>
           )}
@@ -341,7 +341,7 @@ function Ledger({ person, year, label, onClose, onChanged }) {
                 <h3 className="ui-t-sec inline-flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: swatchOf(type) }} aria-hidden="true" />{type.name}</h3>
                 {type.isPaid ? (
                   <span className="text-sm text-right">
-                    <span className="block"><span className="tabular-nums font-medium">{balance.available}</span> available{asOf ? <span className="ui-muted tabular-nums"> on {formatDate(asOf)}</span> : null}</span>
+                    <span className="block"><span className="tabular-nums">{balance.available}</span> available{asOf ? <span className="ui-muted tabular-nums"> on {formatDate(asOf)}</span> : null}</span>
                     {balance.locked ? <span className="block ui-caption ui-text-warn">Locked until confirmed{balance.lockedUntil ? ` (${formatDate(balance.lockedUntil)})` : ''}</span> : null}
                     {projected && data.period?.to ? <span className="block ui-caption tabular-nums">Projected to {formatDate(data.period.to)}: {projected.available}</span> : null}
                   </span>

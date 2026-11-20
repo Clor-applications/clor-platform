@@ -129,7 +129,7 @@ export default function LeaveCalendar() {
         toolbar={<>
           <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
             <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shift(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
-            <span className="min-w-36 text-center font-medium" aria-live="polite">{title(month)}</span>
+            <span className="min-w-36 text-center font-semibold" aria-live="polite">{title(month)}</span>
             <button type="button" className="ui-icon-btn" aria-label="Next month" onClick={() => setMonth(shift(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
           </div>
           {month !== today.slice(0, 7) ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setMonth(today.slice(0, 7))}>This month</button> : null}
@@ -153,7 +153,7 @@ export default function LeaveCalendar() {
               {clashes.map((c) => (
                 <li key={`${c.date}:${c.group || ''}`} className="flex flex-wrap items-center gap-2">
                   <span className="ui-pill ui-pill-warn whitespace-nowrap">{clashWords(c.count)}</span>
-                  <span className="tabular-nums font-medium">{c.date === c.to ? formatDate(c.date) : `${formatDate(c.date)} – ${formatDate(c.to)}`}</span>
+                  <span className="tabular-nums">{c.date === c.to ? formatDate(c.date) : `${formatDate(c.date)} – ${formatDate(c.to)}`}</span>
                   <span>{c.group ? `${c.group}: ` : ''}{c.names.join(', ')}{c.waiting ? <span className="ui-caption"> ({c.waiting} waiting)</span> : null}</span>
                 </li>
               ))}
@@ -212,7 +212,7 @@ function MonthGrid({ month, today, people, isOffDay, holidayOn, clashOn }) {
                   </span>
                 ) : (
                   <span key={key} className="pt-cal-leave" style={workingMark} title={`${p.name}: ${WORKING[w.kind]?.name || w.kind}`}>
-                    <span className="shrink-0 font-medium" aria-hidden="true">{WORKING[w.kind]?.letter || ''}</span>
+                    <span className="shrink-0" aria-hidden="true">{WORKING[w.kind]?.letter || ''}</span>
                     <span className="truncate" aria-hidden="true">{shortName(p.name)}</span>
                     <span className="sr-only">{p.name}, {WORKING[w.kind]?.name || w.kind}</span>
                   </span>
@@ -319,7 +319,7 @@ function PersonRows({ month, today, days, people, shaded, holidayOn, clashOn, aw
             </tr>
           ))}
           <tr className="pt-rows-away">
-            <th scope="row" className="ui-register-sticky pt-rows-who font-medium">Away</th>
+            <th scope="row" className="ui-register-sticky pt-rows-who font-semibold">Away</th>
             {days.map((d) => (clashOn.has(d)
               ? <td key={d} className="pt-rows-cell" title="Two or more of one department away"><span className="ui-pill ui-pill-warn tabular-nums px-1">{awayOn(d) || '!'}</span></td>
               : <td key={d} className={`pt-rows-cell ui-muted tabular-nums ${shaded(d) ? 'is-shaded' : ''}`}>{awayOn(d) || ''}</td>))}

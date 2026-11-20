@@ -749,7 +749,7 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
             {mine.map((r) => (
               <li key={r.id} className="space-y-1 py-3">
                 <div className="flex items-start justify-between gap-2">
-                  <span><span className="font-medium">{r.kindName}</span><span className="block tabular-nums">{requestWords(r)}</span><span className="ui-caption block">{r.reason}{r.note ? ` — ${r.note}` : ''}</span></span>
+                  <span><span>{r.kindName}</span><span className="block tabular-nums">{requestWords(r)}</span><span className="ui-caption block">{r.reason}{r.note ? ` — ${r.note}` : ''}</span></span>
                   <RequestPill status={r.status} />
                 </div>
                 {r.canChange || r.canCancel ? (
@@ -889,7 +889,7 @@ function LeavePreview({ preview, checking }) {
   const amount = (n) => (isHourly(preview.type) ? amountWords(n, preview.type) : daysText(n));
   return (
     <div className="space-y-2 text-sm" role="status" aria-live="polite">
-      {preview.total ? <p className="font-medium tabular-nums">{amount(preview.total)}</p> : null}
+      {preview.total ? <p className="font-semibold tabular-nums">{amount(preview.total)}</p> : null}
       {preview.split && saved.length > 1 ? (
         <div>
           <p>This crosses the end of the leave period, so it is saved as {NUMBER_WORD[saved.length] || saved.length} requests, one per leave period.</p>
@@ -1354,7 +1354,7 @@ function Devices({ guard }) {
           {d.sessions.map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-2 py-2 text-sm">
               <span className="min-w-0">
-                <span className="font-medium">{s.deviceLabel}</span>
+                <span>{s.deviceLabel}</span>
                 {s.current ? <span className="ui-caption ml-2">This device</span> : null}
                 <span className="ui-caption block">Signed in {when(s.createdAt)} · last used {when(s.lastSeenAt)}</span>
               </span>
@@ -1450,7 +1450,7 @@ function MyTax({ guard }) {
             <label key={v} className="flex items-start gap-2">
               <input type="radio" name="tax-regime" className="mt-1" checked={form.regime === v} onChange={() => set({ regime: v })} />
               <span>
-                <span className="font-medium">{label}</span>
+                <span className="font-semibold">{label}</span>
                 <span className="ui-caption block">{hint}</span>
               </span>
             </label>
@@ -1681,7 +1681,7 @@ function MyDocuments({ guard }) {
       <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
         {(docs || []).map((d) => (
           <li key={d.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-            <span className="min-w-0"><span className="block truncate font-medium">{d.title}</span><span className="ui-caption">{sizeOf(d.size)}{d.expiresOn ? ` · valid until ${dateWords(d.expiresOn)}` : ''}</span></span>
+            <span className="min-w-0"><span className="block truncate">{d.title}</span><span className="ui-caption">{sizeOf(d.size)}{d.expiresOn ? ` · valid until ${dateWords(d.expiresOn)}` : ''}</span></span>
             <span className="flex shrink-0 gap-2">
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => open(d)}>Download</button>
               {askOf.has(d.id) ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => accept(askOf.get(d.id))}>Accept</button> : null}
@@ -1690,7 +1690,7 @@ function MyDocuments({ guard }) {
         ))}
         {hidden.map((a) => (
           <li key={a.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-            <span className="min-w-0"><span className="block truncate font-medium">{a.title}</span><span className="ui-caption">Ask HR for a copy if you have not read it</span></span>
+            <span className="min-w-0"><span className="block truncate">{a.title}</span><span className="ui-caption">Ask HR for a copy if you have not read it</span></span>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm shrink-0" onClick={() => accept(a)}>Accept</button>
           </li>
         ))}
@@ -1741,7 +1741,7 @@ function PrivacyNoticeCard({ guard, onRead, always = false }) {
         <>
           {n.notice.sections.map((x) => (
             <div key={x.id} className="text-sm">
-              <h3 className="font-medium">{x.title}</h3>
+              <h3 className="font-semibold">{x.title}</h3>
               <ul className="list-disc space-y-0.5 ps-5">{x.items.map((t) => <li key={t}>{t}</li>)}</ul>
             </div>
           ))}
@@ -1840,7 +1840,7 @@ function MyData({ guard }) {
           {list.map((r) => (
             <li key={r.id} className="py-2 text-sm space-y-0.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium">{DATA_TYPES.find(([k]) => k === r.type)?.[1] || r.type}</span>
+                <span>{DATA_TYPES.find(([k]) => k === r.type)?.[1] || r.type}</span>
                 {/* Done is the expected end and shows no tag; with HR and declined are tagged. */}
                 <RowState kind={r.status === 'RESOLVED' ? 'normal' : 'exception'} pill={r.status === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-warn'} label={r.status === 'PENDING' ? `With HR${r.dueAt ? ` · answer by ${dateWords(r.dueAt)}` : ''}` : r.status === 'RESOLVED' ? 'Done' : 'Declined'} />
               </div>

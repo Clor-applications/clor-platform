@@ -172,7 +172,7 @@ export function Approvals({ openCustomer }) {
       />
       <ReasonDrawer open={limitOpen} title="Discount that needs a second person" confirmLabel="Save limit" ready={limitOk} onClose={() => setLimitOpen(false)} onConfirm={saveLimit}>
         <div className="grid gap-1">
-          <label htmlFor="approval-limit" className="text-sm font-medium">
+          <label htmlFor="approval-limit" className="text-sm font-semibold">
             Ask a second person when a subscription takes off more than, %
           </label>
           <input id="approval-limit" className="ui-input tabular-nums" inputMode="numeric" value={limit} onChange={(e) => setLimit(e.target.value.replace(/\D/g, '').slice(0, 2))} aria-describedby="approval-limit-hint" style={{ maxWidth: '8rem' }} />

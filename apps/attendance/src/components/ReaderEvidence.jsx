@@ -36,7 +36,7 @@ export default function ReaderEvidence({ device }) {
   return (
     <div className="space-y-2">
       <details className="ui-card p-3 text-sm" onToggle={(e) => setOpenCert(e.currentTarget.open)}>
-        <summary className="cursor-pointer font-medium">Certification checklist</summary>
+        <summary className="cursor-pointer font-semibold">Certification checklist</summary>
         {!cert ? <p className="ui-caption mt-2">Checking…</p> : (
           <div className="mt-2 space-y-2">
             {cert.label ? <p><SupportPill support={cert} /> <span className="ui-caption">{cert.note}</span></p> : null}
@@ -54,7 +54,7 @@ export default function ReaderEvidence({ device }) {
         )}
       </details>
       <details className="ui-card p-3 text-sm" onToggle={(e) => setOpenEvents(e.currentTarget.open)}>
-        <summary className="cursor-pointer font-medium">What it sent</summary>
+        <summary className="cursor-pointer font-semibold">What it sent</summary>
         {!events ? <p className="ui-caption mt-2">Loading what it sent…</p> : (
           <div className="mt-2 space-y-2">
             <div role="tablist" className="flex flex-wrap gap-1">

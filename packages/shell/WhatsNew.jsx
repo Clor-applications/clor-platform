@@ -39,7 +39,7 @@ export default function WhatsNew({ notes, onClose }) {
           {notes.map((n) => (
             <li key={n.id} className="r67-wn-item">
               <div className="r67-wn-top">
-                <span className="font-medium">{n.title}</span>
+                <span>{n.title}</span>
                 {!n.seen ? <span className="ws-pill ws-pill--info">New</span> : null}
               </div>
               <p className="text-sm">{n.body}</p>

@@ -525,15 +525,15 @@ function RecoveryCap({ settlement, who, unsaved, busy, run }) {
   ];
   return (
     <section className="space-y-2" aria-labelledby="ff-cap-h">
-      <h3 id="ff-cap-h" className="text-sm font-medium">Loans and advances</h3>
+      <h3 id="ff-cap-h" className="text-sm font-semibold">Loans and advances</h3>
       <dl className="max-w-[32rem] text-sm divide-y">
         {rows.map((r) => (
           <div key={r.label} className="flex items-start justify-between gap-4 py-1.5">
-            <dt className={r.strong ? 'font-medium' : undefined}>
+            <dt className={r.strong ? 'font-semibold' : undefined}>
               {r.label}
               {r.note ? <span className="ui-caption block">{r.note}</span> : null}
             </dt>
-            <dd className={`ui-num tabular-nums text-right whitespace-nowrap${r.strong ? ' font-medium' : ''}`}>{money(r.value)}</dd>
+            <dd className={`ui-num tabular-nums text-right whitespace-nowrap${r.strong ? ' font-semibold' : ''}`}>{money(r.value)}</dd>
           </div>
         ))}
       </dl>
@@ -579,7 +579,7 @@ function HoldPanel({ settlement, busy, run, canLift = true, whyNot, stepUp = fal
       <div className="flex items-start gap-2">
         <PauseCircle size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--info))' }} />
         <div className="min-w-0">
-          <h3 id="ff-hold-h" className="text-sm font-medium">
+          <h3 id="ff-hold-h" className="text-sm font-semibold">
             Held{settlement.hold.since ? ` since ${formatDateIn(indiaDay(settlement.hold.since))}` : ''}
           </h3>
           {settlement.hold.reason ? <p className="ui-caption">{settlement.hold.reason}</p> : null}

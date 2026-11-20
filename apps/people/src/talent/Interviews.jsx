@@ -41,7 +41,7 @@ export default function Interviews({ params = {} }) {
   }
 
   const columns = [
-    { key: 'at', label: 'When', always: true, render: (r) => <span className="tabular-nums whitespace-nowrap font-medium">{when(r.at)}</span> },
+    { key: 'at', label: 'When', always: true, render: (r) => <span className="tabular-nums whitespace-nowrap">{when(r.at)}</span> },
     { key: 'candidate', label: 'Candidate', render: (r) => <span className="min-w-0"><span className="block truncate">{r.candidate.name}</span><span className="block truncate ui-caption">{r.openingTitle}</span></span> },
     { key: 'mode', label: 'How', render: (r) => word(MODES, r.mode) },
     { key: 'interviewers', label: 'Interviewers', render: (r) => <span className="block max-w-[20rem] truncate" title={r.interviewers.join(', ')}>{r.interviewers.join(', ')}</span> },
@@ -68,7 +68,7 @@ export default function Interviews({ params = {} }) {
           onRowClick={(r) => setOpen(r.candidate.id)}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.candidate.name}</span>{r.owesFeedback ? <span className="ui-pill ui-pill-warn">Feedback owed</span> : null}</span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.candidate.name}</span>{r.owesFeedback ? <span className="ui-pill ui-pill-warn">Feedback owed</span> : null}</span>
               <span className="block truncate ui-caption tabular-nums">{[when(r.at), word(MODES, r.mode), r.openingTitle].filter(Boolean).join(' · ')}</span>
             </span>
           )}

@@ -789,7 +789,7 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
       >
         {action === 'trial' ? (
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Extra days</span>
+            <span className="text-sm font-semibold">Extra days</span>
             <span className="flex flex-wrap items-center gap-2">
               <input className="ui-input tabular-nums" type="number" min={1} max={90} value={days} onChange={(e) => setDays(e.target.value)} style={{ maxWidth: 140 }} />
               <span className="ui-quick-days" role="group" aria-label="Quick picks">
@@ -802,7 +802,7 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
         ) : null}
         {action === 'apps' || action === 'plan' ? (
           <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>Apps</legend>
+            <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>Apps</legend>
             {SELLABLE.map((k) => {
               const included = k === 'attendance' && apps.has('people');
               return (
@@ -827,7 +827,7 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
         {action === 'plan' ? (
           <>
             <label className="grid gap-1">
-              <span className="text-sm font-medium">Status</span>
+              <span className="text-sm font-semibold">Status</span>
               <select className="ui-select" value={status} onChange={(e) => setStatus(e.target.value)}>
                 <option value="trialing">Free trial</option>
                 <option value="active">Active (free, or paid outside CLOR)</option>
@@ -835,7 +835,7 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
             </label>
             {status === 'trialing' ? (
               <label className="grid gap-1">
-                <span className="text-sm font-medium">Trial length in days</span>
+                <span className="text-sm font-semibold">Trial length in days</span>
                 <input className="ui-input tabular-nums" type="number" min={1} max={365} value={trialDays} onChange={(e) => setTrialDays(e.target.value)} style={{ maxWidth: 140 }} />
               </label>
             ) : null}

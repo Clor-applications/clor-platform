@@ -75,7 +75,7 @@ export default function AttendanceSetup({ openScreen }) {
             <span className="ui-setup-mark" aria-hidden="true">{s.done ? <Check size={13} /> : !s.can ? <Minus size={13} /> : i + 1}</span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">{s.title}</span>
+                <span className="text-sm">{s.title}</span>
                 <span className={`ui-pill ${s.done ? 'ui-pill-pos' : s.can ? 'ui-pill-neutral' : 'ui-pill-outline'}`}>{s.done ? 'Done' : !s.can ? 'Not visible to you' : s.optional ? 'Optional' : 'To do'}</span>
               </div>
               <p className="ui-caption">{s.blurb}</p>

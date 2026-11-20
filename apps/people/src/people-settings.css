@@ -22,7 +22,7 @@
 :root[data-palette='sky'] #main-content [data-tone] .ui-settings-row-icon {
   background: color-mix(in srgb, rgb(var(--set-tone)) 12%, rgb(var(--surface)));
 }
-:root[data-palette='sky'] #main-content .ui-settings-row-label { align-self: auto; padding-top: 0.125rem; font-size: 0.9375rem; line-height: 1.375rem; }
+:root[data-palette='sky'] #main-content .ui-settings-row-label { align-self: auto; padding-top: 0.125rem; font-size: 0.875rem; line-height: 1.25rem; }
 :root[data-palette='sky'] #main-content .ui-settings-row-note { align-self: auto; font-size: 0.8125rem; line-height: 1.25rem; }
 :root[data-palette='sky'] #main-content section[data-tone] > div > .ui-t-sec { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; }
 :root[data-palette='sky'] #main-content section[data-tone] + section[data-tone] { margin-top: 2rem; }
@@ -89,7 +89,7 @@
   background: color-mix(in srgb, rgb(var(--set-tone, var(--cat-1))) 12%, rgb(var(--surface)));
 }
 :root[data-palette='sky'] #main-content .people-module-switch { grid-area: switch; margin: -0.5rem -0.25rem 0 0; }
-:root[data-palette='sky'] #main-content .people-module-name { grid-area: name; font-size: 0.9375rem; font-weight: 600; color: rgb(var(--fg)); }
+:root[data-palette='sky'] #main-content .people-module-name { grid-area: name; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: rgb(var(--fg)); }
 :root[data-palette='sky'] #main-content .people-module-note { grid-area: note; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
 :root[data-palette='sky'] #main-content .people-module-foot { grid-area: foot; margin-top: 0.75rem; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
 

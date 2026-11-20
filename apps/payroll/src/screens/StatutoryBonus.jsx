@@ -241,7 +241,7 @@ function BonusTable({ lines }) {
           {lines.map((l) => (
             <tr key={l.id} className={l.eligible ? '' : 'ui-muted'}>
               <td data-phone="name">
-                <span className="font-medium">{l.name}</span>
+                <span>{l.name}</span>
                 {l.code ? <span className="ui-mono ui-caption ml-2">{l.code}</span> : null}
                 {l.designation ? <span className="ui-caption block">{l.designation}</span> : null}
               </td>

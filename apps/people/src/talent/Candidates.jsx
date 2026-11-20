@@ -60,7 +60,7 @@ export default function Candidates({ params = {}, openScreen }) {
     try { await moveCandidate(r.id, to); notify.success(`${r.name}: ${word(STAGES, to).toLowerCase()}.`); req.reload(); } catch (e) { notify.error(errorWords(e, 'move it')); }
   };
   const columns = [
-    { key: 'name', label: 'Candidate', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{r.currentEmployer || r.email || r.phone || ''}</span></span> },
+    { key: 'name', label: 'Candidate', always: true, render: (r) => <span className="min-w-0"><span className="block truncate">{r.name}</span><span className="block truncate ui-caption">{r.currentEmployer || r.email || r.phone || ''}</span></span> },
     ...(opening ? [] : [{ key: 'opening', label: 'Opening', render: (r) => r.openingTitle || '—' }]),
     { key: 'source', label: 'Came through', render: (r) => word(SOURCES, r.source) },
     { key: 'since', label: 'Since', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.stageAt)}</span> },
@@ -94,7 +94,7 @@ export default function Candidates({ params = {}, openScreen }) {
           onRowClick={(r) => setOpen(r.id)} rowActions={rowActions}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><Pill map={STAGES} value={r.stage} /></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><Pill map={STAGES} value={r.stage} /></span>
               <span className="block truncate ui-caption">{[r.openingTitle, word(SOURCES, r.source), day(r.stageAt)].filter(Boolean).join(' · ')}</span>
             </span>
           )}
@@ -138,7 +138,7 @@ function Board({ rows, openings, loading, canEdit, onOpen, onMove, onAdd }) {
                 <article key={r.id} className="pt-cand">
                   <button type="button" className="flex w-full min-w-0 items-center gap-2.5 text-left" onClick={() => onOpen(r)}>
                     <Avatar person={{ name: r.name }} size={28} />
-                    <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{r.currentEmployer || r.openingTitle || ''}</span></span>
+                    <span className="min-w-0"><span className="block truncate">{r.name}</span><span className="block truncate ui-caption">{r.currentEmployer || r.openingTitle || ''}</span></span>
                   </button>
                   <p className="flex items-center justify-between gap-2 ui-caption"><span className="pt-chip">{word(SOURCES, r.source) || 'No source'}</span><span className="tabular-nums">{day(r.stageAt)}</span></p>
                   {owner.get(r.openingId) ? (

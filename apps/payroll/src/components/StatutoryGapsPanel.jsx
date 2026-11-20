@@ -64,7 +64,7 @@ export default function StatutoryGapsPanel({ run, gaps, canWaive, onSaved }) {
       <section className="ui-card p-3 text-sm flex items-start gap-2" style={infoStyle} aria-labelledby="stat-gaps-h">
         <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
         <div className="min-w-0">
-          <h3 id="stat-gaps-h" className="font-medium">
+          <h3 id="stat-gaps-h" className="font-semibold">
             {list(done.map((g) => g.name))} recorded as not applying to this company
           </h3>
           <p>{waiver.reason}</p>
@@ -79,7 +79,7 @@ export default function StatutoryGapsPanel({ run, gaps, canWaive, onSaved }) {
         <div className="flex items-start gap-2 min-w-0 max-w-3xl">
           <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
           <div className="min-w-0 space-y-1">
-            <h3 id="stat-gaps-h" className="font-medium">Not ready to approve</h3>
+            <h3 id="stat-gaps-h" className="font-semibold">Not ready to approve</h3>
             <ul className="space-y-0.5">
               {open.map((g) => (
                 <li key={g.scheme}>

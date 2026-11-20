@@ -256,7 +256,7 @@ export default function DataImport({ params } = {}) {
             {kinds.map((k) => (
               <label key={k.id} className="flex items-start gap-2 rounded-lg p-2 ui-hover-sunken cursor-pointer" style={kindId === k.id ? { backgroundColor: 'rgb(var(--surface-sunken))' } : undefined}>
                 <input type="radio" name="kind" className="mt-1" checked={kindId === k.id} onChange={() => { setKindId(k.id); reset(); }} />
-                <span><span className="block text-sm font-medium">{k.label}</span><span className="ui-caption">{k.blurb}</span></span>
+                <span><span className="block text-sm font-semibold">{k.label}</span><span className="ui-caption">{k.blurb}</span></span>
               </label>
             ))}
           </div>
@@ -329,7 +329,7 @@ export default function DataImport({ params } = {}) {
           ) : null}
           {result ? (
             <div className="space-y-2" role="status">
-              <p className="flex items-center gap-2 text-sm font-medium" style={{ color: 'rgb(var(--pos))' }}><CheckCircle2 size={16} aria-hidden="true" /> {result.imported.toLocaleString('en-IN')} imported{result.skipped ? `, ${result.skipped} already there` : ''}{result.failed ? `, ${result.failed} not` : ''}.</p>
+              <p className="flex items-center gap-2 text-sm" style={{ color: 'rgb(var(--pos))' }}><CheckCircle2 size={16} aria-hidden="true" /> {result.imported.toLocaleString('en-IN')} imported{result.skipped ? `, ${result.skipped} already there` : ''}{result.failed ? `, ${result.failed} not` : ''}.</p>
               {result.results?.length ? (
                 <ul className="text-sm space-y-0.5 max-h-56 overflow-y-auto">
                   {result.results.map((x) => <li key={x.row}><span className="ui-mono text-xs">row {x.row}</span> <span className="ui-caption">{x.error}</span></li>)}

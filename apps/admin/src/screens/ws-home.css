@@ -44,7 +44,7 @@
   gap: 12px;
 }
 .ws-appcard-name {
-  font-size: 1rem;
+  font-size: 1.0625rem;
   line-height: 1.5rem;
   font-weight: 600;
   color: rgb(var(--fg));
@@ -86,8 +86,8 @@
 .ws-appcard--big .ws-appcard-name {
   margin-top: 12px;
   font-family: var(--font-brand);
-  font-size: 1.25rem;
-  line-height: 1.75rem;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
   font-weight: 700;
 }
 .ws-appcard-facts {

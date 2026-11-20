@@ -96,7 +96,7 @@ function Avatar({ url, initials, size = 72 }) {
   }
   return (
     <span
-      className="rounded-full inline-flex items-center justify-center font-medium shrink-0"
+      className="rounded-full inline-flex items-center justify-center font-semibold shrink-0"
       style={{
         width: size,
         height: size,

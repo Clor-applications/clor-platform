@@ -113,7 +113,7 @@ export default function PeopleDocuments({ openScreen }) {
           label="Documents" columns={columns} rows={shown} loading={req.loading} refreshing={req.refreshing}
           total={shown.length} pageSize={Math.max(25, shown.length)} noun="documents"
           onRowClick={(r) => setDrawer({ employeeId: r.employeeId || '' })} rowActions={rowActions}
-          card={(r) => <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.title}</span><span className="block truncate ui-caption">{[r.employeeName, kindWord(r.kind), r.expiresOn ? `until ${formatDate(r.expiresOn)}` : null].filter(Boolean).join(' · ')}</span></span>}
+          card={(r) => <span className="min-w-0 flex-1"><span className="block truncate">{r.title}</span><span className="block truncate ui-caption">{[r.employeeName, kindWord(r.kind), r.expiresOn ? `until ${formatDate(r.expiresOn)}` : null].filter(Boolean).join(' · ')}</span></span>}
           empty={q || kind || tab !== 'all'
             ? (tab === 'nextmonth' && !q && !kind
               ? <EmptyState kind="filtered" title={`Nothing runs out in ${nextMonth.label}`} description="Documents with a valid-until date next month are listed here, to renew together." />

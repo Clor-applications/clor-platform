@@ -750,7 +750,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
             )}
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === 'rotate'} onClick={rotate}>Make a new URL</button>
             <div className="space-y-1 pt-2">
-              <h4 className="text-sm font-medium">Signed pushes {signing.on ? <span className="ui-pill ui-pill-pos">required</span> : <span className="ui-pill ui-pill-neutral">off</span>}</h4>
+              <h4 className="text-sm font-semibold">Signed pushes {signing.on ? <span className="ui-pill ui-pill-pos">required</span> : <span className="ui-pill ui-pill-neutral">off</span>}</h4>
               <p className="ui-caption">Only punches signed with the secret below are accepted, so nobody else can send punches to this address.</p>
               <p className="ui-caption">
                 For your IT person: each push must carry <code className="ui-mono">X-Clor-Timestamp</code> (Unix seconds) and <code className="ui-mono">X-Clor-Signature: sha256=…</code>, an HMAC-SHA256 of <code className="ui-mono">timestamp.body</code> with the secret. A changed body, or one sent again after five minutes, is refused.

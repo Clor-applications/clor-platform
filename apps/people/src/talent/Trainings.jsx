@@ -57,12 +57,12 @@ export default function Trainings({ params = {} }) {
     { key: 'hours', label: 'Hours learned', value: Math.round(hours).toLocaleString('en-IN'), accent: 4, Icon: TILE_ICON.award, sub: lapsingN ? `${lapsingN} certificate${lapsingN === 1 ? '' : 's'} lapsing soon` : 'Completed hours × people' },
   ] : null;
   const columns = expiring ? [
-    { key: 'person', label: 'Person', always: true, render: (s) => <span className="font-medium">{s.employee?.name}</span> },
+    { key: 'person', label: 'Person', always: true, render: (s) => <span>{s.employee?.name}</span> },
     { key: 'training', label: 'Training', render: (s) => s.trainingTitle },
     { key: 'done', label: 'Completed', render: (s) => <span className="tabular-nums">{day(s.completedOn)}</span> },
     { key: 'lapses', label: 'Lapses', render: (s) => <Lapse seat={s} /> },
   ] : [
-    { key: 'title', label: 'Training', always: true, render: (t) => <span className="min-w-0"><span className="block truncate font-medium">{t.title}</span><span className="block truncate ui-caption">{[kindWord(t.kind), t.provider].filter(Boolean).join(' · ')}</span></span> },
+    { key: 'title', label: 'Training', always: true, render: (t) => <span className="min-w-0"><span className="block truncate">{t.title}</span><span className="block truncate ui-caption">{[kindWord(t.kind), t.provider].filter(Boolean).join(' · ')}</span></span> },
     { key: 'dates', label: 'Dates', render: (t) => <span className="tabular-nums whitespace-nowrap">{t.startDate ? `${day(t.startDate)}${t.endDate && t.endDate !== t.startDate ? ` – ${day(t.endDate)}` : ''}` : '—'}</span> },
     { key: 'hours', label: 'Hours', render: (t) => <span className="tabular-nums">{t.hours ?? '—'}</span> },
     { key: 'people', label: 'Assigned', align: 'right', render: (t) => <span className="tabular-nums">{seatsOf(t)}</span> },
@@ -88,9 +88,9 @@ export default function Trainings({ params = {} }) {
           label="Training" columns={columns} rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun={expiring ? 'certificates' : 'trainings'}
           onRowClick={(r) => setOpen(expiring ? r.trainingId : r.id)}
           card={(r) => (expiring ? (
-            <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employee?.name}</span><Lapse seat={r} /></span><span className="block truncate ui-caption">{r.trainingTitle}</span></span>
+            <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{r.employee?.name}</span><Lapse seat={r} /></span><span className="block truncate ui-caption">{r.trainingTitle}</span></span>
           ) : (
-            <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><ExceptionTag label={r.status === 'DONE' ? '' : STATUS[r.status]?.[0] || r.status} normal={STATUS[r.status]?.[0]} pill={`${STATUS[r.status]?.[1] || 'ui-pill-neutral'}`} /></span><span className="block truncate ui-caption">{[r.startDate ? day(r.startDate) : null, `${r.completed} of ${r.assigned + r.completed + r.missed} completed`].filter(Boolean).join(' · ')}</span></span>
+            <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{r.title}</span><ExceptionTag label={r.status === 'DONE' ? '' : STATUS[r.status]?.[0] || r.status} normal={STATUS[r.status]?.[0]} pill={`${STATUS[r.status]?.[1] || 'ui-pill-neutral'}`} /></span><span className="block truncate ui-caption">{[r.startDate ? day(r.startDate) : null, `${r.completed} of ${r.assigned + r.completed + r.missed} completed`].filter(Boolean).join(' · ')}</span></span>
           ))}
           empty={expiring ? <EmptyState title="Nothing lapsing" description="No certificate lapses in the next 60 days." />
             : q || tab ? <EmptyState kind="filtered" title="No trainings match" description="Nothing here matches the search or the tab." />
@@ -161,7 +161,7 @@ function TrainingDrawer({ id, onEdit, onClose, onChanged }) {
                   <tbody>
                     {seats.map((s) => (
                       <tr key={s.id}>
-                        <td className="font-medium">{s.employee?.name}</td>
+                        <td>{s.employee?.name}</td>
                         <td><Pill map={SEAT} value={s.status} /></td>
                         <td className="tabular-nums whitespace-nowrap">{day(s.completedOn) || '—'}</td>
                         <td className="whitespace-nowrap"><Lapse seat={s} /></td>

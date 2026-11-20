@@ -182,9 +182,9 @@
   border-radius: 4px;
   background: rgb(185 28 28 / 0.07);
   color: rgb(185 28 28);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  line-height: 1.125rem;
+  line-height: 1rem;
 }
 
 /* ===== Round 3, built pieces ===== */
@@ -204,7 +204,8 @@
   border-radius: 999px;
   background: rgb(var(--app-color, var(--fg)));
   color: #fff;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 700;
 }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bell-text { min-width: 0; flex: 1; }
@@ -253,7 +254,7 @@
 .ui-textcount {
   position: fixed;
   z-index: 2147483000;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   line-height: 1rem;
   color: rgb(var(--fg-muted, var(--fg)));
   font-variant-numeric: tabular-nums;
@@ -463,7 +464,7 @@
     content: '/'; position: absolute; right: 0.625rem; top: 50%; transform: translateY(-50%);
     display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; padding: 0 0.25rem;
     border: 1px solid rgb(var(--border-field)); border-bottom-width: 2px; border-radius: 4px;
-    font: 600 0.6875rem/1 var(--font-mono, ui-monospace, monospace); color: rgb(var(--fg-muted)); pointer-events: none;
+    font: 600 0.75rem/1 var(--font-mono, ui-monospace, monospace); color: rgb(var(--fg-muted)); pointer-events: none;
   }
 }
 
@@ -550,8 +551,8 @@
 
 /* ---- Holiday list: a date tile before each holiday ---- */
 .ui-date-tile { display: none; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-date-tile { display: inline-grid; place-items: center; flex: none; width: 2.75rem; padding: 0.25rem 0; border: 1px solid rgb(var(--border)); border-radius: 8px; font-size: 1.125rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-date-tile > b { font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: rgb(var(--act, var(--fg))); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-date-tile { display: inline-grid; place-items: center; flex: none; width: 2.75rem; padding: 0.25rem 0; border: 1px solid rgb(var(--border)); border-radius: 8px; font-size: 1.0625rem; font-weight: 700; line-height: 1.5rem; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-date-tile > b { font-size: 0.75rem; line-height: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: rgb(var(--act, var(--fg))); }
 
 /* ======================================================================
    Round 9 (17 Nov 2026). Same rule: everywhere except Books.
@@ -619,7 +620,7 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .pt-lane-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 0; background: none; border-bottom: 1px solid rgb(var(--border-strong)); color: rgb(var(--fg)); font-weight: 600; }
 /* Files as a row with a type badge (FileBadge) */
 .ui-file-row { display: inline-flex; align-items: center; gap: 0.625rem; min-width: 0; }
-.ui-file-badge { display: inline-grid; place-content: center; flex: none; min-width: 2.25rem; height: 1.5rem; padding: 0 0.25rem; border-radius: 4px; font-size: 0.625rem; font-weight: 700; letter-spacing: 0.02em; color: #fff; background: #475569; }
+.ui-file-badge { display: inline-grid; place-content: center; flex: none; min-width: 2.25rem; height: 1.5rem; padding: 0 0.25rem; border-radius: 4px; font-size: 0.75rem; line-height: 1rem; font-weight: 700; letter-spacing: 0.02em; color: #fff; background: #475569; }
 .ui-file-badge[data-kind='PDF'] { background: #B42318; }
 .ui-file-badge[data-kind='IMG'] { background: #6D28D9; }
 .ui-file-badge[data-kind='DOC'] { background: #1D4ED8; }
@@ -630,7 +631,7 @@
 .ui-week-cal { padding: 0.5rem; display: flex; flex-direction: column; gap: 2px; }
 .ui-week-cal-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 0.25rem; }
 .ui-week-cal-days, .ui-week-row { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
-.ui-week-cal-days { font-size: 0.6875rem; font-weight: 600; color: rgb(var(--fg-muted, var(--fg))); padding-block: 0.25rem; }
+.ui-week-cal-days { font-size: 0.75rem; line-height: 1rem; font-weight: 600; color: rgb(var(--fg-muted, var(--fg))); padding-block: 0.25rem; }
 .ui-week-row { border: 0; background: transparent; border-radius: 8px; padding: 0.375rem 0; font-size: 0.8125rem; cursor: pointer; color: rgb(var(--fg)); }
 .ui-week-row:hover, .ui-week-row:focus-visible { background: rgb(var(--act, var(--fg)) / 0.08); }
 .ui-week-row[aria-pressed='true'] { background: rgb(var(--act, var(--fg))); color: #fff; font-weight: 700; }
@@ -709,7 +710,7 @@
 .ui-claim-steps { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; font-size: 0.8125rem; }
 .ui-claim-steps li { display: inline-flex; align-items: center; gap: 0.375rem; color: rgb(var(--fg-muted, var(--fg))); }
 .ui-claim-steps li[data-done='true'] { color: rgb(var(--fg)); }
-.ui-claim-step-dot { display: inline-grid; place-content: center; width: 1.125rem; height: 1.125rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 700; border: 1px solid rgb(var(--border)); background: #fff; color: #fff; }
+.ui-claim-step-dot { display: inline-grid; place-content: center; width: 1.125rem; height: 1.125rem; border-radius: 999px; font-size: 0.75rem; line-height: 1rem; font-weight: 700; border: 1px solid rgb(var(--border)); background: #fff; color: #fff; }
 .ui-claim-steps li[data-done='true'] .ui-claim-step-dot { background: rgb(var(--act, var(--fg))); border-color: rgb(var(--act, var(--fg))); }
 .ui-claim-steps li[data-bad='true'] .ui-claim-step-dot { background: rgb(var(--neg)); border-color: rgb(var(--neg)); }
 .ui-claim-step-when { color: rgb(var(--fg-muted, var(--fg))); font-size: 0.75rem; }
@@ -749,7 +750,7 @@
 .ui-joinleave-bar.is-join { background: rgb(var(--cat-1)); border-radius: 0.125rem 0.125rem 0 0; }
 .ui-joinleave-bar.is-leave { background: rgb(var(--cat-3, var(--fg-subtle))); border-radius: 0 0 0.125rem 0.125rem; }
 .ui-joinleave-label { margin-top: 0.375rem; font-size: 0.75rem; color: rgb(var(--fg-subtle)); white-space: nowrap; }
-.ui-joinleave-figs { font-size: 0.6875rem; color: rgb(var(--fg-subtle)); white-space: nowrap; }
+.ui-joinleave-figs { font-size: 0.8125rem; line-height: 1.125rem; color: rgb(var(--fg-subtle)); white-space: nowrap; }
 /* Copy link on a filtered list */
 .ui-copy-link { display: inline-flex; align-items: center; gap: 0.375rem; }
 /* Maternity leave: weeks and the day back */
@@ -780,7 +781,7 @@
 /* Too many wrong sign-in codes: the wait, counting down. */
 .ui-code-wait { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 8px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
 /* J / K / A hint under the Inbox list. */
-.ui-kbd-hint .ui-kbd { font-size: 11px; }
+.ui-kbd-hint .ui-kbd { font-size: 12px; line-height: 1rem; }
 
 /* Round 27 */
 /* Ops, extend a trial: quick picks beside the days box */
@@ -1067,7 +1068,7 @@
 /* punchdone A: a full tick screen after a saved punch; it goes by itself in 3 seconds. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; background: rgb(var(--surface)); animation: ui-punch-done-in 160ms ease-out; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-tick { color: rgb(var(--pos)); }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-first { font-size: 1.75rem; line-height: 2.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-first { font-size: 1.375rem; line-height: 1.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-second { color: rgb(var(--fg-muted)); margin-bottom: 16px; }
 @keyframes ui-punch-done-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done { animation: none; } }
@@ -1195,7 +1196,7 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-band b { color: rgb(var(--fg)); font-weight: 600; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-links { display: inline-flex; gap: 16px; }
 /* timetab A: this month in one line, balances and leave coming up as plain rows. */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-month-line { margin: 8px 0; font-size: 0.9375rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-month-line { margin: 8px 0; font-size: 0.875rem; line-height: 1.25rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.r62-balances, .r62-upcoming) { list-style: none; margin: 8px 0 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.r62-balances, .r62-upcoming) li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-upcoming li > :nth-child(2) { flex: 1; }
@@ -1273,7 +1274,7 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-track { position: relative; height: 12px; border-radius: 9999px; background: rgb(var(--border)); overflow: hidden; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-on { position: absolute; top: 0; bottom: 0; background: rgb(var(--act)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-break { position: absolute; top: 3px; bottom: 3px; background: rgb(var(--surface)); opacity: 0.85; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-ticks { display: flex; justify-content: space-between; font-size: 0.6875rem; line-height: 1rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-ticks { display: flex; justify-content: space-between; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; }
 /* leavetypesetup A: a new leave type as plain questions, one at a time. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-questions { display: grid; gap: 8px; padding: 4px 0 8px; }
 /* settingslocked A: a locked setting, its reason and the way round. */
@@ -1288,7 +1289,7 @@
 /* My team (managers): count line, due this month and leave left, on the page ground under one hairline, no card. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam { display: grid; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-count { margin: 0; font-size: 0.9375rem; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-count { margin: 0; font-size: 0.875rem; line-height: 1.25rem; font-variant-numeric: tabular-nums; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-block { display: grid; gap: 8px; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-due { list-style: none; margin: 0; padding: 0; display: grid; }

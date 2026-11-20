@@ -121,7 +121,7 @@ export default function OvertimePolicy({ openScreen }) {
                   {shifts.map((s) => (
                     <tr key={s.id}>
                       <td>
-                        <span className="font-medium">{s.name}</span>{' '}
+                        <span>{s.name}</span>{' '}
                         <span className="ui-caption tabular-nums">{s.startTime}–{s.endTime}</span>{' '}
                         {s.isActive ? null : <StatusPill status="inactive" />}
                       </td>

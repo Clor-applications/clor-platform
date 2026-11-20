@@ -73,7 +73,7 @@ export default function RequestForms() {
 
   const deptNames = (ids) => ids.map((id) => departments.find((d) => d.id === id)?.name).filter(Boolean);
   const columns = [
-    { key: 'name', label: 'Request', always: true, render: (f) => <span className="font-medium">{f.name}</span> },
+    { key: 'name', label: 'Request', always: true, render: (f) => <span>{f.name}</span> },
     { key: 'fields', label: 'Fields', align: 'right', render: (f) => <span className="tabular-nums">{f.fields.length}</span> },
     { key: 'who', label: 'Who may ask', render: (f) => (f.audience === 'DEPARTMENTS' ? deptNames(f.departmentIds).join(', ') || 'Some departments' : 'Everyone') },
     { key: 'approver', label: 'Approved by', render: (f) => APPROVER_WORDS[f.approver] || '—' },
@@ -113,7 +113,7 @@ export default function RequestForms() {
         onRowClick={(f) => setEditing(toForm(f))}
         card={(f) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{f.name}</span><span className={`ui-pill ui-pill-${f.active ? 'pos' : 'neutral'}`}>{f.active ? 'Open' : 'Off'}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{f.name}</span><span className={`ui-pill ui-pill-${f.active ? 'pos' : 'neutral'}`}>{f.active ? 'Open' : 'Off'}</span></span>
             <span className="block truncate ui-caption">{APPROVER_WORDS[f.approver] || '—'} · {f.open} waiting</span>
           </span>
         )}

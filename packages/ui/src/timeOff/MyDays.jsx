@@ -87,7 +87,7 @@ export function TodayPunches({ punches = [] }) {
       <ul className="divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
         {punches.map((p, i) => (
           <li key={i} className="flex flex-wrap items-center justify-between gap-2 py-2">
-            <span className="tabular-nums font-medium">{p.time}</span>
+            <span className="tabular-nums">{p.time}</span>
             <span className="ui-caption min-w-0 flex-1 truncate">{p.phone ? `Phone${p.site ? ` · ${p.site}` : ''}` : 'Reader'}</span>
             {p.review && REVIEW[p.review] ? <span className={`ui-pill ${REVIEW[p.review][0]}`}>{REVIEW[p.review][1]}</span> : null}
             {p.kind ? <span className={`ui-pill ${p.kind === 'IN' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{p.kind === 'IN' ? 'In' : 'Out'}</span> : null}
@@ -137,7 +137,7 @@ export function MyRequests({ month, onMonth, asking, onAsk, onAsked, preset = nu
     }
   };
   const columns = [
-    { key: 'kind', label: 'Kind', always: true, render: (r) => <span className="whitespace-nowrap font-medium">{KIND_NAME[r.kind] || r.kind}</span> },
+    { key: 'kind', label: 'Kind', always: true, render: (r) => <span className="whitespace-nowrap">{KIND_NAME[r.kind] || r.kind}</span> },
     { key: 'when', label: 'When', render: (r) => <WhenCell row={r} /> },
     { key: 'details', label: 'Details', render: (r) => <span className="tabular-nums">{detailsText(r)}</span> },
     { key: 'reason', label: 'Reason', render: (r) => <span className="block max-w-xs truncate" title={r.reason || ''}>{r.reason}</span> },
@@ -170,7 +170,7 @@ export function MyRequests({ month, onMonth, asking, onAsk, onAsked, preset = nu
         refreshing={req.refreshing}
         card={(r) => (
           <span className="block min-w-0">
-            <span className="flex items-center justify-between gap-2"><span className="font-medium">{KIND_NAME[r.kind]}</span><span className={`ui-pill ${STATUS_PILL[r.status] || ''}`}>{STATUS_LABEL[r.status]}</span></span>
+            <span className="flex items-center justify-between gap-2"><span>{KIND_NAME[r.kind]}</span><span className={`ui-pill ${STATUS_PILL[r.status] || ''}`}>{STATUS_LABEL[r.status]}</span></span>
             <span className="block ui-caption"><WhenCell row={r} />{detailsText(r) ? ` · ${detailsText(r)}` : ''}</span>
             <span className="mt-1 inline-flex gap-1">
               {canChange(r) ? <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setEditing(r)}>Change</button> : null}

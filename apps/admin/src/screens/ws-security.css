@@ -98,7 +98,8 @@
   gap: 8px 12px;
 }
 .ws-sso-name {
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   font-weight: 600;
 }
 .ws-sso-chip {
@@ -374,7 +375,8 @@
 }
 .ws .ws-inbox-empty-title {
   margin: 0 0 2px;
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
   font-weight: 600;
   color: rgb(var(--fg, 28 27 24));
 }
@@ -539,7 +541,7 @@
   align-items: center;
   gap: 8px;
   margin: 8px 0 0;
-  font-size: 1rem;
+  font-size: 1.0625rem;
   line-height: 1.5rem;
   font-weight: 700;
   color: rgb(var(--fg, 28 27 24));
@@ -577,9 +579,9 @@
 .ws .ws-mail-title .ws-tag { font-size: 0.875rem; padding: 2px 10px; }
 .ws-mail-count { margin-left: auto; font-size: 0.8125rem; font-weight: 600; color: rgb(74 72 66); }
 .ws .ws-mail .ui-caption { font-size: 0.8125rem; line-height: 1.25rem; color: rgb(74 72 66); }
-.ws .ws-mail .text-sm.font-medium { font-size: 0.9375rem; font-weight: 600; }
+.ws .ws-mail .text-sm.font-medium { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; }
 .ws .ws-activity-bars + .ws-row-link { margin-top: 10px; }
-.ws .ws-mail-name { margin: 0; font-size: 1rem; line-height: 1.5rem; font-weight: 700; color: rgb(var(--fg, 28 27 24)); }
+.ws .ws-mail-name { margin: 0; font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; color: rgb(var(--fg, 28 27 24)); }
 .ws .ws-activity-side h2.ws-activity-box-title { font-size: 0.75rem; line-height: 1rem; }
 
 /* Users & access (owner, 19 Nov 2026): row actions read as links; ending access in red. */

@@ -528,7 +528,7 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
   };
   const field = (k, label, o = {}) => (
     <label className={`grid gap-1 ${o.wide ? 'sm:col-span-2' : ''}`}>
-      <span className="text-sm font-medium">{label}{o.required ? <span aria-hidden="true"> *</span> : null}</span>
+      <span className="text-sm font-semibold">{label}{o.required ? <span aria-hidden="true"> *</span> : null}</span>
       <input
         className={`ui-input w-full ${o.mono ? 'ui-mono' : ''}`}
         value={f[k] || ''}
@@ -545,7 +545,7 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
   );
   const warehouseField = (k, label, o = {}) => (
     <label className={`grid gap-1 ${o.wide ? 'sm:col-span-2' : ''}`}>
-      <span className="text-sm font-medium">{label}{o.required ? <span aria-hidden="true"> *</span> : null}</span>
+      <span className="text-sm font-semibold">{label}{o.required ? <span aria-hidden="true"> *</span> : null}</span>
       <input
         className={`ui-input w-full ${o.mono ? 'ui-mono' : ''}`}
         value={w[k] || ''}
@@ -582,7 +582,7 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
         {field('branchName', 'Branch name', { required: true })}
         {showType ? (
           <label className="grid gap-1 sm:col-span-2">
-            <span className="text-sm font-medium">Branch type{editing ? null : <span aria-hidden="true"> *</span>}</span>
+            <span className="text-sm font-semibold">Branch type{editing ? null : <span aria-hidden="true"> *</span>}</span>
             <select className="ui-select" value={f.branchType || ''} onChange={set('branchType')} required={!editing}>
               {editing ? null : <option value="">Choose…</option>}
               {BRANCH_TYPES.map(([value, label]) => (
@@ -601,7 +601,7 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
         {field('addressLine2', 'Address line 2', { wide: true })}
         {field('city', 'City')}
         <label className="grid gap-1">
-          <span className="text-sm font-medium">State <span className="ui-required" aria-hidden="true">*</span></span>
+          <span className="text-sm font-semibold">State <span className="ui-required" aria-hidden="true">*</span></span>
           <select className="ui-select" value={f.state} onChange={set('state')} required>
             <option value="">Choose…</option>
             {f.state && !STATES.includes(f.state) ? <option value={f.state}>{f.state}</option> : null}
@@ -615,7 +615,7 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="ws-panel-title mb-3">GST</legend>
         <label className="grid gap-1">
-          <span className="text-sm font-medium">GST registration</span>
+          <span className="text-sm font-semibold">GST registration</span>
           <select className="ui-select" value={f.gstRegistrationType} onChange={set('gstRegistrationType')}>
             <option value="REGULAR">Regular</option>
             <option value="COMPOSITION">Composition</option>
@@ -654,7 +654,7 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
           </div>
           {warehouseField('city', 'City')}
           <label className="grid gap-1">
-            <span className="text-sm font-medium">State <span className="ui-required" aria-hidden="true">*</span></span>
+            <span className="text-sm font-semibold">State <span className="ui-required" aria-hidden="true">*</span></span>
             <select className="ui-select" value={w.state} onChange={setWarehouse('state')} required>
               <option value="">Choose…</option>
               {w.state && !STATES.includes(w.state) ? <option value={w.state}>{w.state}</option> : null}

@@ -107,7 +107,7 @@ export function LeaveCalendar({ from, to, single = false, onChange, loadMonth, t
     <div className="ui-leave-cal" role="group" aria-label="Pick dates on a calendar">
       <div className="ui-leave-cal-head">
         <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setYm(shiftMonth(ym, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
-        <span className="text-sm font-medium" aria-live="polite">{monthName(ym)}</span>
+        <span className="text-sm font-semibold" aria-live="polite">{monthName(ym)}</span>
         <button type="button" className="ui-icon-btn" aria-label="Next month" onClick={() => setYm(shiftMonth(ym, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
       </div>
       <p className="ui-caption">{hint}</p>

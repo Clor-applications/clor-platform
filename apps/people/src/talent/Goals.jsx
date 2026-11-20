@@ -66,8 +66,8 @@ export default function Goals({ params = {} }) {
     { key: 'late', label: 'Past their date', value: rows.filter((g) => g.overdue).length, accent: 'neg', tone: rows.some((g) => g.overdue) ? 'neg' : null, sub: 'Still open after the due date' },
   ] : null;
   const columns = [
-    ...(person ? [] : [{ key: 'person', label: 'Person', render: (g) => (g.employee?.name ? <span className="flex min-w-0 items-center gap-2.5"><Avatar person={{ name: g.employee.name }} size={28} /><span className="truncate font-medium">{g.employee.name}</span></span> : '—') }]),
-    { key: 'title', label: 'Goal', always: true, render: (g) => <span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-1.5"><span className="truncate font-medium">{g.title}</span><GoalMarks goal={g} /></span>{g.measure ? <span className="block truncate ui-caption">{g.measure}</span> : null}</span> },
+    ...(person ? [] : [{ key: 'person', label: 'Person', render: (g) => (g.employee?.name ? <span className="flex min-w-0 items-center gap-2.5"><Avatar person={{ name: g.employee.name }} size={28} /><span className="truncate">{g.employee.name}</span></span> : '—') }]),
+    { key: 'title', label: 'Goal', always: true, render: (g) => <span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-1.5"><span className="truncate">{g.title}</span><GoalMarks goal={g} /></span>{g.measure ? <span className="block truncate ui-caption">{g.measure}</span> : null}</span> },
     { key: 'due', label: 'Due', render: (g) => <span className={`tabular-nums whitespace-nowrap ${g.overdue ? 'ui-text-neg' : ''}`}>{day(g.dueDate) || '—'}{g.overdue ? ' (late)' : ''}</span> },
     { key: 'progress', label: 'Progress', render: (g) => <Progress value={g.progress} /> },
     { key: 'health', label: 'How it is going', render: (g) => (g.status === 'ACTIVE' ? <Pill map={HEALTH} value={g.health} /> : <ExceptionTag label={g.status === 'DONE' ? '' : STATUS[g.status]?.[0] || g.status} normal={STATUS[g.status]?.[0]} pill={`${STATUS[g.status]?.[1] || 'ui-pill-neutral'}`} />) },
@@ -98,7 +98,7 @@ export default function Goals({ params = {} }) {
           onRowClick={(g) => setOpen(g.id)}
           card={(g) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{g.title}</span><span className="tabular-nums">{g.progress || 0}%</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{g.title}</span><span className="tabular-nums">{g.progress || 0}%</span></span>
               <span className="block truncate ui-caption">{[g.employee?.name, g.dueDate ? `due ${day(g.dueDate)}` : null, g.status === 'ACTIVE' ? HEALTH[g.health]?.[0] : STATUS[g.status]?.[0]].filter(Boolean).join(' · ')}</span>
             </span>
           )}
@@ -168,7 +168,7 @@ function GoalDrawer({ id, onEdit, onClose, onChanged }) {
               <ol className="ui-history-list">
                 {req.data.checkIns.map((c) => (
                   <li key={c.id} className="ui-history-row space-y-1">
-                    <p className="ui-caption flex flex-wrap items-center gap-x-2"><span className="font-medium tabular-nums">{c.progress}%</span><Pill map={HEALTH} value={c.health} /><span>{c.by}{c.source === 'SELF_SERVICE' ? ' (employee app)' : ''}</span><span className="tabular-nums ms-auto">{when(c.createdAt)}</span></p>
+                    <p className="ui-caption flex flex-wrap items-center gap-x-2"><span className="tabular-nums">{c.progress}%</span><Pill map={HEALTH} value={c.health} /><span>{c.by}{c.source === 'SELF_SERVICE' ? ' (employee app)' : ''}</span><span className="tabular-nums ms-auto">{when(c.createdAt)}</span></p>
                     {c.note ? <p className="text-sm whitespace-pre-wrap">{c.note}</p> : null}
                   </li>
                 ))}

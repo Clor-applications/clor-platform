@@ -451,7 +451,7 @@ function ReadinessSection({ person, go }) {
             <li key={c.id}>
               <span className={`ui-attention-dot is-${c.severity === 'BLOCKS_PAYROLL' ? 'neg' : c.severity === 'FIX_SOON' ? 'warn' : 'neutral'}`} aria-hidden="true" />
               <span className="min-w-0">
-                <span className="block text-sm font-medium">{c.title}{c.detail ? <span className="ui-muted font-normal"> · {c.detail}</span> : null}</span>
+                <span className="block text-sm">{c.title}{c.detail ? <span className="ui-muted font-normal"> · {c.detail}</span> : null}</span>
                 <span className="block ui-caption">{c.why}</span>
               </span>
               <span className="sr-only">{SEVERITY_WORD[c.severity]}</span>
@@ -1055,7 +1055,7 @@ function Organization({ person, lists, allowed, openAction, openPerson, editing,
           <Field label="Direct reports" value={(person.directReports || []).length ? (
             <ul className="space-y-1.5">
               {person.directReports.map((r) => (
-                <li key={r.id}><button type="button" className="inline-flex items-center gap-2 text-left text-sm hover:underline" onClick={() => openPerson(r.id)}><Avatar person={r} size={24} /><span className="font-medium">{r.name}</span>{r.designation ? <span className="ui-muted">{r.designation}</span> : null}</button></li>
+                <li key={r.id}><button type="button" className="inline-flex items-center gap-2 text-left text-sm hover:underline" onClick={() => openPerson(r.id)}><Avatar person={r} size={24} /><span>{r.name}</span>{r.designation ? <span className="ui-muted">{r.designation}</span> : null}</button></li>
               ))}
             </ul>
           ) : 'None'} />
@@ -1211,7 +1211,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
                   <ul>
                     {lines.map((i) => (
                       <li key={i.key}>
-                        <span className="block text-sm font-medium">{i.title}</span>
+                        <span className="block text-sm">{i.title}</span>
                         <span className="block ui-caption">{i.detail}</span>
                         {i.fix?.kind === 'ptState' ? (
                           <label className="ui-impact-fix"><input type="checkbox" className="ui-checkbox" checked={followPt} onChange={(e) => setFollowPt(e.target.checked)} /> Also set it to {i.fix.state}{effective && effective > todayIst() ? ' (as a task for that day)' : ''}</label>
@@ -1294,7 +1294,7 @@ function HistoryCompare({ person, lists }) {
                 <tr key={label} className={changed ? 'is-changed' : ''}>
                   <th scope="row" className="font-normal ui-caption text-left">{label}{changed ? <span className="sr-only"> (changed)</span> : null}</th>
                   <td>{x ?? <span className="ui-muted">—</span>}</td>
-                  <td className={changed ? 'font-medium' : ''}>{y ?? <span className="ui-muted">—</span>}{changed ? <span className="ui-pill ui-pill-info ml-2">Changed</span> : null}</td>
+                  <td>{y ?? <span className="ui-muted">—</span>}{changed ? <span className="ui-pill ui-pill-info ml-2">Changed</span> : null}</td>
                 </tr>
               );
             })}

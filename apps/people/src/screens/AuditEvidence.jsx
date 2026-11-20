@@ -32,10 +32,10 @@ export default function AuditEvidence() {
       {!data ? <SkeletonCard lines={4} /> : !data.documents.length ? <EmptyState title="Nothing shared with you now" /> : (
         <>
           <ul className="text-sm space-y-0.5">
-            {data.grants.map((g) => <li key={g.id}><span className="font-medium">{g.purpose}</span><span className="ui-caption"> · until {new Date(g.untilAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span></li>)}
+            {data.grants.map((g) => <li key={g.id}><span>{g.purpose}</span><span className="ui-caption"> · until {new Date(g.untilAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span></li>)}
           </ul>
           <table className="w-full text-sm">
-            <thead><tr className="ui-caption text-left"><th className="py-1.5 font-medium">Document</th><th className="py-1.5 font-medium">Kind</th><th className="py-1.5 font-medium">Open until</th></tr></thead>
+            <thead><tr className="ui-caption text-left"><th className="py-1.5 font-semibold">Document</th><th className="py-1.5 font-semibold">Kind</th><th className="py-1.5 font-semibold">Open until</th></tr></thead>
             <tbody className="divide-y">
               {data.documents.map((d) => (
                 <tr key={d.id}>

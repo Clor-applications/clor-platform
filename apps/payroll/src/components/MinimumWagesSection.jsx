@@ -125,7 +125,7 @@ export default function MinimumWagesSection() {
 
       {importErrors.length ? (
         <div className="px-4 py-3" role="alert" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
-          <p className="ui-caption font-medium">Nothing was saved. Fix these lines and import again:</p>
+          <p className="ui-caption">Nothing was saved. Fix these lines and import again:</p>
           <ul className="ui-caption mt-1 space-y-0.5">
             {importErrors.map((x) => (
               <li key={`${x.line}-${x.error}`}>Line {x.line}: {x.error}</li>

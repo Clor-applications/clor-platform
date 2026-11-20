@@ -35,7 +35,7 @@ export function GetStartedList({ setup, openScreen, onHide, busy = false }) {
             <span className="ui-setup-mark" aria-hidden="true">{s.done ? <Check size={13} /> : i + 1}</span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">{s.title}</span>
+                <span className="text-sm">{s.title}</span>
                 <span className={`ui-pill ${s.done ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{s.done ? 'Done' : 'To do'}</span>
               </div>
               <p className="ui-caption">{s.blurb}</p>

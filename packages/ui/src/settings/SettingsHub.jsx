@@ -47,7 +47,7 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
             {hits.map((h) => (
               <li key={h.key}>
                 <button type="button" className="ui-settings-hit" onClick={() => openScreen?.(h.key)}>
-                  <span className="font-medium">{h.word}</span> → {h.group} › {h.label}
+                  <span>{h.word}</span> → {h.group} › {h.label}
                 </button>
               </li>
             ))}

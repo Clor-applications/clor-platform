@@ -40,7 +40,7 @@ export default function Plans({ params = {} }) {
   /* A plan is HR's or a manager's: New plan only for them, picking from the whole company or their own team. */
   const canStart = Boolean(req.data?.hr || req.data?.reports?.length);
   const columns = [
-    { key: 'person', label: 'Person', always: true, render: (p) => <span className="font-medium">{p.employee?.name || '—'}</span> },
+    { key: 'person', label: 'Person', always: true, render: (p) => <span>{p.employee?.name || '—'}</span> },
     { key: 'manager', label: 'Manager', render: (p) => p.manager?.name || <span className="ui-muted">—</span> },
     { key: 'from', label: 'From', render: (p) => <span className="tabular-nums whitespace-nowrap">{day(p.startDate)}</span> },
     { key: 'to', label: 'To', render: (p) => <span className={`tabular-nums whitespace-nowrap ${overdue(p, today) ? 'ui-text-neg' : ''}`}>{day(p.endDate)}</span> },
@@ -70,7 +70,7 @@ export default function Plans({ params = {} }) {
           onRowClick={(p) => setOpen(p.id)}
           card={(p) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{p.employee?.name}</span>{planTag(p, today)}</span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{p.employee?.name}</span>{planTag(p, today)}</span>
               <span className="block truncate ui-caption tabular-nums">{day(p.startDate)} – {day(p.endDate)}</span>
             </span>
           )}
@@ -116,7 +116,7 @@ function PlanDrawer({ plan: p, onClose, onChanged }) {
           ) : null}
           {!p.notes.length ? <p className="text-sm ui-muted">None yet.</p> : (
             <ol className="ui-history-list">
-              {p.notes.map((n) => <li key={n.id} className="ui-history-row"><p className="ui-caption flex gap-2"><span className="font-medium">{n.by}</span><span className="tabular-nums ms-auto">{when(n.at)}</span></p><p className="text-sm whitespace-pre-wrap">{n.note}</p></li>)}
+              {p.notes.map((n) => <li key={n.id} className="ui-history-row"><p className="ui-caption flex gap-2"><span>{n.by}</span><span className="tabular-nums ms-auto">{when(n.at)}</span></p><p className="text-sm whitespace-pre-wrap">{n.note}</p></li>)}
             </ol>
           )}
         </section>

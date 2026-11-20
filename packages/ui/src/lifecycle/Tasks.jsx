@@ -43,14 +43,14 @@ export default function Tasks({ params = {}, updateParams, openScreen }) {
   const columns = [
     { key: 'task', label: 'Task', always: true, render: (t) => (
       <span className="block min-w-0 whitespace-normal">
-        <span className="block font-medium">{t.title}</span>
+        <span className="block">{t.title}</span>
         <span className="block ui-caption">{KIND_WORD[t.kind] || t.kind} · {t.employee.name}{t.employee.code ? ` (${t.employee.code})` : ''}</span>
       </span>
     ) },
     { key: 'owner', label: 'Owner', render: (t) => <span className="whitespace-nowrap">{t.ownerName || <span className="ui-muted">{OWNER_WORD[t.owner] || t.owner}, nobody named</span>}</span> },
     { key: 'due', label: view === 'done' ? 'Done' : 'Due', render: (t) => (view === 'done'
       ? <span className="whitespace-nowrap tabular-nums">{t.doneAt ? formatDate(String(t.doneAt).slice(0, 10)) : ''}<span className="block ui-caption">{t.doneBy}</span></span>
-      : <span className={`whitespace-nowrap tabular-nums ${t.late ? 'ui-text-neg font-medium' : ''}`}>{t.dueDate ? formatDate(t.dueDate) : '—'}{t.late ? ' (late)' : ''}</span>) },
+      : <span className={`whitespace-nowrap tabular-nums ${t.late ? 'ui-text-neg' : ''}`}>{t.dueDate ? formatDate(t.dueDate) : '—'}{t.late ? ' (late)' : ''}</span>) },
     { key: 'state', label: 'State', render: (t) => (t.system === 'READERS' && !t.done
       ? <span className={`ui-pill ${READER_PILL[t.systemState] || 'ui-pill-neutral'}`}>{t.systemState === 'FAILED' ? 'Not confirmed' : t.systemState === 'WAITING' ? 'Waiting for readers' : 'On the last day'}</span>
       : t.needsNote && !t.done ? <span className="ui-pill ui-pill-outline">Needs a note</span>
@@ -90,7 +90,7 @@ export default function Tasks({ params = {}, updateParams, openScreen }) {
         ]}
         card={(t) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-start justify-between gap-2"><span className="font-medium">{t.title}</span><span className={`ui-caption tabular-nums whitespace-nowrap ${t.late ? 'ui-text-neg' : ''}`}>{t.dueDate ? formatDate(t.dueDate) : ''}</span></span>
+            <span className="flex items-start justify-between gap-2"><span>{t.title}</span><span className={`ui-caption tabular-nums whitespace-nowrap ${t.late ? 'ui-text-neg' : ''}`}>{t.dueDate ? formatDate(t.dueDate) : ''}</span></span>
             <span className="block truncate ui-caption">{[KIND_WORD[t.kind], t.employee.name, t.ownerName || OWNER_WORD[t.owner]].filter(Boolean).join(' · ')}</span>
           </span>
         )}

@@ -151,7 +151,7 @@ export function OverLimitPanel({ run, onSaved }) {
       <div className="flex items-start gap-2">
         <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
         <div className="min-w-0 space-y-1">
-          <h3 id="over-limit-h" className="font-medium">
+          <h3 id="over-limit-h" className="font-semibold">
             Deductions pass {percent}% of wages for {over.people.length} {over.people.length === 1 ? "person" : "people"}
           </h3>
           <ul className="space-y-0.5">

@@ -646,8 +646,8 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
 
 const Figure = ({ label, value, strong = false }) => (
   <div className="flex items-baseline justify-between gap-3">
-    <dt className={strong ? 'text-sm font-medium' : 'ui-caption'}>{label}</dt>
-    <dd className={`ui-num ${strong ? 'text-sm font-medium' : 'text-sm'}`}>{money(value)}</dd>
+    <dt className={strong ? 'text-sm font-semibold' : 'ui-caption'}>{label}</dt>
+    <dd className={`ui-num ${strong ? 'text-sm font-semibold' : 'text-sm'}`}>{money(value)}</dd>
   </div>
 );
 

@@ -79,7 +79,7 @@ function NewPost({ onClose, onSaved }) {
     >
       <div className="grid gap-5">
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium">Kind</legend>
+          <legend className="text-sm font-semibold">Kind</legend>
           {[['INCIDENT', 'Something is not working'], ['MAINTENANCE', 'Planned maintenance']].map(([k, label]) => (
             <label key={k} className="flex items-center gap-2 text-sm">
               <input type="radio" name="st-kind" checked={kind === k} onChange={() => setKind(k)} /> {label}
@@ -93,7 +93,7 @@ function NewPost({ onClose, onSaved }) {
           <textarea id="st-body" className="ui-input" rows={3} maxLength={1000} value={body} onChange={(e) => setBody(e.target.value)} />
         </Field>
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium">Which parts</legend>
+          <legend className="text-sm font-semibold">Which parts</legend>
           <span className="ui-caption">Tick none if it touches all of CLOR.</span>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             {Object.entries(PART_NAMES).map(([k, label]) => (
@@ -104,7 +104,7 @@ function NewPost({ onClose, onSaved }) {
           </div>
         </fieldset>
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium">How bad</legend>
+          <legend className="text-sm font-semibold">How bad</legend>
           {[['MINOR', 'Minor: slow, or one feature'], ['MAJOR', 'Major: many people cannot work'], ['OUTAGE', 'Down: the part does not open']].map(([k, label]) => (
             <label key={k} className="flex items-center gap-2 text-sm">
               <input type="radio" name="st-impact" checked={impact === k} onChange={() => setImpact(k)} /> {label}
@@ -160,7 +160,7 @@ function AddUpdate({ post, onClose, onSaved }) {
     >
       <div className="grid gap-5">
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium">Where it stands</legend>
+          <legend className="text-sm font-semibold">Where it stands</legend>
           {states.map((k) => (
             <label key={k} className="flex items-center gap-2 text-sm">
               <input type="radio" name="st-state" checked={state === k} onChange={() => setState(k)} /> {STATE_WORD[k]}

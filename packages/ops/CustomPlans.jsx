@@ -21,7 +21,7 @@ export const priceWords = (base, extra, unit, included, per) =>
 function Field({ id, label, hint, children }) {
   return (
     <div className="grid gap-1 content-start">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-semibold">
         {label}
       </label>
       {children}
@@ -172,7 +172,7 @@ export function PlanEditor({ editing, apps, onClose, onSaved, forAccount = null 
           {forAccount ? <span className="text-sm">{forAccount.name}</span> : <CustomerPick value={f.accountId} valueName={f.accountName} onChange={(id, name) => setF((x) => ({ ...x, accountId: id, accountName: name }))} />}
         </Field>
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium">Apps</legend>
+          <legend className="text-sm font-semibold">Apps</legend>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {apps.map((a) => (
               <label key={a.code} className="flex items-center gap-2">

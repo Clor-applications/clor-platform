@@ -48,7 +48,7 @@ export default function StandIns() {
   };
 
   const columns = [
-    { key: 'manager', label: 'Manager', always: true, render: (r) => <span className="font-medium">{r.managerName || '—'}</span> },
+    { key: 'manager', label: 'Manager', always: true, render: (r) => <span>{r.managerName || '—'}</span> },
     { key: 'standIn', label: 'Stands in', render: (r) => r.standInName || '—' },
     { key: 'what', label: 'What', render: (r) => scopeWords(r.requestTypes) },
     { key: 'from', label: 'From', render: (r) => <span className="tabular-nums whitespace-nowrap">{formatDate(r.fromDate)}</span> },
@@ -80,7 +80,7 @@ export default function StandIns() {
             const [label, pill] = when(r, today);
             return (
               <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.standInName} for {r.managerName}</span><span className={`ui-pill ${pill}`}>{label}</span></span>
+                <span className="flex items-center justify-between gap-2"><span className="truncate">{r.standInName} for {r.managerName}</span><span className={`ui-pill ${pill}`}>{label}</span></span>
                 <span className="block ui-caption tabular-nums">{scopeWords(r.requestTypes)} · {formatDate(r.fromDate)} – {formatDate(r.toDate)}</span>
               </span>
             );

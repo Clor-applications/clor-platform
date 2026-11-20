@@ -224,7 +224,7 @@ function PlaceSearch({ onPick }) {
               onMouseEnter={() => setActive(i)}
             >
               <MapPin size={15} aria-hidden="true" className="ui-subtle mt-0.5 shrink-0" />
-              <span className="min-w-0"><span className="block font-medium">{p.label}</span>{p.detail ? <span className="ui-caption block truncate">{p.detail}</span> : null}</span>
+              <span className="min-w-0"><span className="block">{p.label}</span>{p.detail ? <span className="ui-caption block truncate">{p.detail}</span> : null}</span>
             </li>
           )) : <li className="ui-caption px-2.5 py-2">{busy || found.q !== q.trim() ? 'Searching…' : 'Nothing found. Try the area and city, or drop the pin on the map.'}</li>}
         </ul>

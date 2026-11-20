@@ -218,7 +218,7 @@ function NewBook({ open, live, onClose, onMade }) {
       }
     >
       <fieldset className="grid gap-3">
-        <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>
+        <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>
           Start from
         </legend>
         {live ? (
@@ -371,7 +371,7 @@ function PlanTable({ plans, catalogue, onEdit, onRemove }) {
                     {p.name || 'New plan'}
                   </button>
                 ) : (
-                  <span className="font-medium">{p.name}</span>
+                  <span>{p.name}</span>
                 )}
                 <div className="ws-item-sub ui-mono">{p.code}</div>
               </td>
@@ -471,14 +471,14 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
       <div className="ws-layout">
         <div className="ws-main">
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Note</span>
+            <span className="text-sm font-semibold">Note</span>
             <input className="ui-input" value={note} maxLength={200} disabled={!mayChange} onChange={(e) => setNote(e.target.value)} placeholder="What changed in this version" />
             <span className="ws-card-blurb">For the team. While it says sample or not final, clor.in adds “Prices are being finalised”.</span>
           </label>
           <PlanTable plans={plans} catalogue={catalogue} onEdit={mayChange ? setEditing : null} onRemove={(i) => setPlans((ps) => ps.filter((_, j) => j !== i))} />
           {problems.length ? (
             <div role="alert" className="grid gap-1">
-              <p className="text-sm font-medium" style={{ color: 'rgb(var(--ws-danger))' }}>
+              <p className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>
                 Not saved. Fix these first:
               </p>
               <ul className="text-sm" style={{ color: 'rgb(var(--ws-danger))', paddingLeft: 18, listStyle: 'disc' }}>
@@ -573,7 +573,7 @@ const slug = (s) =>
 function Field({ id, label, hint, children }) {
   return (
     <div className="grid gap-1">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-semibold">
         {label}
       </label>
       {children}
@@ -676,7 +676,7 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
           <textarea id="ops-plan-desc" className="ui-input" rows={2} maxLength={300} value={f.description} onChange={set('description')} />
         </Field>
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>
+          <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>
             Apps in this plan
           </legend>
           {catalogue.map((a) => (
@@ -702,7 +702,7 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
           </Field>
         </div>
         <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>
+          <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>
             Offered
           </legend>
           <label className="flex gap-2">
@@ -724,7 +724,7 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
         ) : null}
         {yearly ? (
           <fieldset className="grid gap-3">
-            <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>
+            <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>
               Yearly price
             </legend>
             <label className="flex gap-2 items-center">
@@ -824,7 +824,7 @@ function Preview({ plans, catalogue }) {
               const p = period === 'YEARLY' ? c.yearly : c.monthly;
               return (
                 <li key={c.code} className="grid gap-1" style={{ padding: '10px 0' }}>
-                  <span className="font-medium">
+                  <span>
                     {c.name}
                     {c.highlight ? (
                       <span className="ws-pill" style={{ marginLeft: 8 }}>
@@ -861,7 +861,7 @@ function Preview({ plans, catalogue }) {
       </Panel>
       <Panel title="Sample quote">
         <fieldset className="grid gap-1">
-          <legend className="text-sm font-medium" style={{ marginBottom: 4 }}>
+          <legend className="text-sm font-semibold" style={{ marginBottom: 4 }}>
             Plans
           </legend>
           {plans.map((p) => (
@@ -926,10 +926,10 @@ function Preview({ plans, catalogue }) {
                 </tr>
               ))}
               <tr>
-                <td className="font-medium" style={{ paddingInline: 0 }}>
+                <td className="font-semibold" style={{ paddingInline: 0 }}>
                   Total {period === 'YEARLY' ? 'a year' : 'a month'}
                 </td>
-                <td className="num font-medium" style={{ paddingInline: 0 }}>
+                <td className="num font-semibold" style={{ paddingInline: 0 }}>
                   {inr(r.quote.total)}
                 </td>
               </tr>
