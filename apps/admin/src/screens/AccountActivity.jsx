@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Search, ShieldAlert } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
 
 import { exportRows } from '@ui/components/ListToolbar';
 import { accountAudit } from '@platform/admin/account';
 import { enumWords, errorWords } from '@ui/utils/errorWords';
-import { Avatar, Empty, FilterSelect, Loading, PageHead, StatusPill } from './wsKit';
+import { Avatar, Empty, FilterSelect, LoadError, Loading, PageHead, StatusPill } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 
@@ -108,13 +108,27 @@ export default function AccountActivity() {
   const [events, setEvents] = useState(null);
   const [next, setNext] = useState(null);
   const [error, setError] = useState('');
+  /* The first page did not load: said with a retry, never as "Nothing here yet". */
+  const [loadError, setLoadError] = useState('');
+  /* "Show older" is out: the button waits, so the same page is not asked for twice. */
+  const [older, setOlder] = useState(false);
+  /* Search filters what is loaded, 250ms after the last key (PlanChange's pattern), not on every key. */
+  const [needle, setNeedle] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setNeedle(q.trim().toLowerCase()), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+  /* Each new filter set numbers its request; a reply to an older one is dropped, so a slow answer never overwrites a newer list. */
+  const seq = useRef(0);
   const [open, setOpen] = useState('');
   /* People seen so far, for the Person filter: the server filters on the one chosen. */
   const [people, setPeople] = useState([]);
 
   const load = useCallback((f, cursor) => {
+    const mine = cursor ? seq.current : ++seq.current;
     accountAudit({ ...f, cursor: cursor || '' })
       .then((r) => {
+        if (mine !== seq.current) return;
         /* An older page is appended; an event already shown is not shown twice. */
         setEvents((prev) => {
           if (!cursor) return r?.events || [];
@@ -128,10 +142,17 @@ export default function AccountActivity() {
         });
         setNext(r?.next || null);
         setError('');
+        setLoadError('');
+        setOlder(false);
       })
       .catch((e) => {
-        setEvents((prev) => prev || []);
-        setError(errorWords(e, 'load the audit log'));
+        if (mine !== seq.current) return;
+        setOlder(false);
+        if (cursor) setError(errorWords(e, 'load older events'));
+        else {
+          setEvents(null);
+          setLoadError(errorWords(e, 'load the audit log'));
+        }
       });
   }, []);
   useEffect(() => load(filters), [filters, load]);
@@ -144,10 +165,9 @@ export default function AccountActivity() {
 
   /* Search reads what is loaded: the server filters by kind, result, person and dates. */
   const shown = useMemo(() => {
-    const needle = q.trim().toLowerCase();
     if (!events || !needle) return events;
     return events.filter((e) => [actionText(e.action), e.actor?.name, e.targetName, e.message, scopeOf(e)].join(' ').toLowerCase().includes(needle));
-  }, [events, q]);
+  }, [events, needle]);
   const filtered = Boolean(filters.action || filters.result || filters.from || filters.to || filters.actor || q);
 
   const download = () =>
@@ -202,7 +222,9 @@ export default function AccountActivity() {
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
-        {shown === null ? (
+        {shown === null && loadError ? (
+          <LoadError onRetry={() => { setLoadError(''); load(filters); }}>{loadError}</LoadError>
+        ) : shown === null ? (
           <Loading shape="rows" label="Loading the audit log…" />
         ) : shown.length === 0 ? (
           <Empty icon={EMPTY_ICON} compact>Nothing here{filtered ? ' for these filters' : ' yet'}.</Empty>
@@ -263,8 +285,8 @@ export default function AccountActivity() {
           </div>
         )}
         {next ? (
-          <button type="button" className="ws-btn ws-btn--quiet" style={{ justifySelf: 'start' }} onClick={() => load(filters, next)}>
-            Show older
+          <button type="button" className="ws-btn ws-btn--quiet" style={{ justifySelf: 'start' }} disabled={older} aria-busy={older || undefined} onClick={() => { if (older) return; setOlder(true); load(filters, next); }}>
+            {older ? 'Loading older…' : 'Show older'}
           </button>
         ) : null}
         <p className="ws-foot-note">What CLOR support asks to see, and every look it is let in for, is recorded under Activity with who approved it.</p>

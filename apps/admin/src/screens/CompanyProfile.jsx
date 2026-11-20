@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { emoji } from '@ui/components/ui/emoji';
 import { Save } from '@ui/components/ui/lineIcons';
 
@@ -7,7 +7,8 @@ import { me } from '@platform/auth';
 import { orgId as platformOrgId } from '@platform/context';
 import { notify } from '@ui/components/ui/notify';
 import { FROM_ACCOUNTING, LOGO, SECTIONS, bodyOf, editableOf, filled, isDirty, logoFromMe, usedOn } from '@ui/company/companyFields';
-import { Loading, PageHead } from './wsKit';
+import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
+import { LoadError, Loading, PageHead } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
@@ -63,21 +64,27 @@ export default function CompanyProfile() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setError('');
     apiFetch(url(), opts)
       .then((r) => {
         setForm(r.company);
         setSaved(r.company);
       })
       .catch((e) => setError(errorWords(e, 'load the company profile')));
+  }, []);
+  useEffect(() => {
+    load();
     /* The logo lives in Accounting's company settings; a page without it still works. */
     me()
       .then((r) => setLogo(logoFromMe(r, platformOrgId())))
       .catch(() => {});
-  }, []);
+  }, [load]);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const dirty = isDirty(form, saved);
+  /* Edits not saved yet: leaving the page or closing the tab asks first. */
+  useUnsavedChanges(dirty && !saving);
 
   const save = async (e) => {
     e.preventDefault();
@@ -111,10 +118,9 @@ export default function CompanyProfile() {
           }
         />
 
-        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         {!form ? (
-          error ? null : <Loading shape="card" rows={3} label="Loading the company profile…" />
+          error ? <LoadError onRetry={load}>{error}</LoadError> : <Loading shape="card" rows={3} label="Loading the company profile…" />
         ) : (
           <form id="company-profile" onSubmit={save} className="ws-profile ws-cp" noValidate={false}>
             {SECTIONS.map((sec) => {

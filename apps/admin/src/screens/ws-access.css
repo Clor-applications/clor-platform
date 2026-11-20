@@ -13,7 +13,7 @@
 
 /* ------------------------------------------------------------ Members */
 .ws-members tbody tr:hover td {
-  background: rgb(var(--surface-sunken, 244 245 242) / 0.6);
+  background: rgb(var(--ws-hover));
 }
 .ws-members tbody tr[data-selected]:hover td {
   background: rgb(var(--tint, 255 241 235));
@@ -220,7 +220,7 @@
   cursor: pointer;
 }
 .ws-role-pick:hover {
-  background: rgb(var(--surface-sunken, 244 245 242));
+  background: rgb(var(--ws-hover));
 }
 .ws-role-pick[aria-current='true'] {
   background: rgb(var(--tint, 255 241 235));

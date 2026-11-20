@@ -9,6 +9,7 @@ import {
 import { requestOpenScreen } from '@platform/context';
 
 import Drawer from '@ui/components/ui/Drawer';
+import { confirmDialog } from '@ui/components/ui/notify';
 import './workspace.css';
 
 /**
@@ -91,6 +92,29 @@ export function WsDrawer({ actions = null, widthClass = 'w-[min(40rem,94vw)]', c
       </div>
     </Drawer>
   );
+}
+
+/**
+ * A panel's own Cancel button skips the drawer's guard (it closes by state, not through the drawer):
+ * it asks the same question first, in the same words, when there are edits. Resolves true to close.
+ */
+export const askDiscard = (dirty) => (dirty
+  ? confirmDialog({ title: 'Discard your changes?', message: 'What you entered here has not been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', stayFirst: true })
+  : Promise.resolve(true));
+
+/**
+ * Arrow keys, Home and End for a row of real tabs (role="tab"): the next tab is chosen and focused,
+ * as WAI-ARIA tabs expect. `ids(k)` names a tab's element id.
+ */
+export function tabKeys(keys, current, choose, ids) {
+  return (e) => {
+    const i = keys.indexOf(current);
+    const to = e.key === 'ArrowRight' ? (i + 1) % keys.length : e.key === 'ArrowLeft' ? (i - 1 + keys.length) % keys.length : e.key === 'Home' ? 0 : e.key === 'End' ? keys.length - 1 : -1;
+    if (to < 0) return;
+    e.preventDefault();
+    choose(keys[to]);
+    document.getElementById(ids(keys[to]))?.focus();
+  };
 }
 
 /** A product's icon, by app id. */

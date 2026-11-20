@@ -7,7 +7,7 @@ import { STATUS as CREDENTIAL_STATUS } from './credentialsModel';
 import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider, verifyProviderDomains } from '@platform/admin/security';
 import { listRoles } from '@platform/admin/admin';
 import { Globe, Lock, LockKeyhole } from 'lucide-react';
-import { FilterSelect, Loading, PageHead, StatusPill, WsDrawer } from './wsKit';
+import { FilterSelect, LoadError, Loading, PageHead, StatusPill, WsDrawer, askDiscard } from './wsKit';
 import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import './ws-security.css';
 import './workspace.css';
@@ -98,13 +98,29 @@ function Address({ label, value }) {
 export default function SsoSettings() {
   const [data, setData] = useState(null);
   const [roles, setRoles] = useState([]);
-  const [form, setForm] = useState(null);
+  const [form, setFormState] = useState(null);
+  /* The form as it was opened: closing it with anything changed asks first. */
+  const [formStart, setFormStart] = useState('');
+  const setForm = (f) => {
+    setFormState(f);
+    setFormStart(f ? JSON.stringify(f) : '');
+  };
   const [busy, setBusy] = useState(false);
+  /* A read that failed says so with a retry, rather than a skeleton that never ends. */
+  const [loadError, setLoadError] = useState('');
+  /* The card action that is out, as `${id}:switch` or `${id}:verify`; one at a time. */
+  const [rowBusy, setRowBusy] = useState('');
+  const [tokenBusy, setTokenBusy] = useState(false);
   const [scim, setScim] = useState(null);
   const [scimRole, setScimRole] = useState('');
   const [newToken, setNewToken] = useState('');
 
-  const load = useCallback(() => getProviders().then(setData).catch((e) => notify.error(errorWords(e, 'load the sign-in methods'))), []);
+  const load = useCallback(() => getProviders()
+    .then((d) => {
+      setData(d);
+      setLoadError('');
+    })
+    .catch((e) => setLoadError(errorWords(e, 'load the sign-in methods'))), []);
   const loadScim = useCallback(() => getScim().then(setScim).catch(() => setScim({ baseUrl: '', tokens: [] })), []);
   useEffect(() => {
     load();
@@ -113,12 +129,16 @@ export default function SsoSettings() {
   }, [load, loadScim]);
 
   const makeToken = async () => {
+    if (tokenBusy) return;
+    setTokenBusy(true);
     try {
       const r = await createScimToken(scimRole || null);
       setNewToken(r.token);
       loadScim();
     } catch (err) {
       notify.error(errorWords(err, 'make the token'));
+    } finally {
+      setTokenBusy(false);
     }
   };
   const revoke = async (t) => {
@@ -152,14 +172,26 @@ export default function SsoSettings() {
     }
   };
   const toggle = async (p) => {
+    if (rowBusy) return;
+    if (p.enabled && !(await confirmDialog({
+      title: `Switch off ${p.name} single sign-on?`,
+      message: `People at ${p.emailDomains || 'its domains'} are no longer offered “Continue with ${p.name}”. They sign in with their CLOR password until it is switched on again.`,
+      confirmLabel: 'Switch off',
+      tone: 'danger',
+    }))) return;
+    setRowBusy(`${p.id}:switch`);
     try {
       await updateProvider(p.id, { kind: p.kind, name: p.name, discoveryUrl: p.discoveryUrl, issuer: p.issuer, clientId: p.clientId, scopes: p.scopes, emailDomains: p.emailDomains, autoProvision: p.autoProvision, defaultRoleId: p.defaultRoleId, entryPoint: p.entryPoint, entityId: p.entityId, enabled: !p.enabled });
       load();
     } catch (err) {
       notify.error(errorWords(err, 'switch it'));
+    } finally {
+      setRowBusy('');
     }
   };
   const verify = async (p) => {
+    if (rowBusy) return;
+    setRowBusy(`${p.id}:verify`);
     try {
       const r = await verifyProviderDomains(p.id);
       const missing = (r.results || []).filter((x) => !x.verified);
@@ -168,6 +200,8 @@ export default function SsoSettings() {
       load();
     } catch (err) {
       notify.error(errorWords(err, 'check the domains'));
+    } finally {
+      setRowBusy('');
     }
   };
   const remove = async (p) => {
@@ -176,7 +210,8 @@ export default function SsoSettings() {
     load();
   };
   const edit = (p) => setForm({ ...EMPTY, ...p, clientSecret: '', defaultRoleId: p.defaultRoleId || '', emailDomains: p.emailDomains || '', discoveryUrl: p.discoveryUrl || '', issuer: p.issuer || '', scopes: p.scopes || EMPTY.scopes });
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
+  const set = (k) => (e) => setFormState({ ...form, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
+  const formDirty = Boolean(form) && !busy && JSON.stringify(form) !== formStart;
 
   const suggested = data ? SUGGESTED.filter((x) => !data.providers.some((p) => x.match.test(`${p.name} ${p.discoveryUrl || ''} ${p.issuer || ''} ${p.entryPoint || ''}`))) : [];
 
@@ -196,7 +231,9 @@ export default function SsoSettings() {
           }
         />
 
-        {!data ? (
+        {!data && loadError ? (
+          <LoadError onRetry={() => { setLoadError(''); load(); }}>{loadError}</LoadError>
+        ) : !data ? (
           <Loading shape="rows" rows={3} label="Loading sign-in methods…" />
         ) : (
           <>
@@ -237,8 +274,14 @@ export default function SsoSettings() {
                       </p>
                     ) : null}
                     <div className="ws-sso-actions">
-                      {unverified ? <button type="button" className="ws-btn ws-btn--quiet" onClick={() => verify(p)}>Verify domains</button> : null}
-                      <button type="button" className="ws-btn ws-btn--quiet" onClick={() => toggle(p)}>{p.enabled ? 'Switch off' : 'Switch on'}</button>
+                      {unverified ? (
+                        <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(rowBusy)} aria-busy={rowBusy === `${p.id}:verify` || undefined} onClick={() => verify(p)}>
+                          {rowBusy === `${p.id}:verify` ? 'Verifying…' : 'Verify domains'}
+                        </button>
+                      ) : null}
+                      <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(rowBusy)} aria-busy={rowBusy === `${p.id}:switch` || undefined} onClick={() => toggle(p)}>
+                        {rowBusy === `${p.id}:switch` ? (p.enabled ? 'Switching off…' : 'Switching on…') : p.enabled ? 'Switch off' : 'Switch on'}
+                      </button>
                       <button type="button" className="ws-btn ws-btn--quiet" onClick={() => edit(p)}>Edit</button>
                       <button type="button" className="ws-btn ws-btn--danger-quiet" aria-label={`Remove ${p.name}`} onClick={() => remove(p)}><Trash2 size={16} aria-hidden="true" /> Remove</button>
                     </div>
@@ -318,7 +361,7 @@ export default function SsoSettings() {
                   options={[['', 'No role until assigned'], ...roles.map((r) => [r.id, r.name])]}
                   onChange={setScimRole}
                 />
-                <button type="button" className="ws-btn ws-btn--quiet" onClick={makeToken}>Make a token</button>
+                <button type="button" className="ws-btn ws-btn--quiet" disabled={tokenBusy} aria-busy={tokenBusy || undefined} onClick={makeToken}>{tokenBusy ? 'Making…' : 'Make a token'}</button>
               </div>
             </Section>
 
@@ -337,6 +380,7 @@ export default function SsoSettings() {
       <WsDrawer
         open={Boolean(form)}
         onClose={() => setForm(null)}
+        dirty={formDirty}
         title={form?.id ? `Edit ${form.name || 'provider'}` : 'Add a provider'}
       >
         {/* The drawer is portalled out of the page, so it carries the Admin center tokens with it. */}
@@ -395,8 +439,8 @@ export default function SsoSettings() {
                 <p className="ui-caption">Added switched off until its domains are verified.</p>
               )}
               <div className="flex gap-2">
+                <button type="button" className="ws-btn ws-btn--quiet" onClick={async () => { if (await askDiscard(formDirty)) setForm(null); }}>Cancel</button>
                 <button type="submit" className="ws-btn ws-btn--primary" disabled={busy}>{busy ? 'Saving…' : form.id ? 'Save' : 'Add provider'}</button>
-                <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setForm(null)}>Cancel</button>
               </div>
             </form>
           </div>
