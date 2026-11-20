@@ -3666,11 +3666,8 @@ button.ws-stat:hover {
 .ws .ws-btn.ws-btn--icon, .ws-btn.ws-btn--icon:not(#ux1) { padding: 0; width: 36px; min-width: 36px; justify-content: center; }
 .ws-btn.ws-btn--icon svg { flex-shrink: 0; width: 16px; height: 16px; }
 
-/* Optical alignment (better-ui): a 16px icon at the button's edge reads as more inset than a
-   letter, so the icon's side takes 2px less padding than the word's side. The shared .ui-btn has
-   the same rule in polish.css; this keeps the Workspace's own button in step with it. A trailing
-   icon (the "Go ›" in the setup guide) marks itself with .ws-btn--trail. */
-:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn:not(.ws-btn--icon):not(.ws-btn--trail):has(> svg:first-child) { padding-inline-start: 12px; }
-:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn--small:not(.ws-btn--icon):not(.ws-btn--trail):has(> svg:first-child) { padding-inline-start: 10px; }
+/* Optical alignment (better-ui): a trailing icon (the "Go ›" in the setup guide, marked .ws-btn--trail)
+   reads as more inset than a letter, so its side takes 2px less padding. No general rule for leading
+   icons: CSS cannot tell icon-then-word from word-then-icon, so it would trim the wrong side. */
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn.ws-btn--trail:has(> svg:last-child) { padding-inline-end: 12px; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn--small.ws-btn--trail:has(> svg:last-child) { padding-inline-end: 10px; }

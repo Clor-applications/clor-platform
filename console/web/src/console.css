@@ -38,9 +38,6 @@
 .con-btn-primary { background: rgb(var(--fg)); color: rgb(var(--surface)); border-color: rgb(var(--fg)); }
 .con-btn-primary:hover:not(:disabled) { background: rgb(var(--fg-muted)); border-color: rgb(var(--fg-muted)); }
 .con-shell .ui-btn, .con-gate .ui-btn, .con-dialog .ui-btn { border-radius: 8px; gap: 6px; }
-/* polish.css takes 2px off the icon side of a button with a leading icon; an icon-only button
-   (Sign out, Close) has no word to balance, so its glyph goes back to the centre. */
-:root:not(#con):not(#con2):not([data-palette='indigo']) :is(.con-shell, .con-gate, .con-dialog) .ui-btn-sm[aria-label]:has(> svg:only-child) { padding-inline-start: 0.75rem; }
 .con-shell .ui-btn:focus-visible, .con-gate .ui-btn:focus-visible, .con-dialog .ui-btn:focus-visible { outline: 2px solid rgb(var(--fg)); outline-offset: 2px; }
 
 .con-pill { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; line-height: 16px; font-weight: 600; white-space: nowrap; background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); border: 1px solid rgb(var(--border)); }

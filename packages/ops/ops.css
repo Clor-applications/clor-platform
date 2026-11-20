@@ -639,14 +639,6 @@ html[data-portal='ops'] .ws-btn--small {
   padding: 0 12px;
   font-size: 0.8125rem;
 }
-/* Optical alignment: a leading icon's box carries empty space the word does not, so that side gets
-   2px less (Set up an authenticator app, the back buttons). Icon-only buttons carry an aria-label. */
-html[data-portal='ops'] .ws-btn:not([aria-label]):has(> svg:first-child) {
-  padding-inline-start: 14px;
-}
-html[data-portal='ops'] .ws-btn--small:not([aria-label]):has(> svg:first-child) {
-  padding-inline-start: 10px;
-}
 /* A link-looking action: Open →, Review list →. Portal colour, underlined. */
 .ops-link,
 .ops-text-btn {
