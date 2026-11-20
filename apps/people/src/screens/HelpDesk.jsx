@@ -56,7 +56,7 @@ export default function HelpDesk({ params = {} }) {
 
   const columns = [
     { key: 'subject', label: 'Request', always: true, render: (r) => <span className="min-w-0"><span className="block truncate">{r.subject}</span><span className="block truncate ui-caption">{catLabel(r.category)}</span></span> },
-    { key: 'from', label: 'From', render: (r) => <span>{r.employeeName}{r.employeeCode ? <span className="ui-caption tabular-nums"> · {r.employeeCode}</span> : null}</span> },
+    { key: 'from', label: 'From', render: (r) => <span>{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · <span className="ui-mono">{r.employeeCode}</span></span> : null}</span> },
     { key: 'queue', label: 'Queue', render: (r) => r.queue },
     { key: 'urgency', label: 'Urgency', render: (r) => <span className={`ui-pill ${r.urgency === 'URGENT' || r.urgency === 'HIGH' ? 'ui-pill-neg' : 'ui-pill-neutral'}`}>{URGENCY[r.urgency] || enumWords(r.urgency)}</span> },
     { key: 'waiting', label: 'Waiting', render: (r) => <span className="tabular-nums whitespace-nowrap ui-muted r52-desk-waiting">{waitingWords(r).replace(/^Waiting /, '')}</span> },

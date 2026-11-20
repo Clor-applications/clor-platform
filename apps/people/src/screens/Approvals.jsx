@@ -14,7 +14,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar, SCHEDULED_LABELS } from '@ui/personnel/Employees';
@@ -228,7 +228,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
         <Avatar person={{ name: i.employeeName, photoUrl: i.photoUrl }} size={32} />
         <span className="min-w-0">
           <span className="block truncate">{i.employeeName || '—'}</span>
-          {i.employeeCode ? <span className="block truncate ui-caption">{i.employeeCode}</span> : null}
+          {i.employeeCode ? <span className="block truncate ui-caption ui-mono">{i.employeeCode}</span> : null}
         </span>
       </span>
     ) },
@@ -387,10 +387,14 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
  */
 function TimeDrawer({ item, onClose, onDone }) {
   const [note, setNote] = useState('');
+  const [noteError, setNoteError] = useState('');
+  const noteRef = useRef(null);
   const [busy, setBusy] = useState('');
   const punch = item.kind === 'PUNCH';
   const act = async (approve) => {
-    if (!approve && !punch && !note.trim()) { notify.error('Say why. They see this with the decision.'); return; }
+    if (busy) return;
+    if (!approve && !punch && !note.trim()) { setNoteError('Say why. They see this with the decision.'); noteRef.current?.focus(); return; }
+    setNoteError('');
     setBusy(approve ? 'approve' : 'reject');
     try {
       const out = await BULK[item.kind]([item.id], approve, punch ? undefined : note.trim() || undefined);
@@ -424,7 +428,7 @@ function TimeDrawer({ item, onClose, onDone }) {
         {punch ? <p className="ui-muted">Made outside every work site. Approved, it counts like any punch; rejected, it stays on record and does not count.</p> : null}
         {item.reason ? <p className="ui-muted">“{item.reason}”</p> : null}
         {!punch ? (
-          <label className="block"><span className="ui-label">Note to them</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Needed to reject" /></label>
+          <label className="block"><span className="ui-label">Note to them</span><textarea ref={noteRef} className="ui-input w-full" rows={2} maxLength={500} value={note} onChange={(e) => { setNote(e.target.value); if (noteError) setNoteError(''); }} placeholder="Needed to reject" aria-invalid={noteError ? true : undefined} aria-describedby={noteError ? 'time-note-error' : undefined} />{noteError ? <span id="time-note-error" className="ui-field-error block" role="alert">{noteError}</span> : null}</label>
         ) : null}
       </div>
     </Drawer>
@@ -436,6 +440,8 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
   const req = useRequest(() => getRequest(id).catch((e) => (e?.status === 404 || e?.status === 403 ? null : Promise.reject(e))), [id]);
   const [request, setRequest] = useState(null);
   const [comment, setComment] = useState('');
+  const [commentError, setCommentError] = useState('');
+  const commentRef = useRef(null);
   const [busy, setBusy] = useState('');
   const open = request || req.data || null;
   const deciding = open && open.status === 'WAITING' && !mine;
@@ -443,8 +449,14 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
   const gone = !open && req.data === null && !req.loading && !req.refreshing;
 
   const act = async (action) => {
-    if (!open) return;
-    if (action !== 'approve' && action !== 'withdraw' && !comment.trim()) { notify.error(action === 'reject' ? 'Say why it is rejected.' : 'Say what more is needed.'); return; }
+    if (!open || busy) return;
+    if (action !== 'approve' && action !== 'withdraw' && !comment.trim()) {
+      setCommentError(action === 'reject' ? 'Say why it is rejected. They see this with the decision.' : mine ? 'Write your answer first.' : 'Say what more is needed.');
+      commentRef.current?.focus();
+      return;
+    }
+    setCommentError('');
+    if (action === 'withdraw' && !(await confirmDialog({ title: `Withdraw “${open.title || 'this request'}”?`, message: 'It stops waiting for a decision and nobody can approve it. To ask again, send a new request.', confirmLabel: 'Withdraw request' }))) return;
     setBusy(action);
     try {
       const r = action === 'withdraw' ? await withdrawRequest(open.id) : action === 'reply' ? await replyRequest(open.id, comment.trim()) : await decideRequest(open.id, action, comment.trim() || undefined);
@@ -533,7 +545,8 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
           {deciding || (mine && open.status === 'MORE_INFO') ? (
             <label className="block">
               <span className="ui-label">{mine ? 'Your answer' : 'Comment (needed to reject or ask for more)'}</span>
-              <textarea className="ui-input w-full" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000} />
+              <textarea ref={commentRef} className="ui-input w-full" rows={2} value={comment} onChange={(e) => { setComment(e.target.value); if (commentError) setCommentError(''); }} maxLength={1000} aria-invalid={commentError ? true : undefined} aria-describedby={commentError ? 'approval-comment-error' : undefined} />
+              {commentError ? <span id="approval-comment-error" className="ui-field-error block" role="alert">{commentError}</span> : null}
             </label>
           ) : null}
         </div>

@@ -10,7 +10,7 @@ import SuggestInput from '@ui/components/ui/SuggestInput';
 import DatePicker from '@ui/components/ui/DatePicker';
 import useRequest from '@ui/components/ui/useRequest';
 import { useTabIndicator } from '@ui/components/ui/RecordTabs';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { currentUser } from '@platform/context';
 
 import { checkAbsences, closeAbsence, getAbsences, getNoticeCopy, holdSettlement, recordAbsconded, releaseSettlement, sendAbsenceNotice } from './api';
@@ -130,7 +130,7 @@ function CaseDrawer({ row, rules, canAct, onClose, onChanged }) {
   const done = () => { setMode(null); onChanged(); };
   const openStep = ['OPEN', 'NOTICE_1', 'NOTICE_2'].includes(row.status);
   return (
-    <Drawer open onClose={onClose} title={row.name} widthClass="w-[min(36rem,96vw)]"
+    <Drawer open onClose={onClose} title={row.name} widthClass="w-[min(36rem,96vw)]" dirty={Boolean(mode)}
       actions={canAct && !mode ? <>
         {openStep && row.next?.step !== 'RECORD' ? <button type="button" className="ui-btn ui-btn-primary" disabled={!nextReady} onClick={() => setMode('notice')}>{NEXT[row.next.step]}</button> : null}
         {row.status === 'NOTICE_2' ? <button type="button" className="ui-btn ui-btn-primary" disabled={!nextReady} onClick={() => setMode('record')}>Record the leaving</button> : null}
@@ -184,22 +184,26 @@ function NoticeLine({ n, onRead }) {
   );
 }
 
-function FormShell({ title, busy, ready, label, onCancel, onSubmit, children }) {
+function FormShell({ title, busy, ready, why = '', label, onCancel, onSubmit, children }) {
+  const helpId = `${title.replace(/\W+/g, '-').toLowerCase()}-why`;
   return (
     <form className="space-y-3 border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }} onSubmit={onSubmit} aria-label={title}>
       <h3 className="ui-t-sec">{title}</h3>
       {children}
       <div className="flex justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || !ready}>{busy ? 'Saving…' : label}</button>
+        <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || !ready} aria-describedby={!ready && why ? helpId : undefined}>{busy ? 'Saving…' : label}</button>
       </div>
+      {!ready && why ? <p id={helpId} className="ui-caption text-right">{why}</p> : null}
     </form>
   );
 }
-const useAct = (fn, onDone, ok) => {
+const useAct = (fn, onDone, ok, ask = null) => {
   const [busy, setBusy] = useState(false);
   const run = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    if (ask && !(await confirmDialog(ask))) return;
     setBusy(true);
     try {
       await fn();
@@ -221,9 +225,17 @@ function NoticeForm({ row, rules, onCancel, onDone }) {
   const [email, setEmail] = useState(Boolean(row.email));
   const [postRef, setPostRef] = useState('');
   const seq = row.status === 'OPEN' ? 1 : 2;
-  const [busy, run] = useAct(() => sendAbsenceNotice(row.id, { signatory, reportBy, email, postRef }), onDone, `Notice ${seq} sent.`);
+  const how = [email && row.email ? `by email to ${row.email}` : '', postRef.trim() ? 'by post' : ''].filter(Boolean).join(' and ');
+  const [busy, run] = useAct(() => sendAbsenceNotice(row.id, { signatory, reportBy, email, postRef }), onDone, `Notice ${seq} sent.`, {
+    title: `Send notice ${seq} to ${row.name}?`,
+    message: `It asks them to report back or explain by ${dayText(reportBy)}${how ? `, ${how}` : ''}, and goes into their documents. A sent notice stays on file.`,
+    confirmLabel: `Send notice ${seq}`,
+  });
+  const signed = signatory.trim().length > 2;
+  const dated = reportBy > istToday();
+  const why = !signed ? 'Add who signs the notice.' : !dated ? 'Pick a report-back day after today.' : '';
   return (
-    <FormShell title={`Notice ${seq}`} busy={busy} ready={signatory.trim().length > 2 && reportBy > istToday()} label="Send" onCancel={onCancel} onSubmit={run}>
+    <FormShell title={`Notice ${seq}`} busy={busy} ready={signed && dated} why={why} label={`Send notice ${seq}`} onCancel={onCancel} onSubmit={run}>
       <div className="grid gap-3 sm:grid-cols-2">
         <DateField label="Report back or explain by" value={reportBy} min={plus(istToday(), 1)} onChange={(v) => setReportBy(v || '')} />
         <label className="block"><span className="ui-label">Signed by</span><SuggestInput value={signatory} onChange={setSignatory} suggestions={me?.fullName ? [`${me.fullName}, HR`, `${me.fullName}, Owner`] : []} maxLength={120} /></label>
@@ -242,9 +254,17 @@ function RecordForm({ row, onCancel, onDone }) {
   /* Back at work since the absence: recorded only on purpose, with the reason. */
   const [confirmBack, setConfirmBack] = useState(false);
   const [reason, setReason] = useState('');
-  const [busy, run] = useAct(() => recordAbsconded(row.id, { lastWorkingDay: lastDay, hold, holdReason, ...(row.backSince ? { confirmBack, reason } : {}) }), onDone, 'Recorded.');
+  const [busy, run] = useAct(() => recordAbsconded(row.id, { lastWorkingDay: lastDay, hold, holdReason, ...(row.backSince ? { confirmBack, reason } : {}) }), onDone, 'Recorded as absconded.', {
+    title: `Record ${row.name} as absconded?`,
+    message: `Their last working day becomes ${lastDay ? dayText(lastDay) : 'the day chosen'} and they leave the company${hold ? '; the final settlement is held' : ''}.`,
+    confirmLabel: 'Record as absconded',
+  });
+  const why = !lastDay ? 'Pick the last working day.'
+    : row.backSince && !confirmBack ? `Tick "Record it all the same" to record it while ${row.name} is back at work.`
+      : row.backSince && reason.trim().length <= 2 ? 'Say why it is recorded all the same.'
+        : hold && holdReason.trim().length <= 2 ? 'Say why the settlement is held.' : '';
   return (
-    <FormShell title="Record the leaving as absconded" busy={busy} ready={Boolean(lastDay) && (!hold || holdReason.trim().length > 2) && (!row.backSince || (confirmBack && reason.trim().length > 2))} label="Record" onCancel={onCancel} onSubmit={run}>
+    <FormShell title="Record the leaving as absconded" busy={busy} ready={!why} why={why} label="Record as absconded" onCancel={onCancel} onSubmit={run}>
       {row.backSince ? (
         <div className="space-y-2">
           <p className="text-sm" role="alert">{row.name} has been at work since {dayText(row.backSince)}. Close the case instead, unless there is a reason to record the leaving.</p>

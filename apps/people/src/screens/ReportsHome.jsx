@@ -5,6 +5,7 @@ import ListHeader from '@ui/components/list/ListHeader';
 import SearchField from '@ui/components/ui/SearchField';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import useRequest from '@ui/components/ui/useRequest';
+import ErrorState from '@ui/components/ui/ErrorState';
 import { listHrReports } from '../api/hrReports';
 import { listReports as listAttendanceReports } from '../../../attendance/src/api/attendance';
 import { periodWord, readRecentReports } from '@ui/picks/round63';
@@ -45,9 +46,11 @@ const sentence = (name) => String(name || '').replace(/(?!^)\b[A-Z](?=[a-z])/g, 
 export default function ReportsHome({ openScreen, navItems = [] }) {
   const [q, setQ] = useState('');
   const byKey = useMemo(() => new Map(navItems.filter((i) => i.key).map((i) => [i.key, i])), [navItems]);
-  const own = useRequest(() => listHrReports().catch(() => ({ reports: [] })), []);
+  /* A role with no reports gets an empty list; any other failure says so, with a retry, never "No report is open to your role". */
+  const none = (e) => (e?.status === 403 ? { reports: [] } : Promise.reject(e));
+  const own = useRequest(() => listHrReports().catch(none), []);
   const hasAttendance = byKey.has('attendanceReports');
-  const attendance = useRequest(() => (hasAttendance ? listAttendanceReports().catch(() => ({ reports: [] })) : Promise.resolve({ reports: [] })), [hasAttendance]);
+  const attendance = useRequest(() => (hasAttendance ? listAttendanceReports().catch(none) : Promise.resolve({ reports: [] })), [hasAttendance]);
 
   const rows = useMemo(() => {
     const out = [];
@@ -83,7 +86,8 @@ export default function ReportsHome({ openScreen, navItems = [] }) {
         toolbar={<SearchField value={q} onSearch={setQ} delay={150} placeholder="Search reports" label="Search reports" className="w-full sm:w-80" />}
       />
       {loading && !rows.length ? <SkeletonCard lines={8} /> : null}
-      {!loading && !groups.length ? <p className="ui-muted text-sm">{needle ? `No report matches “${q}”.` : 'No report is open to your role.'}</p> : null}
+      {own.error || attendance.error ? <ErrorState error={own.error || attendance.error} onRetry={() => { if (own.error) own.reload(); if (attendance.error) attendance.reload(); }} compact /> : null}
+      {!loading && !groups.length && !(own.error || attendance.error) ? <p className="ui-muted text-sm">{needle ? `No report matches “${q}”.` : 'No report is open to your role.'}</p> : null}
       {!needle && recent.length ? (
         <section className="space-y-2" aria-labelledby="rep-recent">
           <h2 id="rep-recent" className="ui-t-sec">Used recently</h2>

@@ -15,8 +15,8 @@ export { todayIst };
 
 export const STAGES = [
   ['APPLIED', 'Applied', 'ui-pill-neutral'],
-  ['SCREENING', 'Screening', 'ui-pill-info'],
-  ['INTERVIEW', 'Interview', 'ui-pill-info'],
+  ['SCREENING', 'Screening', 'ui-pill-neutral'],
+  ['INTERVIEW', 'Interview', 'ui-pill-neutral'],
   ['OFFER', 'Offer', 'ui-pill-warn'],
   ['HIRED', 'Hired', 'ui-pill-pos'],
   ['REJECTED', 'Rejected', 'ui-pill-neutral'],
@@ -36,8 +36,8 @@ export const RECOMMENDATIONS = [['STRONG_YES', 'Strong yes'], ['YES', 'Yes'], ['
 export const MODES = [['IN_PERSON', 'In person'], ['PHONE', 'Phone'], ['VIDEO', 'Video']];
 export const HEALTH = { ON_TRACK: ['On track', 'ui-pill-pos'], AT_RISK: ['At risk', 'ui-pill-warn'], BEHIND: ['Behind', 'ui-pill-neg'] };
 export const RATINGS = [[1, 'Well below what was expected'], [2, 'Below what was expected'], [3, 'What was expected'], [4, 'Above what was expected'], [5, 'Well above what was expected']];
-export const CYCLE_STATUS = { DRAFT: ['Draft', 'ui-pill-neutral'], OPEN: ['Open', 'ui-pill-info'], CALIBRATING: ['Calibrating', 'ui-pill-warn'], SHARED: ['Shared', 'ui-pill-pos'], CLOSED: ['Closed', 'ui-pill-neutral'] };
-export const PLAN_STATUS = { ACTIVE: ['Running', 'ui-pill-info'], EXTENDED: ['Extended', 'ui-pill-warn'], COMPLETED: ['Completed', 'ui-pill-pos'], NOT_MET: ['Not met', 'ui-pill-neg'], CANCELLED: ['Cancelled', 'ui-pill-neutral'] };
+export const CYCLE_STATUS = { DRAFT: ['Draft', 'ui-pill-neutral'], OPEN: ['Open', 'ui-pill-neutral'], CALIBRATING: ['Calibrating', 'ui-pill-warn'], SHARED: ['Shared', 'ui-pill-pos'], CLOSED: ['Closed', 'ui-pill-neutral'] };
+export const PLAN_STATUS = { ACTIVE: ['Running', 'ui-pill-neutral'], EXTENDED: ['Extended', 'ui-pill-warn'], COMPLETED: ['Completed', 'ui-pill-pos'], NOT_MET: ['Not met', 'ui-pill-neg'], CANCELLED: ['Cancelled', 'ui-pill-neutral'] };
 
 export const word = (list, key) => (Array.isArray(list) ? list.find((x) => x[0] === key)?.[1] : list[key]?.[0]) || key || '';
 export const Pill = ({ map, value }) => {

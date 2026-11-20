@@ -45,9 +45,16 @@ describe('counts that wait on you are marked', () => {
 
 describe('figures', () => {
 
+  /* Bulk-change and import results are one count line now, the zero clauses left out (calm register, audit 21 Nov 2026). */
   it.each([
-    ['apps/people/src/workforce/Directory.jsx', 5],
-    ['apps/people/src/workforce/ImportEmployees.jsx', 3],
+    'apps/people/src/workforce/Directory.jsx',
+    'apps/people/src/workforce/ImportEmployees.jsx',
+  ])('%s states its results as a count line, not figure tiles', (file) => {
+    const src = read(file);
+    expect(src).toMatch(/<CountLine /);
+    expect(src).not.toMatch(/className="ui-metric"/);
+  });
+  it.each([
     ['packages/ui/src/lifecycle/Overview.jsx', 1],
     ['packages/ui/src/timeOff/TimeOverview.jsx', 1],
   ])('%s marks a nought on its figures', (file, n) => {
@@ -93,8 +100,14 @@ describe('tints are named by meaning, not handed out by position', () => {
     const tiles = [...read('apps/people/src/workforce/Directory.jsx').matchAll(/\{ key: '\w+', label: '[^']+', cat: (\d)/g)];
     expect(tiles.length).toBeGreaterThan(2);
   });
+  /* The Organisation overview: at most four figures, none at zero, and no tints (calm register, audit 21 Nov 2026). */
+  it('apps/people/src/organization/Overview.jsx: at most four figures, none at zero, no tints', () => {
+    const src = read('apps/people/src/organization/Overview.jsx');
+    expect(src).toMatch(/\.filter\(\(x\) => Number\(x\.value\) > 0\)\.slice\(0, 4\)/);
+    expect(src).not.toMatch(/data-tint/);
+    expect(src).not.toMatch(/tint: '/);
+  });
   it.each([
-    'apps/people/src/organization/Overview.jsx',
     'packages/ui/src/lifecycle/Overview.jsx',
     'packages/ui/src/timeOff/TimeOverview.jsx',
   ])('%s: each figure in the strip names a tint, marigold only on one that waits on you', (file) => {
@@ -164,11 +177,12 @@ describe('moss: People declares no brand of its own (R&D redesign, 14 Nov 2026)'
     }
   });
 
-  it('draws the figure strip as KPI tiles: 36px chip, 12px uppercase label, 22px tabular number (DESIGN.md "figure", calm register), no coloured top bar (DESIGN.md, 19 Nov 2026)', () => {
+  it('draws the figure strip as plain tiles: neutral icon, 12/16 600 sentence-case label, 22/28 600 tabular figure at every width, no coloured top bar (DESIGN.md "figure", calm register)', () => {
     expect(people).toMatch(/\.ui-metric-strip > \* \{[^}]*border-radius: 0\.75rem;[^}]*box-shadow: none;/);
-    expect(people).toMatch(/\.ui-metric-icon \{[^}]*width: 2\.25rem;[^}]*height: 2\.25rem;/);
-    expect(people).toMatch(/\.ui-metric-label \{[^}]*font-size: 0\.75rem;[^}]*text-transform: uppercase;/);
-    expect(people).toMatch(/\.ui-metric-value \{[^}]*font-size: 1\.375rem;[^}]*font-variant-numeric: tabular-nums;/);
+    expect(people).toMatch(/\.ui-metric-icon \{[^}]*width: 2\.25rem;[^}]*height: 2\.25rem;[^}]*background: transparent;/);
+    expect(people).toMatch(/\.ui-metric-label \{[^}]*font-size: 0\.75rem;[^}]*font-weight: 600;[^}]*letter-spacing: 0;[^}]*text-transform: none;/);
+    expect(people).toMatch(/\.ui-metric-value \{[^}]*font-size: 1\.375rem;[^}]*font-weight: 600;[^}]*letter-spacing: 0;[^}]*font-variant-numeric: tabular-nums;/);
+    expect(people).not.toMatch(/\.ui-metric-value \{ font-size: 1\.5rem/);
     expect(people).toMatch(/\.ui-metric\[data-zero\] \.ui-metric-value \{ color: rgb\(var\(--fg-subtle\)\); \}/);
     expect(people).toMatch(/\.ui-metric\[data-attention\] \.ui-metric-value \{ color: rgb\(var\(--warn\)\); \}/);
   });

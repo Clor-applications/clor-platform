@@ -9,7 +9,6 @@ import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { BookOpen, Briefcase, Clock, Gift, Megaphone, Trophy, Users } from 'lucide-react';
 import Toggle from '../components/Toggle';
-import '../people-settings.css';
 
 /**
  * People → Settings → Modules & apps (founder, 22 Oct 2026; laid out as PEOPLE-44, R&D hand-off 14 Nov 2026). A company

@@ -65,7 +65,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
     { key: 'person', label: 'Person', always: true, render: (r) => (
       <span className="min-w-0">
         <span className="block truncate">{r.employeeName || '—'}</span>
-        {r.employeeCode ? <span className="block truncate ui-caption">{r.employeeCode}</span> : null}
+        {r.employeeCode ? <span className="block truncate ui-caption ui-mono">{r.employeeCode}</span> : null}
       </span>
     ) },
     { key: 'form', label: 'Request', render: (r) => r.formName },

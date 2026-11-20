@@ -28,6 +28,18 @@ import { AgePanel, SpanPanel } from './round45';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const monthWord = (m) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 const lastOf = (y, m) => new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+/* A section the reader's role does not cover stays away; any other failure says so, with a retry. */
+const notAllowed = (e) => e?.status === 403 || e?.status === 404;
+function SectionFailed({ title, req, chart = false }) {
+  if (!req.error || notAllowed(req.error)) return null;
+  if (chart) return <ChartPanel title={title}><ErrorState error={req.error} onRetry={req.reload} compact /></ChartPanel>;
+  return (
+    <section className="mt-8 space-y-3" aria-label={title}>
+      <h2 className="ui-t-sec">{title}</h2>
+      <ErrorState error={req.error} onRetry={req.reload} compact />
+    </section>
+  );
+}
 const pct = (v) => (v === null || v === undefined ? '—' : `${v.toFixed(1)}%`);
 const REASONS = { RESIGNED: 'Resigned', TERMINATED: 'Let go', RETIRED: 'Retired', ABSCONDED: 'Absconded', CONTRACT_ENDED: 'Contract ended', DECEASED: 'Passed away', NOT_SAID: 'Not said' };
 
@@ -51,8 +63,9 @@ function periodsOf(today = todayIst()) {
  * Shown to whoever may read why someone leaves (Lifecycle); others simply do not get it.
  */
 export function LeavingReasons() {
-  const req = useRequest(() => leavingReasons(12).catch(() => null), []);
+  const req = useRequest(() => leavingReasons(12), []);
   const d = req.data;
+  if (req.error) return <SectionFailed title="Why people leave" req={req} />;
   if (!d || !Array.isArray(d.reasons) || !Array.isArray(d.months)) return null;
   /* A month with only someone who stayed still shows: its "Stayed" is the point (QA on #81). */
   const months = d.months.filter((m) => m.leavers || m.answered || m.retained || m.couldKeep);
@@ -118,8 +131,9 @@ export function tenureBands(people, today = todayIst()) {
 }
 
 function TenurePanel() {
-  const req = useRequest(() => listAllEmployees({ sort: 'name' }).catch(() => null), []);
+  const req = useRequest(() => listAllEmployees({ sort: 'name' }), []);
   const r = req.data;
+  if (req.error) return <SectionFailed chart title="How long people have stayed" req={req} />;
   if (!r || !Array.isArray(r.employees)) return null;
   const { rows, noDate } = tenureBands(r.employees);
   const total = Number(r.total || r.employees.length);
@@ -144,7 +158,8 @@ const headcount = (from, to) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/p
 function YearOnYearPanel({ period, months }) {
   const from = shiftYear(period.from);
   const to = shiftYear(period.to);
-  const req = useRequest(() => headcount(from, to).catch(() => null), [from, to]);
+  const req = useRequest(() => headcount(from, to), [from, to]);
+  if (req.error) return <SectionFailed chart title="This year against last year" req={req} />;
   const before = req.data?.months || [];
   const byMonth = new Map(before.map((m) => [m.month, m.headcountAtEnd]));
   if (!before.some((m) => m.headcountAtEnd)) return null;
