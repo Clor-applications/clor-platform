@@ -170,7 +170,7 @@ export default function HeldPunches({ canDecide = true, onChanged, month = null 
   const total = data?.total ?? held.length;
   if (!held.length && !impossible.length) return null;
   return (
-    <section className="ui-card overflow-hidden" aria-labelledby="held-h">
+    <section className="ui-list-surface overflow-hidden" aria-labelledby="held-h">
       {counting ? (
         <CountAllDialog
           reader={counting}

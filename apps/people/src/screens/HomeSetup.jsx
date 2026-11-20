@@ -96,7 +96,7 @@ export default function HomeSetup({ openScreen, onState }) {
             </div>
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === 'hide'} onClick={() => change({ action: 'hide' }, 'hide')}>Hide this list</button>
           </div>
-          <ol className="ui-card overflow-hidden divide-y">
+          <ol className="ui-list-surface overflow-hidden divide-y">
             {setup.steps.map((s, i) => (
               <li key={s.key} className="ui-setup-step" data-done={s.done || undefined}>
                 <span className="ui-setup-mark" aria-hidden="true">{s.done ? <Check size={13} /> : i + 1}</span>

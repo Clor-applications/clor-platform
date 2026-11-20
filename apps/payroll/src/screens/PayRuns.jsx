@@ -885,7 +885,7 @@ const Tile = ({ label, value }) => (
 );
 
 const PeopleStage = ({ data, editable, runId, onChanged }) => (
-  <div className="ui-card overflow-hidden">
+  <div className="ui-list-surface overflow-hidden">
     <div className="ui-table-scroll">
       <table className="ui-table ui-table-sticky w-full">
         <thead>
@@ -1101,7 +1101,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
           </button>
         ) : null}
       </div>
-      <div className="ui-card overflow-hidden">
+      <div className="ui-list-surface overflow-hidden">
         <div className="ui-table-scroll">
           <table className="ui-table ui-table-sticky w-full">
             <thead>
@@ -1236,7 +1236,7 @@ const ChecksStage = ({ issues, byEmployee, data }) => {
     (a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3),
   );
   return (
-    <div className="ui-card overflow-hidden">
+    <div className="ui-list-surface overflow-hidden">
       <ul>
         {sorted.map((i, idx) => (
           <li
@@ -1306,7 +1306,7 @@ const ReviewStage = ({ data, byEmployee }) => {
     <div className="space-y-3">
     {/* Round 32: who is paid differently from last period, and why. */}
     <PayChanges slips={data.slips} byEmployee={byEmployee} />
-    <div className="ui-card overflow-hidden">
+    <div className="ui-list-surface overflow-hidden">
       <div className="ui-table-scroll">
         <table className="ui-table ui-table-sticky w-full">
           <thead>
@@ -1473,7 +1473,7 @@ const BooksStage = ({ runId, run, onPosted }) => {
       ) : null}
 
       {preview.problems.length ? (
-        <ul className="ui-card overflow-hidden">
+        <ul className="ui-list-surface overflow-hidden">
           {preview.problems.map((p, i) => (
             <li
               key={i}
@@ -1494,7 +1494,7 @@ const BooksStage = ({ runId, run, onPosted }) => {
         </ul>
       ) : null}
 
-      <div className="ui-card overflow-hidden">
+      <div className="ui-list-surface overflow-hidden">
         <div className="ui-table-scroll">
           <table className="ui-table ui-table-sticky w-full">
             <thead>

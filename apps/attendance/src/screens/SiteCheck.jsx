@@ -93,7 +93,7 @@ export default function SiteCheck() {
                 This device: {position.latitude.toFixed(5)}, {position.longitude.toFixed(5)} · accurate to about {metres(position.accuracy)}{locating ? ', improving…' : ''}
               </p>
             ) : null}
-            <div className="ui-card overflow-hidden">
+            <div className="ui-list-surface overflow-hidden">
               <div className="ui-table-scroll">
                 <table className="ui-table ui-table-sticky ui-table-phone w-full">
                   <thead>

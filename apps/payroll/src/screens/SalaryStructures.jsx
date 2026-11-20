@@ -469,7 +469,7 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] gap-6 items-start">
         {/* ---- the components ------------------------------------------- */}
-        <div className="ui-card overflow-hidden">
+        <div className="ui-list-surface overflow-hidden">
           <div className="ui-sec-head px-4 py-3">Components</div>
 
           {lines.length === 0 ? (

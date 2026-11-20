@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FormPart } from '@ui/components/ui/FormPart';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlertTriangle, ArrowLeft, Plus, TrendingUp } from '@ui/components/ui/lineIcons';
 
@@ -316,66 +317,68 @@ const RevisionForm = ({ people, structures, onCancel, onCreated, initialEmployee
   };
 
   return (
-    <form className="ui-card p-4 space-y-3" onSubmit={save}>
-      <div className="ui-sec-head">New revision</div>
+    <form className="space-y-4" onSubmit={save}>
+      <FormPart title="New revision" id="new-revision">
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="ui-label" htmlFor="rev-employee">Employee</label>
+              <select id="rev-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.code ? ` · ${p.code}` : ''}
+                  </option>
+                ))}
+              </select>
+              {current ? <span className="ui-caption">On {money(current.annualCtc)} a year now.</span> : null}
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="rev-structure">Moves to</label>
+              <select
+                id="rev-structure"
+                className="ui-select w-full"
+                value={form.proposedStructureId}
+                onChange={(e) => set({ proposedStructureId: e.target.value })}
+                required
+              >
+                {structures.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="rev-ctc">New cost to company (a year)</label>
+              <input
+                id="rev-ctc"
+                type="number"
+                min="0"
+                step="1"
+                className="ui-input ui-num w-full"
+                value={form.proposedAnnualCtc}
+                onChange={(e) => set({ proposedAnnualCtc: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="rev-from">In effect from</label>
+              <input id="rev-from" type="date" className="ui-input w-full" value={form.effectiveFrom} onChange={(e) => set({ effectiveFrom: e.target.value })} required />
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div>
-          <label className="ui-label" htmlFor="rev-employee">Employee</label>
-          <select id="rev-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
-            {people.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}{p.code ? ` · ${p.code}` : ''}
-              </option>
-            ))}
-          </select>
-          {current ? <span className="ui-caption">On {money(current.annualCtc)} a year now.</span> : null}
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="rev-structure">Moves to</label>
-          <select
-            id="rev-structure"
-            className="ui-select w-full"
-            value={form.proposedStructureId}
-            onChange={(e) => set({ proposedStructureId: e.target.value })}
-            required
-          >
-            {structures.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="rev-ctc">New cost to company (a year)</label>
-          <input
-            id="rev-ctc"
-            type="number"
-            min="0"
-            step="1"
-            className="ui-input ui-num w-full"
-            value={form.proposedAnnualCtc}
-            onChange={(e) => set({ proposedAnnualCtc: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="rev-from">In effect from</label>
-          <input id="rev-from" type="date" className="ui-input w-full" value={form.effectiveFrom} onChange={(e) => set({ effectiveFrom: e.target.value })} required />
-        </div>
-      </div>
+          <div>
+            <label className="ui-label" htmlFor="rev-reason">Reason</label>
+            <input
+              id="rev-reason"
+              className="ui-input w-full"
+              value={form.reason}
+              onChange={(e) => set({ reason: e.target.value })}
+              placeholder="Annual increment, promotion, market correction…"
+            />
+          </div>
 
-      <div>
-        <label className="ui-label" htmlFor="rev-reason">Reason</label>
-        <input
-          id="rev-reason"
-          className="ui-input w-full"
-          value={form.reason}
-          onChange={(e) => set({ reason: e.target.value })}
-          placeholder="Annual increment, promotion, market correction…"
-        />
-      </div>
-
-      {impact ? <Impact impact={impact} compact /> : null}
+          {impact ? <Impact impact={impact} compact /> : null}
+        </div>
+      </FormPart>
 
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
@@ -420,7 +423,7 @@ const Impact = ({ impact, compact = false }) => (
     ) : null}
 
     {!compact && impact.lines?.length ? (
-      <div className="ui-card overflow-hidden">
+      <div className="ui-list-surface overflow-hidden">
         <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
           What changes, line by line
         </div>

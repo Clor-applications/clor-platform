@@ -169,7 +169,7 @@ export default function FinalSettlements() {
       tabsLabel="Settlement status"
       above={
         waiting.length ? (
-          <section className="ui-card overflow-hidden" aria-labelledby="ff-waiting-h">
+          <section className="ui-list-surface overflow-hidden" aria-labelledby="ff-waiting-h">
             <h2 id="ff-waiting-h" className="ui-sec-head px-4 pt-3">Leaving, not settled yet</h2>
             <div className="ui-table-scroll">
               <table className="ui-table ui-table-sticky w-full">

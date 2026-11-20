@@ -88,7 +88,7 @@ export default function IdMapping({ openScreen, menuLabel }) {
         error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
-          <section className="ui-card overflow-hidden" aria-labelledby="unk-h">
+          <section className="ui-list-surface overflow-hidden" aria-labelledby="unk-h">
             <h2 id="unk-h" className="ui-t-sec px-4 pt-4 pb-2">Unknown reader IDs with punches</h2>
             {data.unmatched.length ? (
               <div className="ui-table-scroll">
@@ -121,7 +121,7 @@ export default function IdMapping({ openScreen, menuLabel }) {
             )}
           </section>
 
-          <section className="ui-card overflow-hidden" aria-labelledby="stale-h">
+          <section className="ui-list-surface overflow-hidden" aria-labelledby="stale-h">
             <h2 id="stale-h" className="ui-t-sec px-4 pt-4 pb-2">People who have left but are still on a reader</h2>
             {staleByReader.size ? (
               <ul className="divide-y">
@@ -138,7 +138,7 @@ export default function IdMapping({ openScreen, menuLabel }) {
             )}
           </section>
 
-          <section className="ui-card overflow-hidden" aria-labelledby="site-h">
+          <section className="ui-list-surface overflow-hidden" aria-labelledby="site-h">
             <h2 id="site-h" className="ui-t-sec px-4 pt-4 pb-2">IDs that differ by site</h2>
             {sites.length ? (
               <div className="ui-table-scroll">

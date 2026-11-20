@@ -69,7 +69,7 @@ export default function AttendanceSetup({ openScreen }) {
         actions={next && openScreen ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => openScreen(next.screen)}>{next.title} <ArrowRight size={16} aria-hidden="true" /></button> : null}
       />
       <div className="pb-8 space-y-6 max-w-3xl">
-      <ol className="ui-card overflow-hidden divide-y">
+      <ol className="ui-list-surface overflow-hidden divide-y">
         {steps.map((s, i) => (
           <li key={s.key} className="ui-setup-step" data-done={s.done || undefined}>
             <span className="ui-setup-mark" aria-hidden="true">{s.done ? <Check size={13} /> : !s.can ? <Minus size={13} /> : i + 1}</span>

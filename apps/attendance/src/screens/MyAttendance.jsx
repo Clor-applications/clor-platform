@@ -104,7 +104,7 @@ export default function MyAttendance() {
         </dl>
       </section>
 
-      <section className="ui-card overflow-hidden" aria-labelledby="mine-h">
+      <section className="ui-list-surface overflow-hidden" aria-labelledby="mine-h">
         <header className="ui-card-head"><h2 id="mine-h" className="ui-t-sec">Last 30 days</h2></header>
         <div className="ui-table-scroll">
           <table className="ui-table ui-table-sticky ui-table-phone w-full">

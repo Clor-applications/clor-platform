@@ -102,7 +102,7 @@ export function LopCheckPanel({ runId, run, refreshKey, onLocked }) {
               Unpaid days (LOP) do not agree for {mismatches.length} {mismatches.length === 1 ? "person" : "people"}. Correct the leave, the days or this payroll, or lock with a reason.
             </p>
           </div>
-          <div className="ui-card overflow-hidden">
+          <div className="ui-list-surface overflow-hidden">
             <div className="ui-table-scroll">
               <table className="ui-table w-full">
                 <thead>

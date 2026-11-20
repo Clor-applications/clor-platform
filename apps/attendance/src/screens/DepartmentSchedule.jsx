@@ -78,7 +78,7 @@ export default function DepartmentSchedule() {
         { label: 'With an end date', value: figures.ending, count: true, tone: 'outstanding', Icon: CalendarClock },
       ])}
       above={
-        <form onSubmit={add} className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Give a department its shift">
+        <form onSubmit={add} className="flex flex-wrap items-end gap-3" aria-label="Give a department its shift">
           <label className="block">
             <span className="ui-label">Department *</span>
             <select className="ui-select" required value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>

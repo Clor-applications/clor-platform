@@ -179,7 +179,7 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
       />
       <div className="px-5 lg:px-7 pb-8 space-y-4 max-w-3xl">
 
-      <ol className="ui-card overflow-hidden divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+      <ol className="ui-list-surface overflow-hidden divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
         {setup.steps.map((step, i) => (
           <li key={step.key} className="flex items-start gap-3 px-4 py-3">
             <span

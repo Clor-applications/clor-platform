@@ -99,7 +99,7 @@ export default function MinimumWagesSection() {
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <section id="scheme-section-MINWAGE" className="ui-card overflow-hidden" aria-labelledby="minimum-wages-title">
+    <section id="scheme-section-MINWAGE" className="ui-list-surface overflow-hidden" aria-labelledby="minimum-wages-title">
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
         <div className="min-w-0">
           <h3 id="minimum-wages-title" className="ui-t-sec">Minimum wages</h3>
