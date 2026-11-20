@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlarmClock, Check, CheckCheck, Clock, Eraser, ShieldCheck, X } from '@ui/components/ui/lineIcons';
 
@@ -186,7 +187,7 @@ export default function DataRequests() {
                       </td>
                       <td className="ui-col-date whitespace-nowrap">{r.status === 'PENDING' ? dateOf(due) : '—'}</td>
                       <td className="ui-col-h-center">
-                        <span className={`ui-pill ${r.status === 'RESOLVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : late || soon ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status === 'PENDING' ? (late ? 'Overdue' : soon ? 'Due soon' : 'Waiting') : r.status === 'RESOLVED' ? 'Done' : 'Declined'}</span>
+                        <ExceptionTag label={r.status === 'PENDING' ? (late ? 'Overdue' : soon ? 'Due soon' : 'Waiting') : r.status === 'RESOLVED' ? '' : 'Declined'} normal="Done" tone={r.status === 'REJECTED' || late || soon ? 'neg' : 'warn'} />
                       </td>
                       <td className="ui-col-meta min-w-[18rem]">
                         {r.status === 'PENDING' ? (

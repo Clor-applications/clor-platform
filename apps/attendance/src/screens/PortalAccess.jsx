@@ -280,7 +280,7 @@ export default function PortalAccess() {
                         <td className="ui-col-entity">{p.name}<span className="ui-caption block">{p.department || ''}</span></td>
                         <td className="ui-mono">{p.code || <span className="ui-caption">none</span>}</td>
                         <td><ExceptionTag label={st === STATE.active ? '' : st.label} normal={st.label} pill={st.pill} /></td>
-                        <td className="ui-col-h-center">{p.mobilePunch ? <span className="ui-pill ui-pill-pos">On</span> : <span className="ui-caption">Off</span>}</td>
+                        <td className="ui-col-h-center">{p.mobilePunch ? 'On' : <span className="ui-caption">Off</span>}</td>
                         <td>{siteOf(p)}</td>
                         <td className="ui-col-meta hidden 2xl:table-cell">{p.email || <span className="ui-caption">—</span>}</td>
                         <td className="ui-col-date hidden 2xl:table-cell">{p.portalPasswordSetAt ? new Date(p.portalPasswordSetAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : <span className="ui-caption">—</span>}</td>

@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import ShownOnce from '@ui/components/ui/ShownOnce';
 import React, { useCallback, useEffect, useState } from 'react';
 import { KeyRound, Plug, Plus, Server, Webhook } from '@ui/components/ui/lineIcons';
@@ -277,7 +278,7 @@ function Deliveries({ hook }) {
             <tr key={d.id}>
               <td className="ui-col-meta whitespace-nowrap">{ago(d.createdAt)}</td>
               <td className="ui-mono">{d.event}</td>
-              <td className="ui-col-h-center"><span className={`ui-pill ${DELIVERY_PILL[d.status] || 'ui-pill-neutral'}`}>{d.status.toLowerCase()}</span></td>
+              <td className="ui-col-h-center"><ExceptionTag label={d.status === 'OK' ? '' : d.status.toLowerCase()} normal="ok" pill={DELIVERY_PILL[d.status] || 'ui-pill-neutral'} /></td>
               <td className="tabular-nums">{d.attempts}{d.nextAttemptAt && d.status === 'PENDING' ? <span className="ui-caption block">next {ago(d.nextAttemptAt)}</span> : null}</td>
               <td className="ui-col-meta" style={d.lastError ? { color: 'rgb(var(--neg))' } : undefined}>{d.lastError || (d.lastStatus ? `answered ${d.lastStatus}` : '—')}</td>
               <td className="text-end whitespace-nowrap">
@@ -409,7 +410,7 @@ function Connectors({ onShown }) {
               {jobs.rows.map((j) => (
                 <li key={j.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
                   <span>{j.label} <span className="ui-caption">· {ago(j.createdAt)}{j.result ? ` · ${j.result}` : ''}</span></span>
-                  <span className={`ui-pill ${j.status === 'DONE' ? 'ui-pill-pos' : j.status === 'FAILED' ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{j.status.toLowerCase()}</span>
+                  <ExceptionTag label={j.status === 'DONE' ? '' : j.status.toLowerCase()} normal="done" tone={j.status === 'FAILED' ? 'neg' : 'warn'} />
                 </li>
               ))}
             </ul>
