@@ -418,6 +418,8 @@ export default function PeopleOverview({ openScreen }) {
           <span className="people-kpi-row"><span className="people-kpi-value" data-zero={Number(data.headcount) === 0 || undefined}>{data.headcount}</span></span>
           <span className="people-kpi-note">{joined ? <><span className="people-delta">+{joined}</span> joined in {monthName()}</> : `None joined in ${monthName()}`}</span>
         </button>
+        {/* An overview figure never shows at zero (DESIGN.md "Overview pages"); the count line under the title says it. */}
+        {leave && outToday.length === 0 ? null : (
         <button type="button" className="people-kpi" data-tint="peach" onClick={go('leaveCalendar')}>
           <span className="people-kpi-icon"><Plane size={20} aria-hidden="true" /></span>
           <span className="people-kpi-label">Out today</span>
@@ -431,15 +433,18 @@ export default function PeopleOverview({ openScreen }) {
           </span>
           <span className="people-kpi-note">{leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : failed.leave ? 'Could not load leave' : 'Loading leave'}</span>
         </button>
+        )}
         {/* No approvals among Home's figures (owner, 8 Nov 2026): the Inbox owns them. Probation is a decision that is Home's. */}
+        {todos && probationDue === 0 && !probationOver ? null : (
         <button type="button" className="people-kpi" data-tint="mint" data-attention={probationDue > 0 || undefined} onClick={go('employees', { prob: 'on' })}>
           <span className="people-kpi-icon"><Hourglass size={20} aria-hidden="true" /></span>
           <span className="people-kpi-label">Probation due</span>
           <span className="people-kpi-row"><span className="people-kpi-value" data-zero={(todos && probationDue === 0) || undefined}>{todos ? probationDue : '–'}</span></span>
           <span className="people-kpi-note">{failed.todos ? 'Could not load' : !todos ? 'Checking' : probationOver ? `${plural(probationOver, 'person', 'people')} past their date` : nextProbation ? `Next ends ${shortDate(nextProbation.endsOn)}` : 'None in the next 30 days'}</span>
         </button>
+        )}
         {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
-        {data.leavingsHidden ? null : (
+        {data.leavingsHidden || (Number(onNotice) === 0 && !data.leftThisMonth) ? null : (
           <button type="button" className="people-kpi" data-tint="butter" onClick={go('employees')}>
             <span className="people-kpi-icon"><LogOut size={20} aria-hidden="true" /></span>
             <span className="people-kpi-label">On notice</span>

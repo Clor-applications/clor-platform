@@ -496,7 +496,9 @@
 .ws .ws-br-table .ws-br-type { width: 13%; }
 .ws .ws-br-table .ws-br-state { width: 16%; }
 .ws .ws-br-table .ws-br-gstin { width: 22%; }
-.ws .ws-br-table .ws-br-status { width: 15%; }
+/* Wide enough for the longest tag, "Needs GSTIN", at any width (it was cut at 15%). */
+.ws .ws-br-table .ws-br-status { width: 9rem; }
+.ws .ws-br-table .ws-state { white-space: nowrap; }
 .ws .ws-br-table .ws-br-act { width: 3.5rem; }
 .ws .ws-br-table tbody td { vertical-align: middle; }
 .ws .ws-br-table td.ws-td-menu { overflow: visible; text-align: right; }

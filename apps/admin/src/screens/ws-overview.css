@@ -170,89 +170,11 @@
   gap: 10px;
   margin-top: 20px;
 }
-.wsh-btn-glass {
-  background: rgb(255 255 255 / 0.7);
-  border: 1px solid rgb(var(--border-field));
-  color: rgb(var(--fg));
-}
-.wsh-btn-glass:hover {
-  background: rgb(255 255 255);
-}
 
 /* The stage: decoration only, aria-hidden in the markup. */
 /* The picture: off until the page is wide enough for words, picture and card side by side. */
-.wsh-stage {
-  display: none;
-  position: relative;
-  height: 210px;
-  min-width: 0;
-}
-.wsh-hub-art {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 260px;
-  height: 210px;
-  transform: translate(-50%, -50%);
-}
-.wsh-hub-art > svg {
-  position: absolute;
-  inset: 0;
-}
 /* The connections. A live one is dashes running toward the hub; a still one is fainter and does not move. */
-.wsh-hub-link {
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 2 7;
-}
-.wsh-hub-link[data-on] {
-  stroke-dasharray: 7 6;
-  animation: wsh-flow 1.3s linear infinite;
-}
-@keyframes wsh-flow {
-  to { stroke-dashoffset: -13; }
-}
 /* A slow ring out from the hub: the workspace is live. */
-.wsh-hub-pulse {
-  fill: none;
-  stroke: rgb(var(--marker) / 0.5);
-  stroke-width: 1.5;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: wsh-pulse 3.2s ease-out infinite;
-}
-@keyframes wsh-pulse {
-  0% { transform: scale(0.85); opacity: 0.7; }
-  100% { transform: scale(1.7); opacity: 0; }
-}
-.wsh-hub,
-.wsh-hub-app {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  transform: translate(-50%, -50%);
-}
-.wsh-hub {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  background: rgb(255 255 255);
-  border: 1px solid rgb(var(--border));
-  box-shadow: 0 0 0 7px rgb(var(--marker) / 0.08), 0 18px 32px -16px rgb(16 18 22 / 0.3);
-}
-.wsh-hub-app {
-  padding: 4px;
-  border-radius: 12px;
-  background: rgb(255 255 255);
-  border: 1px solid rgb(var(--border));
-  box-shadow: 0 10px 22px -12px rgb(16 18 22 / 0.3);
-  animation: wsh-drift 5.5s ease-in-out infinite;
-}
-@keyframes wsh-drift {
-  0%, 100% { transform: translate(-50%, -50%); }
-  50% { transform: translate(-50%, calc(-50% - 4px)); }
-}
 /* Words and Today side by side from tablet width; the picture joins where there is room for it.
    With no Today card the picture has the right side to itself. */
 @container wsh (min-width: 760px) {
@@ -262,27 +184,12 @@
   .wsh-hero:not([data-today]) {
     grid-template-columns: minmax(0, max-content) minmax(280px, 1fr);
   }
-  .wsh-hero:not([data-today]) .wsh-stage {
-    display: block;
-  }
 }
 @container wsh (min-width: 1040px) {
   .wsh-hero[data-today] {
     /* The words take what they need; the picture takes the rest and sits in its middle, so no gap opens
        between the greeting and the picture on a wide page (owner, 19 Nov 2026). */
     grid-template-columns: minmax(0, max-content) minmax(260px, 1fr) minmax(280px, 360px);
-  }
-  .wsh-stage {
-    display: block;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wsh-hub-app,
-  .wsh-hub-link[data-on] {
-    animation: none;
-  }
-  .wsh-hub-pulse {
-    display: none;
   }
 }
 
@@ -1032,30 +939,6 @@ button.wsh-attn-row:hover {
   font-size: 0.8125rem;
   color: rgb(var(--fg-subtle));
 }
-.wsh-co-figs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 16px 0 0;
-  padding: 12px 0;
-  border-top: 1px solid rgb(var(--border));
-  border-bottom: 1px solid rgb(var(--border));
-}
-.wsh-co-figs > div + div {
-  padding-left: 14px;
-  border-left: 1px solid rgb(var(--border));
-}
-.wsh-co-figs dt {
-  font-size: 0.75rem;
-  color: rgb(var(--fg-subtle));
-}
-.wsh-co-figs dd {
-  margin: 2px 0 0;
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: rgb(var(--fg));
-}
 .wsh-setup {
   margin-top: 16px;
 }
@@ -1317,7 +1200,6 @@ button.wsh-attn-row:active {
   border-bottom: 1px solid rgb(var(--border));
   grid-template-columns: minmax(0, 1fr);
 }
-.wsh.wsh .wsh-stage { display: none; }
 .wsh.wsh .wsh-hello { font-family: inherit; font-size: 1.5rem; line-height: 2rem; font-weight: 700; letter-spacing: 0; }
 .wsh.wsh .wsh-lede { margin-top: 4px; font-size: 0.8125rem; line-height: 1.125rem; font-weight: 400; color: rgb(var(--fg-muted)); }
 .wsh.wsh .wsh-facts { font-size: 0.8125rem; line-height: 1.125rem; font-weight: 400; color: rgb(var(--fg-muted)); }
