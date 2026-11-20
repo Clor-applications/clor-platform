@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import RangePresets from '@ui/components/ui/RangePresets';
 import { Download } from '@ui/components/ui/lineIcons';
@@ -17,7 +18,7 @@ import { formsReport, formsReportCsvPath, listForms } from '../api/requests';
  * set up, in a period — who asked, what they wrote, where it stands, how many
  * working days it took — and a line per type. Export for a spreadsheet.
  */
-const STATUS = { WAITING: 'Waiting', MORE_INFO: 'Asked for more', APPROVED: 'Approved', REJECTED: 'Not approved', WITHDRAWN: 'Withdrawn' };
+const STATUS = { WAITING: 'Waiting', MORE_INFO: 'Asked for more', APPROVED: 'Approved', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn' };
 const TONE = { WAITING: 'warn', MORE_INFO: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'neutral' };
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
 const firstOfYear = () => `${new Date().getFullYear()}-01-01`;
@@ -44,7 +45,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      notify.error(String(e?.message || 'Not exported.'));
+      notify.error(errorWords(e, 'export the rows'));
     } finally {
       setExporting(false);
     }
@@ -56,7 +57,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
     { key: 'waiting', label: 'Waiting', align: 'right', render: (s) => <span className="tabular-nums">{s.waiting}</span> },
     { key: 'overdue', label: 'Overdue', align: 'right', render: (s) => <span className={`tabular-nums ${s.overdue ? 'ui-text-warn' : ''}`}>{s.overdue}</span> },
     { key: 'approved', label: 'Approved', align: 'right', render: (s) => <span className="tabular-nums">{s.approved}</span> },
-    { key: 'rejected', label: 'Not approved', align: 'right', render: (s) => <span className="tabular-nums">{s.rejected}</span> },
+    { key: 'rejected', label: 'Rejected', align: 'right', render: (s) => <span className="tabular-nums">{s.rejected}</span> },
     { key: 'avg', label: 'Days to decide', align: 'right', render: (s) => <span className="tabular-nums">{s.averageDaysToDecide ?? '—'}</span> },
   ];
   const rowColumns = [
@@ -71,7 +72,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
     { key: 'asked', label: 'Asked', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.askedAt)}</span> },
     { key: 'status', label: 'Status', render: (r) => (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-        <span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || r.status}</span>
+        <span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || enumWords(r.status)}</span>
         {r.overdue ? <span className="ui-pill ui-pill-neg">Overdue</span> : null}
       </span>
     ) },
@@ -83,7 +84,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Reports' }]}
+        breadcrumb={[{ label: 'People' }, { label: 'Insights' }]}
         title="Requests report"
         actions={<button type="button" className="ui-btn ui-btn-primary" disabled={exporting || !rows.length} onClick={exportCsv}><Download size={16} aria-hidden="true" /> {exporting ? 'Exporting…' : 'Export'}</button>}
       />
@@ -131,7 +132,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
             refreshing={report.refreshing}
             card={(r) => (
               <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employeeName}</span><span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || r.status}</span></span>
+                <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employeeName}</span><span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || enumWords(r.status)}</span></span>
                 <span className="block truncate ui-caption">{r.formName} · {day(r.askedAt)}</span>
                 <span className="block truncate ui-caption">{r.lines.map((l) => l.value).join(' · ')}</span>
               </span>

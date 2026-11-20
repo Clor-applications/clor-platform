@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
-import { APP_NAMES, Empty, Err, Loading, ReasonDrawer, Tabs, may } from './kit';
+import { APP_NAMES, Empty, Err, Loading, ReasonDrawer, Tabs, may, errorWords } from './kit';
 import { inr, rupeesText, toPaise } from './money';
 import { opsAccounts, opsCustomPlanArchive, opsCustomPlanSave, opsCustomPlans } from './api';
 
@@ -128,7 +128,7 @@ export function PlanEditor({ editing, apps, onClose, onSaved, forAccount = null 
       });
       onSaved(r.plan, isNew);
     } catch (err) {
-      setError(String(err?.message || err));
+      setError(errorWords(err, 'save the plan'));
     } finally {
       setBusy(false);
     }
@@ -154,7 +154,7 @@ export function PlanEditor({ editing, apps, onClose, onSaved, forAccount = null 
             Cancel
           </button>
           <button type="submit" form="ops-plan" className="ws-btn ws-btn--primary" disabled={busy || !ready}>
-            {busy ? 'Saving…' : isNew ? 'Make plan' : 'Save'}
+            {busy ? 'Saving…' : isNew ? 'Make plan' : 'Save plan'}
           </button>
         </>
       }
@@ -219,7 +219,7 @@ export function CustomPlans({ role, openCustomer = () => {} }) {
   const load = useCallback(() => {
     opsCustomPlans()
       .then(setD)
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the custom plans')));
   }, []);
   useEffect(load, [load]);
   const rows = d ? d.plans.filter((p) => (tab === 'open' ? !p.archivedAt : p.archivedAt)) : [];
@@ -228,10 +228,10 @@ export function CustomPlans({ role, openCustomer = () => {} }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Billing and setup', 'Custom plans']}
+          crumbs={['Billing and setup']}
           title="Custom plans"
           description="Plans made for a deal: their own apps and prices, never shown on clor.in. For one customer, or for staff to use with any."
-          meta={d ? `${open} in use or ready` : null}
+          meta={d ? (open ? `${open} in use or ready` : 'None ready') : null}
           actions={
             mayChange ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setEditing({})}>

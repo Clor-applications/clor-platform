@@ -19,6 +19,7 @@ import * as absence from '../services/people/absconding.js';
 import * as night from '../services/people/nightConsent.js';
 import { z } from 'zod';
 import { anyBody, check, flag, id, idParams, list, q, rawText, text, ym, ymd } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * People's attendance rules (WORKFLOW-GAP-RESEARCH-2026-10-30 4.4, 4.5, 4.6, B19), HR's and the
@@ -56,7 +57,7 @@ const handle = (fn: (req: Request, res: Response) => Promise<unknown>) => async 
       return res.status(e.status || 400).json({ error: e.message, ...(e.code ? { code: e.code } : {}), ...(e.month ? { month: e.month } : {}) });
     }
     console.error('[attendance rules]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong. Try again in a moment.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 };
 

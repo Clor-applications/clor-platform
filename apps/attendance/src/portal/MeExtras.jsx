@@ -10,6 +10,7 @@ import { addDaysIso as addDays } from '@ui/utils/dates';
 import { SPLIT_NOTE, SPLIT_TITLE, countWords, splitLines } from '@ui/picks/payLines';
 import { useBackClose } from '@ui/picks/round58';
 import { PayslipAsk, PayslipBundle } from './round58';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * The Me tab's pay and leaving pieces (EMPLOYEE-VIEW gaps 1, 3, 7, 8):
@@ -22,7 +23,7 @@ const longDate = (d) => {
   const [y, m, dd] = String(d || '').slice(0, 10).split('-');
   return y && m && dd ? `${Number(dd)} ${MONTHS[Number(m) - 1]} ${y}` : '';
 };
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // ---------------------------------------------------------------------------
@@ -44,14 +45,14 @@ export function Payslips({ guard, onAsk = null }) {
   const load = useCallback(() => {
     guard(getPayslips())
       .then((d) => { setData(d); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not load your payslips.')));
+      .catch((e) => setFailed(errText(e, 'load your payslips')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
   const loadSlip = useCallback(() => {
     if (!open) return;
     guard(getPayslip(open))
       .then((d) => { setSlip(d.slip); setSlipFailed(''); })
-      .catch((e) => setSlipFailed(errText(e, 'Could not open this payslip.')));
+      .catch((e) => setSlipFailed(errText(e, 'open this payslip')));
   }, [open, guard]);
   useEffect(() => { loadSlip(); }, [loadSlip]);
   /* Round 58 "androidback" A: the phone's Back returns from one payslip to the list. */
@@ -68,7 +69,7 @@ export function Payslips({ guard, onAsk = null }) {
           <ChevronLeft size={16} aria-hidden="true" /> All payslips
         </button>
         <LoadFailed message={slipFailed} onRetry={loadSlip} />
-        {!slip && !slipFailed ? <p className="ui-caption">Loading…</p> : null}
+        {!slip && !slipFailed ? <p className="ui-caption">Loading the payslip…</p> : null}
         {slip ? <PayslipView slip={slip} onAsk={onAsk} /> : null}
       </section>
     );
@@ -368,7 +369,7 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
   const load = useCallback(() => {
     Promise.all([guard(getLeaving()), guard(getMyDetails()).catch(() => null)])
       .then(([leaving, details]) => { setState({ leaving, noticeDays: details?.terms?.noticeDays ?? null }); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not load whether you are leaving.')));
+      .catch((e) => setFailed(errText(e, 'load whether you are leaving')));
   }, [guard]);
   useEffect(() => { load(); }, [load, refreshKey]);
 
@@ -395,7 +396,7 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
       load();
       onSent?.();
     } catch (err) {
-      const text = errText(err, 'Not sent.');
+      const text = errText(err, 'send it');
       if (text) setNote({ ok: false, text });
     } finally {
       setBusy(false);
@@ -415,7 +416,7 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
       setNote({ ok: true, text: 'Sent to your manager.' });
       load();
     } catch (err) {
-      const text = errText(err, 'Not sent.');
+      const text = errText(err, 'send it');
       if (text) setNote({ ok: false, text });
     } finally {
       setBusy(false);
@@ -483,7 +484,7 @@ export function MySteps({ guard, refreshKey }) {
   const [busy, setBusy] = useState('');
   const [said, setSaid] = useState(null);
   const load = useCallback(() => {
-    guard(getJourney()).then((d) => { setData(d); setFailed(''); }).catch((e) => setFailed(errText(e, 'Could not load your steps.')));
+    guard(getJourney()).then((d) => { setData(d); setFailed(''); }).catch((e) => setFailed(errText(e, 'load your steps')));
   }, [guard]);
   useEffect(() => { load(); }, [load, refreshKey]);
   if (failed) return <LoadFailed message={failed} onRetry={load} />;
@@ -501,7 +502,7 @@ export function MySteps({ guard, refreshKey }) {
       setSaid({ ok: true, text: `${t.title}: done.` });
       load();
     } catch (e) {
-      const text = errText(e, 'Not saved.');
+      const text = errText(e, 'save the changes');
       if (text) setSaid({ ok: false, text });
     } finally {
       setBusy('');
@@ -563,7 +564,7 @@ export function PrivateComplaint({ guard }) {
       setForm({ kind: 'POSH', incidentOn: '', summary: '' });
       setOpen(false);
     } catch (err) {
-      setError(errText(err, 'Not sent.'));
+      setError(errText(err, 'send it'));
     } finally {
       setBusy(false);
     }

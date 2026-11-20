@@ -61,7 +61,7 @@ it('a field punch opened says where it was made', async () => {
   fireEvent.click((await screen.findAllByText('In at 09:12'))[0]);
   const drawer = await screen.findByRole('dialog');
   expect(within(drawer).getByText('Client site, Koramangala')).toBeTruthy();
-  expect(within(drawer).getByRole('button', { name: 'Refuse' })).toBeTruthy();
+  expect(within(drawer).getByRole('button', { name: 'Reject' })).toBeTruthy();
 });
 
 it('a notice about a withdrawn request opens it, closed, with nothing to decide (Company choices, SPEC 3.6)', async () => {
@@ -89,7 +89,7 @@ it('has a My tasks tab with the task count, lists my open tasks, and marks one d
   const row = (await screen.findAllByText('Collect the signed offer'))[0].closest('tr');
   expect(within(row).getByText(/Joining · Dev Kumar/)).toBeTruthy();
   expect(within(row).getByText(/\(late\)/)).toBeTruthy();
-  fireEvent.click(within(row).getByRole('button', { name: /Done/ }));
+  fireEvent.click(within(row).getByRole('button', { name: 'Mark done' }));
   await waitFor(() => expect(updateChecklistTask).toHaveBeenCalledWith('t1', { done: true }));
 });
 

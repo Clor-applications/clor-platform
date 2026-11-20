@@ -118,7 +118,7 @@ describe('Candidates', () => {
     render(withPerms(['PEOPLE::Recruitment::VIEW', 'PEOPLE::Recruitment::EDIT', 'PEOPLE::Documents::CREATE', 'PEOPLE::Employees::CREATE'], <Candidates params={{ id: 'c1' }} />));
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByRole('button', { name: 'Send an offer' })).toHaveClass('ui-btn-primary');
-    expect(within(dialog).getByRole('button', { name: 'Not taken forward' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Reject' })).toBeInTheDocument();
   });
 });
 

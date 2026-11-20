@@ -4,6 +4,7 @@ import { AlertTriangle } from '@ui/components/ui/lineIcons';
 import { notify } from "@ui/components/ui/notify";
 import { getRunLopCheck, lockPayrollRun } from "../api/payrollRuns";
 import { provisionalWarning } from "./runGuardText";
+import { errorWords } from "@ui/utils/errorWords";
 
 /**
  * Two things the run review says before a payroll is locked (closure audit
@@ -49,7 +50,7 @@ export function LopCheckPanel({ runId, run, refreshKey, onLocked }) {
       setFailed("");
       setCheck(await getRunLopCheck(runId));
     } catch (e) {
-      setFailed(String(e?.message || "Could not check loss of pay."));
+      setFailed(errorWords(e, "check loss of pay"));
     }
   }, [runId]);
   useEffect(() => {
@@ -70,7 +71,7 @@ export function LopCheckPanel({ runId, run, refreshKey, onLocked }) {
       notify.success("Payroll locked. The reason is in the audit log.");
       if (onLocked) onLocked();
     } catch (e) {
-      notify.error(String(e?.message || "Could not lock this payroll."));
+      notify.error(errorWords(e, "lock this pay run"));
       load();
     } finally {
       setLocking(false);
@@ -117,7 +118,7 @@ export function LopCheckPanel({ runId, run, refreshKey, onLocked }) {
                   {mismatches.map((m) => (
                     <tr key={m.employeeId}>
                       <td className="ui-col-entity">
-                        {m.name || "Unknown"}
+                        {m.name || "Name missing"}
                         {m.code ? <span className="ui-caption block">{m.code}</span> : null}
                       </td>
                       <td className="ui-col-amount ui-num">{days(m.leaveDays)}</td>
@@ -147,7 +148,7 @@ export function LopCheckPanel({ runId, run, refreshKey, onLocked }) {
               {acknowledged ? (
                 <>
                   <label className="block">
-                    <span className="ui-label">Why</span>
+                    <span className="ui-label">Reason</span>
                     <input
                       type="text"
                       className="ui-input w-full"

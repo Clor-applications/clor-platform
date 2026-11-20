@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -7,7 +8,7 @@ import { appliedBeforeText, copyOf, earlierApplications, lastYearGoals, weightNo
 
 /* Round 53 picks (DESIGN.md, Round 53): the screens' parts; the rules are in round53.js. */
 
-/** dupcandidate A: "Applied before for … in …" on the application, for HR (who see e-mail and phone). */
+/** dupcandidate A: "Applied before for … in …" on the application, for HR (who see email and phone). */
 export function AppliedBefore({ candidate, hr }) {
   const key = hr && candidate ? (candidate.email || candidate.phone || '') : '';
   const req = useRequest(() => (key ? listCandidates({ q: key, stage: 'all', limit: 50 }).catch(() => null) : Promise.resolve(null)), [candidate?.id, key]);
@@ -41,7 +42,7 @@ export function CopyLastYear({ employeeId, onDone }) {
       for (const g of old) { await createGoal(copyOf(g, today)); made += 1; }
       notify.success(`${made} goal${made === 1 ? '' : 's'} copied.`);
       onDone?.();
-    } catch (e) { notify.error(String(e?.message || 'Not copied.')); } finally { setBusy(false); }
+    } catch (e) { notify.error(errorWords(e, 'copy the goals')); } finally { setBusy(false); }
   };
   return <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={run}>Copy last year’s goals</button>;
 }

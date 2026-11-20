@@ -4,6 +4,7 @@ import { Check } from '@ui/components/ui/lineIcons';
 import Illustration from './Illustration';
 import { iconFor } from './entityIdentity';
 import { resolveStatus } from '../../utils/statusRegistry';
+import { enumWords } from '../../utils/errorWords.js';
 
 /**
  * Shared UI primitives for the app shell.
@@ -194,10 +195,10 @@ export const StatusPill = ({ status }) => {
     <span
       data-tone={statusTone || undefined}
       className={statusTone ? 'ui-pill ui-pill-status' : `ui-pill ui-pill-${tone}`}
-      title={known ? undefined : `Unregistered status: ${label}`}
-      style={known ? undefined : { outline: '1px dashed rgb(var(--neg))', outlineOffset: '1px' }}
+      title={known || !import.meta.env?.DEV ? undefined : `Unregistered status: ${label}`}
+      style={known || !import.meta.env?.DEV ? undefined : { outline: '1px dashed rgb(var(--neg))', outlineOffset: '1px' }}
     >
-      {label}
+      {!known && /^[A-Z][A-Z0-9_]+$/.test(label) ? enumWords(label) : label}
     </span>
   );
 };
@@ -240,7 +241,7 @@ export const EmptyState = ({
 
   const headline =
     title ||
-    (isFiltered ? 'Nothing matches these filters' : isDisabled ? 'This is switched off' : 'Nothing here yet');
+    (isFiltered ? 'Nothing matches these filters' : isDisabled ? 'This is switched off' : 'Nothing added yet');
 
   const body =
     description ||

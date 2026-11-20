@@ -13,6 +13,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { docAccess, docOpens, writeGrantFor, type DocLike } from '../services/people/documentAccess.js';
 import { z } from 'zod';
 import { check, id } from '../middleware/validate.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 /**
  * The recycle bin (services/recycleBin.ts). Someone sees, restores and
@@ -25,7 +26,7 @@ recycleBinRouter.use(base, requireAuth, requireTenantContext);
 
 const orgOk = (req: any, res: any) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;

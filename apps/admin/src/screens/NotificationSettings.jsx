@@ -11,6 +11,7 @@ import { readOnlyFor } from '@ui/permissions/WriteGuard';
 import { AppMark, Empty, Loading, PageHead } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('bell');
@@ -42,7 +43,7 @@ export default function NotificationSettings({ tenant }) {
         setEvents(r?.events || []);
         setSaved(r?.events || []);
       })
-      .catch((e) => !off && setError(String(e?.message || 'Could not load the email settings.')));
+      .catch((e) => !off && setError(errorWords(e, 'load the email settings')));
     return () => {
       off = true;
     };
@@ -61,7 +62,7 @@ export default function NotificationSettings({ tenant }) {
       setSaved(events);
       notify.success('Email notifications saved.');
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the email settings'));
     } finally {
       setSaving(false);
     }
@@ -90,7 +91,7 @@ export default function NotificationSettings({ tenant }) {
         <div className="ws-activity-layout">
           <div className="ws-activity-main ws-mail">
             {!events ? (
-              error ? null : <Loading shape="rows" label="Loading…" />
+              error ? null : <Loading shape="rows" label="Loading email notifications…" />
             ) : groups.length === 0 ? (
               <Empty icon={PAGE_ICON} compact>This company has no apps that send emails you can switch off.</Empty>
             ) : (

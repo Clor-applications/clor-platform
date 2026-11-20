@@ -61,7 +61,7 @@ describe('Payments', () => {
     expect(within(dialog).getAllByText(/Saved, ends in/)[0].textContent).toContain('9876');
     expect(within(dialog).getByDisplayValue('https://api.clor.in/api/billing/webhook/razorpay')).toBeTruthy();
     fireEvent.change(within(dialog).getAllByLabelText('Webhook secret')[0], { target: { value: 'whsec_typed_1234' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save keys' }));
     await waitFor(() => expect(api.save).toHaveBeenCalled());
     const [code, body] = api.save.mock.calls[0];
     expect(code).toBe('razorpay');
@@ -125,7 +125,7 @@ describe('Payments', () => {
     expect(screen.queryByRole('button', { name: 'Record a payment' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Razorpay' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: 'Save keys' })).toBeNull();
     expect(within(dialog).queryByRole('button', { name: 'Replace' })).toBeNull();
   });
 });

@@ -2787,7 +2787,7 @@
     border-radius: 0.3rem; font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
   }
   .ui-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.25rem; }
-  .ui-calendar-head { padding: 0.25rem 0.5rem; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: rgb(var(--fg-muted)); }
+  .ui-calendar-head { padding: 0.25rem 0.5rem; font-size: 11px; font-weight: 600; color: rgb(var(--fg-muted)); }
   .ui-calendar-day {
     display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem;
     min-height: 5rem; padding: 0.4rem 0.5rem; border-radius: var(--radius-btn);
@@ -9404,8 +9404,6 @@ button.ui-side-alert { cursor: pointer; }
   margin-bottom: 8px;
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: #ffb08a;
 }
 .ui-auth-fact blockquote {

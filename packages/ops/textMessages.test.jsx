@@ -29,7 +29,7 @@ describe('the Text messages page', () => {
     fireEvent.change(screen.getByLabelText('Auth key'), { target: { value: 'Abcd1234Efgh5678Ijkl9012' } });
     fireEvent.change(screen.getByLabelText('Template ID'), { target: { value: 'tmpl1234abcd' } });
     fireEvent.change(screen.getByLabelText('Sender ID'), { target: { value: 'clorin' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save text settings' }));
     await waitFor(() => expect(api.opsSaveSms).toHaveBeenCalledWith({ enabled: true, authKey: 'Abcd1234Efgh5678Ijkl9012', templateId: 'tmpl1234abcd', senderId: 'CLORIN' }));
     expect(notify.success).toHaveBeenCalledWith('Saved. People can now choose a code by text message.');
   });
@@ -40,14 +40,14 @@ describe('the Text messages page', () => {
     const key = await screen.findByLabelText('Auth key');
     expect(key).toHaveValue('');
     expect(key.getAttribute('placeholder')).toContain('ends in 9012');
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save text settings' }));
     await waitFor(() => expect(api.opsSaveSms).toHaveBeenCalledWith({ enabled: true, authKey: null, templateId: 'tmpl1234abcd', senderId: 'CLORIN' }));
   });
 
   it('lists what the server says is wrong', async () => {
     api.opsSaveSms.mockRejectedValue(Object.assign(new Error('x'), { data: { problems: ['Paste MSG91’s auth key to switch text messages on.', 'Enter the template ID of the approved sign-in code template.'] } }));
     render(<TextMessages role="SUPER_ADMIN" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save text settings' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Paste MSG91’s auth key');
     expect(screen.getByRole('alert')).toHaveTextContent('Enter the template ID');
   });
@@ -70,7 +70,7 @@ describe('the Text messages page', () => {
     api.opsSms.mockResolvedValue({ sms: ON });
     render(<TextMessages role="SUPPORT" />);
     expect(await screen.findByLabelText('Template ID')).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save text settings' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send test text' })).toBeNull();
     expect(screen.getByText('Only an owner of the console can change this.')).toBeInTheDocument();
   });

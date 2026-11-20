@@ -54,6 +54,8 @@ import { reportError } from '../utils/log.js';
 import { safeUrl } from '../utils/safeUrl.js';
 import { z } from 'zod';
 import { anyBody, check, choice, code, flag, id, idParams, noBody, num, q, qInt, rawText, text, ym, ymd } from '../middleware/validate.js';
+import { statusWords } from '../utils/statusWords.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * The employee portal (ClorTime's /portal): staff without a CLOR user sign in
@@ -81,7 +83,7 @@ function sendFailure(req: Request, res: Response, err: any, refusedWords = 'Not 
   // eslint-disable-next-line no-console
   console.error('[portal] failed:', err instanceof Error ? err.stack || err.message : err);
   reportError(err, req, safeUrl);
-  return res.status(500).json({ error: 'Something went wrong. Try again in a moment.', requestId: (req as any).id || null });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id), requestId: (req as any).id || null });
 }
 
 /*
@@ -1087,7 +1089,7 @@ portalRouter.post('/approvals/:type/:id', check({ params: z.object({ type: text(
   const type = String(req.params.type);
   const decision = String(req.body?.decision || '');
   if (!['leave', 'leave-cancel', 'correction', 'request', 'punch', 'overtime'].includes(type)) return res.status(400).json({ error: 'Unknown request type.' });
-  if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'decision must be approve or reject.' });
+  if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'Choose approve or reject.' });
   if (type === 'leave-cancel') {
     /* An ask to cancel approved leave (round 47): approve cancels it, reject keeps it. The manager (or stand-in) decides, or whoever approved it. */
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId } });
@@ -1153,7 +1155,7 @@ portalRouter.post('/approvals/:type/:id', check({ params: z.object({ type: text(
     /* Under the leave rule: whoever its step names, as their CLOR user or as themselves in the app. */
     const by = [e.userId, portalOf(e.id)].find((u) => u && r.stepUserIds.includes(u));
     if (!by) return res.status(403).json({ error: 'This request is not yours to decide.' });
-    if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${String(r.status).toLowerCase()}.` });
+    if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${statusWords(r.status)}.` });
     if (decision === 'reject' && !note) return res.status(400).json({ error: 'Say why. They see this with the decision.' });
     try {
       const out = await decideRuleLeave(e.accountId, e.orgId, r, by, note, decision === 'approve');
@@ -1166,7 +1168,7 @@ portalRouter.post('/approvals/:type/:id', check({ params: z.object({ type: text(
   /* The person's manager, or whoever stands in for them today, decides as the manager. */
   const asManager = await managerStepBy(e.orgId, e.id, r.employeeId, undefined, 'LEAVE');
   if (!asManager) return res.status(403).json({ error: 'This request is not yours to decide.' });
-  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${String(r.status).toLowerCase()}.` });
+  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${statusWords(r.status)}.` });
   try {
     /* E18: a manager with a CLOR sign-in decides as that user; otherwise as the employee app's `portal:<id>`. */
     const userId = e.userId || `portal:${e.id}`;
@@ -1235,7 +1237,7 @@ portalRouter.get('/month-review', check({ query: MONTH_QUERY }), async (req, res
 portalRouter.post('/month-review/:month/confirm', check({ params: MONTH_PARAMS, body: noBody }), async (req, res) => {
   const e = req.portal!.employee;
   const month = String(req.params.month);
-  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'month must be YYYY-MM.' });
+  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Choose a month.' });
   try {
     res.json({ confirmation: await confirmMonth(e, month, null) });
   } catch (err) {
@@ -1247,7 +1249,7 @@ portalRouter.post('/month-review/:month/dispute', check({ params: MONTH_PARAMS, 
   const e = req.portal!.employee;
   const month = String(req.params.month);
   const note = String(req.body?.note || '').trim().slice(0, 1000);
-  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'month must be YYYY-MM.' });
+  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Choose a month.' });
   if (note.length < 5) return res.status(400).json({ error: 'Say what is wrong, so HR can check it.' });
   try {
     res.json({ confirmation: await confirmMonth(e, month, note) });
@@ -1261,13 +1263,13 @@ portalRouter.get('/overtime', check({ query: MONTH_QUERY }), async (req, res) =>
   res.json(await overtimeFor(e, monthParam(req.query.month)));
 });
 
-portalRouter.post('/overtime', check({ body: z.object({ date: ymd('date must be YYYY-MM-DD.').nullish(), kind: choice(['OVERTIME', 'COMP_OFF'], 'kind must be OVERTIME or COMP_OFF.'), reason: text(5000).nullish() }) }), async (req, res) => {
+portalRouter.post('/overtime', check({ body: z.object({ date: ymd('Choose a day.').nullish(), kind: choice(['OVERTIME', 'COMP_OFF'], 'Choose overtime or comp-off.'), reason: text(5000).nullish() }) }), async (req, res) => {
   const e = req.portal!.employee;
   const date = String(req.body?.date || '');
   const kind = String(req.body?.kind || 'OVERTIME');
   const reason = String(req.body?.reason || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD.' });
-  if (!['OVERTIME', 'COMP_OFF'].includes(kind)) return res.status(400).json({ error: 'kind must be OVERTIME or COMP_OFF.' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Choose a day.' });
+  if (!['OVERTIME', 'COMP_OFF'].includes(kind)) return res.status(400).json({ error: 'Choose overtime or comp-off.' });
   if (reason.length < 3) return res.status(400).json({ error: 'Say what the extra work was for.' });
   try {
     const r = await askOvertime(e, date, kind as 'OVERTIME' | 'COMP_OFF', reason);
@@ -1290,7 +1292,7 @@ portalRouter.post('/overtime/:id/cancel', check({ params: idParams, body: noBody
   const e = req.portal!.employee;
   const r = await peoplePrisma.overtimeRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
-  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${statusWords(r.status)}.` });
   /* Withdrawn while it waited on the approval engine: its request closes with it (workflow engine 2d). */
   const cancelled = await peopleWrite(e.orgId, async () => {
     const claimed = await peoplePrisma.overtimeRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: 'CANCELLED', reviewedAt: new Date() } });

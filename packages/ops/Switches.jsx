@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsSetSwitch, opsSwitches } from './api';
-import { Err, Loading, when } from './kit';
+import { Err, Loading, when, errorWords } from './kit';
 
 /**
  * Forms on clor.in (server: routes/opsInsights.ts, services/platformSwitches.ts):
@@ -20,7 +20,7 @@ function SwitchCard({ s, canChange, onSaved }) {
       notify.success(open ? 'Open again.' : 'Paused. Visitors read your message.');
       onSaved(r.switches);
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
+      notify.error(errorWords(e, 'change the form'));
     } finally {
       setBusy(false);
     }
@@ -61,7 +61,7 @@ export function Switches({ me }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
   const load = useCallback(() => {
-    opsSwitches().then((r) => setRows(r.switches)).catch((e) => setError(String(e?.message || e)));
+    opsSwitches().then((r) => setRows(r.switches)).catch((e) => setError(errorWords(e, 'load the forms')));
   }, []);
   useEffect(load, [load]);
   const canChange = me?.role === 'SUPER_ADMIN';
@@ -69,7 +69,7 @@ export function Switches({ me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Billing and setup', 'Forms on clor.in']}
+          crumbs={['Billing and setup']}
           title="Forms on clor.in"
           description={canChange ? 'Pause a form on the website for a while, for example during a big release or when the team is away.' : 'Only the owner pauses or opens these.'}
         />

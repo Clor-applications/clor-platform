@@ -10,6 +10,7 @@ import {
   listOutsideAccess,
   setOutsideAccessStatus,
 } from '../services/outsideAccess.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 /**
  * GAP-006: Workspace → Outside access. The people from other accounts this
@@ -26,7 +27,7 @@ const EDIT = requirePermission('SETTINGS', PermissionAction.EDIT, 'Users');
 
 const orgOk = (req: Request, res: Response) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;

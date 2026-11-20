@@ -6,6 +6,7 @@ import useRequest from '../components/ui/useRequest';
 import { notify } from '../components/ui/notify';
 import { formatDate } from '../components/ui/DatePicker';
 import { automationsApi } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Settings → Automations, for any module (server: routes/automations.ts; the recipes are defined with
@@ -210,7 +211,7 @@ export default function AutomationsList({ module = 'people', title = 'Automation
       notify.success(!a || patch.on === undefined ? 'Saved.' : `${a.on ? 'On' : 'Off'}: ${a.sentence.replace('{n}', String(a.n ?? ''))}.`);
       return true;
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the automation'));
       return false;
     } finally {
       setBusy('');

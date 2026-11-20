@@ -4,6 +4,7 @@ import { notifyUsers } from '../../notifications.js';
 import type { TeamScope } from '../scope.js';
 import { TalentError } from './hiring.js';
 import { todayIst } from '../../../utils/istDate.js';
+import { statusWords } from '../../../utils/statusWords.js';
 
 /**
  * Talent → Growth (docs/people/design-v1/TALENT-DECISIONS.md): goals and their check-ins,
@@ -262,7 +263,7 @@ export async function moveCycle(v: Viewer, id: string, to: string) {
   const c = await peoplePrisma.reviewCycle.findFirst({ where: { id, orgId: v.orgId } });
   if (!c) throw new TalentError('No such cycle.', 404);
   const next: Record<string, string> = { DRAFT: 'OPEN', OPEN: 'CALIBRATING', CALIBRATING: 'SHARED', SHARED: 'CLOSED' };
-  if (next[c.status] !== to) throw new TalentError(`A ${c.status.toLowerCase()} cycle cannot move to ${to.toLowerCase()}.`, 409);
+  if (next[c.status] !== to) throw new TalentError(`A review cycle that is ${statusWords(c.status)} cannot become ${statusWords(to)}.`, 409);
   if (to === 'OPEN') {
     const depts = (c.departmentIds as string[]) || [];
     const staff = await peoplePrisma.employee.findMany({ where: { orgId: v.orgId, anonymisedAt: null, status: { in: ['ACTIVE', 'ON_NOTICE', 'SUSPENDED'] }, OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: c.periodTo } }], ...(depts.length ? { departmentId: { in: depts } } : {}) }, select: { id: true, userId: true, reportingManagerId: true } });

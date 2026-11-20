@@ -25,13 +25,14 @@ import {
   permKey,
 } from '../constants/permissionCatalog.js';
 import { ensurePermissionCatalog } from '../services/permissionCatalogSeed.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 export const permissionsRouter = Router();
 permissionsRouter.use(requireAuth, requireTenantContext);
 
 const requireOrgMatch = (req: any, res: any) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;
@@ -118,7 +119,7 @@ permissionsRouter.put(
     });
     if (!role) return res.status(404).json({ error: 'Role not found' });
     // A role kept for one branch is changed from that branch.
-    if (role.branchId && role.branchId !== req.tenant!.branchId) return res.status(403).json({ error: 'Switch to the role’s branch first' });
+    if (role.branchId && role.branchId !== req.tenant!.branchId) return res.status(403).json({ error: 'Switch to the role’s branch first.' });
 
     // A role reaches whoever holds it, wherever they work: bounded by what the caller holds company-wide (A-19).
     const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Roles', 'EDIT'));
@@ -153,10 +154,10 @@ permissionsRouter.put(
     const wanted: Array<{ module: string; subModule: string; action: string }> = [];
     for (const key of body.permissions) {
       const [module, subModule, action] = String(key).split('::');
-      if (!module || !subModule || !action) return res.status(400).json({ error: `Malformed permission: ${key}` });
+      if (!module || !subModule || !action) return res.status(400).json({ error: 'One of the permissions is not one CLOR knows. Reload the page and try again.' });
       if (!isKnownPermission(module, subModule, action)) {
         if (alreadyHeld.has(String(key))) continue;
-        return res.status(400).json({ error: `Unknown permission: ${key}` });
+        return res.status(400).json({ error: 'One of the permissions is not one CLOR knows. Reload the page and try again.' });
       }
       wanted.push({ module, subModule, action });
     }
@@ -200,7 +201,7 @@ permissionsRouter.put(
         const before = existing?.allowed ? existing.permLevel : 0;
         const asked = Number(level) || 0;
         if (asked > before && asked > (own.levels.get(key) ?? 0)) {
-          return res.status(403).json({ error: 'Cannot grant a field level you do not hold', code: 'cannot_grant_unheld_level', permissions: [key] });
+          return res.status(403).json({ error: 'You cannot give a level of access you do not hold yourself.', code: 'cannot_grant_unheld_level', permissions: [key] });
         }
       }
     }
@@ -257,7 +258,7 @@ permissionsRouter.post(
   async (req, res) => {
     if (!requireOrgMatch(req, res)) return;
     const body = applyPresetSchema.parse(req.body);
-    if (!ROLE_PRESETS[body.preset]) return res.status(400).json({ error: `Unknown preset: ${body.preset}` });
+    if (!ROLE_PRESETS[body.preset]) return res.status(400).json({ error: 'No such starting set of permissions. Reload the page and choose again.' });
 
     const rows = expandPreset(body.preset);
     res.json({ permissions: rows.map((r) => permKey(r.module, r.subModule, r.action)) });

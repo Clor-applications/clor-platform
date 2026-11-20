@@ -275,7 +275,7 @@ export const attendanceApp = {
   /* Search (People plan, 8 Nov 2026): a person opens in People where the company has it; jobs by the words people use. */
   searchRecords: (q, { apps = [] } = {}) => (apps.includes('people') ? import('@ui/personnel/search').then((m) => m.findPeople(q, { appId: 'people' })) : Promise.resolve([])),
   searchActions: [
-    { label: 'Fix a punch', screen: 'requests', keywords: ['punch', 'missed punch', 'regularise', 'regularize'] },
+    { label: 'Correct a punch', screen: 'requests', keywords: ['punch', 'missed punch', 'fix a punch', 'regularise', 'regularize'] },
     { label: 'Month close', screen: 'monthClose', keywords: ['month close', 'close the month', 'lock attendance', 'payroll cut-off'] },
     { label: 'Shifts', screen: 'shifts', keywords: ['shift', 'roster', 'timing', 'weekly off'] },
     { label: 'Who is late today', screen: 'today', keywords: ['late', 'absent', 'who is in'] },
@@ -299,7 +299,7 @@ export const attendanceApp = {
     { key: 'personnel', label: 'People', icon: M.people, groups: [
       { label: 'Directory', items: ['employees', 'contractors'] },
       { label: 'Employment changes', items: ['checklists', 'resignations', 'transfer'] },
-      { label: 'Organization', items: ['departments', 'positions', 'areas'] },
+      { label: 'Organisation', items: ['departments', 'positions', 'areas'] },
       { label: 'Access', items: ['portalAccess'] },
     ] },
     { key: 'device', label: 'Readers', icon: M.readers, groups: [
@@ -311,7 +311,7 @@ export const attendanceApp = {
       { label: 'Other punch sources', items: ['phonePunches'] },
     ] },
     { key: 'attendance', label: 'Attendance', icon: M.attendance, groups: [
-      { label: 'Daily operations', items: ['records', 'punches', 'exceptions', 'requests'] },
+      { label: 'Daily operations', items: ['records', 'exceptions', 'requests'] },
       { label: 'Scheduling', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations'] },
       /* Time & Leave (TIME-LEAVE-DECISIONS.md): the same screens People shows, over the same records. */
       { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister', 'standIns'] },
@@ -327,7 +327,7 @@ export const attendanceApp = {
       { label: 'All reports', items: ['reports'] },
     ] },
     { key: 'system', label: 'Settings', icon: M.settings, groups: [
-      { label: 'Organization', items: ['setup', 'sites', 'siteCheck', 'journeySteps'] },
+      { label: 'Organisation', items: ['setup', 'sites', 'siteCheck', 'journeySteps'] },
       /* Founder's Work Policy group (NV-02). Weekly off and overtime are views
          over the shifts' own fields and the company rules, not new rules. */
       { label: 'Work policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'workingWeek', 'holidays', 'leaveYearEnd', 'requestRules', 'automations'] },
@@ -340,7 +340,7 @@ export const attendanceApp = {
       { label: 'Audit & recovery', items: ['auditLogs', 'recycleBin'] },
     ] },
     { key: 'me', label: 'Me', icon: M.me, groups: [
-      { label: 'Self-Service', items: ['me', 'myLeave'] },
+      { label: 'Self-service', items: ['me', 'myLeave'] },
     ] },
   ],
 
@@ -367,19 +367,18 @@ export const attendanceApp = {
     { key: 'readerSync', label: 'Sync monitoring', icon: I.readerSync, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'deviceLogs', label: 'Reader logs', icon: I.readerLog, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'readers', label: 'All readers', icon: I.readers, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'enrolments', label: 'Device enrollment', icon: I.enrol, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'transactions', label: 'Punch transactions', icon: I.transactions, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    /* The same punch log, where attendance staff look for it (founder, 21 Oct 2026). */
-    { key: 'punches', label: 'Punches', icon: I.punches, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'enrolments', label: 'Reader enrolment', icon: I.enrol, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'transactions', label: 'Punches', icon: I.transactions, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    /* One menu item for the punch log (UX copy audit, 20 Nov 2026): `punches` stays a screen so old links open it. */
     { key: 'unmatched', label: 'Unmatched punches', icon: I.unmatched, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     { key: 'idMapping', label: 'Employee ID mapping', icon: I.readerId, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'phonePunches', label: 'Mobile punches', icon: I.phonePunch, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'phonePunches', label: 'Phone punches', icon: I.phonePunch, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
 
     { section: 'Attendance' },
     { key: 'records', label: 'Attendance records', short: 'Records', icon: I.records, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'exceptions', label: 'Exceptions', icon: I.exceptions, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* Missed punch, work from home, on duty, permission hours: one list, one approval (was Corrections). */
-    { key: 'requests', label: 'Attendance fixes', keywords: ['attendance requests', 'missed punch', 'regularise'], short: 'Fixes', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
+    { key: 'requests', label: 'Attendance corrections', keywords: ['attendance requests', 'attendance fixes', 'missed punch', 'regularise'], short: 'Corrections', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     { key: 'scheduleCalendar', label: 'Schedule calendar', icon: I.shiftCalendar, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'shifts', label: 'Shifts', icon: I.shifts, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'shiftAssignments', label: 'Shift assignments', icon: I.shiftPeople, permission: 'ATTENDANCE::Shifts::VIEW' },

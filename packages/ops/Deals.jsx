@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { dayText } from '@ui/utils/errorWords';
 import { notify } from '@ui/components/ui/notify';
 
 import { PageHead } from '../../apps/admin/src/screens/wsKit';
-import { APP_NAMES, Empty, Err, Loading, ReasonDrawer, Tabs, day } from './kit';
+import { APP_NAMES, Empty, Err, Loading, ReasonDrawer, Tabs, day, errorWords } from './kit';
 import { inr } from './money';
 import './lists.css';
 import { unitName, units } from './CustomPlans';
@@ -48,7 +49,7 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
         const first = o.plans.find((p) => `${p.source}:${p.ref}` === now) || o.plans.find((p) => p.forThisCustomer) || o.plans[0];
         setPick(first ? `${first.source}:${first.ref}` : '');
       })
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the plans')));
   }, [open, account.id]);
 
   const plan = useMemo(() => opts?.plans.find((p) => `${p.source}:${p.ref}` === pick) || null, [opts, pick]);
@@ -72,7 +73,7 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
     const t = setTimeout(() => {
       opsDealQuote(account.id, body)
         .then((r) => live && (setQuote(r.deal), setNeeds(r.needsApproval ? r.limit : null), setQuoteError('')))
-        .catch((e) => live && (setQuote(null), setQuoteError(String(e?.message || e))));
+        .catch((e) => live && (setQuote(null), setQuoteError(errorWords(e, 'work out the price'))));
     }, 200);
     return () => {
       live = false;
@@ -239,7 +240,7 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
   );
 }
 
-const STATUS = { active: ['Active', 'ws-pill ws-pill--ok'], trialing: ['Trial', 'ws-pill ws-pill--warn'], past_due: ['Payment due', 'ws-pill ws-pill--danger'], paused: ['Paused', 'ws-pill ws-pill--off'], cancelled: ['Cancelled', 'ws-pill ws-pill--off'] };
+const STATUS = { active: ['Active', 'ws-pill ws-pill--ok'], trialing: ['Trial', 'ws-pill ws-pill--warn'], past_due: ['Overdue', 'ws-pill ws-pill--danger'], paused: ['Paused', 'ws-pill ws-pill--off'], cancelled: ['Cancelled', 'ws-pill ws-pill--off'] };
 
 export function Subscriptions({ openCustomer }) {
   const [tab, setTab] = useState('active');
@@ -248,17 +249,17 @@ export function Subscriptions({ openCustomer }) {
   useEffect(() => {
     opsSubscriptions({ status: tab === 'all' ? '' : tab })
       .then((r) => (setD(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the subscriptions')));
   }, [tab]);
   const sum = d?.summary;
 
   /* Export the rows this tab shows, as a spreadsheet. */
   const exportCsv = () => {
     const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const lines = [['Account', 'Account ID', 'Plan', 'Billed', 'Apps', 'Amount (₹, before GST)', 'Renews or trial ends', 'State'].map(cell).join(',')];
+    const lines = [['Account', 'Account ID', 'Plan', 'Billed', 'Apps', 'Amount (₹, before GST)', 'Renews or trial ends', 'Status'].map(cell).join(',')];
     for (const s of d?.subscriptions || []) {
       lines.push(
-        [s.name, s.code, s.planName || '', s.interval || '', s.apps.map((a) => APP_NAMES[a] || a).join('; '), s.amount != null ? (s.amount / 100).toFixed(2) : '', (s.status === 'trialing' ? s.trialEndsAt : s.renewsAt) || '', STATUS[s.status]?.[0] || s.status]
+        [s.name, s.code, s.planName || '', s.interval === 'year' ? 'Yearly' : s.interval === 'month' ? 'Monthly' : '', s.apps.map((a) => APP_NAMES[a] || a).join('; '), s.amount != null ? (s.amount / 100).toFixed(2) : '', dayText(s.status === 'trialing' ? s.trialEndsAt : s.renewsAt), STATUS[s.status]?.[0] || s.status]
           .map(cell)
           .join(','),
       );
@@ -274,9 +275,9 @@ export function Subscriptions({ openCustomer }) {
   const tiles = sum
     ? [
         ['MRR', inr(sum.mrr), 1, `${sum.activeCount ?? 0} active, before GST`],
-        ['Past due', String(sum.pastDue), 4, sum.pastDue ? `${inr(sum.pastDueAtRisk)} at risk` : 'Nobody is late', sum.pastDue ? 'warn' : null],
+        ['Overdue', String(sum.pastDue), 4, sum.pastDue ? `${inr(sum.pastDueAtRisk)} at risk` : 'Nobody is late', sum.pastDue ? 'warn' : null],
         ['Trials ending this week', String(sum.trialsEndingThisWeek), 3, 'In the next seven days'],
-        ['Legacy fail-open', String(sum.legacyFailOpen), 8, sum.legacyFailOpen ? 'Every app, no plan: move to a plan' : 'Every account is on a plan', sum.legacyFailOpen ? 'neg' : null],
+        ['Older accounts, no plan', String(sum.legacyFailOpen), 8, sum.legacyFailOpen ? 'Every app open: move each to a plan' : 'Every account is on a plan', sum.legacyFailOpen ? 'neg' : null],
       ]
     : [];
   return (
@@ -315,8 +316,8 @@ export function Subscriptions({ openCustomer }) {
         }}
         tabs={[
           ['active', 'Active'],
-          ['trialing', 'On trial'],
-          ['past_due', 'Payment due'],
+          ['trialing', 'Trial'],
+          ['past_due', 'Overdue'],
           ['cancelled', 'Cancelled'],
           ['all', 'All'],
         ]}
@@ -325,7 +326,7 @@ export function Subscriptions({ openCustomer }) {
       {!d?.subscriptions ? (
         error ? null : <Loading />
       ) : !d.subscriptions.length ? (
-        <Empty>None here.</Empty>
+        <Empty>No subscriptions with this status.</Empty>
       ) : (
         <div className="ws-table-wrap">
           <table className="ws-table">
@@ -347,7 +348,7 @@ export function Subscriptions({ openCustomer }) {
                     <button type="button" className="ws-name-link" onClick={() => openCustomer(s.accountId)}>
                       {s.name}
                     </button>
-                    {s.amount != null ? <div className="ws-item-sub sm:hidden tabular-nums">{inr(s.amount)} / {s.interval === 'year' ? 'yr' : 'mo'}</div> : null}
+                    {s.amount != null ? <div className="ws-item-sub sm:hidden tabular-nums">{inr(s.amount)} / {s.interval === 'year' ? 'year' : 'month'}</div> : null}
                   </td>
                   <td className="hidden md:table-cell" style={{ whiteSpace: 'normal' }}>
                     {s.planName ? `${s.planName}${s.interval ? ` · ${s.interval === 'year' ? 'yearly' : 'monthly'}` : ''}` : s.status === 'trialing' ? 'Trial' : <span className="ws-item-sub">No price set</span>}

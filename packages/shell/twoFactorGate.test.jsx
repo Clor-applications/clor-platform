@@ -43,7 +43,7 @@ describe('setting up two-step sign-in at the gate', () => {
     expect(api.startTwoFactor).not.toHaveBeenCalled();
     expect(await screen.findByText(PHONE)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Code from the text message'), { target: { value: '123456' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Turn on' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Turn on text codes' }));
     await waitFor(() => expect(api.enableSmsTwoFactor).toHaveBeenCalledWith('123456'));
     expect(await screen.findByText('AAAA-BBBB')).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('I have saved these codes somewhere safe'));
@@ -54,7 +54,7 @@ describe('setting up two-step sign-in at the gate', () => {
   it('goes straight to Continue when text-message codes are already on', async () => {
     api.getTwoFactor.mockResolvedValue({ enabled: false, sms: { enabled: true, available: true } });
     render(<TwoFactorGate />);
-    expect(await screen.findByText('Two-step sign-in is already on for this account.')).toBeInTheDocument();
+    expect(await screen.findByText('Two-factor sign-in is already on for this account.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Continue to CLOR' })).toBeEnabled();
   });
 });

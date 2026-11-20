@@ -172,7 +172,7 @@ describe('nobody hands out more than they hold', () => {
       .set(auth(owner))
       .send({ name: `Bogus ${uid()}`, permissions: ['SALES::Invoices::VIEW', 'NOPE::Thing::VIEW'] })
       .expect(400);
-    expect(res.body.error).toMatch(/Unknown permission/);
+    expect(res.body.error).toMatch(/not one CLOR knows/);
   });
 
   it('keeps ADMIN-type roles for administrators only', async () => {

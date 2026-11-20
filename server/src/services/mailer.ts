@@ -248,6 +248,21 @@ export type SendOptions = {
 };
 
 /**
+ * The frame every message gets (UX copy audit, 20 Nov 2026): no "Hello ," when the name is missing, and one
+ * sign-off, "— CLOR" for CLOR's own mail and "— <company>" for mail a company sends its people. A body that
+ * already ends with its sign-off (a template changed in the operator console) is left as it is.
+ */
+export function framed(body: string, signOff: 'clor' | 'company' | 'none' | undefined, data: Record<string, unknown>): string {
+  /* Books' own mail and CLOR staff's internal mail keep their text exactly as written. */
+  if (signOff === 'none') return String(body);
+  let out = String(body).replace(/^Hello[ \t]+,/gm, 'Hello,').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trimEnd();
+  const who = (signOff ?? 'clor') === 'clor' ? APP_NAME : signOff === 'company' ? String(data.orgName || '').trim() : '';
+  const line = who ? `— ${who}` : '';
+  if (line && !out.endsWith(line)) out = `${out}\n\n${line}`;
+  return out;
+}
+
+/**
  * Renders, records and attempts one message.
  *
  * Never throws: a failed notification must not fail the business operation that
@@ -266,7 +281,7 @@ export async function sendTemplate(opts: SendOptions) {
   };
 
   const subject = render(template.subject, data);
-  const bodyText = render(template.body, data);
+  const bodyText = framed(render(template.body, data), builtIn.signOff, data);
 
   /* Explore's sample company sends nothing: its people and customers are made up (services/sampleIdentity.ts). */
   const sample = Boolean(opts.orgId) && (await isSampleOrg(opts.orgId));

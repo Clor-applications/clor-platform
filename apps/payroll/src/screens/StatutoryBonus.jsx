@@ -12,6 +12,7 @@ import { rupees as money } from '@ui/utils/money';
 import { listPayrollPeriods } from '../api/payrollCalendar';
 import { REGISTER_COLUMNS, yearOf, yearsBack } from '../components/bonusText';
 import { approveBonus, cancelBonus, getBonusRegister, getBonusSettings, getBonusYear, saveBonusSettings, workOutBonus } from '../api/payrollBonus';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Statutory bonus (round 66 pick): the Payment of Bonus Act's yearly bonus.
@@ -60,7 +61,7 @@ export default function StatutoryBonus() {
         setError('');
         setRate((prev) => (r.run ? String(r.run.ratePercent) : prev || String(r.rules.minPercent)));
       })
-      .catch((e) => setError(String(e?.message || 'Could not load the bonus.')));
+      .catch((e) => setError(errorWords(e, 'load the bonus')));
   }, [fy]);
   useEffect(() => {
     load();
@@ -80,7 +81,7 @@ export default function StatutoryBonus() {
       notify.success(`Worked out: ${n} ${n === 1 ? 'person qualifies' : 'people qualify'}, ${money(r.run.totalAmount)}.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not work out the bonus.'));
+      notify.error(errorWords(e, 'calculate the bonus'));
     } finally {
       setBusy('');
     }
@@ -99,21 +100,21 @@ export default function StatutoryBonus() {
       });
       notify.success('Downloaded.');
     } catch (e) {
-      notify.error(String(e?.message || 'Could not build the register.'));
+      notify.error(errorWords(e, 'build the register'));
     } finally {
       setBusy('');
     }
   };
 
   const cancelDraft = async () => {
-    const ok = await confirmDialog({ title: 'Cancel this draft?', message: 'Nothing has been paid. You can work the bonus out again afterwards.', confirmLabel: 'Cancel draft' });
+    const ok = await confirmDialog({ title: 'Cancel this draft?', message: 'Nothing has been paid. You can work the bonus out again afterwards.', confirmLabel: 'Cancel draft bonus', cancelLabel: 'Keep it' });
     if (!ok) return;
     try {
       await cancelBonus(run.id, '');
       notify.success('Draft cancelled.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not cancel it.'));
+      notify.error(errorWords(e, 'cancel the draft bonus'));
     }
   };
 
@@ -282,7 +283,7 @@ function ApproveDrawer({ run, eligible, onClose, onDone }) {
       );
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not approve the bonus.'));
+      notify.error(errorWords(e, 'approve the bonus'));
     } finally {
       setBusy(false);
     }
@@ -295,7 +296,7 @@ function ApproveDrawer({ run, eligible, onClose, onDone }) {
       description={`${eligible.length} ${eligible.length === 1 ? 'person' : 'people'}, ${money(run.totalAmount)} at ${run.ratePercent}%. Each becomes an approved Statutory bonus earning on the pay run of the month you choose.`}
       footer={
         <div className="flex justify-end gap-2">
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={busy}>Back</button>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
           <button type="button" className="ui-btn ui-btn-primary" onClick={approve} disabled={busy || !periodId}>{busy ? 'Approving…' : 'Approve bonus'}</button>
         </div>
       }
@@ -328,7 +329,7 @@ function CancelForm({ run, onDone }) {
       notify.success('Bonus cancelled. Its earnings are taken off the pay run.');
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not cancel the bonus.'));
+      notify.error(errorWords(err, 'cancel the bonus'));
     } finally {
       setBusy(false);
     }
@@ -355,7 +356,7 @@ function RulesDrawer({ onClose, onSaved }) {
         setData(r);
         setForm(Object.fromEntries(FIELDS.map((f) => [f.key, String(r.rules[f.key])])));
       })
-      .catch((e) => setError(String(e?.message || 'Could not load the rules.')));
+      .catch((e) => setError(errorWords(e, 'load the rules')));
   }, []);
   const dirty = data ? FIELDS.some((f) => Number(form[f.key]) !== Number(data.rules[f.key])) : false;
   const save = async () => {
@@ -365,7 +366,7 @@ function RulesDrawer({ onClose, onSaved }) {
       notify.success('Bonus rules saved.');
       onSaved();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not save the rules.'));
+      notify.error(errorWords(e, 'save the rules'));
     } finally {
       setBusy(false);
     }
@@ -379,7 +380,7 @@ function RulesDrawer({ onClose, onSaved }) {
       description="The Payment of Bonus Act's figures, kept here because the government changes them by notification. Check each against the current rule."
       footer={
         <div className="flex justify-end gap-2">
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={busy}>Back</button>
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
           <button type="button" className="ui-btn ui-btn-primary" onClick={save} disabled={busy || !data}>{busy ? 'Saving…' : 'Save rules'}</button>
         </div>
       }

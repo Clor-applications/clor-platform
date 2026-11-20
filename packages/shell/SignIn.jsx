@@ -81,7 +81,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtit
       /* The server is deliberately vague about which half was wrong, and so
          is this: saying "no such account" tells somebody probing which
          addresses are registered. */
-      setError(String(err?.message || 'Could not sign you in.'));
+      setError(String(err?.message || 'Could not sign you in. Check your email and password, then try again.'));
       if (err?.code === 'EMAIL_NOT_CONFIRMED' && err?.data?.resendChallenge) setResend({ challenge: err.data.resendChallenge, sent: false });
     } finally {
       setBusy(false);
@@ -95,7 +95,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtit
       setResend({ ...resend, sent: true });
       setError('');
     } catch (err) {
-      setError(String(err?.message || 'Could not send the link.'));
+      setError(String(err?.message || 'Could not send the link. Try again in a minute.'));
       setResend(null);
     } finally {
       setBusy(false);

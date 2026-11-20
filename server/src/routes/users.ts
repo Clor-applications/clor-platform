@@ -39,6 +39,7 @@ import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { OutsideAccessError, checkOutsideTerms, grantOutsideAccess, refusalOf } from '../services/outsideAccess.js';
 import { ensureAccountMembership } from '../services/accountMembership.js';
 import { QuotaBusyError, lockQuota } from '../services/quotaLock.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 export const usersRouter = Router();
 usersRouter.use(requireAuth, requireTenantContext);
@@ -108,7 +109,7 @@ async function assignmentRefusal(
 usersRouter.get('/orgs/:orgId/users', requirePermission('SETTINGS', PermissionAction.VIEW, 'Users'), async (req, res) => {
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const memberships = await platformPrisma.userOrgMembership.findMany({
     where: { accountId, orgId },
@@ -220,7 +221,7 @@ usersRouter.get('/orgs/:orgId/users/:userId/leaving', requirePermission('SETTING
   const { accountId } = req.tenant!;
   const userId = String(req.params.userId);
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId: String(req.params.orgId), userId }, select: { id: true } });
-  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  if (!member) return res.status(404).json({ error: 'This person is not in this company.' });
   res.json({ pending: await pendingFor(accountId, userId), reasons: LEAVE_REASONS.map((key) => ({ key, label: LEAVE_REASON_LABEL[key] })) });
 });
 
@@ -230,7 +231,7 @@ usersRouter.post('/orgs/:orgId/users/:userId/leave', requirePermission('SETTINGS
   const userId = String(req.params.userId);
   const body = leaveSchema.parse(req.body);
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
-  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  if (!member) return res.status(404).json({ error: 'This person is not in this company.' });
   if (!req.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return res.status(403).json(ADMIN_ONLY_ERROR);
   if (await wouldRemoveLastAdmin(accountId, orgId, userId)) return res.status(409).json(LAST_ADMIN_ERROR);
   if (userId !== req.auth!.userId) {
@@ -267,7 +268,7 @@ usersRouter.post('/orgs/:orgId/users/:userId/reactivate', requirePermission('SET
   const orgId = String(req.params.orgId);
   const userId = String(req.params.userId);
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
-  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  if (!member) return res.status(404).json({ error: 'This person is not in this company.' });
   if (!req.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return res.status(403).json(ADMIN_ONLY_ERROR);
   if (userId !== req.auth!.userId) {
     const refusal = await elsewhereRefusal(req.auth!.userId, userId);
@@ -293,13 +294,13 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
   const userId = String(req.params.userId);
   const createdByUserId = req.auth!.userId;
 
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const body = updateUserSchema.parse(req.body);
 
   // Ensure target user is a member of this org.
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
-  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  if (!member) return res.status(404).json({ error: 'This person is not in this company.' });
 
   if (body.isActive === false) {
     if (!req.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return res.status(403).json(ADMIN_ONLY_ERROR);
@@ -342,7 +343,7 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
       where: { email: nextEmail, NOT: { id: userId } },
       select: { id: true },
     });
-    if (clash) return res.status(409).json({ error: 'That email address is already registered' });
+    if (clash) return res.status(409).json({ error: 'That email address is already in use. Add the person from Users instead, or use another address.' });
   }
 
   const updated = await platformPrisma.user.update({
@@ -401,7 +402,7 @@ usersRouter.get('/users/:userId/companies', requirePermission('SETTINGS', Permis
   const userId = String(req.params.userId);
 
   const target = await platformPrisma.user.findFirst({ where: { id: userId, accountId }, select: { id: true } });
-  if (!target) return res.status(404).json({ error: 'User not found' });
+  if (!target) return res.status(404).json({ error: 'No such person.' });
 
   const [orgs, memberships, assignments] = await Promise.all([
     platformPrisma.org.findMany({ where: { accountId }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
@@ -437,7 +438,7 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
   const body = companyAccessSchema.parse(req.body);
 
   const target = await platformPrisma.user.findFirst({ where: { id: userId, accountId }, select: { id: true, email: true } });
-  if (!target) return res.status(404).json({ error: 'User not found' });
+  if (!target) return res.status(404).json({ error: 'No such person.' });
 
   // Only companies in this account, and only ones that exist. Anything else in
   // the request is dropped rather than trusted.
@@ -517,15 +518,15 @@ usersRouter.put('/orgs/:orgId/users/:userId/role', requirePermission('SETTINGS',
   const userId = String(req.params.userId);
   const createdByUserId = req.auth!.userId;
 
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const body = setPrimaryRoleSchema.parse(req.body);
 
-  if (!(await isMember(accountId, orgId, userId))) return res.status(404).json({ error: 'User not found in org' });
+  if (!(await isMember(accountId, orgId, userId))) return res.status(404).json({ error: 'This person is not in this company.' });
 
   const role = body.roleId ? await platformPrisma.role.findFirst({ where: { id: body.roleId, accountId, orgId } }) : null;
-  if (body.roleId && !role) return res.status(404).json({ error: 'Role not found' });
-  if (role?.branchId) return res.status(400).json({ error: 'Role belongs to a branch, so it cannot be given company-wide' });
+  if (body.roleId && !role) return res.status(404).json({ error: 'No such role.' });
+  if (role?.branchId) return res.status(400).json({ error: 'That role belongs to a branch, so it cannot be given company-wide. Give it in that branch instead.' });
 
   const refused = await assignmentRefusal(req, accountId, orgId, userId, role, null);
   if (refused) return res.status(refused.status).json(refused.body);
@@ -551,7 +552,7 @@ usersRouter.put('/orgs/:orgId/users/:userId/role', requirePermission('SETTINGS',
 
 /** Whether the role suggestion is switched on here, so the screen can offer it. */
 usersRouter.get('/orgs/:orgId/users/role-suggestion', requirePermission('SETTINGS', PermissionAction.VIEW, 'Users'), async (req, res) => {
-  if (String(req.params.orgId) !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (String(req.params.orgId) !== req.tenant!.orgId) return otherCompany(res);
   res.json({ enabled: roleSuggestionEnabled() });
 });
 
@@ -571,7 +572,7 @@ const suggestionSchema = z.object({
 usersRouter.post('/orgs/:orgId/users/role-suggestion', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
   const body = suggestionSchema.parse(req.body);
 
   const roles = await platformPrisma.role.findMany({
@@ -621,8 +622,8 @@ usersRouter.get('/orgs/:orgId/users/:userId/access', requirePermission('SETTINGS
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
   const userId = String(req.params.userId);
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
-  if (!(await isMember(accountId, orgId, userId))) return res.status(404).json({ error: 'User not found in org' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
+  if (!(await isMember(accountId, orgId, userId))) return res.status(404).json({ error: 'This person is not in this company.' });
 
   // No branch: every assignment counts, wherever it applies.
   const access = await resolveAccess(accountId, orgId, userId);
@@ -703,14 +704,14 @@ usersRouter.put('/orgs/:orgId/users/:userId/access', requirePermission('SETTINGS
   const { accountId, orgId } = req.tenant!;
   const userId = String(req.params.userId);
   const callerId = req.auth!.userId;
-  if (String(req.params.orgId) !== orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (String(req.params.orgId) !== orgId) return otherCompany(res);
 
   const body = userScopeSchema.parse(req.body);
   const branchIds = body.branches.map((row) => row.branchId);
-  if (new Set(branchIds).size !== branchIds.length) return res.status(400).json({ error: 'Each branch may have one role' });
+  if (new Set(branchIds).size !== branchIds.length) return res.status(400).json({ error: 'Choose one role for each branch.' });
   const warehouseIds = Array.from(new Set(body.warehouseIds));
 
-  if (!(await isMember(accountId, orgId, userId))) return res.status(404).json({ error: 'User not found in company' });
+  if (!(await isMember(accountId, orgId, userId))) return res.status(404).json({ error: 'This person is not in this company.' });
   if (await userIsAdmin(accountId, orgId, userId)) {
     return res.status(403).json({
       error: 'A company administrator already works in every branch. Change their company-wide role first to limit them to branches.',
@@ -727,13 +728,13 @@ usersRouter.put('/orgs/:orgId/users/:userId/access', requirePermission('SETTINGS
     platformPrisma.userRoleAssignment.findMany({ where: { accountId, orgId, userId }, select: { branchId: true, roleId: true } }),
     platformPrisma.userBranchMembership.findMany({ where: { accountId, orgId, userId }, select: { branchId: true } }),
   ]);
-  if (validBranches.length !== branchIds.length) return res.status(400).json({ error: 'Invalid branch' });
+  if (validBranches.length !== branchIds.length) return res.status(400).json({ error: 'One of the branches is not in this company.' });
   const roleById = new Map(validRoles.map((role) => [role.id, role]));
   if (body.branches.some((row) => !roleById.has(row.roleId) || (roleById.get(row.roleId)!.branchId && roleById.get(row.roleId)!.branchId !== row.branchId))) {
-    return res.status(400).json({ error: 'Role is not available for its selected branch' });
+    return res.status(400).json({ error: 'One of the roles does not belong to the branch it was chosen for. Choose a role from that branch.' });
   }
   if (validWarehouses.length !== warehouseIds.length || validWarehouses.some((row) => !branchIds.includes(row.branchId))) {
-    return res.status(400).json({ error: 'Every warehouse must belong to a selected branch' });
+    return res.status(400).json({ error: 'Each warehouse must be in one of the chosen branches.' });
   }
   const warehouseById = new Map(validWarehouses.map((warehouse) => [warehouse.id, warehouse]));
   const warehouseRoleProblem =
@@ -743,7 +744,7 @@ usersRouter.put('/orgs/:orgId/users/:userId/access', requirePermission('SETTINGS
       const role = roleById.get(row.roleId);
       return !warehouse || !role || (role.branchId && role.branchId !== warehouse.branchId);
     });
-  if (warehouseRoleProblem) return res.status(400).json({ error: 'Warehouse roles require an assigned warehouse and a role in its branch' });
+  if (warehouseRoleProblem) return res.status(400).json({ error: 'A warehouse role needs a warehouse, and a role in that warehouse’s branch.' });
 
   // Taking away what the person holds today: a company-wide role by somebody
   // who manages users company-wide, a branch by somebody who manages it there.
@@ -755,7 +756,7 @@ usersRouter.put('/orgs/:orgId/users/:userId/access', requirePermission('SETTINGS
   for (const branchId of leavingBranches) {
     if (branchIds.includes(branchId)) continue; // judged below, as an assignment in that branch
     const { refusal } = await grantAuthority(req, branchId, gate);
-    if (refusal) return res.status(403).json({ error: 'Cannot remove access from another branch', code: 'not_in_branch' });
+    if (refusal) return res.status(403).json({ error: 'You can remove access only in a branch you look after.', code: 'not_in_branch' });
   }
 
   // Each branch role, exactly as POST …/roles judges one.
@@ -831,13 +832,13 @@ usersRouter.post('/orgs/:orgId/users/:userId/password', requirePermission('SETTI
   const userId = String(req.params.userId);
   const createdByUserId = req.auth!.userId;
 
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const body = changePasswordSchema.parse(req.body);
 
   // Ensure target user is a member of this org.
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
-  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  if (!member) return res.status(404).json({ error: 'This person is not in this company.' });
 
   const refusal = await identityChangeRefusal(req, accountId, orgId, userId);
   if (refusal) return res.status(refusal.status).json(refusal.body);
@@ -951,7 +952,7 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
      */
     if (existing.accountId !== accountId && !existing.emailVerifiedAt) {
       return res.status(409).json({
-        error: 'That address already has a CLOR login that has not been confirmed. Ask the person to confirm their email from the link CLOR sent them, then add them again.',
+        error: 'That address already has a CLOR sign-in that has not been confirmed. Ask the person to confirm their email from the link CLOR sent them, then add them again.',
         code: 'unverified_identity',
       });
     }
@@ -993,7 +994,7 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
       where: { username: body.username.trim() },
       select: { id: true },
     });
-    if (usernameTaken) return res.status(409).json({ error: 'That username is already taken' });
+    if (usernameTaken) return res.status(409).json({ error: 'That username is already taken. Choose another.' });
   }
 
   /*
@@ -1061,7 +1062,7 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
   const ownedOrgIds = new Set(ownedOrgs.map((o) => o.id));
   for (const orgId of orgIds) {
     if (!ownedOrgIds.has(orgId)) {
-      return res.status(400).json({ error: `Org ${orgId} does not belong to this account` });
+      return res.status(400).json({ error: 'One of the companies is not in this account.' });
     }
     const requestedBranches = Array.from(new Set(body.branchIdsByOrg[orgId] || []));
     if (requestedBranches.length) {
@@ -1070,7 +1071,7 @@ usersRouter.post('/users', requirePermission('SETTINGS', PermissionAction.CREATE
         select: { id: true },
       });
       if (ownedBranches.length !== requestedBranches.length) {
-        return res.status(400).json({ error: `One or more branches do not belong to org ${orgId}` });
+        return res.status(400).json({ error: 'One of the branches is not in that company.' });
       }
     }
   }
@@ -1150,7 +1151,7 @@ usersRouter.delete('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', P
   const userId = String(req.params.userId);
   const createdByUserId = req.auth!.userId;
 
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   if (!req.isAdmin && (await userIsAdmin(accountId, orgId, userId))) return res.status(403).json(ADMIN_ONLY_ERROR);
   if (await wouldRemoveLastAdmin(accountId, orgId, userId)) return res.status(409).json(LAST_ADMIN_ERROR);
@@ -1195,11 +1196,11 @@ usersRouter.get('/orgs/:orgId/users/:userId/branches', requirePermission('SETTIN
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
   const userId = String(req.params.userId);
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   // Ensure target user is a member of this org.
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
-  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  if (!member) return res.status(404).json({ error: 'This person is not in this company.' });
 
   const rows = await platformPrisma.userBranchMembership.findMany({
     where: { accountId, orgId, userId },
@@ -1214,19 +1215,19 @@ usersRouter.post('/orgs/:orgId/users/:userId/branches', requirePermission('SETTI
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
   const userId = String(req.params.userId);
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const body = assignBranchesSchema.parse(req.body);
   const branchIds = Array.from(new Set(body.branchIds));
   const valid = await platformPrisma.branch.count({ where: { accountId, orgId, id: { in: branchIds } } });
-  if (valid !== branchIds.length) return res.status(400).json({ error: 'Invalid branch' });
+  if (valid !== branchIds.length) return res.status(400).json({ error: 'One of the branches is not in this company.' });
   // Giving or taking a branch is done by somebody who manages users in that branch.
   const existingBranches = await platformPrisma.userBranchMembership.findMany({ where: { accountId, orgId, userId }, select: { branchId: true } });
   const before = new Set(existingBranches.map((row) => row.branchId));
   const changed = [...branchIds.filter((id) => !before.has(id)), ...[...before].filter((id) => !branchIds.includes(id))];
   for (const branchId of changed) {
     const { refusal } = await grantAuthority(req, branchId, permKey('SETTINGS', 'Users', 'EDIT'));
-    if (refusal) return res.status(403).json({ error: 'Cannot assign users in this branch', code: 'not_in_branch' });
+    if (refusal) return res.status(403).json({ error: 'You can give access only in a branch you look after.', code: 'not_in_branch' });
   }
 
   /* Review N4: this can add the person to the company; if so, its domain rule applies as anywhere else (owners and outsiders exempt). */
@@ -1264,20 +1265,20 @@ usersRouter.post('/orgs/:orgId/users/:userId/roles', requirePermission('SETTINGS
   const userId = String(req.params.userId);
   const createdByUserId = req.auth!.userId;
 
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const body = assignRoleSchema.parse(req.body);
 
-  if (!(await isMember(accountId, orgId, userId))) return res.status(404).json({ error: 'User not found in org' });
+  if (!(await isMember(accountId, orgId, userId))) return res.status(404).json({ error: 'This person is not in this company.' });
 
   const role = await platformPrisma.role.findFirst({ where: { id: body.roleId, accountId, orgId } });
-  if (!role) return res.status(404).json({ error: 'Role not found' });
+  if (!role) return res.status(404).json({ error: 'No such role.' });
 
   const scopeBranchId = body.branchId ?? null;
-  if (role.branchId && role.branchId !== scopeBranchId) return res.status(400).json({ error: 'Role belongs to another branch' });
+  if (role.branchId && role.branchId !== scopeBranchId) return res.status(400).json({ error: 'That role belongs to another branch. Choose a role from this branch.' });
   if (scopeBranchId) {
     const branch = await platformPrisma.branch.findFirst({ where: { id: scopeBranchId, accountId, orgId }, select: { id: true } });
-    if (!branch) return res.status(400).json({ error: 'Branch does not belong to this organisation' });
+    if (!branch) return res.status(400).json({ error: 'That branch is not in this company.' });
   }
 
   const refused = await assignmentRefusal(req, accountId, orgId, userId, role, scopeBranchId);
@@ -1322,7 +1323,7 @@ usersRouter.post('/orgs/:orgId/users/:userId/warehouses', requirePermission('SET
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
   const userId = String(req.params.userId);
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const body = assignWarehousesSchema.parse(req.body);
   const warehouseIds = Array.from(new Set(body.warehouseIds));
@@ -1330,7 +1331,7 @@ usersRouter.post('/orgs/:orgId/users/:userId/warehouses', requirePermission('SET
   // Checked before anything is cleared: a wrong id used to leave the person
   // with no warehouses at all.
   const warehouses = await prisma.warehouse.findMany({ where: { accountId, orgId, id: { in: warehouseIds } }, select: { id: true, branchId: true } });
-  if (warehouses.length !== warehouseIds.length) return res.status(400).json({ error: 'Invalid warehouse' });
+  if (warehouses.length !== warehouseIds.length) return res.status(400).json({ error: 'One of the warehouses is not in this company.' });
 
   // A warehouse is given, or taken away, by somebody who manages users in its
   // branch; and given only to somebody who works in that branch.
@@ -1340,11 +1341,11 @@ usersRouter.post('/orgs/:orgId/users/:userId/warehouses', requirePermission('SET
   const removed = existing.filter((row) => !warehouseIds.includes(row.warehouseId));
   for (const warehouse of added) {
     const member = await platformPrisma.userBranchMembership.findFirst({ where: { accountId, orgId, branchId: warehouse.branchId, userId }, select: { id: true } });
-    if (!member && !(await userIsAdmin(accountId, orgId, userId))) return res.status(400).json({ error: 'User has no access to the warehouse branch' });
+    if (!member && !(await userIsAdmin(accountId, orgId, userId))) return res.status(400).json({ error: 'This person has no access to that warehouse’s branch. Give them the branch first.' });
   }
   for (const branchId of new Set([...added.map((w) => w.branchId), ...removed.map((row) => row.branchId)])) {
     const { refusal } = await grantAuthority(req, branchId, permKey('SETTINGS', 'Users', 'EDIT'));
-    if (refusal) return res.status(403).json({ error: 'Cannot assign this warehouse', code: 'not_in_branch' });
+    if (refusal) return res.status(403).json({ error: 'You can give access only to a warehouse in a branch you look after.', code: 'not_in_branch' });
   }
 
   await platformPrisma.$transaction(async (tx) => {

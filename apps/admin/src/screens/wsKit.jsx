@@ -194,7 +194,8 @@ export function Loading({ shape = 'rows', rows = 4, label = 'Loading…' }) {
  * Nothing here yet: a colour icon, one plain sentence, and the next step when there is one.
  * `action` is `{ label, onClick }`. A bare sentence left the reader with nowhere to go.
  */
-export function Empty({ icon: Icon = null, children, action = null, compact = false }) {
+/* `actionNode`: a ready button, for an add that needs a permission check (PermissionButton). */
+export function Empty({ icon: Icon = null, children, action = null, actionNode = null, compact = false }) {
   return (
     <div className={`ws-empty${compact ? ' ws-empty--compact' : ''}`}>
       {Icon ? <Icon size={compact ? 28 : 36} aria-hidden="true" /> : null}
@@ -203,7 +204,7 @@ export function Empty({ icon: Icon = null, children, action = null, compact = fa
         <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={action.onClick}>
           {action.label}
         </button>
-      ) : null}
+      ) : actionNode}
     </div>
   );
 }
@@ -328,7 +329,7 @@ export function ago(d) {
 
 /** Every CLOR app the Workspace speaks of: its name, its identity colour token and its mark. */
 export const APP_INFO = {
-  accounting: { name: 'Accounting', color: '--app-accounting', glyph: BookOpen },
+  accounting: { name: 'Books', color: '--app-accounting', glyph: BookOpen },
   people: { name: 'People', color: '--app-people', glyph: UserRound },
   payroll: { name: 'Payroll', color: '--app-payroll', glyph: Wallet },
   attendance: { name: 'Attendance', color: '--app-attendance', glyph: Clock },

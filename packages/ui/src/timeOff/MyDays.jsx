@@ -14,6 +14,7 @@ import MarksLine from './MarksLine';
 import { EnterRequest, KINDS, KIND_NAME, WhenCell, detailsText, monthChoices } from './AttendanceRequests';
 import { homeCrumbs, useCanActForSelf } from './shared';
 import './time-off.css';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * The basic check-in in HR (founder, 22 Oct 2026): one button for someone
@@ -45,7 +46,7 @@ export function CheckInCard({ me, onChanged, secondary = false }) {
       notify.success(me.clockedIn ? 'Checked out.' : 'Checked in.');
       onChanged();
     } catch (e) {
-      notify.error(String(e?.message || 'Not recorded.'));
+      notify.error(errorWords(e, 'record your check-in'));
     } finally {
       setBusy(false);
     }
@@ -122,7 +123,7 @@ export function MyRequests({ month, onMonth, asking, onAsk, onAsked, preset = nu
   const canChange = (r) => canAct && r.status === 'PENDING';
   const canCancel = (r) => canAct && (r.status === 'PENDING' || (r.status === 'APPROVED' && ['WFH', 'ON_DUTY', 'SHIFT_CHANGE'].includes(r.kind) && r.date > today));
   const cancel = async (r) => {
-    const ok = await confirmDialog({ title: r.status === 'APPROVED' ? 'Cancel this request?' : 'Withdraw this request?', confirmLabel: r.status === 'APPROVED' ? 'Cancel request' : 'Withdraw' });
+    const ok = await confirmDialog({ title: r.status === 'APPROVED' ? 'Cancel this request?' : 'Withdraw this request?', confirmLabel: r.status === 'APPROVED' ? 'Cancel request' : 'Withdraw request', cancelLabel: 'Keep request' });
     if (!ok) return;
     setBusy(r.id);
     try {
@@ -130,7 +131,7 @@ export function MyRequests({ month, onMonth, asking, onAsk, onAsked, preset = nu
       notify.success(r.status === 'APPROVED' ? 'Request cancelled.' : 'Request withdrawn.');
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'cancel the request'));
     } finally {
       setBusy('');
     }

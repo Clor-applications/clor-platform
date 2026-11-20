@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
 
 import { WsDrawer } from '../../apps/admin/src/screens/wsKit';
+import { enumWords, errorWords } from '@ui/utils/errorWords';
+
+export { errorWords };
+
+/* A subscription's status in the console's words ("Overdue" for past_due, as on Accounts). */
+const SUB_WORD = { active: 'Active', trialing: 'Trial', past_due: 'Overdue', overdue: 'Overdue', paused: 'Paused', cancelled: 'Cancelled', canceled: 'Cancelled' };
+export const subWord = (status) => SUB_WORD[String(status || '').toLowerCase()] || enumWords(status);
 
 /**
  * Small pieces every operator screen shares: dates in Indian English, the
@@ -37,13 +44,35 @@ export const appsText = (codes = []) => {
     .join(', ');
 };
 
-/* What each refusal reason code means (Entitlement denials; server: services/ops/denials.ts). */
+/* Each refusal reason in a few words, for tiles, filters and table cells (Access refused). */
+export const REASON_SHORT = {
+  APP_NOT_SUBSCRIBED: 'App not on their plan',
+  SUBSCRIPTION_LAPSED: 'Subscription lapsed',
+  NO_ROLE_GRANT: 'Role does not allow it',
+  NO_MEMBERSHIP: 'Not a member of the company',
+  MODULE_OFF: 'Feature switched off',
+  TEAM_SCOPED: 'Own team only',
+  APP_NOT_IN_ENGAGEMENT: 'Outside accountant, app not covered',
+  SUPPORT_GRANT_CLOSED: 'CLOR support access ended',
+  OPERATOR_ONLY: 'Not CLOR staff',
+  COMPANY_ARCHIVED: 'Company archived',
+  USER_LIMIT: 'User limit reached',
+};
+export const reasonShort = (code) => REASON_SHORT[code] || String(code || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+
+/** A count line that drops zero clauses: countLine([[3, 'open'], [0, 'urgent']]) → "3 open". `empty` when every clause is zero. */
+export const countLine = (parts, empty = null, sep = ' · ') => {
+  const kept = parts.filter(([n]) => Number(n) > 0).map(([n, words]) => (typeof words === 'function' ? words(n) : `${Number(n).toLocaleString('en-IN')} ${words}`));
+  return kept.length ? kept.join(sep) : empty;
+};
+
+/* What each refusal reason code means (Access refused; server: services/ops/denials.ts). */
 export const REASON = {
   APP_NOT_SUBSCRIBED: 'The app is not on the account’s subscription. An upsell signal.',
   SUBSCRIPTION_LAPSED: 'The account owns the app, but the subscription has lapsed.',
   NO_ROLE_GRANT: 'The person’s role in that company does not allow it.',
   NO_MEMBERSHIP: 'The person is not a member of that company or branch.',
-  MODULE_OFF: 'The module is switched off for the company or the account.',
+  MODULE_OFF: 'The feature is switched off for the company or the account.',
   TEAM_SCOPED: 'The person sees only their own team.',
   APP_NOT_IN_ENGAGEMENT: 'An outside accountant whose engagement does not cover the app.',
   SUPPORT_GRANT_CLOSED: 'CLOR support access ended.',
@@ -78,7 +107,7 @@ export function Tabs({ label, tabs, value, onChange }) {
  * button. The server asks for an authenticator code on the way (step-up).
  * `onConfirm(reason)` does the work; a thrown error is shown in the panel.
  */
-export function ReasonDrawer({ open, title, what, confirmLabel, tone = 'primary', onClose, onConfirm, children, ready = true, reasonOptional = false }) {
+export function ReasonDrawer({ open, title, what, confirmLabel, cancelLabel = 'Cancel', tone = 'primary', onClose, onConfirm, children, ready = true, reasonOptional = false }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -95,7 +124,7 @@ export function ReasonDrawer({ open, title, what, confirmLabel, tone = 'primary'
     try {
       await onConfirm(reason.trim());
     } catch (err) {
-      setError(String(err?.message || err));
+      setError(errorWords(err, 'make the change'));
     } finally {
       setBusy(false);
     }
@@ -108,7 +137,7 @@ export function ReasonDrawer({ open, title, what, confirmLabel, tone = 'primary'
       title={title}
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
+          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>{cancelLabel}</button>
           <button type="submit" form="ops-reason" className={tone === 'danger' ? 'ws-btn ws-btn--danger' : 'ws-btn ws-btn--primary'} disabled={busy || !okReason || !ready}>
             {busy ? 'Working…' : confirmLabel}
           </button>
@@ -120,9 +149,9 @@ export function ReasonDrawer({ open, title, what, confirmLabel, tone = 'primary'
         {children}
         <label className="grid gap-1">
           <span className="text-sm font-medium">Why</span>
-          <textarea className="ui-input" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the audit log" />
+          <textarea className="ui-input" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the Staff audit log" />
         </label>
-        <p className="ws-card-blurb">You will be asked for a code from your authenticator app. The change goes in the audit log{reasonOptional ? '' : ' with your reason'}.</p>
+        <p className="ws-card-blurb">You will be asked for a code from your authenticator app. The change goes in the Staff audit log{reasonOptional ? '' : ' with your reason'}.</p>
         <Err>{error}</Err>
       </form>
     </WsDrawer>

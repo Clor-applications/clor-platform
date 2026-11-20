@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check } from "@ui/components/ui/lineIcons";
 import { wholeRupees as money } from "@ui/utils/money";
 import { getSalaryStructure, previewSalaryStructure } from "../api/payrollStructures";
+import { errorWords } from "@ui/utils/errorWords";
 
 /*
  * Round 59 picks (18 Nov 2026), Payroll side.
@@ -27,9 +28,9 @@ export function lockWords(run) {
   return {
     title: `Lock ${name}?`,
     message:
-      `After locking, nobody can change this payroll and its payslips are final. ` +
+      `After locking, nobody can change this pay run and its payslips are final. ` +
       `A mistake found later is put right in ${next ? `${next}'s` : "next month's"} payroll as an adjustment.`,
-    confirmLabel: "Lock payroll",
+    confirmLabel: "Lock pay run",
   };
 }
 
@@ -121,7 +122,7 @@ export function CtcSplit({ structureId, annualCtc }) {
         const p = await previewSalaryStructure({ components: (s?.components || []).map(toLine), frequency: s?.frequency || "MONTHLY", annualCtc: ctc });
         if (seq.current === mine) setState({ split: splitLines(p), error: "", key: `${structureId}:${ctc}` });
       } catch (e) {
-        if (seq.current === mine) setState({ split: null, error: String(e?.message || "Could not work the parts out."), key: `${structureId}:${ctc}` });
+        if (seq.current === mine) setState({ split: null, error: errorWords(e, "split the salary into its parts"), key: `${structureId}:${ctc}` });
       }
     }, 350);
     return () => clearTimeout(t);

@@ -142,6 +142,11 @@
   40% { transform: rotate(-4deg); }
   50% { transform: rotate(10deg); }
 }
+/* The wave sits in the "Hello, {name}" line under the title, not on a line of its own. */
+.wsh-lede .wsh-wave {
+  display: inline-block;
+  vertical-align: -4px;
+}
 .wsh-lede {
   margin: 14px 0 0;
   max-width: 34rem;
@@ -744,8 +749,6 @@ button.wsh-app:focus-visible {
   margin: 0 0 10px;
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: rgb(var(--fg-subtle));
 }
 .wsh-seats ul {

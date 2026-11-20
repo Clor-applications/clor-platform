@@ -12,7 +12,7 @@ export default function ReferSomeone({ params = {} }) {
   const api = useMemo(() => ({ load: myReferrals, refer: referSomeone, link: myReferralLink, apply: applyMyself }), []);
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Refer someone' }]} title="Refer someone" />
+      <PageHeader breadcrumb={[{ label: 'Hiring' }, { label: 'Refer someone' }]} title="Refer someone" />
       <div className="max-w-2xl space-y-8">
         <ReferJobs api={api} openJob={params?.opening || null} />
       </div>

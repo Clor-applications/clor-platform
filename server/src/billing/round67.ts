@@ -126,7 +126,7 @@ export async function makeProforma(accountId: string, userId: string | null) {
   const t = await totalsFor(lines, buyer.stateCode);
   const gst = await taxSetting();
   const settings = await invoicing();
-  const seller = { legalName: gst.legalName || 'Clor Applications Private Limited', gstin: gst.registered ? gst.gstin : null, stateCode: gst.sellerStateCode || null, sac: gst.sac || null, address: settings.address };
+  const seller = { legalName: gst.legalName || 'CLOR Applications Private Limited', gstin: gst.registered ? gst.gstin : null, stateCode: gst.sellerStateCode || null, sac: gst.sac || null, address: settings.address };
   const now = new Date();
   const fy = financialYear(now);
   const row = await outsideTenant('billing: make a proforma', () =>

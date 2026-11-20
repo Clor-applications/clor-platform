@@ -56,7 +56,7 @@ describe('WriteGuard', () => {
   /* People audit, 30 Oct 2026: the banner said "you need My Attendance · Edit", a right that resource does not have. */
   it('names what the screen is about in plain words, never a write right the resource may not have', () => {
     expect(resourceWords('ATTENDANCE::My Attendance::VIEW')).toBe('My attendance (Attendance)');
-    expect(resourceWords('PEOPLE::HR Cases::VIEW')).toBe('HR cases (People)');
+    expect(resourceWords('PEOPLE::HR Cases::VIEW')).toBe('Help desk (People)');
     expect(resourceWords('nonsense')).toBe('');
     render(
       <PermissionContext.Provider value={ctx(['ATTENDANCE::My Attendance::VIEW'])}>

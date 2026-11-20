@@ -219,7 +219,7 @@ describe('Ask HR as a conversation', () => {
     api.reopenDesk.mockClear();
     render(<AskHr guard={guard} />);
     fireEvent.click((await screen.findByText('Experience letter')).closest('button'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Yes' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, solved' }));
     expect(screen.getByText(/Glad it is sorted/)).toBeInTheDocument();
     expect(api.reopenDesk).not.toHaveBeenCalled();
   });
@@ -280,7 +280,7 @@ describe('The Me tab and Leave in the app', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Ask HR to change my account' }));
     expect(await screen.findByDisplayValue('Change my salary account')).toBeInTheDocument();
     expect(screen.getByLabelText('About')).toHaveValue('PAYROLL');
-    expect(await screen.findByText('boom')).toBeInTheDocument();
+    expect(await screen.findByText('Could not load your documents. Try again.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Raise a private complaint' })).toBeInTheDocument();
     expect(screen.getByText('Leaving the company')).toBeInTheDocument();
   });

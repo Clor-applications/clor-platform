@@ -90,7 +90,7 @@ function endSession(message) {
   } catch {
     // ignore
   }
-  const err = new Error(message || 'Your session has expired. Please sign in again.');
+  const err = new Error(message || 'You have been signed out. Sign in again.');
   err.status = 401;
   err.sessionExpired = true;
   window.dispatchEvent(new CustomEvent('auth:session-expired'));
@@ -120,12 +120,17 @@ function describeHttpFailure(status, text, method = 'GET') {
   if (isHtml || !raw) {
     if (raw) console.error(`Non-JSON ${status} response from the API:`, raw.slice(0, 500));
     if (status === 502 || status === 503 || status === 504) {
-      return `The server could not be reached (${status}). It may be restarting — try again in a moment.`;
+      return 'CLOR could not be reached. It may be restarting, so try again in a moment.';
     }
     if (status >= 500) return method === 'GET'
-      ? `The server could not load this data (${status}). Please retry.`
-      : `The server could not complete that (${status}). Nothing was saved.`;
-    return `Request failed (${status}).`;
+      ? 'CLOR could not load this just now. Try again in a moment.'
+      : 'CLOR could not finish that, so nothing was saved. Try again in a moment.';
+    if (status === 401) return 'You have been signed out. Sign in again.';
+    if (status === 403) return 'Your role does not allow this. Ask an administrator of this company to change your role.';
+    if (status === 404) return 'That is no longer there. Reload the page.';
+    if (status === 409) return 'Someone else changed this. Reload the page and try again.';
+    if (status === 429) return 'Too many tries. Wait a minute and try again.';
+    return 'That did not work. Try again.';
   }
 
   return raw.slice(0, 300);

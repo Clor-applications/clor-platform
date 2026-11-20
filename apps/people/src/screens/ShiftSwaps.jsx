@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -18,7 +19,7 @@ import { todayIst as istToday } from '@ui/utils/dates';
  * Approvals. HR sees every swap and a manager their team's; HR may cancel an
  * approved one before it starts, which puts the usual shifts back.
  */
-const SWAP_STATUS = { ASKED: 'Waiting for the colleague', DECLINED: 'Declined', WAITING: 'Waiting for approval', APPROVED: 'Approved', REJECTED: 'Not approved', WITHDRAWN: 'Withdrawn', CANCELLED: 'Cancelled' };
+const SWAP_STATUS = { ASKED: 'Waiting for the colleague', DECLINED: 'Declined', WAITING: 'Waiting for approval', APPROVED: 'Approved', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn', CANCELLED: 'Cancelled' };
 const SWAP_TONE = { ASKED: 'warn', DECLINED: 'neutral', WAITING: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'neutral', CANCELLED: 'neutral' };
 const TABS = [['', 'All'], ['ASKED', 'Asked'], ['WAITING', 'To approve'], ['APPROVED', 'Approved']];
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
@@ -54,7 +55,7 @@ export default function ShiftSwaps({ params = {}, updateParams, openScreen }) {
     { key: 'with', label: 'Swaps with', render: (s) => <Person p={s.colleague} /> },
     { key: 'days', label: 'Days', render: (s) => <span className="tabular-nums whitespace-nowrap">{range(s.fromDate, s.toDate)}</span> },
     { key: 'shifts', label: 'Shifts', render: (s) => <span className="whitespace-nowrap">{s.days[0] ? `${s.days[0].requesterShift.name} ⇄ ${s.days[0].colleagueShift.name}` : '—'}</span> },
-    { key: 'status', label: 'Status', render: (s) => <span className={`ui-pill ui-pill-${SWAP_TONE[s.status] || 'neutral'}`}>{SWAP_STATUS[s.status] || s.status}</span> },
+    { key: 'status', label: 'Status', render: (s) => <span className={`ui-pill ui-pill-${SWAP_TONE[s.status] || 'neutral'}`}>{SWAP_STATUS[s.status] || enumWords(s.status)}</span> },
   ];
 
   return (
@@ -84,11 +85,11 @@ export default function ShiftSwaps({ params = {}, updateParams, openScreen }) {
         refreshing={req.refreshing}
         card={(s) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{s.requester.name} ⇄ {s.colleague.name}</span><span className={`ui-pill ui-pill-${SWAP_TONE[s.status] || 'neutral'}`}>{SWAP_STATUS[s.status] || s.status}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{s.requester.name} ⇄ {s.colleague.name}</span><span className={`ui-pill ui-pill-${SWAP_TONE[s.status] || 'neutral'}`}>{SWAP_STATUS[s.status] || enumWords(s.status)}</span></span>
             <span className="block truncate ui-caption tabular-nums">{range(s.fromDate, s.toDate)}{s.days[0] ? ` · ${s.days[0].requesterShift.name} ⇄ ${s.days[0].colleagueShift.name}` : ''}</span>
           </span>
         )}
-        empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : status ? <EmptyState kind="filtered" title="None here" onClearFilters={() => set({ status: null, page: null })} /> : <EmptyState title="No shift swaps yet" description={`People ask a colleague on another shift from the employee app, for up to ${req.data?.rules?.maxDays || 7} days; the manager approves in Approvals.`} />}
+        empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : status ? <EmptyState kind="filtered" title="No swaps with this status" onClearFilters={() => set({ status: null, page: null })} /> : <EmptyState title="No shift swaps yet" description={`People ask a colleague on another shift from the employee app, for up to ${req.data?.rules?.maxDays || 7} days; the manager approves in the Inbox.`} />}
       />
       {open ? <SwapDrawer swap={open} canCancel={Boolean(req.data?.canCancel)} onClose={() => setOpen(null)} onDone={() => { setOpen(null); req.reload(); }} openScreen={openScreen} /> : null}
     </div>
@@ -106,7 +107,7 @@ function SwapDrawer({ swap, canCancel, onClose, onDone, openScreen }) {
       notify.success('Swap cancelled; the usual shifts apply.');
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not cancelled.'));
+      notify.error(errorWords(e, 'cancel the swap'));
     } finally {
       setBusy(false);
     }
@@ -115,14 +116,14 @@ function SwapDrawer({ swap, canCancel, onClose, onDone, openScreen }) {
     <Drawer open onClose={onClose} title={`${swap.requester.name} ⇄ ${swap.colleague.name}`} widthClass="w-[min(36rem,96vw)]"
       actions={(
         <>
-          {swap.status === 'WAITING' && openScreen ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('approvals')}>Open in Approvals</button> : null}
+          {swap.status === 'WAITING' && openScreen ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('approvals')}>Open in Inbox</button> : null}
           {cancellable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={cancel}>{busy ? 'Cancelling…' : 'Cancel swap'}</button> : null}
         </>
       )}
     >
       <div className="space-y-4 text-sm">
         <dl className="grid gap-3 sm:grid-cols-2">
-          <div><dt className="ui-t-label">Status</dt><dd><span className={`ui-pill ui-pill-${SWAP_TONE[swap.status] || 'neutral'}`}>{SWAP_STATUS[swap.status] || swap.status}</span></dd></div>
+          <div><dt className="ui-t-label">Status</dt><dd><span className={`ui-pill ui-pill-${SWAP_TONE[swap.status] || 'neutral'}`}>{SWAP_STATUS[swap.status] || enumWords(swap.status)}</span></dd></div>
           <div><dt className="ui-t-label">Asked</dt><dd className="tabular-nums">{day(swap.createdAt)}</dd></div>
           {swap.reason ? <div className="sm:col-span-2"><dt className="ui-t-label">Why</dt><dd>{swap.reason}</dd></div> : null}
           {swap.colleagueNote ? <div className="sm:col-span-2"><dt className="ui-t-label">{swap.colleague.name} said</dt><dd>{swap.colleagueNote}</dd></div> : null}

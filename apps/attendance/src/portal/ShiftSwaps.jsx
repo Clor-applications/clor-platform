@@ -4,6 +4,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { SignedOut, answerSwap, askSwap, getSwaps, swapColleagues, todayIst, withdrawSwap } from './portalApi';
 import { addDaysIso as plusDays } from '@ui/utils/dates';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Shift swaps in the employee app (People, FEATURE-UI-AUDIT gap 24), on the
@@ -24,7 +25,7 @@ const STATUS = {
 const dayLabel = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const span = (a, b) => (a === b ? dayLabel(a) : `${dayLabel(a)} – ${dayLabel(b)}`);
 const hours = (s) => `${s.name} ${s.startTime}–${s.endTime}`;
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 
 function Pill({ status }) {
   const [words, cls] = STATUS[status] || [status, 'ui-pill-neutral'];
@@ -38,7 +39,7 @@ export default function ShiftSwaps({ guard, onChanged }) {
   const load = useCallback(() => {
     guard(getSwaps())
       .then((d) => { setData({ mine: d?.mine || [], askedOfMe: d?.askedOfMe || [], rules: d?.rules || null }); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not load your shift swaps.')));
+      .catch((e) => setFailed(errText(e, 'load your shift swaps')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
   const changed = (text, ok = true) => { setNote(text ? { ok, text } : null); load(); if (ok) onChanged?.(); };
@@ -67,7 +68,7 @@ function AskedOfMe({ swap, guard, onDone }) {
       await guard(answerSwap(swap.id, accept, text.trim() || null));
       onDone(accept ? `You accepted. It now waits for ${swap.requester.name}'s manager.` : 'You declined. They are told.');
     } catch (e) {
-      const t = errText(e, 'Not saved.');
+      const t = errText(e, 'save the changes');
       if (t) onDone(t, false);
     } finally {
       setBusy('');
@@ -127,7 +128,7 @@ function AskSwap({ guard, rules, onDone, reasons = [] }) {
     setLooking(true);
     guard(swapColleagues(from, last))
       .then((r) => !off && setPeople(r.colleagues))
-      .catch((e) => !off && setError(errText(e, 'Could not find colleagues.')))
+      .catch((e) => !off && setError(errText(e, 'find colleagues')))
       .finally(() => !off && setLooking(false));
     return () => { off = true; };
   }, [from, last, guard]);
@@ -143,7 +144,7 @@ function AskSwap({ guard, rules, onDone, reasons = [] }) {
       reset();
       onDone(`Asked ${r.swap.colleague.name}. Once they accept, it goes to your manager.`);
     } catch (err) {
-      const t = errText(err, 'Not sent.');
+      const t = errText(err, 'send it');
       if (t) setError(t);
     } finally {
       setBusy(false);
@@ -201,7 +202,7 @@ function MySwaps({ swaps, guard, onDone }) {
       await guard(withdrawSwap(s.id));
       onDone('Withdrawn. Your colleague is told.');
     } catch (e) {
-      const t = errText(e, 'Not withdrawn.');
+      const t = errText(e, 'withdraw it');
       if (t) onDone(t, false);
     } finally {
       setBusy('');

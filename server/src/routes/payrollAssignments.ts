@@ -13,6 +13,7 @@ import { costCentreRefusal } from '../services/payroll/accounting/references.js'
 import { ownPayRefusal } from '../services/payroll/ownPay.js';
 import { tickWhenDone } from '../services/people/checklists.js';
 import { minimumWageForSalary } from '../services/payroll/minimumWage.js';
+import { dateWords } from '../utils/istDate.js';
 
 /**
  * What one person is paid, from a date.
@@ -208,7 +209,7 @@ payrollAssignmentsRouter.post(
     }
     if (employee.dateOfJoining && body.effectiveFrom < employee.dateOfJoining) {
       return res.status(400).json({
-        error: `${employee.name} joined on ${employee.dateOfJoining}, so a salary cannot start before that.`,
+        error: `${employee.name} joined on ${dateWords(employee.dateOfJoining)}, so a salary cannot start before that.`,
       });
     }
 

@@ -122,7 +122,7 @@ describe('sessions', () => {
       .post('/api/auth/refresh')
       .send({ refreshToken: u.refreshToken })
       .expect(401);
-    expect(String(replay.body.error)).toMatch(/no longer valid/i);
+    expect(String(replay.body.error)).toMatch(/signed out/i);
 
     // And the legitimate holder is signed out too, deliberately.
     await request(app).post('/api/auth/refresh').send({ refreshToken: refreshCookieValue(rotated) }).expect(401);
@@ -403,7 +403,7 @@ describe('password reset', () => {
       .post('/api/auth/reset-password')
       .send({ token, password: 'Another!234' })
       .expect(400);
-    expect(String(second.body.error)).toMatch(/already been used/i);
+    expect(String(second.body.error)).toMatch(/already used/i);
 
     // The new password works, the old one does not.
     await request(app).post('/api/auth/login').send({ emailOrUsername: u.email, password: 'BrandNew!234' }).expect(200);
@@ -444,7 +444,7 @@ describe('password reset', () => {
       .post('/api/auth/forgot-password')
       .send({ email: `ghost.${rnd()}@example.com` })
       .expect(200);
-    expect(String(res.body.message)).toMatch(/if an account exists/i);
+    expect(String(res.body.message)).toMatch(/if this email signs in to CLOR/i);
     expect(res.body.devToken).toBeUndefined();
   });
 });

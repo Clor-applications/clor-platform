@@ -13,6 +13,7 @@ import { listBranches, listStructure } from '@ui/personnel/api';
 import { copyRosterWeek, dayLabel, discardRosterDraft, getRoster, publishRoster, setRosterDraft, todayIst } from '../api/attendance';
 import RosterGrid from '../components/RosterGrid';
 import { cellLabel } from '../components/rosterCells';
+import { errorWords } from '@ui/utils/errorWords';
 
 const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const utc = (d) => new Date(`${d}T00:00:00Z`);
@@ -76,7 +77,7 @@ export default function ScheduleCalendar({ menuLabel } = {}) {
     const mine = (asked.current += 1);
     return getRoster({ ...range, ...filters, q, page, pageSize: perPage })
       .then((d) => { if (mine === asked.current) { setData(d); setLoadError(''); } })
-      .catch((e) => { if (mine === asked.current) setLoadError(String(e?.message || 'Could not load the roster.')); });
+      .catch((e) => { if (mine === asked.current) setLoadError(errorWords(e, 'load the roster')); });
   }, [range, filters, q, page, perPage]);
   useEffect(() => { load(); }, [load, attempt]);
 

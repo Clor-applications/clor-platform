@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Plus } from '@ui/components/ui/lineIcons';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -50,7 +51,7 @@ export default function Reviews({ params = {} }) {
   return (
     <div className="space-y-6">
       <ListHeader
-        module="Talent"
+        module="Performance"
         title="Reviews"
         description="Review cycles: a period, everyone working in it, and how far the self, manager and final reviews have got."
         primary={hr ? { label: 'New cycle', icon: Plus, onClick: () => setCreating(true) } : null}
@@ -86,7 +87,7 @@ function Cycle({ id, hr, onBack }) {
       const r = await moveCycle(id, next[0]);
       notify.success(r.reviews ? `Open: ${r.reviews} reviews made.` : `${CYCLE_STATUS[r.status]?.[0] || 'Moved'}.`);
       req.reload();
-    } catch (e) { notify.error(String(e?.message || 'Not moved.')); } finally { setBusy(false); }
+    } catch (e) { notify.error(errorWords(e, 'move it')); } finally { setBusy(false); }
   };
   const mine = reviews.filter((r) => r.mineToWrite && !r.managerAt).length;
   const columns = [
@@ -102,7 +103,7 @@ function Cycle({ id, hr, onBack }) {
       <div><button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={onBack}><ArrowLeft size={16} aria-hidden="true" /> Reviews</button></div>
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} onBack={onBack} /> : !c ? <SkeletonCard lines={6} /> : (
         <>
-          <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Reviews' }, { label: c.name }]} title={c.name}
+          <PageHeader breadcrumb={[{ label: 'Performance' }, { label: 'Reviews' }, { label: c.name }]} title={c.name}
             actions={next ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={move}>{next[1]}</button> : null} />
           <dl className="ui-field-grid">
             <div><dt className="ui-label">Status</dt><dd><Pill map={CYCLE_STATUS} value={c.status} /></dd></div>

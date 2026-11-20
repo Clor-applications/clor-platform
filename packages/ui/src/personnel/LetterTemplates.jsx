@@ -10,6 +10,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getLetterTemplateVersions, getLetterTemplates, saveLetterSettings, saveLetterTemplate } from './api';
 import { istDay } from '@ui/utils/dates';
 import { LetterFieldsPreview } from './round46';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Letters the company issues (DOC-04): one template per kind, plain text
@@ -61,7 +62,7 @@ function Editor({ data, current, kind, setKind, onSaved }) {
   };
   const switchTo = async (k) => {
     if (k === kind) return;
-    if (dirty && !(await confirmDialog({ title: 'Leave this letter?', message: 'Your changes are not saved.', confirmLabel: 'Leave' }))) return;
+    if (dirty && !(await confirmDialog({ title: 'Leave this letter?', message: 'Your changes are not saved.', confirmLabel: 'Leave', cancelLabel: 'Stay', stayFirst: true }))) return;
     setKind(k);
   };
   return (
@@ -130,7 +131,7 @@ function Signatory({ saved, onSaved }) {
       notify.success(r.signatory ? `Letters are signed by ${r.signatory}.` : 'No one is named to sign letters.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the letter'));
     } finally {
       setBusy(false);
     }

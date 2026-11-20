@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsAddNote, opsAddTag, opsChangeNote, opsNotes, opsRemoveNote, opsRemoveTag, opsTags } from './api';
-import { Empty, Err, Loading, may, when } from './kit';
+import { Empty, Err, Loading, may, when, errorWords } from './kit';
 
 /**
  * Customer page → Notes (server: routes/opsNotes.ts). CLOR staff's own
@@ -23,7 +23,7 @@ export function CustomerNotes({ id, role }) {
   const load = useCallback(() => {
     opsNotes(id)
       .then((r) => (setD(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the notes')));
   }, [id]);
   useEffect(load, [load]);
   useEffect(() => {
@@ -38,7 +38,7 @@ export function CustomerNotes({ id, role }) {
       load();
       return true;
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the change'));
       return false;
     } finally {
       setBusy(false);

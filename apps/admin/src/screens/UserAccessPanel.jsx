@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { getUserAccess } from '@platform/admin/admin';
 import { getPermissionCatalog } from '@ui/api/permissions';
+import { errorWords } from '@ui/utils/errorWords';
 
 /*
  * What one person can do here, in words.
@@ -54,7 +55,7 @@ export default function UserAccessPanel({ orgId, userId }) {
         if (!cancelled) setState({ loading: false, error: '', access, modules: cat?.modules || [] });
       })
       .catch((e) => {
-        if (!cancelled) setState({ loading: false, error: String(e?.message || e), access: null, modules: [] });
+        if (!cancelled) setState({ loading: false, error: errorWords(e, 'load their access'), access: null, modules: [] });
       });
     return () => {
       cancelled = true;

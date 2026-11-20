@@ -11,6 +11,8 @@ import { listEmployees, listUnmatchedPunches, matchPunches } from '../api/attend
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import HeldPunches from '../components/HeldPunches';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Punches from reader user IDs that match no employee (by Reader ID or
@@ -47,7 +49,7 @@ export default function UnmatchedPunches({ menuLabel } = {}) {
   const canDecide = Boolean(perms?.isAdmin) || Boolean((perms?.permissions?.has?.('ATTENDANCE::Attendance Devices::EDIT') || perms?.permissions?.has?.('ATTENDANCE::Attendance Records::APPROVE')));
 
   const load = useCallback(() => {
-    listUnmatchedPunches().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load punches.')));
+    listUnmatchedPunches().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load punches')));
   }, []);
   useEffect(() => {
     load();
@@ -73,7 +75,7 @@ export default function UnmatchedPunches({ menuLabel } = {}) {
       notify.success(`${r.matched} ${r.matched === 1 ? 'punch' : 'punches'} matched; ${r.days} ${r.days === 1 ? 'day' : 'days'} worked out.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not matched.'));
+      notify.error(errorWords(e, 'match the punches'));
     }
   };
 
@@ -89,14 +91,13 @@ export default function UnmatchedPunches({ menuLabel } = {}) {
       description="Reader user IDs that match no employee. Choose who each one is."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search reader IDs…', label: 'Search unmatched punches' }}
       above={<HeldPunches canDecide={canDecide} onChanged={load} />}
-      cards={[
+      countLine={countItems([
         { label: 'Reader IDs', value: figures.ids, count: true, tone: 'outstanding', Icon: Fingerprint },
         { label: 'Punches waiting', value: figures.punches, count: true, tone: 'partial', Icon: Clock },
         { label: 'Sites', value: figures.sites, count: true, tone: 'sent', Icon: MapPin },
-      ]}
+      ])}
     >
       <LoadFailed message={loadError} onRetry={load} />
       {!rows ? (

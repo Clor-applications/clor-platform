@@ -14,6 +14,8 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import DayExplain from '../components/DayExplain';
 import { DayQuickFix } from '../components/round59';
 import { plusDaysIso } from '@ui/utils/dates';
+import { errorWords, dayText, enumWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * One queue for everything that is not settled yet: days with no check-out,
@@ -23,7 +25,7 @@ import { plusDaysIso } from '@ui/utils/dates';
  * settles it; who owns it and whether it is done is kept here.
  */
 const KIND = {
-  MISSING_OUT: 'No check-out',
+  MISSING_OUT: 'No punch out',
   NO_RECORD: 'No attendance',
   OVERTIME: 'Overtime to approve',
   CORRECTION: 'Correction waiting',
@@ -61,13 +63,13 @@ const BATCH = 500;
 const EXPORT_COLUMNS = [
   { key: 'title', label: 'What' },
   { key: 'severity', label: 'Urgency', value: (r) => SEVERITY[r.severity] || r.severity },
-  { key: 'kind', label: 'Kind', value: (r) => KIND[r.kind] || r.kind },
+  { key: 'kind', label: 'Kind', value: (r) => KIND[r.kind] || enumWords(r.kind) },
   { key: 'employeeName', label: 'Who' },
   { key: 'date', label: 'Day' },
   { key: 'detail', label: 'Detail' },
   { key: 'note', label: 'Note' },
   { key: 'assignee', label: 'Owner', value: (r) => r.assignee || 'Nobody' },
-  { key: 'status', label: 'Status', value: (r) => STATUS[r.status] || r.status },
+  { key: 'status', label: 'Status', value: (r) => STATUS[r.status] || enumWords(r.status) },
 ];
 export default function Exceptions({ openScreen, menuLabel }) {
   const [range, setRange] = useState({ from: back(14), to: back(1) });
@@ -93,7 +95,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
     /* The kind is chosen on the server, before its cap, so a kind reaches all of its items. */
     listExceptions({ ...range, show: showAll ? 'all' : 'open', ...(kind ? { kind } : {}) })
       .then((d) => { if (ask === latest.current) { setData(d); setError(''); } })
-      .catch((e) => { if (ask === latest.current) setError(String(e?.message || 'Could not load the exceptions.')); });
+      .catch((e) => { if (ask === latest.current) setError(errorWords(e, 'load the exceptions')); });
   }, [range, showAll, kind]);
   useEffect(() => { load(); }, [load]);
 
@@ -141,7 +143,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
       if (done) notify.success(done);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     }
   };
   const settle = (x, status) => {
@@ -180,7 +182,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
       ].filter(Boolean);
       notify.success(`${n(changed)} ${changed === 1 ? 'item' : 'items'} ${verb}${extra.length ? `; ${extra.join('; ')}` : ''}.`);
     } catch (e) {
-      const why = String(e?.message || 'Not saved.');
+      const why = errorWords(e, 'save the changes');
       notify.error(sent ? `${why} ${n(changed)} of ${n(keys.length)} ${verb}; the rest may not have been changed. The list below is up to date.` : why);
     } finally {
       setRunning(null);
@@ -210,14 +212,13 @@ export default function Exceptions({ openScreen, menuLabel }) {
       description="What is still not settled. Each item opens the screen that fixes it."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search exceptions…', label: 'Search exceptions' }}
-      cards={[
+      countLine={countItems([
         { label: 'Urgent', value: figures.high, count: true, tone: 'overdue', Icon: AlertTriangle },
         { label: 'To do', value: figures.medium, count: true, tone: 'partial', Icon: CircleDot },
         { label: 'When you can', value: figures.low, count: true, tone: 'cancelled', Icon: Clock },
         { label: 'Nobody owns', value: figures.unowned, count: true, tone: 'outstanding', Icon: UserRoundCheck },
-      ]}
+      ])}
       tabs={tabs}
       statusValue={kind}
       statusCounts={counts}
@@ -338,7 +339,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
                           <span className="ui-exc-dot" data-severity={x.severity} aria-hidden="true" />
                           <span>
                             <span className="block font-medium">{x.title}</span>
-                            <span className="ui-caption">{SEVERITY[x.severity]} · {KIND[x.kind] || x.kind}{x.status !== 'OPEN' ? ` · ${STATUS[x.status]}` : ''}</span>
+                            <span className="ui-caption">{SEVERITY[x.severity]} · {KIND[x.kind] || enumWords(x.kind)}{x.status !== 'OPEN' ? ` · ${STATUS[x.status]}` : ''}</span>
                           </span>
                         </span>
                       </td>
@@ -385,7 +386,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
         open={Boolean(settling)}
         onClose={() => setSettling(null)}
         title={settling?.keys ? `${settling.status === 'IGNORED' ? 'Ignore' : 'Mark settled'}: ${settling.keys.length.toLocaleString('en-IN')} ${settling.keys.length === 1 ? 'item' : 'items'}` : settling?.status === 'IGNORED' ? 'Ignore this item' : 'Mark this item settled'}
-        description={settling?.x ? `${settling.x.title}${settling.x.employeeName ? `, ${settling.x.employeeName}` : ''}${settling.x.date ? `, ${settling.x.date}` : ''}` : settling?.keys ? 'The same note is kept on each.' : ''}
+        description={settling?.x ? `${settling.x.title}${settling.x.employeeName ? `, ${settling.x.employeeName}` : ''}${settling.x.date ? `, ${dayText(settling.x.date)}` : ''}` : settling?.keys ? 'The same note is kept on each.' : ''}
         widthClass="w-[min(30rem,96vw)]"
         actions={
           <>

@@ -11,7 +11,7 @@ describe('the role catalogue’s groups', async () => {
     expect(roleGroup(role('ADMIN', ['SALES', 'PAYROLL']))).toBe('Company administration');
   });
   it('groups a role by the one app it opens', () => {
-    expect(roleGroup(role('CUSTOM', ['SALES', 'MASTERS']))).toBe('Accounting');
+    expect(roleGroup(role('CUSTOM', ['SALES', 'MASTERS']))).toBe('Books');
     expect(roleGroup(role('CUSTOM', ['PAYROLL']))).toBe('Payroll');
     expect(roleGroup(role('CUSTOM', ['PEOPLE', 'ATTENDANCE']))).toBe('People and Attendance');
   });

@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { stepUpRefusal } from './stepUp.js';
+import { statusWords } from '../utils/statusWords.js';
 
 /**
  * A person's authority over the account itself — the Workspace's top level
@@ -210,7 +211,7 @@ export async function setAccountRole(req: Request, targetUserId: string, nextRol
     action: 'ACCOUNT_ROLE_CHANGE',
     targetType: 'AccountMembership',
     targetId: targetUserId,
-    message: `Account role changed from ${target!.role} to ${nextRole}`,
+    message: `Account role changed from ${statusWords(target!.role)} to ${statusWords(nextRole)}`,
     metadata: { from: target!.role, to: nextRole },
     requestId: requestIdOf(req),
   });

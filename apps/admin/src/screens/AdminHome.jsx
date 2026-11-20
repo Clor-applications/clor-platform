@@ -6,7 +6,8 @@ import { ClorMark } from '@ui/components/brand';
 import { accountAudit, getAccountMe, listAccountMembers, listInvitations, listTickets, memberDirectory } from '@platform/admin/account';
 import { getAccountOverview } from '@platform/admin/admin';
 import { operator } from '@platform/operator';
-import { ACTION_WORDS } from './AccountActivity';
+import { actionText } from './AccountActivity';
+import { planSentence, planWord } from './planWords';
 import { listOutsideAccess } from '@platform/admin/outsideAccess';
 import { AppMark, Avatar, ICON, Meter, Panel, ago, appInfo, appName, colourIcon, productIcon, seatState } from './wsKit';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
@@ -39,7 +40,7 @@ import './ws-overview.css';
  */
 
 /* The account-level role, said as such: an account owner is not a company admin or an app role. */
-const ROLE_LABEL = { OWNER: 'Account Owner', ADMIN: 'Account Admin', BILLING_ADMIN: 'Billing Admin', MEMBER: 'Member' };
+const ROLE_LABEL = { OWNER: 'Owner', ADMIN: 'Administrator', BILLING_ADMIN: 'Billing admin', MEMBER: 'Member' };
 /* One line under the greeting, by account role. Presentation only: what each can do is the server's. */
 const ROLE_LEDE = {
   OWNER: 'Your companies, their apps and people, and what waits on you.',
@@ -57,7 +58,7 @@ export function appState(app, tenant, myApps = null) {
   }
   /* Unrestricted billing (no plan assigned) owns everything sellable; a plan names what it includes. */
   const onPlan = !tenant?.billing?.restricted || (tenant.billing.ownedApps || []).includes(app.id);
-  return onPlan ? { key: 'off', label: 'Not switched on', pill: 'ws-pill ws-pill--off' } : { key: 'plan', label: 'Subscription required', pill: 'ws-pill' };
+  return onPlan ? { key: 'off', label: 'Not switched on', pill: 'ws-pill ws-pill--off' } : { key: 'plan', label: 'Not in plan', pill: 'ws-pill' };
 }
 
 /** A count in the figure face (DESIGN.md: numbers are JetBrains Mono, tabular); words beside it stay in the text face. */
@@ -107,11 +108,6 @@ const E = {
   clock: emoji('alarm-clock'),
 };
 
-/** Good morning / afternoon / evening, by the reader's own clock. */
-function greeting(now = new Date()) {
-  const h = now.getHours();
-  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-}
 
 /* The page's three accent hues, in the order they take turns. */
 const HUES = ['blue', 'orange', 'green'];
@@ -407,8 +403,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
 
   /* Needs your attention: only what is true and actionable, the most urgent first. */
   const attention = [
-    planBad ? { key: 'plan', tag: 'Plan', action: 'Open plan', icon: ICON.alert, tone: 'danger', title: 'Your plan needs attention', sub: `Status: ${String(plan.status || '').toLowerCase()}.`, go: go('account') } : null,
-    seesPlan && bills?.overdue ? { key: 'overdue', tag: 'Overdue', action: 'Pay now', icon: ICON.plan, tone: 'danger', title: `${plural(bills.overdue, 'CLOR invoice')} overdue`, sub: <><N>{rupees(bills.due)}</N> to pay in all. Open Billing to pay.</>, go: go('billing') } : null,
+    planBad ? { key: 'plan', tag: 'Plan', action: 'Open plan', icon: ICON.alert, tone: 'danger', title: 'Your plan needs attention', sub: planSentence(plan.status), go: go('account') } : null,
+    seesPlan && bills?.overdue ? { key: 'overdue', tag: 'Overdue', action: 'Pay now', icon: ICON.plan, tone: 'danger', title: `${plural(bills.overdue, 'CLOR invoice')} overdue`, sub: <><N>{rupees(bills.due)}</N> to pay in all. Open Billing & seats to pay.</>, go: go('billing') } : null,
     renewalLine ? { key: 'renewal', tag: 'Plan', action: 'Choose plan', icon: ICON.plan, ...renewalLine, go: go('account') } : null,
     ...seatLines,
     ...endingLines,
@@ -539,11 +535,12 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         <section className="wsh-hero" data-today={lines.length ? '' : undefined} aria-labelledby="wsh-hello">
           <div className="wsh-hero-text">
             <h1 id="wsh-hello" className="wsh-hello">
-              {greeting()}
-              {name ? <>, {name}</> : null}
-              <E.wave size={36} className="wsh-wave" aria-hidden="true" />
+              Home
             </h1>
-            <p className="wsh-lede">{ROLE_LEDE[role] || DEFAULT_LEDE}</p>
+            <p className="wsh-lede">
+              {name ? <span className="block">Hello, {name} <E.wave size={20} className="wsh-wave" aria-hidden="true" /></span> : null}
+              {ROLE_LEDE[role] || DEFAULT_LEDE}
+            </p>
             <p className="wsh-facts">
               <span>{facts.join(' · ')}</span>
               {/* The role in green with a live dot: you, signed in now (owner, 19 Nov 2026). */}
@@ -872,7 +869,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               {plan ? (
                 <Panel
                   icon={E.card}
-                  title="Subscription"
+                  title="Plan"
                   action={
                     go('billing') || go('account') ? (
                       <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={go('billing') || go('account')}>
@@ -883,7 +880,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 >
                   <div className="flex items-center gap-2">
                     <strong style={{ fontSize: '1.125rem' }}>{plan.name}</strong>
-                    <span className={plan.inGoodStanding ? 'ws-pill ws-pill--ok' : 'ws-pill ws-pill--danger'}>{plan.inGoodStanding ? (renewal?.status === 'trialing' ? 'Trial' : 'Active') : String(plan.status || '').toLowerCase()}</span>
+                    <span className={plan.inGoodStanding ? 'ws-pill ws-pill--ok' : 'ws-pill ws-pill--danger'}>{plan.inGoodStanding ? (renewal?.status === 'trialing' ? 'Trial' : 'Active') : planWord(plan.status)}</span>
                   </div>
                   <dl className="ws-rows">
                     {runRate !== undefined ? (
@@ -949,7 +946,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                               <strong>{e.actor?.name || 'Someone'}</strong>{' '}
                               <span className="wsh-feed-what">
                                 {e.result === 'DENIED' ? 'was refused: ' : ''}
-                                {ACTION_WORDS[e.action] || e.action}
+                                {actionText(e.action)}
                                 {e.targetName ? `: ${e.targetName}` : ''}
                               </span>
                             </span>

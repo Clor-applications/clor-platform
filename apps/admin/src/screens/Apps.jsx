@@ -71,7 +71,7 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
           }
         />
 
-        {me === undefined ? <Loading shape="rows" rows={3} label="Reading your apps…" /> : null}
+        {me === undefined ? <Loading shape="rows" rows={3} label="Loading your apps…" /> : null}
         {/* Without it an app this person has no role in would read as open. */}
         {me === null ? (
           <LoadError onRetry={() => { setMe(undefined); setTries((n) => n + 1); }}>Your access to these apps could not be read. Try again in a minute.</LoadError>
@@ -147,7 +147,7 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
           <section className="ws-activity-box">
             <p className="ws-activity-box-title">In your plan</p>
             <p className="ws-activity-big"><span className="ui-num">{inPlanCount}</span> of {built.length} apps</p>
-            <p className="ws-activity-sub">{planName ? `${planName} plan` : 'Plan not read'}{planned.length ? ` · ${planned.length} coming soon` : ''}</p>
+            <p className="ws-activity-sub">{planName ? `${planName} plan` : 'Plan not loaded'}{planned.length ? ` · ${planned.length} coming soon` : ''}</p>
           </section>
           {seats?.length ? (
             <section className="ws-activity-box">

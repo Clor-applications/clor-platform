@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsRemoveSavedReply, opsSaveSavedReply, opsSavedReplies } from './api';
-import { APP_NAMES, Empty, Err, Loading, may } from './kit';
+import { APP_NAMES, Empty, Err, Loading, errorWords, may } from './kit';
 
 /**
  * Saved replies (server: routes/opsSavedReplies.ts): the answers Support gives
@@ -26,7 +26,7 @@ function Editor({ reply, onClose, onSaved }) {
       await opsSaveSavedReply(reply?.id, { title: title.trim(), body: body.trim(), app: app || null, helpUrl: helpUrl.trim() || null });
       onSaved();
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'save the reply'));
     } finally {
       setBusy(false);
     }
@@ -41,7 +41,7 @@ function Editor({ reply, onClose, onSaved }) {
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
           <button type="button" className="ws-btn ws-btn--primary" disabled={busy || title.trim().length < 3 || body.trim().length < 10} onClick={save}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? 'Saving…' : 'Save reply'}
           </button>
         </>
       }
@@ -83,24 +83,24 @@ export function SavedReplies({ me }) {
   const [editing, setEditing] = useState(null);
   const canWrite = may(me?.role, 'SUPPORT');
   const load = useCallback(() => {
-    opsSavedReplies().then((r) => (setRows(r.replies), setError(''))).catch((e) => setError(String(e?.message || e)));
+    opsSavedReplies().then((r) => (setRows(r.replies), setError(''))).catch((e) => setError(errorWords(e, 'load the saved replies')));
   }, []);
   useEffect(load, [load]);
   const remove = async (r) => {
-    if (!window.confirm(`Remove the saved reply “${r.title}”?`)) return;
+    if (!(await confirmDialog({ title: `Remove the saved reply “${r.title}”?`, message: 'It is deleted for everyone in Support. Tickets already answered with it keep their text.', confirmLabel: 'Remove reply', cancelLabel: 'Keep reply', tone: 'danger' }))) return;
     try {
       await opsRemoveSavedReply(r.id);
-      notify.success('Removed.');
+      notify.success('Saved reply removed.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not removed.'));
+      notify.error(errorWords(e, 'remove the saved reply'));
     }
   };
   return (
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Customers and sales', 'Saved replies']}
+          crumbs={['Customers and sales']}
           title="Saved replies"
           description="Answers Support gives often, picked in a ticket’s reply box and changed there before sending."
           actions={canWrite ? <button type="button" className="ws-btn ws-btn--primary" onClick={() => setEditing('new')}>New saved reply</button> : null}
@@ -109,7 +109,7 @@ export function SavedReplies({ me }) {
         {!rows ? (
           error ? null : <Loading />
         ) : !rows.length ? (
-          <Empty>No saved replies yet.</Empty>
+          <Empty>No saved replies yet. Write one with New saved reply to pick it in any ticket.</Empty>
         ) : (
           <Panel title={`${rows.length} ${rows.length === 1 ? 'reply' : 'replies'}, most used first`}>
             <ul className="ws-list">

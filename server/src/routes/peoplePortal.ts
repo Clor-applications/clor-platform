@@ -20,6 +20,7 @@ import { FormError, fileFor, formsFor, myFormRequests, raise, replyOwn, withdraw
 import { LetterError, askFromApp, myLetterRequests } from '../services/people/letters.js';
 import { z } from 'zod';
 import { check, id, idParams, jsonObject, list, noBody, q, rawText, text, ymd } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -103,7 +104,7 @@ peoplePortalRouter.post('/acknowledgements/:id/accept', check({ params: idParams
   } catch (e) {
     if (e instanceof AckError) return res.status(e.status).json({ error: e.message });
     console.error('[people-portal]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 });
 
@@ -111,7 +112,7 @@ peoplePortalRouter.post('/acknowledgements/:id/accept', check({ params: idParams
 const deskError = (res: any, e: unknown) => {
   if (e instanceof DeskError) return res.status(e.status).json({ error: e.message });
   console.error('[people-portal desk]', e instanceof Error ? e.message : e);
-  res.status(500).json({ error: 'Something went wrong.' });
+  res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 
 peoplePortalRouter.get('/desk', async (req, res) => {
@@ -170,7 +171,7 @@ peoplePortalRouter.get('/me/details', async (req, res) => {
   } catch (e) {
     if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
     console.error('[people-portal me]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 });
 
@@ -189,7 +190,7 @@ const selfServiceError = (res: any, e: unknown) => {
   /* A 4xx carries words meant for the person; a 5xx's message is internal and stays in the log (audit 7 Nov 2026 #24). */
   if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
   console.error('[people-portal me]', e instanceof Error ? e.message : e);
-  res.status(500).json({ error: 'Something went wrong.' });
+  res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 
 /* My own requests (E5): answer HR when they ask for more, or withdraw one still open. Only requests I made about myself. */
@@ -219,7 +220,7 @@ const letterError = (res: any, e: unknown) => {
   if (e instanceof LetterError) return res.status(e.status).json({ error: e.message });
   if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
   console.error('[people-portal letters]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 peoplePortalRouter.get('/me/letters', async (req, res) => {
   try {
@@ -247,7 +248,7 @@ peoplePortalRouter.post('/me/resign', check({ body: z.object({ lastDay: ymd('Say
     if (e instanceof ResignError) return res.status(e.status).json({ error: e.message });
     if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
     console.error('[people-portal resign]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 });
 
@@ -256,7 +257,7 @@ const assetError = (res: any, e: unknown) => {
   if (e instanceof AssetError) return res.status(e.status).json({ error: e.message });
   if (e instanceof DeskError) return res.status(e.status).json({ error: e.message });
   console.error('[people-portal assets]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 peoplePortalRouter.get('/me/assets', async (req, res) => {
   try {
@@ -296,7 +297,7 @@ peoplePortalRouter.post('/me/stay', check({ body: z.object({ reason: text(20_000
     if (e instanceof ResignError) return res.status(e.status).json({ error: e.message });
     if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
     console.error('[people-portal stay]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 });
 
@@ -313,7 +314,7 @@ const meAsViewer = (req: Request): growth.Viewer => {
 const talentError = (res: any, e: unknown) => {
   if (e instanceof TalentError) return res.status(e.status).json({ error: e.message });
   console.error('[people-portal talent]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 peoplePortalRouter.get('/me/growth', async (req, res) => {
   const { accountId, orgId, employeeId } = me(req);
@@ -419,7 +420,7 @@ peoplePortalRouter.post('/private-cases', check({ body: CASE_BODY }), async (req
     if (e instanceof CaseError) return res.status(e.status).json({ error: e.message });
     if (e instanceof CaseKeyMissing) return res.status(503).json({ error: e.message });
     console.error('[people-portal case]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 });
 
@@ -430,7 +431,7 @@ peoplePortalRouter.post('/private-cases', check({ body: CASE_BODY }), async (req
 const swapError = (res: any, e: unknown) => {
   if (e instanceof SwapError) return res.status(e.status).json({ error: e.message, code: e.code });
   console.error('[people-portal swap]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 const swapper = (req: Request) => ({ ...me(req), userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) });
 
@@ -484,7 +485,7 @@ peoplePortalRouter.post('/swaps/:id/withdraw', check({ params: idParams, body: n
 const formError = (res: any, e: unknown) => {
   if (e instanceof FormError) return res.status(e.status).json({ error: e.message, code: e.code });
   console.error('[people-portal forms]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 
 peoplePortalRouter.get('/forms', async (req, res) => {

@@ -52,7 +52,7 @@ describe('Manual Journals', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sort and filter JV #' }));
     const panel = screen.getByRole('dialog', { name: 'Filter JV #' });
     await userEvent.click(within(panel).getByText('JE-0001'));
-    await userEvent.click(within(panel).getByRole('button', { name: /OK/ }));
+    await userEvent.click(within(panel).getByRole('button', { name: /Apply filter/ }));
     await waitFor(() => expect(screen.queryByText('JE-0001')).not.toBeInTheDocument());
     expect(screen.getByText('JE-0042')).toBeInTheDocument();
   });

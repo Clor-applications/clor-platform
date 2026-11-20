@@ -67,7 +67,7 @@ export const KIND = {
   'attendance.roster_published': 'Roster changes',
   /* Attendance and Workspace automations (services/attendance/automations.ts, services/workspace/automations.ts). */
   'attendance.month_open': 'Month not locked yet',
-  'attendance.requests_waiting': 'Attendance fixes waiting for a decision',
+  'attendance.requests_waiting': 'Attendance corrections waiting for a decision',
   'reader.silent': 'Readers that have gone quiet',
   'workspace.invitation_waiting': 'Invitations not accepted yet',
   'workspace.admin_no_authenticator': 'Administrators without an authenticator app',

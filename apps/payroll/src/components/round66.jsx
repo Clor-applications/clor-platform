@@ -3,6 +3,7 @@ import { notify } from '@ui/components/ui/notify';
 import { wholeRupees as money } from '@ui/utils/money';
 import { holdable, latePayNote } from '@ui/picks/round66';
 import { holdSlipPay, releaseSlipPay } from '../api/payrollPayments';
+import { errorWords } from '@ui/utils/errorWords';
 
 const PAYING = ['APPROVED', 'LOCKED', 'PAID', 'POSTED'];
 
@@ -33,13 +34,13 @@ export function HoldPayPanel({ run, slips, byEmployee, onChanged }) {
     try {
       await holdSlipPay(run.id, slipId, reason.trim());
       const s = slips.find((x) => x.id === slipId);
-      notify.success(`${s ? nameOf(s) : 'This'} salary is held. It stays out of the bank file until released.`);
+      notify.success(`${s ? `${nameOf(s)}’s` : 'This'} salary is held. It stays out of the bank file until you release it.`);
       setOpen(false);
       setSlipId('');
       setReason('');
       onChanged?.();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not hold this pay.'));
+      notify.error(errorWords(e, 'hold this pay'));
     } finally {
       setBusy('');
     }
@@ -48,10 +49,10 @@ export function HoldPayPanel({ run, slips, byEmployee, onChanged }) {
     setBusy(s.id);
     try {
       await releaseSlipPay(run.id, s.id);
-      notify.success(`${nameOf(s)} salary is released. It goes in the next payment.`);
+      notify.success(`${nameOf(s)}’s salary is released. It goes in the next payment.`);
       onChanged?.();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not release this pay.'));
+      notify.error(errorWords(e, 'release this pay'));
     } finally {
       setBusy('');
     }
@@ -91,7 +92,7 @@ export function HoldPayPanel({ run, slips, byEmployee, onChanged }) {
             </select>
           </label>
           <label className="block">
-            <span className="ui-label">Why</span>
+            <span className="ui-label">Reason</span>
             <input className="ui-input w-full" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Absconding, waiting for the handover" />
           </label>
           <div className="flex gap-2">

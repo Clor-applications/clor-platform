@@ -105,7 +105,7 @@ describe('the screen', () => {
 
   it('is read-only for someone who may see the company profile but not change it', async () => {
     render(withPerms(<NotificationSettings tenant={{ subscriptions: ['accounting', 'people'] }} />, [PERMISSION]));
-    await screen.findByRole('region', { name: 'Accounting' });
+    await screen.findByRole('region', { name: 'Books' });
     for (const box of screen.getAllByRole('checkbox')) expect(box).toBeDisabled();
     expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
     expect(screen.getByText('View only')).toBeInTheDocument();
@@ -128,7 +128,7 @@ describe('the screen', () => {
   it('says so when the settings cannot be read', async () => {
     api.getEmailSwitches.mockRejectedValue(new Error('Forbidden'));
     render(withPerms(<NotificationSettings tenant={{ subscriptions: ['people'] }} />, [PERMISSION]));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Forbidden');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the email settings. Try again.');
     expect(screen.queryByRole('button', { name: /Save/ })).toBeNull();
   });
 });

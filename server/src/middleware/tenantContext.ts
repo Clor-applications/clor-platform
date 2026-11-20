@@ -12,6 +12,7 @@ import { liveGrantFor, recordGrantUse } from '../services/supportGrants.js';
 import { fullPath, supportGrantLimits } from './supportGrantLimits.js';
 import { companyEntryRefusal } from '../services/signInRules.js';
 import { auditBefore } from './auditMutations.js';
+import { CHOOSE_BRANCH_TEXT, CHOOSE_COMPANY_TEXT, CHOOSE_WAREHOUSE_TEXT, NO_BRANCH_ACCESS_TEXT, NO_COMPANY_ACCESS_TEXT, NO_WAREHOUSE_ACCESS_TEXT, SIGNED_OUT_TEXT } from '../utils/companyWords.js';
 
 export type TenantContext = {
   accountId: string;
@@ -69,9 +70,9 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
   const branchId = String(req.headers['x-branch-id'] || '').trim();
   const warehouseId = String(req.headers['x-warehouse-id'] || '').trim();
 
-  if (!homeAccountId || !userId) return res.status(401).json({ error: 'Missing auth context' });
-  if (!orgId) return res.status(400).json({ error: 'Missing x-org-id' });
-  if (!branchId) return res.status(400).json({ error: 'Missing x-branch-id' });
+  if (!homeAccountId || !userId) return res.status(401).json({ error: SIGNED_OUT_TEXT });
+  if (!orgId) return res.status(400).json({ error: CHOOSE_COMPANY_TEXT });
+  if (!branchId) return res.status(400).json({ error: CHOOSE_BRANCH_TEXT });
 
   /*
    * A single sign-on session was vouched for by one company's identity
@@ -163,14 +164,14 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
   let grant: { id: string; scope: 'READ_ONLY' | 'READ_WRITE' } | undefined;
   if (!orgMember) {
     const live = await liveGrantFor(userId, orgId);
-    if (!live) return { status: 403, error: 'No access to org' };
-    if (!(await operatorRole(userId))) return { status: 403, error: 'No access to org' };
+    if (!live) return { status: 403, error: NO_COMPANY_ACCESS_TEXT };
+    if (!(await operatorRole(userId))) return { status: 403, error: NO_COMPANY_ACCESS_TEXT };
     grant = { id: live.id, scope: live.scope as 'READ_ONLY' | 'READ_WRITE' };
   }
 
   // The owning account, established by the membership — or by the grant, which names it.
   const accountId = orgMember?.accountId ?? (await platformPrisma.org.findUnique({ where: { id: orgId }, select: { accountId: true } }))?.accountId;
-  if (!accountId) return { status: 403, error: 'No access to org' };
+  if (!accountId) return { status: 403, error: NO_COMPANY_ACCESS_TEXT };
 
   /*
    * A-09: and checked against the company itself. A membership row naming the
@@ -178,7 +179,7 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
    * would otherwise carry its account into every check that follows.
    */
   const owner = await platformPrisma.org.findUnique({ where: { id: orgId }, select: { accountId: true } });
-  if (!owner || owner.accountId !== accountId) return { status: 403, error: 'No access to org' };
+  if (!owner || owner.accountId !== accountId) return { status: 403, error: NO_COMPANY_ACCESS_TEXT };
 
   /* W-8.2: an account a Clor operator has suspended opens none of its companies, to anybody, until reinstated. */
   const acct = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { suspendedAt: true } });
@@ -262,7 +263,7 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
     const branches = await platformPrisma.branch.findMany({ where: { accountId, orgId }, select: { id: true } });
     if (branches.some((b) => b.id === branchId)) grantBranchIds = branches.map((b) => b.id);
   }
-  if (!branchMember && !grantBranchIds) return { status: 403, error: 'No access to branch' };
+  if (!branchMember && !grantBranchIds) return { status: 403, error: NO_BRANCH_ACCESS_TEXT };
 
   const allowed = grantBranchIds
     ? grantBranchIds.map((branchId) => ({ branchId }))
@@ -376,7 +377,7 @@ export async function warehouseRefusal(req: Request, warehouseId: unknown) {
   const inOrg = await prisma.warehouse.findFirst({ where: { id, accountId, orgId }, select: { id: true } });
   if (!inOrg) return { status: 400, body: { error: 'That warehouse is not in this company.', code: 'WAREHOUSE_NOT_IN_COMPANY' } };
   if (!(await userMayUseWarehouse(accountId, orgId, req.auth!.userId, id))) {
-    return { status: 403, body: { error: 'No access to warehouse', code: 'NO_WAREHOUSE_ACCESS' } };
+    return { status: 403, body: { error: NO_WAREHOUSE_ACCESS_TEXT, code: 'NO_WAREHOUSE_ACCESS' } };
   }
   return null;
 }
@@ -390,7 +391,7 @@ export async function warehouseRefusal(req: Request, warehouseId: unknown) {
  */
 export function requireWarehouse(req: Request, res: Response, next: NextFunction) {
   const requested = req.tenant?.requestedWarehouseId;
-  if (!requested) return res.status(400).json({ error: 'Missing x-warehouse-id' });
-  if (!req.tenant?.warehouseId) return res.status(403).json({ error: 'No access to warehouse' });
+  if (!requested) return res.status(400).json({ error: CHOOSE_WAREHOUSE_TEXT });
+  if (!req.tenant?.warehouseId) return res.status(403).json({ error: NO_WAREHOUSE_ACCESS_TEXT });
   return next();
 }

@@ -8,6 +8,7 @@ import { ProvisionalDaysSetting } from '../components/ProvisionalDaysSetting';
 import { DeductionCapSetting } from '../components/DeductionCapSetting';
 import { FnfRecoverySetting } from '../components/FnfRecoverySetting';
 import { StatutoryRegistrationsStep } from '../components/StatutoryRegistrationsStep';
+import { errorWords } from '@ui/utils/errorWords';
 /*
  * Switching payroll on goes through the platform, not through a module of this
  * app's own. There is one record of what a company has bought — the feature
@@ -76,7 +77,7 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
       setSetup(await getPayrollSetup());
       setError('');
     } catch (e) {
-      setError(String(e?.message || 'Could not work out where payroll setup has got to.'));
+      setError(errorWords(e, 'load Payroll setup'));
     } finally {
       setLoading(false);
     }
@@ -97,7 +98,7 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
       reloadFeatures?.();
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not switch payroll on.'));
+      notify.error(errorWords(e, 'switch payroll on'));
     } finally {
       setStarting(false);
     }
@@ -108,7 +109,7 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
   if (error) {
     return (
       <div className="space-y-3">
-        <PageHeader entity="settings" title="Payroll" description="Paying people, and the books that follow from it." />
+        <PageHeader entity="settings" title="Setup" description="Paying people, and the books that follow from it." />
         <div className="px-5 lg:px-7 pb-8 space-y-4 max-w-3xl">
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
           {error}
@@ -125,7 +126,7 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
   if (!setup.enabled) {
     return (
       <div className="space-y-3">
-        <PageHeader entity="settings" title="Payroll" description="Paying people, and the books that follow from it." />
+        <PageHeader entity="settings" title="Setup" description="Paying people, and the books that follow from it." />
         <div className="px-5 lg:px-7 pb-8 space-y-4 max-w-3xl">
 
         <div className="ui-card p-4 space-y-3" style={{ maxWidth: '44rem' }}>
@@ -156,7 +157,7 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
     <div className="space-y-3">
       <PageHeader
         entity="settings"
-        title="Set up Payroll"
+        title="Setup"
         description={
           setup.ready
             ? setup.done === setup.total

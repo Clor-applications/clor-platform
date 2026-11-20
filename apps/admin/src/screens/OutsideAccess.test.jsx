@@ -56,7 +56,7 @@ describe('the list', () => {
   it('says how somebody gets here when nobody has', async () => {
     api.listOutsideAccess.mockResolvedValue({ apps: APPS, outsideAccess: [] });
     render(<OutsideAccess />);
-    await waitFor(() => expect(screen.getByText(/Add an accountant or auditor under Users/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('No accountant or auditor has access yet.')).toBeTruthy());
   });
 });
 
@@ -80,7 +80,7 @@ describe('changing it', () => {
     api.endOutsideAccess.mockResolvedValue({ ok: true });
     render(<OutsideAccess />);
     fireEvent.click(await screen.findByLabelText('End access for Ravi Menon'));
-    fireEvent.change(screen.getByPlaceholderText('Optional — kept in the history'), { target: { value: 'Engagement over' } });
+    fireEvent.change(screen.getByPlaceholderText('Kept in the history'), { target: { value: 'Engagement over' } });
     fireEvent.click(screen.getByRole('button', { name: 'End' }));
     await waitFor(() => expect(api.endOutsideAccess).toHaveBeenCalledWith('o1', 'Engagement over'));
   });

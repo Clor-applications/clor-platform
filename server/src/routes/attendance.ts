@@ -74,6 +74,7 @@ import { TRUST_LEVELS, readerTrustOn } from '../services/attendance/trust.js';
 import { parseAddressList, plainIp, validEntry, webClockRefusal, webClockSettings } from '../services/attendance/webClock.js';
 import { AttendanceSetupError, attendanceSetup, changeAttendanceSetup, type AttendanceStepKey } from '../services/attendance/setup.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
+import { statusWords } from '../utils/statusWords.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -702,7 +703,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/start-date', can(PermissionAction.
         if (lock) throw fail(409, `${lock.month} is closed. Reopen it before moving the start date across it.`, 'ATTENDANCE_MONTH_CLOSED');
         /* Nor a month a final payroll run has taken, closed or not (review of #144). */
         const taken = await payrollTakenBetween(orgId, old && date ? set[0] : '0000-01-01', set[set.length - 1]);
-        if (taken) throw fail(409, `Payroll for ${taken.period} is ${taken.state.toLowerCase()} and has taken those days. The start date cannot move across it.`, 'PAYROLL_TAKEN');
+        if (taken) throw fail(409, `Payroll for ${taken.period} is ${statusWords(taken.state)} and has taken those days. The start date cannot move across it.`, 'PAYROLL_TAKEN');
       }
       await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, attendanceStartDate: date, updatedByUserId: req.auth!.userId }, update: { attendanceStartDate: date, updatedByUserId: req.auth!.userId } });
       return old;
@@ -1276,7 +1277,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/shift-assignments', can(Permissio
   const effectiveTo = parsed.data.effectiveTo || null;
   if (effectiveTo && effectiveTo < effectiveFrom) return res.status(400).json({ error: 'The end is before the start.' });
   const shift = await peoplePrisma.shift.findFirst({ where: { id: shiftId, orgId } });
-  if (!shift) return res.status(400).json({ error: 'That shift is not in this organisation.' });
+  if (!shift) return res.status(400).json({ error: 'That shift is not in this company.' });
   const people = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: employeeIds } }, select: { id: true } });
   /* The new range, and any row it replaces, may not reach into a closed month (O-05). */
   const replaced = await peoplePrisma.shiftAssignment.findMany({ where: { orgId, employeeId: { in: people.map((p) => p.id) }, effectiveFrom }, select: { effectiveTo: true } });
@@ -1308,7 +1309,7 @@ attendanceRouter.delete('/orgs/:orgId/attendance/shift-assignments/:id', can(Per
 
 const areaOrNull = async (orgId: string, areaId: string | null | undefined) => {
   if (!areaId) return null;
-  if (!(await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } }))) throw fail(400, 'That area is not in this organisation.');
+  if (!(await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } }))) throw fail(400, 'That area is not in this company.');
   return areaId;
 };
 

@@ -40,7 +40,7 @@ describe('what the employee app says when something fails', () => {
     /* A year no column can hold: the database refuses it, and that refusal used to be sent as it was. */
     const r = await phone('get', `/leave/explain?leaveTypeId=${leaveTypeId}&year=99999999999`);
     expect(r.status).toBe(500);
-    expect(r.body.error).toBe('Something went wrong. Try again in a moment.');
+    expect(r.body.error).toMatch(/^Something went wrong on our side\. Try again in a moment\./);
     expect(r.body).toHaveProperty('requestId');
     expect(JSON.stringify(r.body)).not.toMatch(/prisma|invocation|column|integer|range|\.findFirst|\.findMany/i);
   });

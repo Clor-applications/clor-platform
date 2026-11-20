@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, acknowledgeReview, checkInGoal, getGrowth, writeSelfReview } from './portalApi';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 
 /**
  * Growth in the employee app (Talent, TALENT-DECISIONS.md): my goals with a check-in, my reviews
@@ -15,7 +16,7 @@ const longDate = (d) => {
   return y && m && dd ? `${Number(dd)} ${MONTHS[Number(m) - 1]} ${y}` : '';
 };
 const istDate = (d) => (d ? new Date(new Date(d).getTime() + 330 * 60_000).toISOString().slice(0, 10) : '');
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 const HEALTH = [['ON_TRACK', 'On track'], ['AT_RISK', 'At risk'], ['BEHIND', 'Behind']];
 const RATINGS = [[1, 'Well below what was expected'], [2, 'Below what was expected'], [3, 'What was expected'], [4, 'Above what was expected'], [5, 'Well above what was expected']];
 const ratingWord = (n) => RATINGS.find((r) => r[0] === n)?.[1] || '';
@@ -27,13 +28,13 @@ export default function MyGrowth({ guard }) {
   const [failed, setFailed] = useState('');
   const [said, setSaid] = useState(null);
   const load = useCallback(() => {
-    guard(getGrowth()).then((d) => { setData(d); setFailed(''); }).catch((e) => setFailed(errText(e, 'Could not load your goals and reviews.')));
+    guard(getGrowth()).then((d) => { setData(d); setFailed(''); }).catch((e) => setFailed(errText(e, 'load your goals and reviews')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
   if (failed) return <LoadFailed message={failed} onRetry={load} />;
   if (!data?.on) return null;
   const done = (text) => { setSaid({ ok: true, text }); load(); };
-  const fail = (e) => { const text = errText(e, 'Not saved.'); if (text) setSaid({ ok: false, text }); };
+  const fail = (e) => { const text = errText(e, 'save the changes'); if (text) setSaid({ ok: false, text }); };
   const active = data.goals.filter((g) => g.status === 'ACTIVE');
   return (
     <section className="ui-card space-y-4 p-5" aria-labelledby="growth-h">
@@ -82,7 +83,7 @@ export default function MyGrowth({ guard }) {
           <h3 className="ui-label">Improvement plan</h3>
           {data.plans.map((p) => (
             <div key={p.id} className="space-y-1 text-sm">
-              <p className="ui-caption">{PLAN[p.status] || p.status} · {longDate(p.startDate)} to {longDate(p.endDate)}</p>
+              <p className="ui-caption">{PLAN[p.status] || enumWords(p.status)} · {longDate(p.startDate)} to {longDate(p.endDate)}</p>
               <p className="whitespace-pre-wrap">{p.expectations}</p>
               {p.outcomeNote ? <p className="whitespace-pre-wrap ui-muted">{p.outcomeNote}</p> : null}
             </div>

@@ -9,6 +9,7 @@ import { ExitError, myInterview, submitInterview } from '../services/people/enga
 import { feedFor, setOptOut } from '../services/people/engagement/greetings.js';
 import { z } from 'zod';
 import { anyBody, check, flag } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * The employee app's side of leaving and engagement (WORKFLOW-GAP-RESEARCH-2026-10-30 4.8, 4.9), behind
@@ -27,7 +28,7 @@ const me = (req: Request) => req.portal!.employee as Me;
 const fail = (res: Response, e: any) => {
   if (e instanceof ExitError || (e?.status && e.status < 500)) return res.status(e.status || 400).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
   console.error('[portal engagement]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong. Try again in a moment.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 
 peopleEngagementPortalRouter.get('/today', async (req, res) => {

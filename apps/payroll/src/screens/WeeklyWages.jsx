@@ -29,6 +29,8 @@ import {
   wageMonthFile,
   wageSlip,
 } from '../api/payrollWeeklyWages';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Weekly wages (round 66): workers paid by the day, every week or fortnight.
@@ -79,7 +81,7 @@ export default function WeeklyWages() {
         setRates(r);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load weekly wages.')));
+      .catch((e) => setError(errorWords(e, 'load weekly wages')));
   }, []);
   useEffect(() => {
     load();
@@ -112,14 +114,13 @@ export default function WeeklyWages() {
       description="Workers paid by the day, every week or fortnight. PF, ESI and professional tax still add up by the month."
       compact
       tight
-      denseCards
       primary={primary}
-      cards={[
-        { label: 'Workers on a daily rate', value: counts.RATES, count: true, tone: 'sent', Icon: HardHat, onSelect: () => setView('RATES') },
-        { label: 'Draft sheets', value: draft, count: true, tone: 'draft', Icon: FileText, onSelect: () => setView('') },
-        { label: 'Approved, not paid', value: money(unpaid.reduce((t, s) => t + s.net, 0)), tone: 'outstanding', Icon: Wallet },
-        { label: 'Weekly pay groups', value: groups?.length || 0, count: true, tone: 'paid', Icon: CalendarRange },
-      ]}
+      countLine={countItems([
+        { label: 'Workers on a daily rate', value: counts.RATES, count: true, tone: 'sent', onSelect: () => setView('RATES') },
+        { label: 'Draft sheets', value: draft, count: true, tone: 'draft', onSelect: () => setView('') },
+        { label: 'Approved, not paid', value: money(unpaid.reduce((t, s) => t + s.net, 0)), tone: 'outstanding' },
+        { label: 'Weekly pay groups', value: groups?.length || 0, count: true, tone: 'paid' },
+      ])}
       tabs={VIEWS}
       statusValue={view}
       statusCounts={counts}
@@ -134,7 +135,7 @@ export default function WeeklyWages() {
         <EmptyState
           icon={CalendarRange}
           title="No weekly pay group yet"
-          description="Weekly wages are paid to a weekly or fortnightly pay group. Add one under Settings, Pay groups, then give its workers a daily rate."
+          description="Weekly wages are paid to a weekly or fortnightly pay group. Add one under Settings → Pay groups, then give its workers a daily rate."
         />
       ) : view === 'RATES' ? (
         <RatesTable rates={rates || []} onEdit={(r) => setRateForm(r)} />
@@ -232,7 +233,7 @@ function RatesTable({ rates, onEdit }) {
             <th scope="col" className="ui-col-h-right">Daily rate</th>
             <th scope="col" className="ui-col-h-right">Canteen a day</th>
             <th scope="col" className="ui-col-h-right">Advance left</th>
-            <th scope="col" className="ui-col-h-right">Recovered a sheet</th>
+            <th scope="col" className="ui-col-h-right">Recovered per sheet</th>
             <th scope="col" className="ui-col-h-center">Status</th>
           </tr>
         </thead>
@@ -288,7 +289,7 @@ function MakeSheetForm({ groups, onClose, onMade }) {
       notify.success(`Wage sheet for ${span(sheet)} made.`);
       onMade(sheet);
     } catch (err) {
-      notify.error(String(err?.message || 'Could not make that wage sheet.'));
+      notify.error(errorWords(err, 'make that wage sheet'));
     } finally {
       setBusy(false);
     }
@@ -366,7 +367,7 @@ function RateForm({ initial, groups, onClose, onSaved }) {
       notify.success('Daily rate saved.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not save that daily rate.'));
+      notify.error(errorWords(err, 'save that daily rate'));
     } finally {
       setBusy(false);
     }
@@ -402,7 +403,7 @@ function RateForm({ initial, groups, onClose, onSaved }) {
           </select>
         </div>
         <div>
-          <label className="ui-label" htmlFor="ww-dailyRate">Daily rate, ₹</label>
+          <label className="ui-label" htmlFor="ww-dailyRate">Daily rate</label>
           <input id="ww-dailyRate" type="number" min="1" step="0.01" className="ui-input ui-num w-full" value={form.dailyRate} onChange={(e) => set({ dailyRate: e.target.value })} required />
         </div>
       </div>
@@ -410,10 +411,10 @@ function RateForm({ initial, groups, onClose, onSaved }) {
         {num('hoursPerDay', 'Hours in a day', 'For the hourly rate overtime is paid at.', '0.5')}
         {num('overtimeMultiplier', 'Overtime pay, times the hourly rate', 'Twice, by law.', '0.25')}
       </div>
-      {num('canteenPerDay', 'Canteen a day worked, ₹', 'Taken from each sheet for the days worked.')}
+      {num('canteenPerDay', 'Canteen a day worked', 'Taken from each sheet for the days worked.')}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {num('advanceBalance', 'Advance still to recover, ₹')}
-        {num('advancePerSheet', 'Recovered each sheet, ₹')}
+        {num('advanceBalance', 'Advance still to recover')}
+        {num('advancePerSheet', 'Recovered each sheet')}
       </div>
       <p className="ui-caption">Deductions never pass half a sheet's wages: PF, ESI and professional tax first, then canteen, then the advance.</p>
       <label className="flex items-start gap-2 text-sm" htmlFor="ww-active">
@@ -445,7 +446,7 @@ function SheetPage({ sheetId, onBack }) {
         setSheet(s);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load this wage sheet.')));
+      .catch((e) => setError(errorWords(e, 'load this wage sheet')));
   }, [sheetId]);
   useEffect(() => {
     load();
@@ -462,7 +463,7 @@ function SheetPage({ sheetId, onBack }) {
       if (next) setSheet(next);
       if (done) notify.success(done);
     } catch (e) {
-      notify.error(String(e?.message || 'That did not work.'));
+      notify.error(errorWords(e, 'update this wage sheet'));
     } finally {
       setBusy('');
     }
@@ -473,7 +474,7 @@ function SheetPage({ sheetId, onBack }) {
   const draft = sheet.status === 'DRAFT';
 
   const remove = async () => {
-    const ok = await confirmDialog({ title: `Delete the sheet for ${span(sheet)}?`, message: 'A draft can be deleted and made again.', confirmLabel: 'Yes, delete' });
+    const ok = await confirmDialog({ title: `Delete the sheet for ${span(sheet)}?`, message: 'A draft can be deleted and made again.', confirmLabel: 'Delete sheet' });
     if (!ok) return;
     await act('delete', async () => {
       await deleteWageSheet(sheet.id);
@@ -526,13 +527,13 @@ function SheetPage({ sheetId, onBack }) {
                 <RefreshCw size={14} aria-hidden="true" /> Take days from Attendance
               </button>
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={remove} disabled={Boolean(busy)}>
-                <Trash2 size={14} aria-hidden="true" /> Delete draft
+                <Trash2 size={14} aria-hidden="true" /> Delete draft sheet
               </button>
             </>
           ) : (
             <>
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={downloadBank} disabled={Boolean(busy) || !bank?.bankCount}>
-                <Download size={14} aria-hidden="true" /> Bank file
+                <Download size={14} aria-hidden="true" /> Download bank file
               </button>
               {sheet.status === 'APPROVED' ? (
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => act('reopen', () => reopenWageSheet(sheet.id), 'Back to draft. Advances recovered on it are back on the balance.')} disabled={Boolean(busy)}>
@@ -564,7 +565,7 @@ function SheetPage({ sheetId, onBack }) {
                 <th scope="col" className="ui-col-h-right">Canteen</th>
                 <th scope="col" className="ui-col-h-right">Advance</th>
                 <th scope="col" className="ui-col-h-right">Net pay</th>
-                <th scope="col"><span className="sr-only">Wage slip</span></th>
+                <th scope="col"><span className="sr-only">Payslip</span></th>
               </tr>
             </thead>
             <tbody className="ui-rows">
@@ -591,8 +592,8 @@ function SheetPage({ sheetId, onBack }) {
                   <td className="ui-col-amount">{l.advanceRecovery ? money(l.advanceRecovery) : '—'}</td>
                   <td className="ui-col-amount">{money(l.net)}</td>
                   <td className="text-end">
-                    <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => wageSlip(sheet.id, l.employeeId).then(setSlip).catch((e) => notify.error(String(e?.message || 'Could not open the wage slip.')))}>
-                      Wage slip<span className="sr-only"> for {l.name}</span>
+                    <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => wageSlip(sheet.id, l.employeeId).then(setSlip).catch((e) => notify.error(errorWords(e, 'open the payslip')))}>
+                      Payslip<span className="sr-only"> for {l.name}</span>
                     </button>
                   </td>
                 </tr>
@@ -615,7 +616,7 @@ function SheetPage({ sheetId, onBack }) {
           />
         ) : null}
       </Drawer>
-      <Drawer open={Boolean(slip)} onClose={() => setSlip(null)} title="Wage slip" description={slip ? `${slip.line.name}, ${span(slip.sheet)}` : ''}>
+      <Drawer open={Boolean(slip)} onClose={() => setSlip(null)} title="Payslip" description={slip ? `${slip.line.name}, ${span(slip.sheet)}` : ''}>
         {slip ? <WageSlip slip={slip} /> : null}
       </Drawer>
     </div>
@@ -667,7 +668,7 @@ function PaidForm({ sheet, onClose, onPaid }) {
     try {
       onPaid(await markWageSheetPaid(sheet.id, { paidOn, reference: reference || null }));
     } catch (err) {
-      notify.error(String(err?.message || 'Could not mark it paid.'));
+      notify.error(errorWords(err, 'mark it paid'));
     } finally {
       setBusy(false);
     }
@@ -760,7 +761,7 @@ function MonthView() {
     let live = true;
     wageMonth(month)
       .then((d) => live && (setData(d), setError('')))
-      .catch((e) => live && setError(String(e?.message || 'Could not load the month.')));
+      .catch((e) => live && setError(errorWords(e, 'load the month')));
     return () => {
       live = false;
     };
@@ -770,7 +771,7 @@ function MonthView() {
       const text = await wageMonthFile(month, format);
       saveText(text, format === 'ecr' ? `ecr-weekly-wages-${month}.txt` : `weekly-wages-${month}.csv`, format === 'ecr' ? 'text/plain' : 'text/csv');
     } catch (e) {
-      notify.error(String(e?.message || 'Could not download that.'));
+      notify.error(errorWords(e, 'download the month'));
     }
   };
   const shown = data?.month === month ? data : null;
@@ -783,7 +784,7 @@ function MonthView() {
           <input id="ww-month" type="month" className="ui-input" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} />
         </div>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={() => download('csv')} disabled={!shown?.rows?.length}>
-          <Download size={16} aria-hidden="true" /> Month summary
+          <Download size={16} aria-hidden="true" /> Download month summary
         </button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={() => download('ecr')} disabled={!t?.pfEmployee}>
           <Download size={16} aria-hidden="true" /> PF ECR file
@@ -815,7 +816,7 @@ function MonthView() {
                     <th scope="col" className="ui-col-h-right">ESI (worker)</th>
                     <th scope="col" className="ui-col-h-right">ESI (company)</th>
                     <th scope="col" className="ui-col-h-right">PT</th>
-                    <th scope="col" className="ui-col-h-right">Net paid</th>
+                    <th scope="col" className="ui-col-h-right">Net pay</th>
                   </tr>
                 </thead>
                 <tbody className="ui-rows">

@@ -607,8 +607,6 @@
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: rgb(var(--fg-muted));
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div.mt-4 { margin-top: 0; }
@@ -706,8 +704,6 @@
   margin-bottom: 6px;
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: rgb(var(--fg-muted));
 }
 .ui-gate .ui-gate-head h1 {

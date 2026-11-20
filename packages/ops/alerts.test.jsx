@@ -22,7 +22,7 @@ describe('operator console: alerts', () => {
     expect(first).toHaveTextContent('Urgent');
     expect(first).toHaveTextContent('for Finance');
     expect(screen.getByText('2 open · 1 urgent · 2 not acknowledged')).toBeInTheDocument();
-    fireEvent.click(within(first).getByRole('button', { name: 'Open' }));
+    fireEvent.click(within(first).getByRole('button', { name: 'Open page' }));
     expect(go).toHaveBeenCalledWith('invoices', {}, 'i1', '');
     /* Not this team's: no acknowledge button. */
     expect(within(list.getAllByRole('listitem')[1]).queryByRole('button', { name: 'I am on it' })).toBeNull();

@@ -80,7 +80,7 @@ describe('the public form', () => {
     const r = await submit({ name: 'A', company: '', email: 'not-an-email', phone: '12345', city: '', companySize: 'lots', users: 0, apps: ['projects'] }).expect(400);
     expect(Object.keys(r.body.fields).sort()).toEqual(['apps', 'city', 'company', 'companySize', 'email', 'name', 'phone', 'users']);
     expect(r.body.fields.phone).toMatch(/Indian phone/);
-    expect(r.body.fields.apps).toMatch(/at least one app/);
+    expect(r.body.fields.apps).toMatch(/at least one product/);
     expect(await platformPrisma.demoRequest.count({ where: { email: 'not-an-email' } })).toBe(0);
   });
 

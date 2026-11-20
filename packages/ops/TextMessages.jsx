@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, when } from './kit';
+import { Err, Loading, when, errorWords } from './kit';
 import { opsSaveSms, opsSms, opsTestSms } from './api';
 
 /**
@@ -31,7 +31,7 @@ export function TextMessages({ role }) {
         setF({ enabled: r.sms.enabled, templateId: r.sms.templateId || '', senderId: r.sms.senderId || '', authKey: '' });
         setError('');
       })
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the text message settings')));
   useEffect(() => {
     load();
   }, []);
@@ -49,7 +49,7 @@ export function TextMessages({ role }) {
       notify.success(f.enabled ? 'Saved. People can now choose a code by text message.' : 'Saved. Codes by text message are off.');
       load();
     } catch (err) {
-      setProblems(err?.data?.problems || [String(err?.message || err)]);
+      setProblems(err?.data?.problems || [errorWords(err, 'save the text message settings')]);
     } finally {
       setBusy(false);
     }
@@ -62,7 +62,7 @@ export function TextMessages({ role }) {
       const r = await opsTestSms(phone);
       notify.success(r.message);
     } catch (err) {
-      notify.error(String(err?.data?.message || err?.message || 'The test could not be sent.'));
+      notify.error(errorWords(err, 'send the test text'));
     } finally {
       setTesting(false);
       load();
@@ -80,7 +80,7 @@ export function TextMessages({ role }) {
         actions={
           mayChange ? (
             <button type="submit" form="ops-sms" className="ws-btn ws-btn--primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? 'Saving…' : 'Save text settings'}
             </button>
           ) : null
         }

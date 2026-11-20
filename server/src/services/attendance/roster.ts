@@ -194,10 +194,10 @@ async function writeDraft(who: Who, cells: Cell[]) {
     shiftIds.length ? peoplePrisma.shift.findMany({ where: { accountId, orgId, id: { in: shiftIds } }, select: { id: true, name: true, isActive: true } }) : [],
     scheduleGuard(orgId),
   ]);
-  if (people.length !== employeeIds.length) throw new RosterError('Someone chosen is not in this organisation.');
+  if (people.length !== employeeIds.length) throw new RosterError('Someone chosen is not in this company.');
   for (const id of shiftIds) {
     const s = shifts.find((x) => x.id === id);
-    if (!s) throw new RosterError('That shift is not in this organisation.');
+    if (!s) throw new RosterError('That shift is not in this company.');
     if (!s.isActive) throw new RosterError(`${s.name} is switched off. Switch it on in Shifts, or choose another shift.`);
   }
   /* A closed month's days are final (closure audit O-05): the whole change is refused, as any schedule change is. */
@@ -283,7 +283,7 @@ export async function copyWeek(who: Who, body: { employeeIds: string[]; weekStar
       peoplePrisma.rosterDay.findMany({ where: { orgId: who.orgId, state: 'DRAFT', employeeId: { in: employeeIds }, date: { in: source } }, select: { employeeId: true, date: true, kind: true, shiftId: true } }),
       peoplePrisma.employee.findMany({ where: { accountId: who.accountId, orgId: who.orgId, id: { in: employeeIds } }, select: { id: true, dateOfJoining: true, dateOfLeaving: true } }),
     ]);
-    if (people.length !== employeeIds.length) throw new RosterError('Someone chosen is not in this organisation.');
+    if (people.length !== employeeIds.length) throw new RosterError('Someone chosen is not in this company.');
     const draftOf = new Map(drafts.map((d) => [key(d.employeeId, d.date), { kind: d.kind as DraftKind, shiftId: d.shiftId }]));
     const cells: Cell[] = [];
     const noShift: Skipped[] = [];

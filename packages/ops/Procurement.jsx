@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsAddVendorDocument, opsProformaToInvoice, opsProformas, opsRemoveVendorDocument, opsTdsCertificate, opsTdsDue, opsVendorDocumentFile, opsVendorDocuments } from './api';
-import { Empty, Err, Loading, day, may } from './kit';
+import { Empty, Err, Loading, day, may, errorWords } from './kit';
 import { inr } from './money';
 
 /**
@@ -16,7 +16,7 @@ import { inr } from './money';
  */
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-const msg = (e) => String(e?.message || e);
+const msg = (e, what) => errorWords(e, what);
 
 export function TdsCertificates({ role, openInvoice }) {
   const [rows, setRows] = useState(null);
@@ -26,7 +26,7 @@ export function TdsCertificates({ role, openInvoice }) {
   useEffect(() => {
     opsTdsDue()
       .then((r) => (setRows(r.invoices || []), setError('')))
-      .catch((e) => setError(msg(e)));
+      .catch((e) => setError(msg(e, 'load the TDS certificates')));
   }, [again]);
   const mayChange = may(role, 'BILLING');
   const received = async (r) => {
@@ -36,7 +36,7 @@ export function TdsCertificates({ role, openInvoice }) {
       notify.success(`Certificate for ${r.number} noted as received.`);
       setAgain((n) => n + 1);
     } catch (e) {
-      notify.error(msg(e));
+      notify.error(msg(e, 'note the certificate'));
     } finally {
       setBusy('');
     }
@@ -44,7 +44,7 @@ export function TdsCertificates({ role, openInvoice }) {
   const owed = (rows || []).reduce((s, r) => s + (r.tdsDeducted || 0), 0);
   return (
     <>
-      <PageHead crumbs={['Billing and setup']} title="TDS certificates" meta={rows?.length ? `${rows.length} still to come, ${inr(owed)} of TDS` : 'None outstanding'} />
+      <PageHead crumbs={['Billing and setup']} title="TDS certificates" meta={!rows ? null : rows.length ? `${rows.length} still to come · ${inr(owed)} of TDS` : 'None outstanding'} />
       <p className="ws-card-blurb r67-lede">A customer that paid an invoice less TDS owes CLOR the Form 16A for it. Each one stays here until it comes in. TDS is entered when an invoice is marked paid.</p>
       <Err>{error}</Err>
       {!rows ? (
@@ -107,7 +107,7 @@ export function Proformas({ role, openInvoice }) {
   useEffect(() => {
     opsProformas()
       .then((r) => (setRows(r.proformas || []), setError('')))
-      .catch((e) => setError(msg(e)));
+      .catch((e) => setError(msg(e, 'load the proformas')));
   }, []);
   const mayChange = may(role, 'BILLING');
   const toInvoice = async (p) => {
@@ -117,19 +117,19 @@ export function Proformas({ role, openInvoice }) {
       notify.success(`Draft invoice made from ${p.number}. Check it and issue it.`);
       openInvoice(draft.id);
     } catch (e) {
-      notify.error(msg(e));
+      notify.error(msg(e, 'make the invoice'));
       setBusy('');
     }
   };
   return (
     <>
-      <PageHead crumbs={['Billing and setup']} title="Proformas" meta={rows ? `${rows.length} in the last while` : null} />
+      <PageHead crumbs={['Billing and setup']} title="Proformas" meta={rows ? (rows.length ? `${rows.length} ${rows.length === 1 ? 'proforma' : 'proformas'}` : null) : null} />
       <p className="ws-card-blurb r67-lede">Customers make a proforma in Workspace, Billing: the plan with GST, valid 15 days, for their accounts team to pay against. When the money comes, make the tax invoice from it here.</p>
       <Err>{error}</Err>
       {!rows ? (
         error ? null : <Loading />
       ) : !rows.length ? (
-        <Empty>No proformas yet.</Empty>
+        <Empty>No proformas yet. One shows here when a customer makes a proforma in Workspace, Billing.</Empty>
       ) : (
         <div className="ws-table-wrap">
           <table className="ws-table">
@@ -201,7 +201,7 @@ export async function saveFile(fetchIt) {
     a.click();
     a.remove();
   } catch (e) {
-    notify.error(msg(e));
+    notify.error(msg(e, 'download the document'));
   }
 }
 
@@ -213,7 +213,7 @@ export function VendorDocuments({ role }) {
   useEffect(() => {
     opsVendorDocuments()
       .then((r) => (setRows(r.documents || []), setError('')))
-      .catch((e) => setError(msg(e)));
+      .catch((e) => setError(msg(e, 'load the vendor documents')));
   }, [again]);
   const mayChange = may(role, 'BILLING');
   const remove = async (d) => {
@@ -223,7 +223,7 @@ export function VendorDocuments({ role }) {
       notify.success('Removed.');
       setAgain((n) => n + 1);
     } catch (e) {
-      notify.error(msg(e));
+      notify.error(msg(e, 'remove the document'));
     }
   };
   return (
@@ -231,7 +231,7 @@ export function VendorDocuments({ role }) {
       <PageHead
         crumbs={['Billing and setup']}
         title="Vendor documents"
-        meta={rows ? `${rows.length} shared with customers` : null}
+        meta={rows ? (rows.length ? `${rows.length} shared with customers` : 'None shared yet') : null}
         actions={
           mayChange ? (
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => setAdding(true)}>
@@ -302,7 +302,7 @@ function AddDocument({ onClose, onSaved }) {
       notify.success('Added. Customers can download it now.');
       onSaved();
     } catch (e) {
-      setError(msg(e));
+      setError(msg(e, 'add the document'));
       setBusy(false);
     }
   };

@@ -4,6 +4,7 @@ import { notify } from '@ui/components/ui/notify';
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsActivateProvider, opsPaymentAccounts, opsPaymentEvents, opsPayments, opsProviderMode, opsRecordPayment, opsRetryPaymentEvent, opsSaveProvider, opsTestProvider } from './api';
 import { inr, toPaise } from './money';
+import { Loading, errorWords, subWord } from './kit';
 
 /**
  * Payments (server: routes/opsPayments.ts, billing/providers.ts). How
@@ -15,7 +16,7 @@ import { inr, toPaise } from './money';
  */
 const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
-const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—');
+const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');
 const Err = ({ children }) =>
   children ? (
     <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>
@@ -41,7 +42,7 @@ function Field({ id, label, hint, children }) {
     </div>
   );
 }
-const errorOf = (e) => ({ message: String(e?.message || e), problems: e?.data?.problems || [] });
+const errorOf = (e) => ({ message: errorWords(e, 'change the payment provider'), problems: e?.data?.problems || [] });
 
 /* Where each key is found in the provider's own dashboard. */
 const HELP = {
@@ -93,11 +94,11 @@ export function Payments({ role, openCustomer }) {
   const load = useCallback(() => {
     opsPayments()
       .then((r) => (setData(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the payments')));
   }, []);
   useEffect(load, [load]);
   const mayChange = may(role, 'BILLING');
-  if (!data) return error ? <Err>{error}</Err> : <p className="ws-card-blurb">Loading…</p>;
+  if (!data) return error ? <Err>{error}</Err> : <Loading />;
   const active = data.providers.find((p) => p.active);
   const open = data.providers.find((p) => p.code === editing);
 
@@ -320,11 +321,11 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
             </button>
             {mayChange ? (
               <>
-                <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(busy) || dirty} title={dirty ? 'Save first' : undefined} onClick={test}>
+                <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(busy) || dirty} title={dirty ? 'Save the keys first' : undefined} onClick={test}>
                   {busy === 'test' ? 'Testing…' : keyed ? 'Test connection' : 'Check details'}
                 </button>
                 <button type="button" className="ws-btn ws-btn--primary" disabled={Boolean(busy) || !dirty} onClick={save}>
-                  {busy === 'save' ? 'Saving…' : 'Save'}
+                  {busy === 'save' ? 'Saving…' : 'Save keys'}
                 </button>
               </>
             ) : null}
@@ -356,7 +357,7 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
               <section className="grid gap-2" aria-label="Mode">
                 <span className="text-sm font-medium">Mode</span>
                 <p className="ws-card-blurb">
-                  {p.mode === 'LIVE' ? 'Live: the live keys are in use. Real money moves once checkout is built.' : 'Test: the test keys are in use, against the provider’s sandbox. No real money moves.'}
+                  {p.mode === 'LIVE' ? 'Live: the live keys are in use. Customers who pay an invoice online pay real money.' : 'Test: the test keys are in use, against the provider’s sandbox. No real money moves.'}
                 </p>
                 {mayChange && p.active ? (
                   <p className="ws-card-blurb">
@@ -452,7 +453,7 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
               </>
             )}
           </section>
-          {mayChange ? <p className="ws-card-blurb">Saving, switching mode and making a provider active ask for a code from your authenticator app, and go on the operator log.</p> : null}
+          {mayChange ? <p className="ws-card-blurb">Saving, switching mode and making a provider active ask for a code from your authenticator app, and go in the Staff audit log.</p> : null}
           {error ? (
             <>
               <Err>{error.message}</Err>
@@ -479,7 +480,7 @@ function LiveConfirm({ p, onClose, onDone }) {
       notify.success(`${p.name} is in Live mode.`);
       onDone(r);
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'switch to Live mode'));
     } finally {
       setBusy(false);
     }
@@ -489,7 +490,7 @@ function LiveConfirm({ p, onClose, onDone }) {
       open
       onClose={onClose}
       title={`Switch ${p.name} to Live mode?`}
-      description="Live keys are real. Once checkout is built, customers’ money goes through them into CLOR’s account. Test the live keys after switching."
+      description="From now on, customers who pay an invoice online pay real money into CLOR’s account. Test the live keys straight after switching."
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
@@ -505,7 +506,7 @@ function LiveConfirm({ p, onClose, onDone }) {
         <Field id="pay-live-word" label="Type LIVE to confirm">
           <input id="pay-live-word" className="ui-input" autoComplete="off" value={word} onChange={(e) => setWord(e.target.value)} />
         </Field>
-        <p className="ws-card-blurb">You will be asked for a code from your authenticator app. It goes on the operator log.</p>
+        <p className="ws-card-blurb">You will be asked for a code from your authenticator app. It goes in the Staff audit log.</p>
         <Err>{error}</Err>
       </div>
     </WsDrawer>
@@ -532,7 +533,7 @@ function PaymentsLog({ mayChange, openCustomer }) {
     let live = true;
     fetchPage()
       .then((r) => live && (setRows(r.events), setNext(r.next), setError('')))
-      .catch((e) => live && setError(String(e?.message || e)));
+      .catch((e) => live && setError(errorWords(e, 'load the payments log')));
     return () => {
       live = false;
     };
@@ -542,11 +543,11 @@ function PaymentsLog({ mayChange, openCustomer }) {
     setBusy(ev.id);
     try {
       const r = await opsRetryPaymentEvent(ev.id);
-      if (r.status === 'APPLIED') notify.success('Applied.');
-      else notify.error(r.detail || 'Still not applied.');
+      if (r.status === 'APPLIED') notify.success('Applied to the account.');
+      else notify.error(r.detail || 'Still not applied: it could not be matched to an account. Record it by hand with Record a payment.');
       setRows((x) => x.map((e) => (e.id === ev.id ? { ...e, status: r.status, detail: r.detail, canRetry: r.status !== 'APPLIED' } : e)));
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(errorWords(e, 'retry the payment event'));
     } finally {
       setBusy('');
     }
@@ -567,7 +568,7 @@ function PaymentsLog({ mayChange, openCustomer }) {
       </div>
       <Err>{error}</Err>
       {!rows ? (
-        <p className="ws-card-blurb">Loading…</p>
+        <Loading />
       ) : !rows.length ? (
         <div className="ws-empty">
           <p>No payment events{status ? ' of this kind' : ''} yet. Provider webhooks and payments recorded by hand show here.</p>
@@ -677,7 +678,7 @@ function RecordPayment({ onClose, onDone }) {
       notify.success(r.paidUntil ? `Recorded. ${account.name} is paid until ${day(r.paidUntil)}.` : 'Recorded.');
       onDone();
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'record the payment'));
     } finally {
       setBusy(false);
     }
@@ -707,7 +708,7 @@ function RecordPayment({ onClose, onDone }) {
               <span>
                 {account.name}
                 <span className="ws-item-sub" style={{ display: 'block' }}>
-                  {account.subscription ? `Subscription ${account.subscription.status}${account.subscription.currentPeriodEnd ? `, paid until ${day(account.subscription.currentPeriodEnd)}` : ''}` : 'No subscription yet: the payment is recorded only.'}
+                  {account.subscription ? `Subscription: ${subWord(account.subscription.status).toLowerCase()}${account.subscription.currentPeriodEnd ? `, paid until ${day(account.subscription.currentPeriodEnd)}` : ''}` : 'No subscription yet: the payment is recorded only.'}
                 </span>
               </span>
               <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setAccount(null)}>
@@ -716,7 +717,7 @@ function RecordPayment({ onClose, onDone }) {
             </div>
           </div>
         ) : (
-          <Field id="pay-rec-search" label="Customer account" hint="Type the account’s name or client ID.">
+          <Field id="pay-rec-search" label="Customer account" hint="Type the account’s name or account ID.">
             <input id="pay-rec-search" className="ui-input" autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} />
             {found.length ? (
               <ul className="grid gap-1" aria-label="Matching accounts">
@@ -757,7 +758,7 @@ function RecordPayment({ onClose, onDone }) {
         <Field id="pay-rec-note" label="Note (optional)">
           <input id="pay-rec-note" className="ui-input" value={f.note} onChange={set('note')} />
         </Field>
-        <p className="ws-card-blurb">Recording asks for a code from your authenticator app. It goes on the operator log.</p>
+        <p className="ws-card-blurb">Recording asks for a code from your authenticator app. It goes in the Staff audit log.</p>
         <Err>{error}</Err>
       </div>
     </WsDrawer>

@@ -25,7 +25,7 @@ it('links the selected HR debit to the explicitly valued payroll earning', async
   await user.click(screen.getAllByRole('button', { name: 'New adjustment' })[0]);
   await user.selectOptions(screen.getByRole('combobox', { name: /Leave encashment/ }), 'encash-1');
   await user.type(screen.getByLabelText('Amount'), '6000');
-  await user.click(screen.getByRole('button', { name: 'Add', exact: true }));
+  await user.click(screen.getByRole('button', { name: 'Add adjustment', exact: true }));
   await waitFor(() => expect(createPayrollAdjustment).toHaveBeenCalledWith(expect.objectContaining({
     leaveEncashmentId: 'encash-1', employeeId: 'employee-1', componentId: 'component-1', periodId: 'period-1', amount: 6000,
   })));
@@ -57,12 +57,12 @@ it('once that payroll is final, the amount is corrected with a reason', async ()
   const user = userEvent.setup();
   render(<PayrollAdjustments />);
   await user.click(await screen.findByRole('button', { name: 'Edit the Advance recovery for Meena Iyer' }));
-  expect(screen.getByLabelText('Who')).toBeDisabled();
+  expect(screen.getByLabelText('Employee')).toBeDisabled();
   const amount = screen.getByLabelText('Amount');
   await user.clear(amount);
   await user.type(amount, '1000');
   await user.type(screen.getByLabelText('Why is the amount corrected?'), 'Agreed with the owner, 2 Nov');
-  await user.click(screen.getByRole('button', { name: 'Save' }));
+  await user.click(screen.getByRole('button', { name: 'Save adjustment' }));
   await waitFor(() => expect(updatePayrollAdjustment).toHaveBeenCalledWith('carry-1', expect.objectContaining({ amount: 1000, correctionReason: 'Agreed with the owner, 2 Nov' })));
 });
 

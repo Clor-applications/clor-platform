@@ -33,7 +33,7 @@ const buildBody = z.object({ force: z.boolean().optional() });
 /** Build (or, with force, rebuild) the sample company, in the background. */
 opsExploreRouter.post('/ops/explore/sample/build', requireOperatorRole('SUPPORT', 'BILLING'), requireOperatorStepUp, async (req, res) => {
   const parsed = buildBody.safeParse(req.body || {});
-  if (!parsed.success) return res.status(400).json({ error: 'Invalid request' });
+  if (!parsed.success) return res.status(400).json({ error: 'Something in the form is not right. Check it and try again.' });
   const force = Boolean(parsed.data.force);
   try {
     const build = await startSampleBuild({ force });
@@ -55,7 +55,7 @@ const PAGE = 25;
 opsExploreRouter.get('/ops/explore/passes', (req, res) =>
   outsideTenant('ops: explore links', async () => {
     const parsed = listQuery.safeParse(req.query);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
+    if (!parsed.success) return res.status(400).json({ error: 'Those filters are not right. Clear them and try again.' });
     const { state = 'all', page = 0 } = parsed.data;
     const now = new Date();
     const where =

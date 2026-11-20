@@ -34,7 +34,7 @@ export default function ScreenHelp({ appId, screen, onOpenHelpCentre }) {
             </section>
           ))}
           {onOpenHelpCentre ? (
-            <button type="button" className="ui-link text-sm" onClick={() => { setOpen(false); onOpenHelpCentre(guide.key); }}>Open in the Help centre</button>
+            <button type="button" className="ui-link text-sm" onClick={() => { setOpen(false); onOpenHelpCentre(guide.key); }}>Open in Help centre</button>
           ) : null}
         </div>
       </Drawer>

@@ -3,6 +3,7 @@ import { Download } from '@ui/components/ui/lineIcons';
 
 import { notify } from '@ui/components/ui/notify';
 import { downloadPayrollExport, listPayrollExportLayouts } from '../api/attendance';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * A closed month for a company that pays salaries outside CLOR: one row per
@@ -27,7 +28,7 @@ export default function PayrollExport({ month, monthLabel }) {
     let live = true;
     listPayrollExportLayouts()
       .then((list) => live && setLayouts(list))
-      .catch((e) => live && setFailed(String(e?.message || 'Could not read the layouts.')));
+      .catch((e) => live && setFailed(errorWords(e, 'read the layouts')));
     return () => {
       live = false;
     };
@@ -45,7 +46,7 @@ export default function PayrollExport({ month, monthLabel }) {
       await downloadPayrollExport(month, layout.id, chosenFormat);
       notify.success(`${monthLabel} downloaded in the ${layout.name} layout.`);
     } catch (err) {
-      notify.error(String(err?.message || 'Could not make the file.'));
+      notify.error(errorWords(err, 'make the file'));
     } finally {
       setBusy(false);
     }

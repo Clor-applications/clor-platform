@@ -25,6 +25,7 @@ const STATUS_PILL = {
   Joined: 'ui-pill-pos',
   'Moved to this job': 'ui-pill-pos',
   'Not taken forward': 'ui-pill-neutral',
+  Rejected: 'ui-pill-neutral',
 };
 const BONUS_PILL = { WAITING: 'ui-pill-info', DUE: 'ui-pill-warn', SENT: 'ui-pill-info', PAID: 'ui-pill-pos', FORFEITED: 'ui-pill-neutral', NONE: 'ui-pill-neutral' };
 const RELATIONS = ['Friend', 'Former colleague', 'Relative', 'Neighbour', 'Studied together', 'Through a customer'];

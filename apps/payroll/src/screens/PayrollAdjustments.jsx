@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, Check, Clock, MinusCircle, Pencil, Percent, Plus, Trash2, Wallet } from '@ui/components/ui/lineIcons';
+import { Ban, Check, Pencil, Percent, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -25,6 +25,8 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { rupees as money } from '@ui/utils/money';
 import { RELIEF_89_NOTE, mentionsArrears } from '@ui/picks/round54';
 import { COUNT_UNITS, countAmount, countWords } from '@ui/picks/payLines';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Bonuses, arrears, fines — what happened to one person in one month.
@@ -55,6 +57,13 @@ const TABS = [
   { value: 'CONSUMED', label: 'Paid', tone: 'paid' },
   { value: 'CANCELLED', label: 'Cancelled', tone: 'cancelled' },
 ];
+/* One written title per tab: a title built from the tab label read "No to approve adjustments". */
+const EMPTY_TITLES = {
+  DRAFT: 'No adjustments waiting for approval',
+  APPROVED: 'No approved adjustments waiting',
+  CONSUMED: 'No adjustments paid yet',
+  CANCELLED: 'No cancelled adjustments',
+};
 const COLUMNS = {
   employee: (r) => r.employeeName,
   what: (r) => r.componentName,
@@ -64,10 +73,10 @@ const signed = (r) => (r.type === 'DEDUCTION' ? -Number(r.amount || 0) : Number(
 const EXPORT_COLUMNS = [
   { key: 'employeeName', label: 'Employee' },
   { key: 'employeeCode', label: 'Code' },
-  { key: 'componentName', label: 'What' },
+  { key: 'componentName', label: 'Component' },
   { key: 'periodName', label: 'Month' },
   { key: 'amount', label: 'Amount', value: (r) => signed(r) },
-  { key: 'reason', label: 'Why' },
+  { key: 'reason', label: 'Reason' },
   { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
   { key: 'consumedByRunNumber', label: 'Paid on run' },
 ];
@@ -102,7 +111,7 @@ export default function PayrollAdjustments() {
         setPeople(employeeRows.employees);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load adjustments.')));
+      .catch((e) => setError(errorWords(e, 'load adjustments')));
   }, [periodFilter]);
 
   useEffect(() => {
@@ -119,7 +128,7 @@ export default function PayrollAdjustments() {
       notify.success(done);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not do that.'));
+      notify.error(errorWords(e, 'update this adjustment'));
     } finally {
       setBusy('');
     }
@@ -129,7 +138,7 @@ export default function PayrollAdjustments() {
     const ok = await confirmDialog({
       title: 'Delete this draft?',
       message: 'Nobody has approved it, so there is nothing to keep a record of.',
-      confirmLabel: 'Yes, delete',
+      confirmLabel: 'Delete draft',
     });
     if (!ok) return;
     act(() => deletePayrollAdjustment(row.id), 'Deleted.', row.id);
@@ -144,8 +153,9 @@ export default function PayrollAdjustments() {
     }
     const ok = await confirmDialog({
       title: 'Cancel this adjustment?',
-      message: 'It stays in the list, marked cancelled, so the decision not to pay it is visible.',
-      confirmLabel: 'Yes, cancel it',
+      message: 'It stays in the list under Cancelled, so the decision not to pay it is visible. Nothing is paid.',
+      confirmLabel: 'Cancel adjustment',
+      cancelLabel: 'Keep it',
     });
     if (!ok) return;
     act(() => cancelPayrollAdjustment(row.id), 'Cancelled.', row.id);
@@ -180,7 +190,6 @@ export default function PayrollAdjustments() {
       description="One-off earnings and deductions for a single month, such as a bonus, an arrear or a recovery. Approved before payroll pays them."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search adjustments…', label: 'Search adjustments' }}
       moreItems={all?.length ? [exportMenuItem('Export adjustments')] : null}
       onMoreSelect={(k) => {
@@ -193,12 +202,12 @@ export default function PayrollAdjustments() {
           <Plus size={16} aria-hidden="true" /> New adjustment
         </button>
       }
-      cards={[
-        { label: 'To approve', value: figures.toApprove, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('DRAFT') },
-        { label: 'Approved', value: figures.toPay, tone: 'sent', Icon: Check, onSelect: () => setStatus('APPROVED') },
-        { label: 'Paid', value: figures.paid, tone: 'paid', Icon: Wallet, onSelect: () => setStatus('CONSUMED') },
-        { label: 'Deductions', value: figures.deductions, tone: 'overdue', Icon: MinusCircle },
-      ]}
+      countLine={countItems([
+        { label: 'To approve', value: figures.toApprove, tone: 'outstanding', onSelect: () => setStatus('DRAFT') },
+        { label: 'Approved', value: figures.toPay, tone: 'sent', onSelect: () => setStatus('APPROVED') },
+        { label: 'Paid', value: figures.paid, tone: 'paid', onSelect: () => setStatus('CONSUMED') },
+        { label: 'Deductions', value: figures.deductions, tone: 'overdue' },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -224,10 +233,10 @@ export default function PayrollAdjustments() {
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="employee" state={filters} />
-                <ColumnHeader label="What" col="what" state={filters} />
+                <ColumnHeader label="Component" col="what" state={filters} />
                 <ColumnHeader label="Month" col="month" state={filters} />
                 <th scope="col" className="ui-num">Amount</th>
-                <th scope="col" className="ui-col-grow">Why</th>
+                <th scope="col" className="ui-col-grow">Reason</th>
                 <th scope="col" className="ui-col-h-center">Status</th>
                 <th scope="col"><span className="sr-only">Actions</span></th>
               </tr>
@@ -247,7 +256,7 @@ export default function PayrollAdjustments() {
                     ) : (
                       <EmptyState
                         icon={Percent}
-                        title={periodFilter ? 'Nothing adjusted in this month' : status ? `No ${TABS.find((t) => t.value === status)?.label.toLowerCase()} adjustments` : 'No adjustments yet'}
+                        title={periodFilter ? 'Nothing adjusted in this month' : EMPTY_TITLES[status] || 'No adjustments yet'}
                         description="A bonus, an arrear, a fine: anything that happened to one person in one month rather than being part of what they are on."
                         routes={canAdd && !status ? [{ label: 'New adjustment', description: 'One person, one month, one amount.', onSelect: create }] : undefined}
                       />
@@ -321,7 +330,7 @@ export default function PayrollAdjustments() {
           editing?.carried
             ? 'The rest of a deduction a payroll carried forward. Only the amount changes, with a reason, and it goes back for approval.'
             : editing?.status === 'APPROVED'
-            ? 'Changing this sends it back for approval. The approval was of an amount, not of a row.'
+            ? 'Changing the amount sends it back for approval.'
             : 'One person, one month, one amount.'
         }
       >
@@ -340,7 +349,7 @@ export default function PayrollAdjustments() {
           />
         ) : null}
       </Drawer>
-      <Drawer open={Boolean(letGo)} onClose={() => setLetGo(null)} title="Cancel a carried deduction" description="This is money still owed, carried forward from an earlier payslip. Say why it is let go; the reason stays on the row and in the audit log.">
+      <Drawer open={Boolean(letGo)} onClose={() => setLetGo(null)} title="Cancel a carried deduction" description="This is money still owed, carried forward from an earlier payslip. Say why it is let go; the reason stays on this adjustment and in the audit log.">
         {letGo ? (
           <CancelCarried
             row={letGo}
@@ -404,7 +413,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
     e.preventDefault();
     const amount = counted ? countAmount(form.quantity, form.rate) : Number(form.amount);
     if (!(amount > 0)) {
-      notify.error('An adjustment of nothing changes nothing.');
+      notify.error('Enter an amount more than ₹0.');
       return;
     }
     if (carried && form.correctionReason.trim().length < 5) {
@@ -429,7 +438,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
       notify.success(row.id ? 'Saved.' : 'Added, waiting for approval.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not save that adjustment.'));
+      notify.error(errorWords(err, 'save that adjustment'));
     } finally {
       setSaving(false);
     }
@@ -441,7 +450,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
-          <label className="ui-label" htmlFor="adj-employee">Who</label>
+          <label className="ui-label" htmlFor="adj-employee">Employee</label>
           <select id="adj-employee" className="ui-select w-full" disabled={carried} value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value, leaveEncashmentId: '' })} required>
             {/* A row's own person stays choosable after they leave: a leaver's recovery is still corrected here. */}
             {row.employeeId && !people.some((p) => p.id === row.employeeId) ? (
@@ -456,7 +465,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
         </div>
 
         <div>
-          <label className="ui-label" htmlFor="adj-component">What</label>
+          <label className="ui-label" htmlFor="adj-component">Component</label>
           <select id="adj-component" className="ui-select w-full" disabled={carried} value={form.componentId} onChange={(e) => set({ componentId: e.target.value })} required>
             {components.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -496,11 +505,11 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
               <input type="number" min="0" step="0.01" className="ui-input ui-num w-full" value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} required aria-label="Count" />
             </label>
             <label className="block">
-              <span className="ui-label">Of</span>
+              <span className="ui-label">Unit</span>
               <SuggestInput value={form.unit} onChange={(v) => set({ unit: v })} maxLength={24} placeholder="meal" suggestions={COUNT_UNITS} aria-label="What was counted" />
             </label>
             <label className="block">
-              <span className="ui-label">Rate (₹)</span>
+              <span className="ui-label">Rate</span>
               <input type="number" min="0" step="0.01" className="ui-input ui-num w-full" value={form.rate} onChange={(e) => set({ rate: e.target.value })} required aria-label="Rate" />
             </label>
             <p className="col-span-3 text-sm tabular-nums" role="status">
@@ -532,12 +541,12 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
           <div className="sm:col-span-2">
             <label className="ui-label" htmlFor="adj-correction">Why is the amount corrected?</label>
             <SuggestInput id="adj-correction" value={form.correctionReason} onChange={(v) => set({ correctionReason: v })} maxLength={160} placeholder="e.g. Agreed with the owner, 2 Nov" suggestions={[]} aria-label="Why is the amount corrected?" />
-            <span className="ui-caption">Kept on the row and in the audit log.</span>
+            <span className="ui-caption">Kept on this adjustment and in the audit log.</span>
           </div>
         ) : null}
 
         <div className="sm:col-span-2">
-          <label className="ui-label" htmlFor="adj-reason">Why</label>
+          <label className="ui-label" htmlFor="adj-reason">Reason</label>
           <input
             id="adj-reason"
             className="ui-input w-full"
@@ -553,7 +562,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
         <button type="submit" className="ui-btn ui-btn-primary" disabled={saving}>
-          {saving ? 'Saving…' : row.id ? 'Save' : 'Add'}
+          {saving ? 'Saving…' : row.id ? 'Save adjustment' : 'Add adjustment'}
         </button>
       </div>
     </form>

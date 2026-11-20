@@ -32,7 +32,7 @@ it('ships empty, saying where the rates come from, and adds one', async () => {
   await userEvent.selectOptions(screen.getByLabelText('State'), 'Karnataka');
   await userEvent.selectOptions(screen.getByLabelText('Skill level'), 'SEMI_SKILLED');
   await userEvent.type(screen.getByLabelText('Applies from'), '2026-10-01');
-  await userEvent.type(screen.getByLabelText('A month (₹)'), '15,500');
+  await userEvent.type(screen.getByLabelText('Monthly rate'), '15,500');
   await userEvent.click(screen.getByRole('button', { name: 'Save rate' }));
   await waitFor(() => expect(addMinimumWage).toHaveBeenCalledWith(expect.objectContaining({ state: 'Karnataka', skill: 'SEMI_SKILLED', effectiveFrom: '2026-10-01', monthlyRate: 15500 })));
 });

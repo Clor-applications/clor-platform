@@ -37,7 +37,7 @@ describe('People navigation', () => {
     ]);
     expect(groupsOf('leave')).toEqual([
       ['Leave', ['Leave requests', 'Leave calendar', 'Leave balances', 'Leave register', "Who's away"]],
-      ['Attendance', ['Daily attendance', 'All attendance records', 'Days to check', 'Attendance fixes', 'Overtime & comp-off', 'Late marks', 'Absent without leave', 'Night work']],
+      ['Attendance', ['Daily attendance', 'All attendance records', 'Days to check', 'Attendance corrections', 'Overtime & comp-off', 'Late marks', 'Absent without leave', 'Night work']],
       /* Shifts, readers and the month's close are People's too (owner, 11 Nov 2026). */
       ['Shifts', ['Shift calendar', 'Shifts', 'Who is on which shift', 'Temporary shifts', 'Shift swaps']],
       ['Readers', ['Readers', 'Reader health', 'Punches', 'Punches with no employee']],
@@ -171,7 +171,7 @@ describe('People navigation in simple mode', () => {
   it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
     const modules = resolveModules(peopleApp, simple);
     expect(modules.map((m) => m.label)).toEqual(['Home', 'Employees', 'Leave & attendance', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
-    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(['Leave requests', 'Leave calendar', 'Leave balances', 'Leave register', "Who's away", 'Daily attendance', 'All attendance records', 'Days to check', 'Attendance fixes', 'Overtime & comp-off', 'Late marks', 'Absent without leave', 'Night work', 'Shift calendar', 'Shifts', 'Who is on which shift', 'Temporary shifts', 'Shift swaps', 'Readers', 'Reader health', 'Punches', 'Punches with no employee', 'Ready for payroll?', 'Employee confirmations', 'Month close', 'My leave', 'My attendance']);
+    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(['Leave requests', 'Leave calendar', 'Leave balances', 'Leave register', "Who's away", 'Daily attendance', 'All attendance records', 'Days to check', 'Attendance corrections', 'Overtime & comp-off', 'Late marks', 'Absent without leave', 'Night work', 'Shift calendar', 'Shifts', 'Who is on which shift', 'Temporary shifts', 'Shift swaps', 'Readers', 'Reader health', 'Punches', 'Punches with no employee', 'Ready for payroll?', 'Employee confirmations', 'Month close', 'My leave', 'My attendance']);
   });
 
   it('shows everything when simple mode is off, or when the company’s switches are not known yet', () => {

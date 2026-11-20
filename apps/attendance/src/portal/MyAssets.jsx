@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { SignedOut, askForAsset, confirmMyAsset, getMyAssets, reportAssetProblem, todayIst } from './portalApi';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Company things with me (picks round 51), in the employee app's Me tab: what
@@ -13,7 +14,7 @@ const day = (iso) => {
   const [y, m, d] = String(iso || '').slice(0, 10).split('-');
   return y && m && d ? `${Number(d)} ${MONTHS[Number(m) - 1]}${y !== todayIst().slice(0, 4) ? ` ${y}` : ''}` : '';
 };
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 
 /** The caption under an asset: its tag, its state, and when I last said I have it. */
 export function assetLine(a, today = todayIst()) {
@@ -30,7 +31,7 @@ export default function MyAssets({ guard }) {
   const [asking, setAsking] = useState(false);
   const [note, setNote] = useState(null);
   const load = useCallback(() => {
-    guard(getMyAssets()).then((d) => { setData(d); setFailed(''); }).catch((e) => setFailed(errText(e, 'Could not load the company things with you.')));
+    guard(getMyAssets()).then((d) => { setData(d); setFailed(''); }).catch((e) => setFailed(errText(e, 'load the company things with you')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
   if (failed) return <section className="ui-card p-5 text-sm" role="alert">{failed}</section>;
@@ -47,7 +48,7 @@ export default function MyAssets({ guard }) {
       setText('');
       load();
     } catch (err) {
-      const t = errText(err, 'Not sent.');
+      const t = errText(err, 'send it');
       if (t) setNote({ ok: false, text: t });
     } finally {
       setBusy('');

@@ -35,7 +35,12 @@ const score = (label, group, q, keywords = []) => {
  * there is no reset-on-open effect to synchronise. A palette that reopens
  * showing the previous query is a palette people stop trusting.
  */
-export default function CommandPalette({ onClose, items = [], onSelect, searchRecords, loadRecords, remember = false, placeholder = 'Search invoices, customers, reports, settings…' }) {
+/* Books searches its documents; every other app passes its own words, and without them the palette searches screens. */
+const defaultPlaceholder = () => (typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo'
+  ? 'Search invoices, customers, reports, settings…'
+  : 'Search screens and apps…');
+
+export default function CommandPalette({ onClose, items = [], onSelect, searchRecords, loadRecords, remember = false, placeholder = defaultPlaceholder() }) {
   const [query, setQuery] = useState('');
   /* Round 55 (recentsearch A): with `remember`, an empty box opens on the last five searches; choosing one types it back in. Read once per opening. */
   const [recent] = useState(() => (remember ? recentSearches() : []));
@@ -138,12 +143,12 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
       style={{ zIndex: 'var(--z-palette)' }}
       role="dialog"
       aria-modal="true"
-      aria-label="Command palette"
+      aria-label="Search CLOR"
     >
       {/* Scrim: dismisses on click, and dims enough to isolate the panel. */}
       <button
         type="button"
-        aria-label="Close command palette"
+        aria-label="Close search"
         onClick={onClose}
         className="absolute inset-0 cursor-default"
         style={{ backgroundColor: 'rgb(2 6 23 / 0.55)', backdropFilter: 'blur(2px)' }}

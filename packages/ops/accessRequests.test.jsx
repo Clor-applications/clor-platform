@@ -25,11 +25,11 @@ describe('Access requests', () => {
     render(<AccessRequests openCustomer={openCustomer} />);
     expect(await screen.findByText('View Sai Pharma (read-only)')).toBeInTheDocument();
     expect(screen.getByText(/#T-4830 · TDS mismatch on Form 16/)).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Waiting · 1' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Waiting (1)' })).toBeInTheDocument();
     expect(screen.queryByText(/Patil Constructions/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Withdraw the request for Sai Pharma' }));
     await waitFor(() => expect(api.opsEndSupportGrant).toHaveBeenCalledWith('g1'));
-    fireEvent.click(screen.getByRole('tab', { name: 'Open · 1' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Open (1)' }));
     expect(screen.getByText(/Look at and change Patil Constructions/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Open account' }));
     expect(openCustomer).toHaveBeenCalledWith('a2');

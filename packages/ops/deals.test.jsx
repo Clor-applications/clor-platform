@@ -60,14 +60,14 @@ describe('operator console: offers', () => {
     expect(screen.getByText(/4 customers have taken this offer/)).toBeInTheDocument();
     expect(screen.getByLabelText('Code')).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Diwali 2026' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save offer' }));
     await waitFor(() => expect(api.opsOfferSave).toHaveBeenCalledWith('o1', { name: 'Diwali 2026', description: null, endsOn: null, maxRedemptions: 10 }));
   });
 
   it('read-only staff see offers but cannot make or change them', async () => {
     api.opsOffers.mockResolvedValue({ offers: [], counts: {}, plans: [] });
     render(<Offers role="READ_ONLY" />);
-    expect(await screen.findByText(/No offers in force/)).toBeInTheDocument();
+    expect(await screen.findByText(/No offers in force\. Make one/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'New offer' })).toBeNull();
   });
 });

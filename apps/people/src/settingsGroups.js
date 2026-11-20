@@ -114,7 +114,7 @@ export const SETTINGS_GROUPS = [
     items: [
       ['dataImport', 'Bring employees and balances in from Excel'],
       ['dataExport', 'Download your HR data'],
-      ['integrations', 'Webhooks, API keys and HR tool sync'],
+      ['integrations', 'Connect other HR tools and send data to them'],
       ['dataProtection', 'DPDP Act notice and consent'],
       ['dataRequests', 'Requests to see, correct or erase data'],
       ['privacy', 'Who opened sensitive details, how long records are kept, and auditor access'],

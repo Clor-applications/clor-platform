@@ -25,6 +25,7 @@ import { addDaysIso as addDays } from '@ui/utils/dates';
 import { LeavePill } from '@ui/timeOff/Figures';
 import { swatchOf } from '@ui/timeOff/api';
 import './MyLeave.css';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 
 /**
  * My leave (People → Time & Leave → My leave, and Attendance's own): one's
@@ -37,7 +38,7 @@ const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not 
 /* Approved leave the person asked to cancel (round 47) still counts: it waits on the approver. */
 const StatusPill = ({ r }) => (r.status === 'APPROVED' && r.cancelAskedAt
   ? <span className="ui-pill ui-pill-warn">Approved · cancellation asked</span>
-  : <span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span>);
+  : <span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || enumWords(r.status)}</span>);
 const PRIVATE_LABEL = 'Private leave';
 const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
 const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
@@ -112,7 +113,7 @@ export default function MyLeave() {
       })
       .catch((e) => {
         if (e?.status === 404) { setUnlinked(true); return; }
-        setError(String(e?.message || 'Could not load your leave.'));
+        setError(errorWords(e, 'load your leave'));
       });
   }, [year]);
   useEffect(() => {
@@ -131,7 +132,7 @@ export default function MyLeave() {
       notify.success(h.picked ? `${h.name} dropped.` : `${h.name} picked.`);
       loadRestricted();
     } catch (err) {
-      notify.error(String(err?.message || 'Not changed.'));
+      notify.error(errorWords(err, 'make the change'));
     }
   };
 
@@ -147,7 +148,7 @@ export default function MyLeave() {
       notify.success(out?.asked ? 'Asked to cancel. It stays approved until agreed.' : 'Withdrawn.');
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not cancelled.'));
+      notify.error(errorWords(err, 'cancel it'));
     }
   };
 
@@ -158,7 +159,7 @@ export default function MyLeave() {
       notify.success('Reminder sent.');
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not sent.'));
+      notify.error(errorWords(err, 'send it'));
     }
   };
   /* Round 27: answer the question the approver sent back; it goes back to them. */
@@ -172,7 +173,7 @@ export default function MyLeave() {
       notify.success('Answer sent.');
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not sent.'));
+      notify.error(errorWords(err, 'send it'));
     }
   };
 
@@ -265,7 +266,7 @@ export default function MyLeave() {
           })}
         </div>
       ) : (
-        <EmptyState title="No leave types yet" description="HR sets them up in Leave Policy." />
+        <EmptyState title="No leave types yet" description="HR sets them up in Settings → Leave policy." />
       )}
 
       <div className={`ml-columns ${upcoming?.length || restricted?.quota > 0 ? 'has-side' : ''}`}>
@@ -401,7 +402,7 @@ function AskLeave({ types, rows = [], onClose, onDone, request = null }) {
     const timer = setTimeout(() => {
       previewMyLeave(JSON.parse(key))
         .then((p) => { if (!off) setGot({ ...(request ? ownPreview(p, request) : p), key }); })
-        .catch((e) => { if (!off) setGot({ key, ok: false, total: 0, parts: [], problems: [{ code: 'INPUT', message: String(e?.message || 'The days could not be worked out.') }] }); });
+        .catch((e) => { if (!off) setGot({ key, ok: false, total: 0, parts: [], problems: [{ code: 'INPUT', message: errorWords(e, 'work out the days') }] }); });
     }, 300);
     return () => { off = true; clearTimeout(timer); };
   }, [key, request]);
@@ -507,7 +508,7 @@ function CameBackEarly({ request, onClose, onDone }) {
       notify.success(`Your leave now ends ${formatDate(toDate)}.`);
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not changed.'));
+      notify.error(errorWords(err, 'make the change'));
     } finally {
       setSaving(false);
     }

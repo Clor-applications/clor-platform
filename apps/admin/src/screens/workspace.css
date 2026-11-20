@@ -2471,8 +2471,6 @@ button.ws-stat:hover {
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: rgb(var(--fg-muted, 58 63 71));
 }
 .ws-stat-value {
@@ -2535,8 +2533,6 @@ button.ws-stat:hover {
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: rgb(var(--fg-muted, 58 63 71));
 }
 .ws-kpi-value {

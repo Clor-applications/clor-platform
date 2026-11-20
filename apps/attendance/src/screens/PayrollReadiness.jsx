@@ -6,6 +6,7 @@ import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { getPayrollReadiness, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Attendance → Period Closing → Payroll Readiness: the HR research's control
@@ -44,7 +45,7 @@ export default function PayrollReadiness({ openScreen, menuLabel }) {
       .then((d) => { setData(d); setError(''); setTeamOnly(false); })
       .catch((e) => {
         if (e?.data?.code === 'TEAM_SCOPED') { setTeamOnly(true); setError(''); return; }
-        setError(String(e?.message || 'Could not check the month.'));
+        setError(errorWords(e, 'check the month'));
       });
   }, [month]);
   useEffect(() => {

@@ -39,7 +39,7 @@ describe('the phone tab bar', () => {
     const own = attendanceApp.nav.filter((i) => i.section || i.permission === 'ATTENDANCE::My Attendance::VIEW');
     expect(mobileTabsFor(attendanceApp, own).map((t) => t.key)[0]).toBe('me');
   });
-  it('Payroll names Overview, Pay runs, Salary slips and Payments', () => {
+  it('Payroll names Overview, Pay runs, Payslips and Payments', () => {
     expect(mobileTabsFor(payrollApp, payrollApp.nav).map((t) => t.key)).toEqual(['overview', 'runs', 'slips', 'payments']);
   });
 });

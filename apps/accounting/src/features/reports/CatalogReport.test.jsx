@@ -42,7 +42,7 @@ describe('Ledger Summary report', () => {
     expect(container.querySelector('.catalog-report-print-area')).not.toHaveTextContent('rows');
     expect(screen.getByRole('button', { name: 'Sort and filter Ledger' }).closest('th')).toHaveTextContent('Ledger');
     fireEvent.click(screen.getByRole('button', { name: 'Sort and filter Group' }));
-    expect(screen.getByRole('dialog')).toHaveTextContent('Text Filters');
+    expect(screen.getByRole('dialog')).toHaveTextContent('Text filters');
     const table = container.querySelector('.ledger-summary-table');
     expect(table.querySelector('tbody tr')).not.toHaveClass('border-t');
     const before = Number(table.querySelector('col').style.width.replace('px', ''));

@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 import Drawer from '@ui/components/ui/Drawer';
@@ -25,7 +26,7 @@ export function CompanyGoals({ state }) {
   if (!loaded || (!goals.length && !canEdit)) return null;
   const close = async (g, status) => {
     if (!(await confirmDialog({ title: status === 'DONE' ? `Mark "${g.title}" done?` : `Drop "${g.title}"?`, message: 'It leaves the strip. Goals linked to it keep the link.', confirmLabel: status === 'DONE' ? 'Mark done' : 'Drop', tone: status === 'DONE' ? 'neutral' : 'danger' }))) return;
-    try { await updateCompanyGoal(g.id, { status }); notify.success('Saved.'); reload(); } catch (e) { notify.error(String(e?.message || 'Not saved.')); }
+    try { await updateCompanyGoal(g.id, { status }); notify.success('Goal updated.'); reload(); } catch (e) { notify.error(errorWords(e, 'save the changes')); }
   };
   return (
     <section aria-label="Company goals" className="ui-company-goals">

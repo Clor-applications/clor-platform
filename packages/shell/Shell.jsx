@@ -70,6 +70,7 @@ import LegalPage from './legal/LegalPage';
 import { useLegalRoute } from './legal/useLegalRoute';
 import { renderPublicPage, usePublicPage } from './usePublicPage';
 import { installFormRules } from '@ui/picks/round56';
+import { errorWords, subscriptionSentence, subscriptionWord } from '@ui/utils/errorWords.js';
 
 /**
  * The CLOR shell.
@@ -1153,7 +1154,7 @@ function ShellScreens() {
           <HelpFace size={26} aria-hidden="true" />
           <span className="ui-split-panel-foot-text">
             <span className="ui-split-panel-foot-title">Need a hand?</span>
-            <span className="ui-split-panel-foot-sub">Open help centre</span>
+            <span className="ui-split-panel-foot-sub">Open Help centre</span>
           </span>
         </button>
       ) : null}
@@ -1456,7 +1457,7 @@ function ShellScreens() {
         ) : null}
         {unbought ? (
           <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
-            <span className="min-w-0 flex-1">{appById(unbought.app)?.name || 'This app'} is not on your plan, so it cannot be used here yet. {unbought.message ? `(${unbought.message})` : ''}</span>
+            <span className="min-w-0 flex-1">{appById(unbought.app)?.name || 'This app'} is not on your plan, so it cannot be used here yet. Add it from More apps to use it.</span>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { setShowMoreApps(true); setUnbought(null); }}>See apps and plans</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setUnbought(null)}>Dismiss</button>
           </div>
@@ -1699,7 +1700,7 @@ function ShellScreens() {
               </ScreenBoundary>
             ) : (
               /* While the company's apps are still being read there is nothing to select yet: show the page loading, not "Nothing selected" (page audit 19 Nov 2026). */
-              subscriptions == null ? <AppLoading /> : <p className="ui-caption">Nothing selected.</p>
+              subscriptions == null ? <AppLoading /> : <p className="ui-caption">Pick an app from the apps menu at the top left.</p>
             )}
             {/* Round 61 "scrolltop" A: "Top ↑" after two screens of scrolling. */}
             <ScrollTop />
@@ -1823,7 +1824,7 @@ function MoreApps({ tenant, catalog = APPS, onAdd, onOpen }) {
               >
                 <a.icon size={18} aria-hidden="true" />
               </span>
-              {a.available ? null : <span className="ui-pill ui-pill-neutral">Coming</span>}
+              {a.available ? null : <span className="ui-pill ui-pill-neutral">Coming soon</span>}
             </div>
 
             <h2 className="mt-3 font-medium">{a.name}</h2>
@@ -1847,8 +1848,8 @@ function MoreApps({ tenant, catalog = APPS, onAdd, onOpen }) {
       </div>
 
       <p className="ui-caption">
-        Adding an app switches it on for this company and gives it its own database — no other app&rsquo;s data is
-        touched, and the apps it already uses carry on unchanged.
+        Adding an app switches it on for this company and keeps its records separate. The apps it already uses carry
+        on unchanged.
       </p>
     </div>
   );
@@ -1877,7 +1878,7 @@ function AddAppButton({ app, tenant, onAdd }) {
           try {
             await onAdd(app.id);
           } catch (e) {
-            setError(String(e?.message || 'Could not add that app.'));
+            setError(errorWords(e, 'add that app'));
           } finally {
             setBusy(false);
           }
@@ -1916,7 +1917,7 @@ function PlanCard({ billing }) {
   return (
     <section className="ui-card p-4 flex flex-wrap items-center gap-3" aria-label="Your plan">
       <span className={`ui-pill ${billing.inGoodStanding ? 'ui-pill-pos' : 'ui-pill-warn'}`}>
-        {STATUS_LABEL[billing.status] || billing.status}
+        {STATUS_LABEL[billing.status] || subscriptionWord(billing.status)}
       </span>
       <span className="text-sm">
         {end
@@ -1942,8 +1943,8 @@ function SubscriptionBanner({ billing }) {
       {/* The server's own sentence when it has one (a trial that ended, routes/billing.ts `reason`); the old line otherwise. */}
       {billing.reason || (
         <>
-          Your CLOR subscription is {(STATUS_LABEL[billing.status] || billing.status).toLowerCase()}. Your data is safe
-          and still visible; renew to keep working. Contact suresh@clor.in.
+          {subscriptionSentence(billing.status)} Your data is safe and still visible; renew to keep working.
+          Questions? Write to support@clor.in.
         </>
       )}
     </div>

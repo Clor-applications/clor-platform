@@ -2745,10 +2745,8 @@ html.is-scrolled .nav {
 }
 .mega-cat {
   margin: var(--s-2) var(--s-3) var(--s-2);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--accent-text);
 }
 .mega-item {
@@ -3106,7 +3104,7 @@ html.is-scrolled .nav {
   overflow: hidden;
   border-right: 1.5px solid var(--accent);
   clip-path: inset(0 100% 0 0);
-  animation: sf-type 8s steps(33) infinite;
+  animation: sf-type 8s steps(13) infinite;
 }
 .sf-type--2 {
   animation-name: sf-type-2;

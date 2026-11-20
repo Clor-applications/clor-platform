@@ -10,6 +10,8 @@ import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { anonymiseEmployee, listDataRequests, resolveDataRequest } from '@ui/personnel/api';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * DPDP data-subject requests employees raise from the portal — see, correct,
@@ -87,7 +89,7 @@ export default function DataRequests() {
       setErasing(null);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     } finally {
       setBusy(false);
     }
@@ -101,7 +103,7 @@ export default function DataRequests() {
       notify.success(status === 'RESOLVED' ? 'Marked done; the person can see your answer.' : 'Declined; the person can see why.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     }
   };
 
@@ -117,14 +119,13 @@ export default function DataRequests() {
       description="What employees asked about their personal data, and your answers. Employees are told to expect an answer within 30 days; the DPDP Rules allow at most 90 for a grievance."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search requests…', label: 'Search data requests' }}
-      cards={[
+      countLine={countItems([
         { label: 'Waiting', value: figures.waiting, count: true, tone: 'partial', Icon: Clock, onSelect: () => setFilter('PENDING') },
         { label: 'Overdue', value: figures.late, count: true, tone: 'overdue', Icon: AlarmClock },
         { label: 'Due in 5 days', value: figures.soon, count: true, tone: 'outstanding', Icon: AlarmClock },
         { label: 'Done', value: figures.done, count: true, tone: 'paid', Icon: CheckCheck, onSelect: () => setFilter('RESOLVED') },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={filter}
       statusCounts={counts}
@@ -156,7 +157,7 @@ export default function DataRequests() {
                     ) : (
                       <EmptyState
                         icon={ShieldCheck}
-                        title={filter === 'PENDING' ? 'Nothing waiting' : 'Nothing here'}
+                        title={filter === 'PENDING' ? 'Nothing waiting' : filter === 'RESOLVED' ? 'No answered requests' : filter === 'REJECTED' ? 'No declined requests' : 'No requests yet'}
                         description="Employees ask from the portal under Me → My data."
                       />
                     )}

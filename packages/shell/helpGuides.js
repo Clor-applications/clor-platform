@@ -448,7 +448,7 @@ export const GUIDES = [
     key: 'inbox',
     group: 'guide-people',
     title: 'Approve requests in the Inbox',
-    summary: 'Everything waiting for your decision in People, in one list: leave, attendance fixes, overtime and more.',
+    summary: 'Everything waiting for your decision in People, in one list: leave, attendance corrections, overtime and more.',
     keywords: ['approvals', 'approve', 'pending', 'waiting', 'requests', 'reject', 'my tasks'],
     sections: [
       {
@@ -816,7 +816,7 @@ export const GUIDES = [
       {
         heading: 'The approver decides',
         steps: [
-          'Open Attendance › Attendance fixes, on the Waiting tab. In People it is Time › Attendance fixes, or Inbox.',
+          'Open Attendance › Attendance corrections, on the Waiting tab. In People it is Time › Attendance corrections, or Inbox.',
           'Open the request and choose Approve, or Reject with a note.',
         ],
       },
@@ -830,11 +830,11 @@ export const GUIDES = [
       },
       {
         heading: 'HR asks on someone’s behalf',
-        points: ['On Attendance fixes, choose Enter request, then pick the employee and the kind.'],
+        points: ['On Attendance corrections, choose Enter request, then pick the employee and the kind.'],
       },
     ],
-    open: { app: 'attendance', screen: 'requests', label: 'Open Attendance fixes' },
-    alt: { app: 'people', screen: 'attendanceRequests', label: 'Open Attendance fixes in People' },
+    open: { app: 'attendance', screen: 'requests', label: 'Open Attendance corrections' },
+    alt: { app: 'people', screen: 'attendanceRequests', label: 'Open Attendance corrections in People' },
   },
   {
     key: 'month-close',

@@ -4,6 +4,7 @@ import { ChevronLeft } from '@ui/components/ui/lineIcons';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import CaseRating from './CaseRating';
 import { SignedOut, getDesk, getDeskCase, raiseDesk, reopenDesk, replyDesk } from './portalApi';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Ask HR as a conversation (DESK-01..04, server: peoplePortal /desk): my
@@ -26,7 +27,7 @@ const when = (v) => {
   const [y, m, d] = new Date(new Date(v).getTime() + 330 * 60_000).toISOString().slice(0, 10).split('-');
   return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`;
 };
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 const EMPTY = { category: '', subject: '', description: '' };
 
 export default function AskHr({ guard, preset, onPresetUsed, onAvailability }) {
@@ -41,7 +42,7 @@ export default function AskHr({ guard, preset, onPresetUsed, onAvailability }) {
   const load = useCallback(() => {
     guard(getDesk())
       .then((d) => { setData(d); setFailed(''); onAvailability?.(Boolean(d?.available)); })
-      .catch((e) => setFailed(errText(e, 'Could not load your questions to HR.')));
+      .catch((e) => setFailed(errText(e, 'load your questions to HR')));
   }, [guard, onAvailability]);
   useEffect(() => { load(); }, [load]);
 
@@ -73,7 +74,7 @@ export default function AskHr({ guard, preset, onPresetUsed, onAvailability }) {
       setNote({ ok: true, text: 'Sent. HR answers here.' });
       load();
     } catch (err) {
-      const text = errText(err, 'Not sent.');
+      const text = errText(err, 'send it');
       if (text) setNote({ ok: false, text });
     } finally {
       setBusy(false);
@@ -138,7 +139,7 @@ function Thread({ id, guard, label, onBack }) {
   const load = useCallback(() => {
     guard(getDeskCase(id))
       .then((d) => { setR(d.request); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not open this question.')));
+      .catch((e) => setFailed(errText(e, 'open this question')));
   }, [id, guard]);
   useEffect(() => { load(); }, [load]);
   const act = async (fn, done) => {
@@ -149,7 +150,7 @@ function Thread({ id, guard, label, onBack }) {
       done?.();
       load();
     } catch (err) {
-      const text = errText(err, 'Not done.');
+      const text = errText(err, 'do that');
       if (text) setNote({ ok: false, text });
     } finally {
       setBusy(false);
@@ -161,7 +162,7 @@ function Thread({ id, guard, label, onBack }) {
     <section className="ui-card space-y-3 p-5" aria-labelledby="thread-h">
       <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={onBack}><ChevronLeft size={16} aria-hidden="true" /> All questions</button>
       <LoadFailed message={failed} onRetry={load} />
-      {!r && !failed ? <p className="ui-caption">Loading…</p> : null}
+      {!r && !failed ? <p className="ui-caption">Loading your question…</p> : null}
       {r ? (
         <>
           <div>

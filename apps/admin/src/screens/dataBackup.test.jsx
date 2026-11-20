@@ -76,7 +76,7 @@ describe('taking a copy of the company data', () => {
     fireEvent.click(screen.getByRole('button', { name: /Download data/i }));
 
     await waitFor(() => expect(notifyError).toHaveBeenCalled());
-    expect(String(notifyError.mock.calls[0][0])).toMatch(/permission denied/);
+    expect(String(notifyError.mock.calls[0][0])).toMatch(/permission denied/i);
   });
 
   /*

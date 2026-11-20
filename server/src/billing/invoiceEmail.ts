@@ -185,7 +185,8 @@ export async function sendInvoiceEmail(invoiceId: string, opts: SendOpts): Promi
       relatedType: 'BillingInvoice',
       relatedId: now.id,
       data: {
-        userName: to.name,
+        /* A name, never the address itself standing in for one ("Hello a@b.in,"). */
+        userName: to.name && to.name !== to.email ? to.name : '',
         number: now.number || '',
         amount: rupees(now.total),
         dueOn: dueIso ? words(dueIso) : '',

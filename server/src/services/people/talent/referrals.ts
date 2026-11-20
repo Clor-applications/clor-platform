@@ -206,10 +206,10 @@ function friendInput(raw: any, needContact = true): Friend {
   const name = text(raw?.name, 120);
   if (!name) throw new TalentError('Give their name.');
   const email = text(raw?.email, 200);
-  if (email && !EMAIL.test(email)) throw new TalentError('That e-mail address does not look right.');
+  if (email && !EMAIL.test(email)) throw new TalentError('That email address does not look right.');
   const phone = text(raw?.phone, 40);
   if (phone && (!PHONE.test(phone) || !phoneKeyOf(phone))) throw new TalentError('That phone number does not look right.');
-  if (needContact && !email && !phone) throw new TalentError('Give their phone number or e-mail, so HR can reach them.');
+  if (needContact && !email && !phone) throw new TalentError('Give their phone number or email, so HR can reach them.');
   return { name, email, phone, relation: text(raw?.relation, 120), note: text(raw?.note, 2000) };
 }
 

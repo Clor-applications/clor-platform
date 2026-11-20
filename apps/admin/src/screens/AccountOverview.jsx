@@ -7,10 +7,12 @@ import { formatDateIn, localDateIso } from '@ui/utils/dates';
 import NotConnected from '@ui/components/ui/NotConnected';
 import { getAccountOverview } from '@platform/admin/admin';
 import { requestOpenScreen } from '@platform/context';
-import { Avatar, Empty, ICON, Loading, PageHead, Panel, Stat } from './wsKit';
+import { Avatar, Empty, ICON, Loading, PageHead, Panel, Stat, appName } from './wsKit';
 import { inr } from './InvoiceDocument';
 import './workspace.css';
 import './ws-plan.css';
+import { planWord } from './planWords';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* The colour icons the empty lists show. */
 const SYNC_ICON = emoji('link');
@@ -85,7 +87,7 @@ function AccountName({ name, owners = null, onRenamed, onDirty }) {
           onDirty(false);
           setError('');
         } catch (err) {
-          setError(String(err?.message || 'Could not rename the account.'));
+          setError(errorWords(err, 'rename the workspace'));
         }
       }}
     >
@@ -132,16 +134,16 @@ function AccountName({ name, owners = null, onRenamed, onDirty }) {
 function RunRate({ rate }) {
   if (!rate) return null;
   if (rate.monthly == null) {
-    const apps = (rate.unpriced || []).join(', ');
+    const apps = (rate.unpriced || []).map((a) => appName(a)).join(', ');
     return (
       <p className="ws-card-blurb">
-        Monthly run rate: not priced yet{apps ? ` (${apps})` : ''}.
+        Cost each month: not priced yet{apps ? ` (${apps})` : ''}.
       </p>
     );
   }
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="ws-stat-note">Monthly run rate</span>
+      <span className="ws-stat-note">Cost each month</span>
       <span className="ws-stat-value num">{inr(rate.monthly)}</span>
     </div>
   );
@@ -228,7 +230,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
         if (!cancelled) setData(res);
       })
       .catch((e) => {
-        if (!cancelled) setFailed(String(e?.message || e));
+        if (!cancelled) setFailed(errorWords(e, 'load Workspace settings'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -293,10 +295,10 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
           }
         />
 
-        {loading ? <Loading shape="card" rows={3} label="Loading the account…" /> : null}
+        {loading ? <Loading shape="card" rows={3} label="Loading Workspace settings…" /> : null}
         {failed ? (
           <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>
-            The account could not be read: {failed}
+            {failed}
           </p>
         ) : null}
 
@@ -326,7 +328,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                   <span className="ws-head-meta">{companies.length}</span>
                 </div>
                 {companies.length === 0 ? (
-                  <Empty icon={COMPANY_ICON} compact>No companies yet.</Empty>
+                  <Empty icon={COMPANY_ICON} compact action={{ label: 'Add company', onClick: () => requestOpenScreen('companies') }}>Every business in this account will be listed here.</Empty>
                 ) : (
                   <div className="ws-table-wrap">
                     <table className="ws-table ws-acct-co">
@@ -400,7 +402,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                           </span>
                           <span className="ws-item-end">
                             {!u.active ? (
-                              <span className="ws-state" data-tone="off">Deactivated</span>
+                              <span className="ws-state" data-tone="off">Inactive</span>
                             ) : u.lastLoginAt ? (
                               `Last signed in ${formatDateIn(localDateIso(u.lastLoginAt))}`
                             ) : (
@@ -433,11 +435,11 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
             <aside>
               <Panel title="Plan">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="ws-stat-value">{plan?.name || 'Full'}</span>
+                  <span className="ws-stat-value">{plan?.name || 'Plan not loaded'}</span>
                   {plan?.inGoodStanding ? (
                     <span className="ws-pill ws-pill--ok">Active</span>
                   ) : (
-                    <span className="ws-pill ws-pill--neutral">Status: {plan?.status || 'unknown'}</span>
+                    <span className="ws-pill ws-pill--neutral">{plan ? planWord(plan.status) : 'Not loaded yet'}</span>
                   )}
                 </div>
                 <LimitMeter label="Companies" used={companies.length} limit={limits.maxCompanies ?? null} />

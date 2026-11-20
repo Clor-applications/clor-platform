@@ -3,6 +3,7 @@ import MoneyInput from '@ui/components/ui/MoneyInput';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { deleteOpeningYtd, getOpeningYtd, saveOpeningYtd } from '../api/payrollTaxDeclarations';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * One person's pay earlier in the financial year, before CLOR ran payroll
@@ -62,13 +63,13 @@ export default function OpeningYtdSection({ employeeId, fy, onChanged, joinedOn,
       notify.success('Saved. The next payroll counts it.');
       onChanged?.();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the opening figures'));
     } finally {
       setBusy(false);
     }
   };
   const remove = async () => {
-    const ok = await confirmDialog({ title: 'Remove these figures?', message: 'The next payroll will treat this year as if nothing was paid before CLOR. A payroll already worked out will ask to be calculated again.', confirmLabel: 'Remove', tone: 'danger' });
+    const ok = await confirmDialog({ title: 'Remove these figures?', message: 'The next payroll will treat this year as if nothing was paid before CLOR. A payroll already worked out will ask to be calculated again.', confirmLabel: 'Remove figures', tone: 'danger' });
     if (!ok) return;
     setBusy(true);
     try {
@@ -78,7 +79,7 @@ export default function OpeningYtdSection({ employeeId, fy, onChanged, joinedOn,
       notify.success('Removed.');
       onChanged?.();
     } catch (e) {
-      notify.error(String(e?.message || 'Not removed.'));
+      notify.error(errorWords(e, 'remove the opening figures'));
     } finally {
       setBusy(false);
     }

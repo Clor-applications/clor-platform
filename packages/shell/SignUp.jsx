@@ -26,6 +26,7 @@ export default function SignUp({ onHome, onSignIn }) {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [checkEmail, setCheckEmail] = useState(false);
 
   const set = (patch) => {
     setForm((f) => ({ ...f, ...patch }));
@@ -34,24 +35,41 @@ export default function SignUp({ onHome, onSignIn }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return setError('Tell us who you are.');
-    if (!form.email.trim()) return setError('An email address, so you can be signed back in.');
-    if (form.password.length < 8) return setError('A password of at least eight characters.');
+    if (!form.name.trim()) return setError('Enter your name.');
+    if (!form.email.trim()) return setError('Enter your email address.');
+    if (form.password.length < 8) return setError('Use at least 8 characters for the password.');
 
     setBusy(true);
     setError('');
     try {
-      await signUp({
+      const result = await signUp({
         fullName: form.name.trim(),
         email: form.email.trim(),
         password: form.password,
         noticeVersion: NOTICE_VERSION,
       });
+      if (result?.checkEmail) {
+        setCheckEmail(true);
+        setBusy(false);
+      }
     } catch (err) {
-      setError(String(err?.message || 'Could not create that account.'));
+      setError(String(err?.message || 'Could not create that account. Try again.'));
       setBusy(false);
     }
   };
+
+  if (checkEmail) {
+    return (
+      <AuthLayout scene="signup" title="Check your email" onHome={onHome}>
+        <p className="ui-muted">
+          We sent a message to {form.email.trim()}. Follow it to continue. If it has not arrived in a few minutes, look in spam.
+        </p>
+        <button type="button" className="ui-link font-medium mt-5" onClick={onSignIn}>
+          Go to sign in
+        </button>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout scene="signup"
@@ -102,7 +120,7 @@ export default function SignUp({ onHome, onSignIn }) {
             autoComplete="new-password"
             aria-describedby="signup-password-hint"
           />
-          <p id="signup-password-hint" className="ui-caption mt-1">At least eight characters.</p>
+          <p id="signup-password-hint" className="ui-caption mt-1">At least 8 characters.</p>
         </div>
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}

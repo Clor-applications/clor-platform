@@ -3,7 +3,7 @@ import { notify } from '@ui/components/ui/notify';
 
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { AnnouncementNotice, KIND_WORD } from '../shell/Announcements';
-import { APP_NAMES, Empty, Err, Loading, ReasonDrawer, Tabs, may, when } from './kit';
+import { APP_NAMES, Empty, Err, Loading, ReasonDrawer, Tabs, may, when, errorWords, countLine } from './kit';
 import { opsAnnouncementDelete, opsAnnouncementEnd, opsAnnouncementPublish, opsAnnouncementSave, opsAnnouncements } from './api';
 
 /**
@@ -59,7 +59,7 @@ function Editor({ editing, apps, onClose, onSaved }) {
       const r = await opsAnnouncementSave(editing?.id, payload);
       onSaved(r.announcement, !editing);
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'save the announcement'));
     } finally {
       setBusy(false);
     }
@@ -159,7 +159,7 @@ export function Announcements({ me }) {
   const [asking, setAsking] = useState(null);
   const canWrite = may(me?.role, 'SUPPORT');
   const load = useCallback(() => {
-    opsAnnouncements().then(setD).catch((e) => setError(String(e?.message || e)));
+    opsAnnouncements().then(setD).catch((e) => setError(errorWords(e, 'load the announcements')));
   }, []);
   useEffect(load, [load]);
 
@@ -180,10 +180,10 @@ export function Announcements({ me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Platform', 'Announcements']}
+          crumbs={['Platform']}
           title="Announcements"
           description="Notices from CLOR at the top of customers’ apps: news, planned maintenance, or a problem being fixed."
-          meta={d ? `${c.live} showing now · ${c.scheduled} starting later · ${c.draft} ${c.draft === 1 ? 'draft' : 'drafts'}` : null}
+          meta={d ? countLine([[c.live, 'showing now'], [c.scheduled, 'starting later'], [c.draft, (k) => `${k} ${k === 1 ? 'draft' : 'drafts'}`]], 'No announcements') : null}
           actions={
             canWrite ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setEditing('new')}>
@@ -207,7 +207,7 @@ export function Announcements({ me }) {
         {!d && !error ? (
           <Loading />
         ) : d && rows.length === 0 ? (
-          <Empty>{tab === 'live' ? 'Nothing is showing to customers.' : tab === 'scheduled' ? 'Nothing is waiting to start.' : tab === 'draft' ? 'No drafts.' : 'Nothing has ended yet.'}</Empty>
+          <Empty>{tab === 'live' ? 'Nothing is showing to customers.' : tab === 'scheduled' ? 'Nothing is waiting to start.' : tab === 'draft' ? 'No drafts. New announcement saves one here.' : 'Nothing has ended yet.'}</Empty>
         ) : d ? (
           <ul className="ws-list ws-list--ground" aria-label="Announcements">
             {rows.map((a) => (

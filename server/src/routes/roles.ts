@@ -23,6 +23,7 @@ import {
   unheldGrants,
 } from '../services/roleGuards.js';
 import { sentOnly } from '../utils/sentOnly.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 export const rolesRouter = Router();
 rolesRouter.use(requireAuth, requireTenantContext);
@@ -117,7 +118,7 @@ const BRANCH_ROLE_ERROR = 'Switch to the role’s branch first';
 rolesRouter.get('/orgs/:orgId/roles', requirePermission('SETTINGS', PermissionAction.VIEW, 'Roles'), async (req, res) => {
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   // First visit to any screen that lists roles materialises the standard set,
   // so the user-create dropdown is never just "Owner". Failure to seed must
@@ -166,7 +167,7 @@ rolesRouter.post('/orgs/:orgId/roles', requirePermission('SETTINGS', PermissionA
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
   const createdByUserId = req.auth!.userId;
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const body = roleSchema.parse(req.body);
   // A role kept for one branch is made and changed from that branch.
@@ -179,13 +180,13 @@ rolesRouter.post('/orgs/:orgId/roles', requirePermission('SETTINGS', PermissionA
   if (body.roleType === RoleType.ADMIN && !authority.isAdmin) return res.status(403).json(ADMIN_ONLY_ERROR);
 
   const { keys, unknown } = wantedKeys(body.permissions);
-  if (unknown.length) return res.status(400).json({ error: `Unknown permission: ${unknown[0]}`, permissions: unknown });
+  if (unknown.length) return res.status(400).json({ error: 'One of the permissions is not one CLOR knows. Reload the page and try again.', permissions: unknown });
 
   const missing = unheldGrants(authority, keys);
   if (missing.length) return res.status(403).json(cannotGrantError(missing));
 
   if (body.branchId && !(await branchBelongsToOrg(accountId, orgId, body.branchId))) {
-    return res.status(400).json({ error: 'Branch does not belong to this organisation' });
+    return res.status(400).json({ error: 'Branch does not belong to this company' });
   }
 
   const idByKey = keys.size ? await permissionIdsByKey() : new Map<string, string>();
@@ -222,12 +223,12 @@ rolesRouter.patch('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', Pe
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
   const roleId = String(req.params.roleId);
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const body = sentOnly(roleSchema.partial().parse(req.body), req.body);
 
   const role = await platformPrisma.role.findFirst({ where: { id: roleId, accountId, orgId } });
-  if (!role) return res.status(404).json({ error: 'Role not found' });
+  if (!role) return res.status(404).json({ error: 'No such role.' });
   if (role.branchId && role.branchId !== req.tenant!.branchId) return res.status(403).json({ error: BRANCH_ROLE_ERROR });
   if (body.branchId && body.branchId !== req.tenant!.branchId) return res.status(403).json({ error: BRANCH_ROLE_ERROR });
 
@@ -255,7 +256,7 @@ rolesRouter.patch('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', Pe
 
 
   if (body.branchId && !(await branchBelongsToOrg(accountId, orgId, body.branchId))) {
-    return res.status(400).json({ error: 'Branch does not belong to this organisation' });
+    return res.status(400).json({ error: 'Branch does not belong to this company' });
   }
 
   let keys: Set<string> | null = null;
@@ -271,7 +272,7 @@ rolesRouter.patch('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', Pe
      */
     const newlyUnknown = wanted.unknown.filter((k) => !held.has(k));
     if (newlyUnknown.length) {
-      return res.status(400).json({ error: `Unknown permission: ${newlyUnknown[0]}`, permissions: newlyUnknown });
+      return res.status(400).json({ error: 'One of the permissions is not one CLOR knows. Reload the page and try again.', permissions: newlyUnknown });
     }
     keys = wanted.keys;
 
@@ -287,7 +288,7 @@ rolesRouter.patch('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', Pe
     const lost = ANTI_LOCKOUT_KEYS.filter((k) => !effective.has(k));
     if (lost.length) {
       return res.status(400).json({
-        error: 'An Administrator role must keep the permissions to manage users and roles',
+        error: 'An administrator role must keep the permissions to manage users and roles.',
         code: 'admin_lockout',
         permissions: lost,
       });
@@ -362,10 +363,10 @@ rolesRouter.delete('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', P
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
   const roleId = String(req.params.roleId);
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const role = await platformPrisma.role.findFirst({ where: { id: roleId, accountId, orgId }, select: { id: true, name: true, roleType: true } });
-  if (!role) return res.status(404).json({ error: 'Role not found' });
+  if (!role) return res.status(404).json({ error: 'No such role.' });
 
   const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Roles', 'DELETE'));
   if (refusal) return res.status(refusal.status).json(refusal.body);
@@ -374,7 +375,7 @@ rolesRouter.delete('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', P
   const assigned = await platformPrisma.userRoleAssignment.count({ where: { roleId: role.id } });
   if (assigned > 0) {
     return res.status(409).json({
-      error: `Role is assigned to ${assigned} user${assigned === 1 ? '' : 's'}; reassign them first`,
+      error: `This role is given to ${assigned} ${assigned === 1 ? 'person' : 'people'}. Give them another role first.`,
       code: 'role_in_use',
       assignedUsersCount: assigned,
     });
@@ -383,7 +384,7 @@ rolesRouter.delete('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', P
   const approvals = await prisma.approvalRule.count({ where: { accountId, orgId, approverRoleId: role.id } });
   if (approvals > 0) {
     return res.status(409).json({
-      error: `Role is the approver in ${approvals} approval rule${approvals === 1 ? '' : 's'}; change them first`,
+      error: `This role approves in ${approvals} approval ${approvals === 1 ? 'rule' : 'rules'}. Change ${approvals === 1 ? 'that rule' : 'those rules'} first.`,
       code: 'role_in_use',
       approvalRulesCount: approvals,
     });

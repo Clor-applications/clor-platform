@@ -3,6 +3,8 @@ import type { Request, Response, NextFunction } from 'express';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { cachedAccess } from '../utils/accessCache.js';
+import { SIGNED_OUT_TEXT, SIGN_IN_OFF_TEXT } from '../utils/companyWords.js';
+import { OUR_FAULT } from './errors.js';
 
 export type AuthUser = {
   userId: string;
@@ -79,7 +81,7 @@ async function liveSessionFor(sid: string, userId: string): Promise<string | nul
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = String(req.headers.authorization || '').trim();
   const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : '';
-  if (!token) return res.status(401).json({ error: 'Missing token' });
+  if (!token) return res.status(401).json({ error: SIGNED_OUT_TEXT });
 
   let userId = '';
   let accountId = '';
@@ -88,7 +90,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   let so = '';
   try {
     const secret = getJwtSecret();
-    if (!secret) return res.status(500).json({ error: 'Server misconfigured: JWT_SECRET missing' });
+    if (!secret) return res.status(500).json({ error: OUR_FAULT });
     const payload = jwt.verify(token, secret, {
       issuer: process.env.JWT_ISSUER || 'accounting',
       audience: process.env.JWT_AUDIENCE || 'accounting-web',
@@ -101,9 +103,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     sid = String(payload?.sid || '').trim();
     xp = String(payload?.xp || '').trim();
     so = String(payload?.so || '').trim();
-    if (!userId || !accountId) return res.status(401).json({ error: 'Invalid token' });
+    if (!userId || !accountId) return res.status(401).json({ error: SIGNED_OUT_TEXT });
   } catch {
-    return res.status(401).json({ error: 'Invalid/expired token' });
+    return res.status(401).json({ error: SIGNED_OUT_TEXT });
   }
 
   try {
@@ -120,9 +122,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
        * at most 5 s; the heavier permission answers keep the longer cache.
        */
     }, undefined, SESSION_LIVENESS_TTL_MS);
-    if (answer.state === 'inactive') return res.status(401).json({ error: 'This account is no longer active', code: 'inactive' });
+    if (answer.state === 'inactive') return res.status(401).json({ error: SIGN_IN_OFF_TEXT, code: 'inactive' });
     if (answer.state === 'ended') {
-      return res.status(401).json({ error: 'This session has ended. Please sign in again.', code: 'session_ended' });
+      return res.status(401).json({ error: 'This session has ended. Sign in again.', code: 'session_ended' });
     }
     /* The caller's session is the live one: "sign out everywhere else" keeps it, step-up binds to it. */
     if ('live' in answer && answer.live) sid = answer.live;

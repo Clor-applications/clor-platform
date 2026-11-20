@@ -9,6 +9,7 @@ import { AppTag, Avatar, FilterSelect, Loading, PageHead } from './wsKit';
 import { DateFilter, shortWhen, spanFrom } from './AccountActivity';
 import './workspace.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('counterclockwise-arrows-button');
@@ -20,7 +21,7 @@ const PAGE_ICON = emoji('counterclockwise-arrows-button');
  */
 const AUDIT_APPS = [
   { id: 'company', label: 'Company' },
-  { id: 'accounting', label: 'Accounting' },
+  { id: 'accounting', label: 'Books' },
   { id: 'attendance', label: 'People & Attendance' },
   { id: 'payroll', label: 'Payroll' },
 ];
@@ -35,8 +36,11 @@ export const appOfEntity = (entity) => {
   if (COMPANY_NAMED.has(e)) return 'workspace';
   return 'accounting';
 };
-const APP_WORDS = { people: 'People', attendance: 'Attendance', payroll: 'Payroll', workspace: 'Workspace', accounting: 'Accounting' };
-const offered = () => AUDIT_APPS.filter((a) => a.id === 'company' || hasApp(a.id) || (a.id === 'attendance' && hasApp('people')));
+const APP_WORDS = { people: 'People', attendance: 'Attendance', payroll: 'Payroll', workspace: 'Workspace', accounting: 'Books' };
+/* The server files People and Attendance under one filter; a company has one or the other (People replaces Attendance), so it is named for the one it has. */
+const offered = () => AUDIT_APPS
+  .filter((a) => a.id === 'company' || hasApp(a.id) || (a.id === 'attendance' && hasApp('people')))
+  .map((a) => (a.id === 'attendance' ? { ...a, label: hasApp('people') ? 'People' : 'Attendance' } : a));
 
 /**
  * Workspace → Home → Activity (R&D WS-05): who changed what, and when.
@@ -260,7 +264,7 @@ export default function AuditTrail({ tenant, menuLabel } = {}) {
         setEntries((prev) => (opts.cursor ? [...prev, ...rows] : rows));
         setCursor(res?.nextCursor || null);
       } catch (e) {
-        setFailed(String(e?.message || e));
+        setFailed(errorWords(e, 'load the activity'));
       } finally {
         setLoading(false);
       }
@@ -320,7 +324,7 @@ export default function AuditTrail({ tenant, menuLabel } = {}) {
 
   const download = () =>
     exportRows({
-      fileName: 'Audit trail',
+      fileName: 'Activity',
       label: 'entries',
       columns: [
         { key: 'when', label: 'When' },
@@ -357,7 +361,7 @@ export default function AuditTrail({ tenant, menuLabel } = {}) {
           <label className="ws-search">
             <Search size={16} aria-hidden="true" />
             <span className="sr-only">Search activity</span>
-            <input id="audit-q" type="search" value={filters.q} onChange={set('q')} className="ui-input" placeholder="Search activity" />
+            <input id="audit-q" type="search" value={filters.q} onChange={set('q')} className="ui-input" placeholder="Search by record or what happened" />
           </label>
           {/* The app's own menus, opening under each chip (owner, 19 Nov 2026), not the browser's select lists. */}
           <FilterSelect label="App" value={filters.app} options={[['', 'All'], ...offered().map((a) => [a.id, a.label])]} onChange={(v) => setFilters((p) => ({ ...p, app: v }))} />

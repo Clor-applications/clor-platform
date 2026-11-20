@@ -16,7 +16,7 @@ export const attendanceRouteOk = async (req: Request, res: Response): Promise<bo
     return false;
   }
   if (!(await isFeatureEnabled(accountId, orgId, 'attendance'))) {
-    res.status(403).json({ error: 'Attendance is not switched on for this organisation.', code: 'ATTENDANCE_DISABLED' });
+    res.status(403).json({ error: 'Attendance is not switched on for this company.', code: 'ATTENDANCE_DISABLED' });
     return false;
   }
   return true;

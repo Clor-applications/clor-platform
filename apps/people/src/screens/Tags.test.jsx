@@ -23,7 +23,7 @@ it('adds a tag from the drawer: busy while it saves, refuses a second press, the
   let finish;
   api.createTag.mockImplementation(() => new Promise((r) => { finish = r; }));
   render(<Tags />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Add tag' }));
+  fireEvent.click((await screen.findAllByRole('button', { name: 'Add tag' }))[0]);
   fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Remote' } });
   const save = screen.getAllByRole('button', { name: 'Add tag' }).find((b) => b.getAttribute('type') === 'submit');
   fireEvent.click(save);

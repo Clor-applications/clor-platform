@@ -3,6 +3,10 @@ import type { NextFunction, Request, Response } from 'express';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { outsideTenant } from '../../utils/tenantScope.js';
 import { routeShape } from './apiErrors.js';
+import { NO_BRANCH_ACCESS_TEXT, NO_COMPANY_ACCESS_TEXT, NO_ROLE_TEXT, NO_WAREHOUSE_ACCESS_TEXT } from '../../utils/companyWords.js';
+
+/* The membership refusals of middleware/tenantContext.ts, by their words (they carry no code). */
+const NO_MEMBERSHIP_TEXTS = new Set([NO_COMPANY_ACCESS_TEXT, NO_BRANCH_ACCESS_TEXT, NO_WAREHOUSE_ACCESS_TEXT]);
 
 /**
  * Entitlement denials: a note of each time the platform refused a signed-in
@@ -61,7 +65,7 @@ export function denialFrom(req: Request, status: number, body: any): DenialNote 
   const perm = body?.permission && typeof body.permission === 'object' ? body.permission : null;
   const code =
     given ||
-    (perm || body?.error === 'No roles assigned' ? 'NO_ROLE_GRANT' : /^No access to (org|branch|warehouse)/.test(String(body?.error || '')) ? 'NO_MEMBERSHIP' : status === 402 ? 'PAYMENT_REQUIRED' : 'FORBIDDEN');
+    (perm || body?.error === NO_ROLE_TEXT ? 'NO_ROLE_GRANT' : NO_MEMBERSHIP_TEXTS.has(String(body?.error || '')) ? 'NO_MEMBERSHIP' : status === 402 ? 'PAYMENT_REQUIRED' : 'FORBIDDEN');
   const path = String(req.originalUrl || req.url || '').split('?')[0];
   const app = typeof body?.app === 'string' ? body.app : APP_BY_PATH.find(([re]) => re.test(path))?.[1] || null;
   const feature = typeof body?.feature === 'string' ? body.feature : perm ? [perm.module, perm.subModule, perm.action].filter(Boolean).join('.') : null;

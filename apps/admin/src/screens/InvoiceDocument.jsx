@@ -55,7 +55,7 @@ function Party({ title, p }) {
 /* Round 67: a proforma prints on the same paper, headed as what it is (not a tax invoice) and valid until a date. */
 export function InvoiceDocument({ invoice: inv, from = null, proforma = false }) {
   const tax = inv.tax || {};
-  const seller = inv.seller || from || { legalName: 'Clor Applications Private Limited' };
+  const seller = inv.seller || from || { legalName: 'CLOR Applications Private Limited' };
   const lines = Array.isArray(inv.lines) ? inv.lines : [];
   const period = inv.periodStart || inv.periodEnd ? [dateText(inv.periodStart), dateText(inv.periodEnd)].filter(Boolean).join(' to ') : null;
   const pay = inv.status === 'PAID' || inv.status === 'VOID' ? null : inv.payTo;

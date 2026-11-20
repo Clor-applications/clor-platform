@@ -8,6 +8,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { sentOnly } from '../utils/sentOnly.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 export const branchesRouter = Router();
 
@@ -52,7 +53,7 @@ branchesRouter.get('/orgs/:orgId/branches', async (req, res) => {
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
 
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const rows = await platformPrisma.branch.findMany({
     where: { accountId, orgId },
@@ -67,16 +68,16 @@ branchesRouter.post('/orgs/:orgId/branches', requirePermission('MASTERS', Permis
   const userId = req.auth!.userId;
   const orgId = String(req.params.orgId);
 
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const body = branchSchema.parse(req.body);
-  if (body.branchType === 'SERVICE' && body.warehouse) return res.status(400).json({ error: 'Service branches cannot have warehouses' });
-  if (body.branchType !== 'SERVICE' && !body.warehouse) return res.status(400).json({ error: 'Warehouse details are required for a trading or mixed branch' });
+  if (body.branchType === 'SERVICE' && body.warehouse) return res.status(400).json({ error: 'A service branch has no warehouses. Make it a Trading or Both branch first.' });
+  if (body.branchType !== 'SERVICE' && !body.warehouse) return res.status(400).json({ error: 'A Trading or Both branch needs its first warehouse. Add its details.' });
   const warehouseInput = body.warehouse;
   if (warehouseInput) {
     // Same rule as the warehouse form: one code per company.
     const duplicateCode = await prisma.warehouse.findFirst({ where: { accountId, orgId, code: warehouseInput.code.toUpperCase() }, select: { id: true } });
-    if (duplicateCode) return res.status(409).json({ error: 'Warehouse code already exists' });
+    if (duplicateCode) return res.status(409).json({ error: 'Another warehouse already has this code. Choose another.' });
   }
 
   // GST rules
@@ -171,7 +172,7 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
   const orgId = String(req.params.orgId);
   const branchId = String(req.params.branchId);
 
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   /* The first warehouse travels with the branch: on create, or here when a
      service branch becomes Trading or Both (it holds no warehouse yet, and a
@@ -182,7 +183,7 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
   const existing = await platformPrisma.branch.findFirst({
     where: { accountId, orgId, id: branchId },
   });
-  if (!existing) return res.status(404).json({ error: 'Branch not found' });
+  if (!existing) return res.status(404).json({ error: 'No such branch.' });
 
   /* Retiring a branch people still work at would leave them at a place in nobody's lists; People → Branches moves them first. */
   if (body.isActive === false && existing.isActive) {
@@ -202,13 +203,13 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
   const needsFirstWarehouse = 'branchType' in body && nextBranchType !== existing.branchType && nextBranchType !== 'SERVICE'
     && !await prisma.warehouse.count({ where: { accountId, orgId, branchId } });
   if (needsFirstWarehouse && !firstWarehouse) {
-    return res.status(400).json({ error: 'Give the first warehouse when changing this branch to Trading or Both' });
+    return res.status(400).json({ error: 'Give the first warehouse when changing this branch to Trading or Both.' });
   }
   if (firstWarehouse && !needsFirstWarehouse) {
-    return res.status(400).json({ error: 'A warehouse is given here only when a service branch becomes Trading or Both; add others under Warehouses' });
+    return res.status(400).json({ error: 'A warehouse is given here only when a service branch becomes Trading or Both. Add others under Warehouses.' });
   }
   if (firstWarehouse && await prisma.warehouse.findFirst({ where: { accountId, orgId, code: firstWarehouse.code.toUpperCase() }, select: { id: true } })) {
-    return res.status(409).json({ error: 'Warehouse code already exists' });
+    return res.status(409).json({ error: 'Another warehouse already has this code. Choose another.' });
   }
 
   // Legacy branches may contain a GSTIN saved before checksum validation.
@@ -287,10 +288,10 @@ branchesRouter.delete('/orgs/:orgId/branches/:branchId', requirePermission('MAST
   const orgId = String(req.params.orgId);
   const branchId = String(req.params.branchId);
 
-  if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (orgId !== req.tenant!.orgId) return otherCompany(res);
 
   const existing = await platformPrisma.branch.findFirst({ where: { accountId, orgId, id: branchId } });
-  if (!existing) return res.status(404).json({ error: 'Branch not found' });
+  if (!existing) return res.status(404).json({ error: 'No such branch.' });
 
   const transactionCounts = await Promise.all([
     prisma.invoice.count({ where: { accountId, orgId, branchId } }),

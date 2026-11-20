@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Banknote, CalendarClock, Plus, TrendingUp, UserX, Users } from '@ui/components/ui/lineIcons';
+import { Banknote, Plus, TrendingUp, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -23,6 +23,8 @@ import {
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { wholeRupees as money } from '@ui/utils/money';
 import { CtcSplit } from '../components/round59';
+import { dayText, errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Who is paid what.
@@ -115,7 +117,7 @@ export default function SalaryAssignments({ params } = {}) {
         setStructures(structureRows);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load the payroll roster.')));
+      .catch((e) => setError(errorWords(e, 'load the salary assignments')));
   }, []);
 
   useEffect(() => {
@@ -182,8 +184,8 @@ export default function SalaryAssignments({ params } = {}) {
     { key: 'code', label: 'Code' },
     { key: 'designation', label: 'Designation' },
     { key: 'structure', label: 'Structure', value: COLUMNS.structure },
-    { key: 'since', label: 'On this salary since', value: (p) => currentByEmployee.get(p.id)?.effectiveFrom || '' },
-    { key: 'annual', label: 'Annual CTC', value: (p) => Number(currentByEmployee.get(p.id)?.annualCtc || 0) },
+    { key: 'since', label: 'On this salary since', value: (p) => dayText(currentByEmployee.get(p.id)?.effectiveFrom) },
+    { key: 'annual', label: 'Annual cost to company (CTC)', value: (p) => Number(currentByEmployee.get(p.id)?.annualCtc || 0) },
     { key: 'monthly', label: 'Per month', value: (p) => Number(currentByEmployee.get(p.id)?.monthlyCtc || 0) },
     { key: 'status', label: 'Status', value: statusLabel },
   ];
@@ -196,7 +198,6 @@ export default function SalaryAssignments({ params } = {}) {
       description="Who is paid what, and from when. A raise records a new salary rather than changing the old one."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search the payroll roster' }}
       moreItems={people?.length ? [exportMenuItem('Export salaries')] : null}
       onMoreSelect={(k) => {
@@ -209,12 +210,12 @@ export default function SalaryAssignments({ params } = {}) {
           <Plus size={16} aria-hidden="true" /> Add person
         </button>
       }
-      cards={[
-        { label: 'On a salary', value: counts.PAID || 0, count: true, tone: 'paid', Icon: Users, onSelect: () => setTab('PAID') },
-        { label: 'No salary', value: counts.NONE || 0, count: true, tone: 'outstanding', Icon: UserX, onSelect: () => setTab('NONE') },
-        { label: 'Annual CTC', value: figures.annual, tone: 'sent', Icon: Banknote },
-        { label: 'A month', value: figures.monthly, tone: 'partial', Icon: CalendarClock },
-      ]}
+      countLine={countItems([
+        { label: 'On a salary', value: counts.PAID || 0, count: true, tone: 'paid', onSelect: () => setTab('PAID') },
+        { label: 'No salary', value: counts.NONE || 0, count: true, tone: 'outstanding', onSelect: () => setTab('NONE') },
+        { label: 'Annual cost to company (CTC)', value: figures.annual, tone: 'sent' },
+        { label: 'A month', value: figures.monthly, tone: 'partial' },
+      ])}
       tabs={TABS}
       statusValue={tab}
       statusCounts={counts}
@@ -253,7 +254,7 @@ export default function SalaryAssignments({ params } = {}) {
                     ) : (
                       <EmptyState
                         icon={Users}
-                        title={tab ? `Nobody ${TABS.find((t) => t.value === tab)?.label.toLowerCase()}` : 'Nobody on payroll yet'}
+                        title={{ PAID: 'Nobody has a salary yet', NONE: 'Everyone has a salary', LEAVING: 'Nobody on notice or gone' }[tab] || 'Nobody on payroll yet'}
                         description="Add the people this company pays, and give each of them a salary."
                         routes={tab ? undefined : [{ label: 'Add person', description: 'Their details, bank and statutory numbers.', onSelect: add }]}
                       />
@@ -345,7 +346,7 @@ const PersonPanel = ({ person, structures, sensitiveVisible, onClose, onChanged,
     try {
       setHistory(await listAssignments({ employeeId: person.id }));
     } catch (e) {
-      notify.error(String(e?.message || 'Could not load their salary history.'));
+      notify.error(errorWords(e, 'load their salary history'));
     } finally {
       setLoading(false);
     }
@@ -490,7 +491,7 @@ const RaiseForm = ({ person, structures, current, onCancel, onSaved }) => {
       notify.success(`${person.name}'s salary recorded.`);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not record that salary.'));
+      notify.error(errorWords(err, 'record that salary'));
     } finally {
       setSaving(false);
     }
@@ -614,7 +615,7 @@ const EmployeeForm = ({ initial, sensitiveVisible, onClose, onSaved }) => {
       );
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not save that person.'));
+      notify.error(errorWords(err, 'save that person'));
     } finally {
       setSaving(false);
     }

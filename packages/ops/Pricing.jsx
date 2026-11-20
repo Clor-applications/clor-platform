@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Loading, errorWords } from './kit';
 import { ArrowLeft } from 'lucide-react';
 
 import { notify } from '@ui/components/ui/notify';
@@ -69,7 +70,7 @@ function Confirm({ open, title, text, action, busyLabel, onClose, onConfirm }) {
     try {
       await onConfirm();
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'make the change'));
     } finally {
       setBusy(false);
     }
@@ -92,7 +93,7 @@ function Confirm({ open, title, text, action, busyLabel, onClose, onConfirm }) {
       }
     >
       <div className="grid gap-3">
-        <p className="ws-card-blurb">You will be asked for a code from your authenticator app. It goes on the operator log.</p>
+        <p className="ws-card-blurb">You will be asked for a code from your authenticator app. It goes in the Staff audit log.</p>
         <Err>{error}</Err>
       </div>
     </WsDrawer>
@@ -108,12 +109,12 @@ export function Pricing({ role }) {
   const load = useCallback(() => {
     opsPricing()
       .then((r) => (setData(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the prices')));
   }, []);
   useEffect(load, [load]);
 
   if (bookId) return <PriceBook id={bookId} role={role} catalogue={data?.apps || []} back={() => (setBookId(''), load())} open={setBookId} live={data?.books?.find((b) => b.status === 'PUBLISHED') || null} />;
-  if (!data) return error ? <Err>{error}</Err> : <p className="ws-card-blurb">Loading…</p>;
+  if (!data) return error ? <Err>{error}</Err> : <Loading />;
   const live = data.books.find((b) => b.status === 'PUBLISHED');
   const draft = data.books.find((b) => b.status === 'DRAFT');
   const mayChange = may(role, 'BILLING');
@@ -194,7 +195,7 @@ function NewBook({ open, live, onClose, onMade }) {
       onMade(r.book.id);
     } catch (e) {
       if (e?.data?.draftId) return onMade(e.data.draftId);
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'make the draft'));
     } finally {
       setBusy(false);
     }
@@ -244,10 +245,10 @@ function PriceBook({ id, role, catalogue, back, open, live }) {
   const load = useCallback(() => {
     opsPriceBook(id)
       .then((r) => (setBook(r.book), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the price book')));
   }, [id]);
   useEffect(load, [load]);
-  if (!book) return error ? <Err>{error}</Err> : <p className="ws-card-blurb">Loading…</p>;
+  if (!book) return error ? <Err>{error}</Err> : <Loading />;
   const mayChange = may(role, 'BILLING');
   const backButton = (
     <div>
@@ -262,7 +263,7 @@ function PriceBook({ id, role, catalogue, back, open, live }) {
     <>
       {backButton}
       <PageHead
-        crumbs={['Billing and setup · Pricing']}
+        crumbs={['Billing and setup', 'Pricing']}
         title={`Version ${book.version}`}
         meta={
           <>
@@ -338,7 +339,7 @@ function PlanTable({ plans, catalogue, onEdit, onRemove }) {
   if (!plans.length)
     return (
       <div className="ws-empty">
-        <p>No plans yet.</p>
+        <p>No plans yet. Add a plan, or load the sample prices.</p>
       </div>
     );
   return (
@@ -440,7 +441,7 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
       notify.success('Draft saved. Nothing changes on clor.in until you publish.');
       reload();
     } catch (e) {
-      setProblems(e?.data?.problems || [String(e?.message || e)]);
+      setProblems(e?.data?.problems || [errorWords(e, 'save the draft')]);
     } finally {
       setSaving(false);
     }
@@ -456,7 +457,7 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
     <>
       {backButton}
       <PageHead
-        crumbs={['Billing and setup · Pricing']}
+        crumbs={['Billing and setup', 'Pricing']}
         title={`Version ${book.version}, draft`}
         meta={dirty ? 'Changes not saved' : 'Saved. Not on clor.in yet'}
         actions={
@@ -651,14 +652,14 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
       open={open}
       onClose={onClose}
       title={isNew ? 'Add a plan' : `Change ${plan.name}`}
-      description="Amounts are in rupees, before GST. The draft keeps this when you press Done; save the draft to keep it for good."
+      description={`Amounts are in rupees, before GST. ${isNew ? 'Add to draft' : 'Keep changes'} puts this in the draft; press Save draft to keep it for good.`}
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
             Cancel
           </button>
           <button type="submit" form="ops-plan" className="ws-btn ws-btn--primary">
-            Done
+            {isNew ? 'Add to draft' : 'Keep changes'}
           </button>
         </>
       }
@@ -796,7 +797,7 @@ function Preview({ plans, catalogue }) {
     const t = setTimeout(() => {
       opsPricePreview({ plans, quote: { plans: chosen.length ? chosen : undefined, period, users: Number(users) || 0, employees: Number(employees) || 0 } })
         .then((x) => live && setR(x))
-        .catch((e) => live && setR({ problems: [String(e?.message || e)], cards: [] }));
+        .catch((e) => live && setR({ problems: [errorWords(e, 'show the preview')], cards: [] }));
     }, 300);
     return () => {
       live = false;

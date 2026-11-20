@@ -13,6 +13,7 @@ import { userIsAdmin } from './roleGuards.js';
 import { gatewayNamed } from '../billing/providers.js';
 import { fileStore } from './fileStore.js';
 import { registerJob } from './jobRegistry.js';
+import { dateWords } from '../utils/istDate.js';
 
 /**
  * Closing a company (LX-07 part 2). Policy, in words a client can read:
@@ -84,7 +85,7 @@ export async function scheduleClosure(args: { accountId: string; orgId: string; 
     throw new ClosureError('Download a full export of the company first (within the last 24 hours). After the closure nothing can be recovered.', 409, 'EXPORT_FIRST');
   }
   const existing = await platformPrisma.orgClosure.findUnique({ where: { orgId } });
-  if (existing?.status === 'SCHEDULED') throw new ClosureError(`Closure is already scheduled for ${existing.deleteAfter.toISOString().slice(0, 10)}.`, 409, 'ALREADY_SCHEDULED');
+  if (existing?.status === 'SCHEDULED') throw new ClosureError(`Closing this company is already scheduled: its data is deleted after ${dateWords(existing.deleteAfter)}.`, 409, 'ALREADY_SCHEDULED');
   const deleteAfter = new Date(now.getTime() + noticeDays() * 86_400_000);
   const data = {
     accountId,

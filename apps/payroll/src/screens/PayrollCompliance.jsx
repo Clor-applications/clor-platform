@@ -18,6 +18,7 @@ import {
 import { getStatutoryRegistrations, saveStatutoryRegistrations } from '../api/payrollSetup';
 import { PtRegistrationFields } from '../components/StatutoryRegistrationsStep';
 import MinimumWagesSection from '../components/MinimumWagesSection';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Provident fund, ESI, professional tax, Labour Welfare Fund and income tax.
@@ -130,7 +131,7 @@ export default function PayrollCompliance({ params } = {}) {
         })
         .catch(() => setRegs(null));
     } catch (e) {
-      setError(String(e?.message || 'Could not load the statutory schemes.'));
+      setError(errorWords(e, 'load the statutory schemes'));
     } finally {
       setLoading(false);
     }
@@ -162,7 +163,7 @@ export default function PayrollCompliance({ params } = {}) {
       );
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not add the rates.'));
+      notify.error(errorWords(e, 'add the rates'));
     } finally {
       setBusy('');
     }
@@ -175,7 +176,7 @@ export default function PayrollCompliance({ params } = {}) {
       notify.success(`${scheme.name} ${next ? 'applies to this company' : 'no longer applies'}.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not change that scheme.'));
+      notify.error(errorWords(e, 'change that scheme'));
     } finally {
       setBusy('');
     }
@@ -190,7 +191,7 @@ export default function PayrollCompliance({ params } = {}) {
       setRegs(next);
       setPtRows(next.pt.registrations);
     } catch (e) {
-      notify.error(String(e?.message || 'Could not save that number.'));
+      notify.error(errorWords(e, 'save that number'));
     }
   };
 
@@ -204,7 +205,7 @@ export default function PayrollCompliance({ params } = {}) {
       notify.success(`${REG_LABEL[scheme.code] || 'Registration number'} saved.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not save that number.'));
+      notify.error(errorWords(e, 'save that number'));
     } finally {
       setBusy('');
     }
@@ -215,7 +216,7 @@ export default function PayrollCompliance({ params } = {}) {
       title: `Remove this ${scheme.name} rate?`,
       message:
         'A rate no payslip has used can be removed. One that has produced a payslip is a permanent record and must be superseded instead.',
-      confirmLabel: 'Yes, remove',
+      confirmLabel: 'Remove rate',
     });
     if (!ok) return;
     try {
@@ -223,7 +224,7 @@ export default function PayrollCompliance({ params } = {}) {
       notify.success('Rate removed.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not remove that rate.'));
+      notify.error(errorWords(e, 'remove that rate'));
     }
   };
 
@@ -241,7 +242,7 @@ export default function PayrollCompliance({ params } = {}) {
       notify.success(`${check.state} confirmed.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not confirm that rate.'));
+      notify.error(errorWords(e, 'confirm that rate'));
     } finally {
       setBusy('');
     }
@@ -261,7 +262,7 @@ export default function PayrollCompliance({ params } = {}) {
       notify.success(`${offer.state} now uses CLOR’s figures.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not adopt those figures.'));
+      notify.error(errorWords(e, 'adopt those figures'));
     } finally {
       setBusy('');
     }
@@ -274,7 +275,7 @@ export default function PayrollCompliance({ params } = {}) {
       notify.success(`Your own ${offer.state} rate stays. CLOR will not offer these figures again.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not dismiss those figures.'));
+      notify.error(errorWords(e, 'dismiss those figures'));
     } finally {
       setBusy('');
     }
@@ -326,7 +327,7 @@ export default function PayrollCompliance({ params } = {}) {
               <li key={c.ruleId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderTop: i ? '1px solid rgb(var(--border))' : 'none' }}>
                 <div className="min-w-0 max-w-3xl">
                   <div className="text-sm font-medium">
-                    {c.state} — {c.scheme === 'LWF' ? 'Labour Welfare Fund' : 'Professional tax'}, from {shownDate(c.effectiveFrom)}
+                    {c.state}: {c.scheme === 'LWF' ? 'Labour welfare fund' : 'Professional tax'}, from {shownDate(c.effectiveFrom)}
                   </div>
                   <div className="ui-caption">
                     {c.people} {c.people === 1 ? 'person' : 'people'} in payroll there
@@ -361,7 +362,7 @@ export default function PayrollCompliance({ params } = {}) {
               <li key={o.ruleId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderTop: i ? '1px solid rgb(var(--border))' : 'none' }}>
                 <div className="min-w-0 max-w-3xl">
                   <div className="text-sm font-medium">
-                    {o.state} — {o.scheme === 'LWF' ? 'Labour Welfare Fund' : 'Professional tax'}, from {shownDate(o.effectiveFrom)}
+                    {o.state}: {o.scheme === 'LWF' ? 'Labour welfare fund' : 'Professional tax'}, from {shownDate(o.effectiveFrom)}
                   </div>
                   {o.yours ? <div className="ui-caption">In force now: your rate from {shownDate(o.yours.effectiveFrom)}</div> : null}
                   {o.note ? <p className="ui-caption mt-1">{o.note}</p> : null}
@@ -487,7 +488,7 @@ export default function PayrollCompliance({ params } = {}) {
                             <td className="ui-col-date ui-col-h-center">{shownDate(rule.effectiveFrom)}</td>
                             <td className="ui-col-date ui-col-h-center">{rule.effectiveTo ? shownDate(rule.effectiveTo) : '—'}</td>
                             <td className="ui-col-meta">
-                              {rule.jurisdiction ? (byState ? stateName(rule.jurisdiction) : rule.jurisdiction) : 'Everywhere'}
+                              {rule.jurisdiction && rule.jurisdiction !== 'IN' ? (byState ? stateName(rule.jurisdiction) : rule.jurisdiction) : 'All of India'}
                               {rule.config?.localBody ? <span className="ui-caption block">{rule.config.localBody}</span> : null}
                             </td>
                             <td className="ui-col-meta">
@@ -508,7 +509,7 @@ export default function PayrollCompliance({ params } = {}) {
                                 <button
                                   type="button"
                                   className="ui-icon-btn"
-                                  aria-label={`Correct the ${scheme.name} rate${rule.jurisdiction ? ` for ${stateName(rule.jurisdiction)}` : ''} from ${rule.effectiveFrom}`}
+                                  aria-label={`Correct the ${scheme.name} rate${rule.jurisdiction && rule.jurisdiction !== 'IN' ? ` for ${stateName(rule.jurisdiction)}` : ''} from ${shownDate(rule.effectiveFrom)}`}
                                   title="Correct: a new version from a date"
                                   onClick={() => setAdding({ scheme, from: rule })}
                                 >
@@ -518,7 +519,7 @@ export default function PayrollCompliance({ params } = {}) {
                                   <button
                                     type="button"
                                     className="ui-icon-btn"
-                                    aria-label={`Remove the ${scheme.name} rate from ${rule.effectiveFrom}`}
+                                    aria-label={`Remove the ${scheme.name} rate from ${shownDate(rule.effectiveFrom)}`}
                                     onClick={() => removeRate(scheme, rule)}
                                   >
                                     <Trash2 size={16} aria-hidden="true" />
@@ -553,7 +554,7 @@ export default function PayrollCompliance({ params } = {}) {
         open={Boolean(adding)}
         onClose={() => setAdding(null)}
         /* Short enough for a phone: the state is what matters. */
-        title={adding ? (adding.from ? `Correct rate${adding.from.jurisdiction ? ` · ${STATE_SCHEMES.includes(adding.scheme.code) ? stateName(adding.from.jurisdiction) : adding.from.jurisdiction}` : ''}` : `New ${adding.scheme.name} rate`) : ''}
+        title={adding ? (adding.from ? `Correct rate${adding.from.jurisdiction && adding.from.jurisdiction !== 'IN' ? ` · ${STATE_SCHEMES.includes(adding.scheme.code) ? stateName(adding.from.jurisdiction) : adding.from.jurisdiction}` : ''}` : `New ${adding.scheme.name} rate`) : ''}
       >
         {adding ? (
           <RateForm
@@ -601,7 +602,7 @@ const LwfSettings = ({ value, onSaved }) => {
       notify.success('LWF settings saved.');
       onSaved(next);
     } catch (e) {
-      notify.error(String(e?.message || 'Could not save the LWF settings.'));
+      notify.error(errorWords(e, 'save the LWF settings'));
     } finally {
       setSaving(false);
     }
@@ -756,12 +757,12 @@ const PtBandsEditor = ({ value, onChange }) => {
         <table className="ui-table w-full">
           <thead>
             <tr>
-              <th scope="col" className="ui-col-h-right">Pay from (₹)</th>
-              <th scope="col" className="ui-col-h-right">Up to (₹)</th>
-              <th scope="col" className="ui-col-h-right">Tax {per} (₹)</th>
-              <th scope="col">For</th>
+              <th scope="col" className="ui-col-h-right">Pay from</th>
+              <th scope="col" className="ui-col-h-right">Up to</th>
+              <th scope="col" className="ui-col-h-right">Tax {per}</th>
+              <th scope="col">Applies to</th>
               <th scope="col">Different in</th>
-              <th scope="col" className="ui-col-h-right">Amount (₹)</th>
+              <th scope="col" className="ui-col-h-right">Amount</th>
               <th scope="col"><span className="sr-only">Remove</span></th>
             </tr>
           </thead>
@@ -819,7 +820,8 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
   const current = from || scheme.rules.find((r) => r.status === 'ACTIVE') || scheme.rules[0] || null;
   const [form, setForm] = useState({
     /* A state as people write it ("Tamil Nadu"); the server stores one spelling. */
-    jurisdiction: current?.jurisdiction ? (STATE_SCHEMES.includes(scheme.code) ? stateName(current.jurisdiction) : current.jurisdiction) : STATE_SCHEMES.includes(scheme.code) ? '' : 'IN',
+    /* "IN" (all of India) is shown as an empty field: a person reads a place, not a country code. */
+    jurisdiction: current?.jurisdiction && current.jurisdiction !== 'IN' ? (STATE_SCHEMES.includes(scheme.code) ? stateName(current.jurisdiction) : current.jurisdiction) : '',
     /* Today in India, not in UTC: before 5:30 am the UTC date is still yesterday. */
     effectiveFrom: todayIst(),
     employeeRate: current?.employeeRate ?? 0,
@@ -848,14 +850,14 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
       try {
         config = JSON.parse(form.config || '{}');
       } catch {
-        notify.error('The scheme settings could not be read. Check the brackets and commas.');
+        notify.error('These settings could not be saved: a bracket, quote or comma is missing. Undo your last change, or close this and start again from the rate in force.');
         return;
       }
     }
     setSaving(true);
     try {
       await addStatutoryRate(scheme.id, {
-        jurisdiction: form.jurisdiction?.trim() || null,
+        jurisdiction: form.jurisdiction?.trim() || (STATE_SCHEMES.includes(scheme.code) ? null : 'IN'),
         effectiveFrom: form.effectiveFrom,
         employeeRate: Number(form.employeeRate) || 0,
         employerRate: Number(form.employerRate) || 0,
@@ -868,7 +870,7 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
       notify.success(`New ${scheme.name} rate saved.`);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not save that rate.'));
+      notify.error(errorWords(err, 'save that rate'));
     } finally {
       setSaving(false);
     }
@@ -895,10 +897,10 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
             className="ui-input w-full"
             value={form.jurisdiction}
             onChange={(e) => set({ jurisdiction: e.target.value })}
-            placeholder={STATE_SCHEMES.includes(scheme.code) ? 'Karnataka' : 'IN'}
+            placeholder={STATE_SCHEMES.includes(scheme.code) ? 'Karnataka' : 'All of India'}
           />
           <span className="ui-caption">
-            {scheme.code === 'PT' || scheme.code === 'LWF' ? 'The state this applies in.' : 'Leave as IN unless it differs by place.'}
+            {scheme.code === 'PT' || scheme.code === 'LWF' ? 'The state this applies in.' : 'Leave empty for all of India. Type a state only if the rate differs there.'}
           </span>
         </div>
       </div>
@@ -987,12 +989,15 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
             value={form.config}
             onChange={(e) => set({ config: e.target.value })}
           />
-          <span className="ui-caption">
+          <span className="ui-caption block">
+            These settings are in a technical format. Change only the numbers, and keep every bracket, quote and comma where it is.
+          </span>
+          <span className="ui-caption block">
             {scheme.code === 'LWF'
-              ? 'Copied from the rate you are correcting: change only the figures: the amounts from pay and from the employer, the months it is collected in, and the number of people it starts at, to match the state’s current notice.'
+              ? 'Copied from the rate you are correcting. Change only the figures: the amounts from pay and from the employer, the months it is collected in, and the number of people it starts at, to match the state’s current notice.'
               : scheme.code === 'PF'
                 ? 'Copied from the rate you are correcting: the pension share and its wage ceiling, and whether the company contributes on the whole wage.'
-                : 'Copied from the rate you are correcting: change only the figures.'}
+                : 'Copied from the rate you are correcting. Change only the figures.'}
           </span>
         </div>
       )}

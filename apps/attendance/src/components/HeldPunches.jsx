@@ -4,6 +4,7 @@ import { Check, X } from '@ui/components/ui/lineIcons';
 import Modal from '@ui/components/ui/Modal';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { decideHeldPunch, decideHeldPunches, getHeldPunches } from '../api/attendance';
+import { errorWords } from '@ui/utils/errorWords';
 
 const plural = (n, one, many) => `${n.toLocaleString('en-IN')} ${n === 1 ? one : many}`;
 
@@ -60,7 +61,7 @@ function CountAllDialog({ reader, month, onClose, onDone }) {
       const sum = await decideAllFrom({ deviceId: reader.deviceId, month, action: 'release', shiftMinutes: moveBack ? ahead : 0, onProgress: setProgress });
       onDone(sum);
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'do that'));
       setProgress(null);
     }
   };
@@ -128,7 +129,7 @@ export default function HeldPunches({ canDecide = true, onChanged, month = null 
       load();
       onChanged?.();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     } finally {
       setBusy('');
     }
@@ -157,7 +158,7 @@ export default function HeldPunches({ canDecide = true, onChanged, month = null 
     try {
       finished(await decideAllFrom({ deviceId: r.deviceId, month, action: 'discard' }), 'discard');
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     } finally {
       setBusy('');
     }

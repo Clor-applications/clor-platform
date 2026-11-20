@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import PhoneInput from '@ui/components/ui/PhoneInput';
 import { Download, Upload } from '@ui/components/ui/lineIcons';
@@ -39,7 +40,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
   const reload = () => { req.reload(); onChanged?.(); };
   const act = async (fn, ok) => {
     setBusy(true);
-    try { await fn(); if (ok) notify.success(ok); reload(); return true; } catch (e) { notify.error(String(e?.message || 'Not done.')); return false; } finally { setBusy(false); }
+    try { await fn(); if (ok) notify.success(ok); reload(); return true; } catch (e) { notify.error(errorWords(e, 'finish that')); return false; } finally { setBusy(false); }
   };
   const live = c && OPEN_STAGES.includes(c.stage);
   const move = (stage) => act(() => moveCandidate(id, stage), `${c.name}: ${word(STAGES, stage).toLowerCase()}.`);
@@ -74,7 +75,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
     <Drawer open onClose={onClose} title={c?.name || 'Candidate'} widthClass={WIDE_SHEET} dirty={Boolean(note.trim())}
       footer={c && canEdit && live ? (
         <>
-          <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={() => setSub({ kind: 'reject' })}>Not taken forward</button>
+          <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={() => setSub({ kind: 'reject' })}>Reject</button>
           {primary ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={primary[1]}>{primary[0]}</button> : null}
         </>
       ) : c && canEdit && ['REJECTED', 'WITHDRAWN'].includes(c.stage) ? (
@@ -92,7 +93,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
           {c.offerAcceptedOn ? <p className="text-sm">Offer accepted on <span className="tabular-nums">{day(c.offerAcceptedOn)}</span>.</p> : null}
           {live && c.stage === 'OFFER' && waiting && !accepted ? <p className="text-sm ui-muted">Waiting for them to accept the offer. Hire opens when they do.</p> : null}
           <dl className="ui-field-grid">
-            {hr ? <div><dt className="ui-label">E-mail</dt><dd className="text-sm break-all">{c.email || '—'}</dd></div> : null}
+            {hr ? <div><dt className="ui-label">Email</dt><dd className="text-sm break-all">{c.email || '—'}</dd></div> : null}
             {hr ? <div><dt className="ui-label">Phone</dt><dd className="text-sm tabular-nums">{c.phone || '—'}</dd></div> : null}
             <div><dt className="ui-label">Works at now</dt><dd className="text-sm">{c.currentEmployer || '—'}</dd></div>
             <div>
@@ -175,7 +176,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
               {canEdit && !c.anonymised ? (
                 <form onSubmit={addNote} className="flex gap-2">
                   <input className="ui-input w-full" maxLength={4000} placeholder="Add a note" aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} />
-                  <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !note.trim()}>Add</button>
+                  <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !note.trim()}>Add note</button>
                 </form>
               ) : null}
               <ol className="ui-history-list">
@@ -211,7 +212,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
               if (!go) { setSub(null); reload(); return; }
               await moveCandidate(id, to, reason, { overAcceptedOffer: true });
             }
-            notify.success('Saved.'); setSub(null); reload();
+            notify.success(to === 'REJECTED' ? `${c.name} rejected.` : `${c.name} withdrawn.`); setSub(null); reload();
           }} />
       ) : null}
     </Drawer>
@@ -251,13 +252,13 @@ export function CandidateForm({ value, openings = [], known = [], onClose, onSav
   const detailLabel = { REFERRAL: 'Referred by', AGENCY: 'Agency', JOB_PORTAL: 'Which portal' }[form.source] || 'Detail';
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={value.id ? `Edit ${value.name}` : 'Add a candidate'}
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label={value.id ? 'Save' : 'Add'} disabled={Boolean(value.id) && !dirty} />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label={value.id ? 'Save' : 'Add candidate'} disabled={Boolean(value.id) && !dirty} />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; save(); }}>
         <FormError error={error} />
         {!value.id ? <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Opening *" value={form.openingId} placeholder={openings.length ? 'Choose…' : 'No open job yet'} alwaysSearch={openings.length > 8} onChange={(v) => set({ openingId: v || '' })} options={openings.map((o) => ({ value: o.id, label: o.title }))} /></div> : null}
-        {/* A candidate's own name, e-mail and phone are theirs: never offered to another record. */}
+        {/* A candidate's own name, email and phone are theirs: never offered to another record. */}
         <label className="block sm:col-span-2"><span className="ui-label">Name *</span><input className="ui-input w-full" autoFocus maxLength={120} value={form.name} onChange={(e) => set({ name: e.target.value })} /></label>
-        <label className="block"><span className="ui-label">E-mail</span><input className="ui-input w-full" type="email" inputMode="email" maxLength={200} value={form.email} onChange={(e) => set({ email: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">Email</span><input className="ui-input w-full" type="email" inputMode="email" maxLength={200} value={form.email} onChange={(e) => set({ email: e.target.value })} /></label>
         <div className="block"><label className="ui-label" htmlFor="cand-phone">Phone</label><PhoneInput id="cand-phone" className="ui-input w-full" maxLength={40} value={form.phone} onChange={(v) => set({ phone: v })} /></div>
         <div><PopupSelect showValueSubtext={false} label="Came through" value={form.source} onChange={(v) => set({ source: v || 'OTHER' })} options={SOURCES.filter(([k]) => !['APPLY_LINK', 'INTERNAL'].includes(k) || form.source === k).map(([v, l]) => ({ value: v, label: l }))} /></div>
         <label className="block"><span className="ui-label">{detailLabel}</span><SuggestInput maxLength={120} value={form.sourceDetail} onChange={(v) => set({ sourceDetail: v })} suggestions={form.source === 'JOB_PORTAL' ? ['Naukri', 'LinkedIn', 'Indeed', 'Apna', 'WorkIndia'] : []} /></label>
@@ -295,7 +296,7 @@ export function InterviewForm({ candidate, interview, onClose, onSaved }) {
   const toggle = (uid) => set({ ids: form.ids.includes(uid) ? form.ids.filter((x) => x !== uid) : form.ids.length >= 10 ? form.ids : [...form.ids, uid] });
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={dirty} title={`${interview ? 'Move the interview' : 'Interview'} with ${candidate.name}`}
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label={interview ? 'Move' : 'Set'} />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy} label={interview ? 'Move interview' : 'Set interview'} />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; save(); }}>
         <FormError error={error} />
         <label className="block"><span className="ui-label">When *</span><input className="ui-input w-full tabular-nums" type="datetime-local" value={form.at} min={`${todayIst()}T00:00`} onChange={(e) => set({ at: e.target.value })} /></label>
@@ -401,7 +402,7 @@ export function HireDrawer({ candidate, acceptedJoining, withoutOffer = false, o
         ) : null}
         <div><label className="ui-label" htmlFor="hire-date">Joining date *</label><DatePicker id="hire-date" value={dateOfJoining} onChange={(v) => setDate(v || '')} /></div>
         <label className="block"><span className="ui-label">Employee ID</span><SuggestInput maxLength={40} value={code} onChange={setCode} suggestions={next.data ? [{ value: next.data, hint: 'Next ID' }] : []} /></label>
-        <p className="sm:col-span-2 ui-caption">Their record takes the opening’s department, designation, branch and hiring manager. The joining form and the app invite go to their e-mail{withoutOffer ? '.' : ', and the offer’s pay goes to Payroll to confirm.'}</p>
+        <p className="sm:col-span-2 ui-caption">Their record takes the opening’s department, designation, branch and hiring manager. The joining form and the app invite go to their email{withoutOffer ? '.' : ', and the offer’s pay goes to Payroll to confirm.'}</p>
       </form>
     </Drawer>
   );

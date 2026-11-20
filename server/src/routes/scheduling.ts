@@ -40,7 +40,7 @@ const optionalDate = date.optional().nullable().or(z.literal(''));
 
 async function shiftIn(orgId: string, shiftId: string) {
   const s = await peoplePrisma.shift.findFirst({ where: { id: shiftId, orgId }, select: { id: true } });
-  if (!s) throw Object.assign(new Error('That shift is not in this organisation.'), { status: 400 });
+  if (!s) throw Object.assign(new Error('That shift is not in this company.'), { status: 400 });
 }
 
 // ---------------------------------------------------------------------------
@@ -121,7 +121,7 @@ schedulingRouter.post(`${base}/department-schedules`, can(PermissionAction.EDIT)
   if (b.effectiveTo && b.effectiveTo < b.effectiveFrom) return res.status(400).json({ error: 'The end is before the start.' });
   try {
     await shiftIn(orgId, b.shiftId);
-    if (!(await peoplePrisma.department.findFirst({ where: { id: b.departmentId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That department is not in this organisation.' });
+    if (!(await peoplePrisma.department.findFirst({ where: { id: b.departmentId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That department is not in this company.' });
     const inDept = await peoplePrisma.employee.findMany({ where: { orgId, departmentId: b.departmentId, status: { not: 'LEFT' } }, select: { id: true } });
     await assertNightConsent(orgId, inDept.map((p) => ({ employeeId: p.id, shiftIds: [b.shiftId] })));
     /* The new range, and the range of a row it replaces (same department, same start), may not reach into a closed month (O-05). */
@@ -169,7 +169,7 @@ async function checkSequence(orgId: string, sequence: string[]) {
   const ids = sequence.filter((x) => x !== 'OFF');
   if (!ids.length) throw Object.assign(new Error('Put at least one shift in the rotation.'), { status: 400 });
   const found = await peoplePrisma.shift.count({ where: { orgId, id: { in: [...new Set(ids)] } } });
-  if (found !== new Set(ids).size) throw Object.assign(new Error('A shift in the rotation is not in this organisation.'), { status: 400 });
+  if (found !== new Set(ids).size) throw Object.assign(new Error('A shift in the rotation is not in this company.'), { status: 400 });
 }
 
 schedulingRouter.get(`${base}/rotations`, can(PermissionAction.VIEW), async (req, res) => {

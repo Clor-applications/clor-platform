@@ -6,6 +6,7 @@ import { activeRule } from './approvals/engine.js';
 import { ISO_DAY, SCHEDULABLE_FIELDS, scheduleChanges } from './effectiveDating.js';
 import { HOURS } from './employmentKinds.js';
 import { todayIst } from '../../utils/istDate.js';
+import { fieldWords } from '../../middleware/validate.js';
 
 /**
  * Bulk update from the directory (docs/people/02-PRD.md CORE-01). Every
@@ -57,7 +58,7 @@ export async function bulkUpdate(actor: Actor, input: { ids?: unknown; set?: unk
   const raw = (input.set && typeof input.set === 'object' ? input.set : {}) as Record<string, unknown>;
   const set: Record<string, string | null> = {};
   for (const [k, v] of Object.entries(raw)) {
-    if (!STRUCTURE[k] && k !== 'hours') throw new BulkError(`${k} cannot be changed in bulk.`);
+    if (!STRUCTURE[k] && k !== 'hours') throw new BulkError(`The ${fieldWords([k])} cannot be changed for many people at once. Change it on each person’s record.`);
     set[k] = v == null || v === '' ? null : String(v);
   }
   /* Hours are a word, not a list item: full-time or part-time, never blank in bulk. */

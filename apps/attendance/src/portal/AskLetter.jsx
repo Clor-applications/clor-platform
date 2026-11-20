@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { SignedOut, askLetter, getMyLetters, withdrawMyRequest } from './portalApi';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Ask HR for a letter, or a copy of a document on my file, from the employee
@@ -23,7 +24,7 @@ const when = (v) => {
   const [y, m, d] = new Date(new Date(v).getTime() + 330 * 60_000).toISOString().slice(0, 10).split('-');
   return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`;
 };
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 const COPY = 'COPY';
 
 export default function AskLetter({ guard, onIssued }) {
@@ -37,7 +38,7 @@ export default function AskLetter({ guard, onIssued }) {
   const load = useCallback(() => {
     guard(getMyLetters())
       .then((d) => { setData({ kinds: d?.kinds || [], requests: d?.requests || [] }); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not load your letters.')));
+      .catch((e) => setFailed(errText(e, 'load your letters')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
 
@@ -53,7 +54,7 @@ export default function AskLetter({ guard, onIssued }) {
       if (r?.request?.status === 'APPROVED') onIssued?.();
       load();
     } catch (err) {
-      const text = errText(err, 'Not sent.');
+      const text = errText(err, 'send it');
       if (text) setNote({ ok: false, text });
     } finally {
       setBusy(false);
@@ -66,7 +67,7 @@ export default function AskLetter({ guard, onIssued }) {
       setNote({ ok: true, text: 'Withdrawn.' });
       load();
     } catch (err) {
-      const text = errText(err, 'Not withdrawn.');
+      const text = errText(err, 'withdraw it');
       if (text) setNote({ ok: false, text });
     }
   };

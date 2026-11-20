@@ -32,7 +32,15 @@ async function call(method, path, body) {
   } catch {
     /* no body */
   }
-  if (!res.ok) throw new ApiError(data?.error || 'That did not work. Try again.', res.status, data?.code);
+  if (!res.ok) {
+    const fallback =
+      res.status === 401 ? 'You have been signed out. Sign in again.'
+        : res.status === 403 ? 'Your role in the Console does not allow this. Ask an owner.'
+          : res.status === 409 ? 'Someone else changed this first. Reload the page and try again.'
+            : res.status === 429 ? 'Too many tries. Wait a minute and try again.'
+              : `The Console server could not do that (error ${res.status}). Try again; if it keeps happening, tell engineering.`;
+    throw new ApiError(data?.error || fallback, res.status, data?.code);
+  }
   return data;
 }
 

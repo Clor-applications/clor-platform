@@ -16,13 +16,18 @@ export type TemplateDef = {
   fields: string[];
   /** Transactional mail is always sent; it cannot be switched off. */
   transactional?: boolean;
+  /**
+   * Who signs it (services/mailer.ts adds the line): "— CLOR" for CLOR's own mail, "— {{orgName}}" for mail a
+   * company sends its people and candidates, nothing for Books' own and CLOR staff's internal mail. Default 'clor'.
+   */
+  signOff?: 'clor' | 'company' | 'none';
 };
 
 export const EMAIL_TEMPLATES: TemplateDef[] = [
   {
     key: 'reports.scheduled',
     label: 'Scheduled report',
-    description: 'A report somebody asked to receive by e-mail on a schedule (Attendance → Reports).',
+    description: 'A report somebody asked to receive by email on a schedule (Attendance → Reports).',
     subject: '{{reportTitle}} — {{period}}',
     body: `{{reportTitle}} for {{period}} from {{companyName}}.
 {{summary}}
@@ -36,14 +41,14 @@ To stop these, ask whoever set the schedule up under Attendance → Reports → 
     key: 'auth.verify_email',
     label: 'Verify your email',
     description: 'Sent when someone signs up, and when they ask for a new link.',
-    subject: 'Confirm your email address',
+    subject: 'Confirm your email for CLOR',
     body: `Hello {{userName}},
 
 Confirm this address to finish setting up your {{appName}} account:
 
 {{verifyUrl}}
 
-The link is valid for 24 hours. If you did not create an account, ignore this message.`,
+This link works once, for 24 hours. If you did not create an account, ignore this message.`,
     fields: ['userName', 'appName', 'verifyUrl', 'email'],
     transactional: true,
   },
@@ -51,14 +56,14 @@ The link is valid for 24 hours. If you did not create an account, ignore this me
     key: 'auth.password_reset',
     label: 'Password reset',
     description: 'Sent when a password reset is requested.',
-    subject: 'Reset your password',
+    subject: 'Reset your CLOR password',
     body: `Hello {{userName}},
 
 Use this link to set a new password:
 
 {{resetUrl}}
 
-The link is valid for 30 minutes and can be used once. If you did not ask for this, you can ignore it — your password has not changed.`,
+This link works once, for 30 minutes. If you did not ask for this, ignore this email: your password has not changed.`,
     fields: ['userName', 'appName', 'resetUrl'],
     transactional: true,
   },
@@ -66,7 +71,7 @@ The link is valid for 30 minutes and can be used once. If you did not ask for th
     key: 'auth.authenticator_removed',
     label: 'Authenticator removed by CLOR support',
     description: 'Sent when CLOR support takes a lost authenticator app off a person’s sign-in.',
-    subject: 'Your authenticator app was removed',
+    subject: 'Your CLOR authenticator app was removed',
     body: `Hello {{userName}},
 
 CLOR support took the authenticator app off your sign-in, as you asked. You are signed out everywhere.
@@ -259,7 +264,7 @@ Answer it on the operator console: {{opsUrl}}`,
     key: 'auth.user_invited',
     label: 'User invited',
     description: 'Sent when an administrator creates a user.',
-    subject: 'You have been added to {{orgName}}',
+    subject: '{{inviterName}} added you to {{orgName}} on {{appName}}',
     body: `Hello {{userName}},
 
 {{inviterName}} has added you to {{orgName}} on {{appName}}.
@@ -284,7 +289,7 @@ Accept the invitation here:
 
 {{inviteUrl}}
 
-The link works once and expires on {{expiresOn}}. If you were not expecting this, you can ignore it.`,
+This link works once, until {{expiresOn}}. If you were not expecting this, ignore this email.`,
     fields: ['inviterName', 'accountName', 'appName', 'inviteUrl', 'expiresOn', 'companies'],
     transactional: true,
   },
@@ -301,7 +306,7 @@ Set your password here, then sign in with {{email}}:
 
 {{setPasswordUrl}}
 
-The link works once and for {{days}} days. If it has run out, use "Forgot password" on the sign-in page.`,
+This link works once, for {{days}} days. If it no longer works, use "Forgot password" on the sign-in page.`,
     fields: ['userName', 'companyName', 'apps', 'trialNote', 'setPasswordUrl', 'email', 'days', 'appName'],
     transactional: true,
   },
@@ -333,9 +338,9 @@ You asked to start a free trial of {{apps}} on CLOR. Confirm this is your email 
 
 {{startUrl}}
 
-The link works for {{hours}} hours. No card is needed; the trial runs for {{days}} days.
+This link works once, for {{hours}} hours. No card is needed; the trial runs for {{days}} days.
 
-If you did not ask for this, ignore this mail and nothing is made.`,
+If you did not ask for this, ignore this email and nothing is made.`,
     fields: ['apps', 'startUrl', 'hours', 'days', 'appName'],
     transactional: true,
   },
@@ -352,7 +357,7 @@ Sign in here:
 
 {{signInUrl}}
 
-If you forgot your password, the sign-in page has "Forgot password?". If this was not you, ignore this mail: nothing has changed.`,
+If you forgot your password, the sign-in page has "Forgot password?". If this was not you, ignore this email: nothing has changed.`,
     fields: ['signInUrl', 'appName'],
     transactional: true,
   },
@@ -369,12 +374,13 @@ Until then, you can look around now. This link opens Sample Traders Pvt Ltd, a m
 
 {{exploreUrl}}
 
-The link works for {{days}} days, until {{expiresOn}}. Anyone with it sees the same sample company, and nothing of yours.`,
+This link works for {{days}} days, until {{expiresOn}}. Anyone with it sees the same sample company, and nothing of yours.`,
     fields: ['name', 'apps', 'exploreUrl', 'days', 'expiresOn', 'appName'],
     transactional: true,
   },
   {
     key: 'sales.demo_requested',
+    signOff: 'none',
     label: 'Demo requested',
     description: 'Sent to the CLOR sales inbox when somebody asks for a demo on clor.in.',
     subject: 'Demo request: {{company}} ({{apps}})',
@@ -420,6 +426,7 @@ See it in People: {{appUrl}}`,
   },
   {
     key: 'approval.requested',
+    signOff: 'none',
     label: 'Approval requested',
     description: 'Sent to holders of the approving role when a document exceeds a threshold.',
     subject: '{{docType}} {{docNumber}} needs your approval',
@@ -432,6 +439,7 @@ Review it here: {{appUrl}}`,
   },
   {
     key: 'approval.decided',
+    signOff: 'none',
     label: 'Approval decided',
     description: 'Sent to whoever raised the document once it is approved or rejected.',
     subject: '{{docType}} {{docNumber}} was {{decision}}',
@@ -444,6 +452,7 @@ Review it here: {{appUrl}}`,
   },
   {
     key: 'invoice.sent',
+    signOff: 'none',
     label: 'Invoice to customer',
     description: 'Sends an invoice to the customer on request.',
     subject: 'Invoice {{invoiceNumber}} from {{orgName}}',
@@ -459,6 +468,7 @@ Thank you for your business.
   },
   {
     key: 'invoice.payment_reminder',
+    signOff: 'none',
     label: 'Payment reminder',
     description: 'Reminds a customer about an overdue invoice.',
     subject: 'Reminder: invoice {{invoiceNumber}} is overdue',
@@ -473,6 +483,7 @@ If you have already paid, please ignore this message.
   },
   {
     key: 'payroll.bank_change_requested',
+    signOff: 'company',
     label: 'Bank details change requested',
     description: 'Sent to an employee when somebody asks to change the bank account their salary is paid into.',
     subject: 'Your salary bank account at {{orgName}} is being changed',
@@ -482,18 +493,19 @@ Somebody at {{orgName}} has asked to change the bank account your salary is paid
 
 If you asked for this, there is nothing to do: it takes effect once it is approved.
 
-If you did not, tell HR straight away — by phone or in person, not by replying to an e-mail. Your salary keeps going to your current account until the change is approved.`,
+If you did not, tell HR straight away, by phone or in person, not by replying to an email. Your salary keeps going to your current account until the change is approved.`,
     fields: ['employeeName', 'orgName', 'newAccountEnding'],
     transactional: true,
   },
   {
     key: 'attendance.portal_invite',
+    signOff: 'company',
     label: 'Employee portal activation',
     description: 'Sent when HR gives an employee an activation code for the employee portal.',
-    subject: 'Your {{orgName}} employee portal code',
+    subject: 'Your {{orgName}} employee app code',
     body: `Hello {{employeeName}},
 
-{{orgName}} has set you up on the employee portal: your attendance, schedule and leave{{phoneLine}}.
+{{orgName}} has set you up on the employee app: your attendance, schedule and leave{{phoneLine}}.
 
 Open {{portalUrl}} and choose "First time? Activate", then enter:
 
@@ -501,7 +513,7 @@ Open {{portalUrl}} and choose "First time? Activate", then enter:
   Employee code:    {{employeeCode}}
   Activation code:  {{activationCode}}
 
-and choose your own password. The code works once and runs out on {{expires}}. Nobody at {{orgName}} will ever know your password.`,
+and choose your own password. The code works once, until {{expires}}. Nobody at {{orgName}} will ever know your password.`,
     fields: ['employeeName', 'orgName', 'portalUrl', 'companyCode', 'employeeCode', 'activationCode', 'expires', 'phoneLine'],
     transactional: true,
   },
@@ -527,10 +539,10 @@ Readers have been told; payroll may need a full and final settlement, and their 
     key: 'people.document_expiring',
     label: 'Document expiring',
     description: 'Sent to the people who manage employees when an employee document (permit, licence, contract) is 60, 30 or 7 days from expiry, and on the day.',
-    subject: '{{title}} for {{name}} expires on {{expiresOn}}',
-    body: `{{name}}’s {{kind}} “{{title}}” expires on {{expiresOn}} ({{days}} days).
+    subject: '{{title}} for {{name}} expires {{when}}',
+    body: `{{name}}’s {{kind}} “{{title}}” expires on {{expiresOn}} ({{when}}).
 Open People → the employee → Documents to renew it.`,
-    fields: ['name', 'title', 'kind', 'expiresOn', 'days', 'orgName'],
+    fields: ['name', 'title', 'kind', 'expiresOn', 'days', 'when', 'orgName'],
   },
   {
     key: 'attendance.reader_alert',
@@ -556,6 +568,7 @@ You get one message when a problem starts and one when it clears. Reader health 
   },
   {
     key: 'people.join_invite',
+    signOff: 'company',
     label: 'Fill in your details before you join',
     description: 'Sent to someone about to join, with a link that works once and runs out in fourteen days, so they can fill in personal details and upload documents before day one.',
     subject: 'Welcome to {{orgName}} — a few details before {{joiningDate}}',
@@ -564,7 +577,7 @@ You get one message when a problem starts and one when it clears. Reader health 
 Welcome to {{orgName}}. Before you join on {{joiningDate}}, please fill in your personal details, your PAN, PF, ESI and bank details for pay, and add copies of your ID and other documents here:
 {{link}}
 
-The link works once and runs out on {{expiresOn}}. You see only your own details; HR checks what you send before it goes on your record.
+This link works once, until {{expiresOn}}. You see only your own details; HR checks what you send before it goes on your record.
 {{message}}
 If you did not expect this, ignore it.`,
     fields: ['name', 'orgName', 'joiningDate', 'link', 'expiresOn', 'message'],
@@ -573,6 +586,7 @@ If you did not expect this, ignore it.`,
   },
   {
     key: 'people.offer',
+    signOff: 'company',
     label: 'Offer letter',
     description: 'Sent to a candidate or someone about to join, with their offer letter and a link to accept it that works until the offer runs out.',
     subject: 'Your offer from {{orgName}}: {{designation}}',
@@ -592,6 +606,7 @@ If you did not expect this, ignore it.`,
   },
   {
     key: 'people.interview',
+    signOff: 'company',
     label: 'Interview set or moved',
     description: 'Sent to a candidate when an interview is set for them, and again when it is moved: the day, the time, how it is held and who they will meet.',
     subject: '{{headline}}: {{orgName}}, {{day}} at {{time}}',
@@ -603,13 +618,12 @@ When: {{day}} at {{time}} ({{minutes}} minutes)
 How: {{mode}}{{placeLine}}
 You will meet: {{interviewers}}
 
-If the time does not suit you, reply to this e-mail and we will find another.
-
-{{orgName}}`,
+If the time does not suit you, reply to this email and we will find another.`,
     fields: ['name', 'headline', 'jobTitle', 'orgName', 'day', 'time', 'minutes', 'mode', 'placeLine', 'interviewers'],
   },
   {
     key: 'people.candidate_not_taken',
+    signOff: 'company',
     label: 'Candidate not taken forward',
     description: 'Sent to a candidate when the company decides not to go ahead with their application. Plain and kind; it gives no reason.',
     subject: 'Your application to {{orgName}}',
@@ -617,23 +631,20 @@ If the time does not suit you, reply to this e-mail and we will find another.
 
 Thank you for applying for the {{jobTitle}} position at {{orgName}}, and for the time you gave us.
 
-We will not be taking your application further this time. We were glad to meet you, and we wish you well in your search.
-
-{{orgName}}`,
+We will not be taking your application further this time. We were glad to meet you, and we wish you well in your search.`,
     fields: ['name', 'jobTitle', 'orgName'],
   },
   {
     key: 'people.candidate_stage',
+    signOff: 'company',
     label: 'Candidate application moved on',
-    description: 'Sent to a candidate when HR moves their application a step forward (being looked at, to interview, to offer) or opens it again. Interviews and offers also send their own e-mail with the details.',
+    description: 'Sent to a candidate when HR moves their application a step forward (being looked at, to interview, to offer) or opens it again. Interviews and offers also send their own email with the details.',
     subject: 'Your application to {{orgName}}',
     body: `Hello {{name}},
 
 An update on your application for the {{jobTitle}} position at {{orgName}}.
 
-{{stageLine}}
-
-{{orgName}}`,
+{{stageLine}}`,
     fields: ['name', 'jobTitle', 'orgName', 'stageLine'],
   },
   {
@@ -655,8 +666,8 @@ Or open People at {{appUrl}}.`,
   {
     key: 'people.task_digest',
     label: 'Joining and leaving tasks due',
-    description: 'Once a day, to each person with joining, leaving or change tasks due that day or late: one list, never one e-mail per task. HR also hears about tasks three or more days late on someone else\'s name.',
-    subject: '{{count}} joining and leaving tasks for you today',
+    description: 'Once a day, to each person with joining, leaving or change tasks due that day or late: one list, never one email per task. HR also hears about tasks three or more days late on someone else\'s name.',
+    subject: 'Joining and leaving tasks for you today: {{count}}',
     body: `Due today or late:
 {{lines}}
 {{others}}
@@ -665,6 +676,7 @@ Open People to tick them: {{appUrl}}`,
   },
   {
     key: 'people.data_breach',
+    signOff: 'company',
     label: 'Personal data breach notice',
     description: 'Sent to each person a recorded personal-data breach affects (DPDP Rules, rule 7). Cannot be switched off.',
     subject: 'About your personal data at {{orgName}}',
@@ -692,11 +704,12 @@ Questions: {{contact}}. You can also complain to the Data Protection Board of In
 
 Open it in CLOR: {{appUrl}}/{{link}}
 
-You get this because you look after people at {{orgName}}. Your company can switch this e-mail off in its notification settings, and you can mute it from the bell.`,
+You get this because you look after people at {{orgName}}. Your company can switch this email off in its notification settings, and you can mute it from the bell.`,
     fields: ['name', 'orgName', 'headline', 'summary', 'link', 'appName', 'appUrl'],
   },
   {
     key: 'people.absence_notice',
+    signOff: 'none',
     label: 'Absence notice',
     description: 'A notice to someone absent with no leave and no word, asking them to report back or explain by a date (People → Absences). The letter is also in their documents in the employee app.',
     subject: '{{orgName}}: please report back or explain your absence by {{reportBy}}',
@@ -708,6 +721,7 @@ This notice is also in your documents in the {{orgName}} employee app.`,
   },
   {
     key: 'people.automation',
+    signOff: 'company',
     label: 'Automation reminder',
     description: 'A ready-made automation the company switched on (People → Settings → Automations): the joiner’s first-day plan, the exit interview reminder.',
     subject: '{{orgName}}: {{headline}}',
@@ -737,6 +751,7 @@ If you did not expect this, reply and tell us.`,
   },
   {
     key: 'ops.sender_test',
+    signOff: 'none',
     label: 'Sender address test',
     description: 'Sent from the operator console (Email, Addresses) to check a sender address works.',
     subject: 'Test from {{senderEmail}}',

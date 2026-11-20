@@ -4,6 +4,7 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { getPeopleSettings, savePeopleSettings } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * What employees may change about themselves without waiting (CORE-03,
@@ -31,7 +32,7 @@ export default function SelfServiceSettings() {
       setSaved(await savePeopleSettings({ selfServiceChanges: mode }));
       notify.success('Saved.');
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the settings'));
     } finally { setBusy(false); }
   };
   return (

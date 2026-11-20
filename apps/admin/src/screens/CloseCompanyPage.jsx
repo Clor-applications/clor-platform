@@ -6,6 +6,7 @@ import { orgId as platformOrgId } from '@platform/context';
 import { notify } from '@ui/components/ui/notify';
 import { ICON, Loading, PageHead, Panel } from './wsKit';
 import './workspace.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Workspace → Data → Close company (redesign W-R9; LX-07 part 2).
@@ -34,7 +35,7 @@ export default function CloseCompanyPage({ companyName = '' }) {
         setState(r);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load.')));
+      .catch((e) => setError(errorWords(e, 'load the closure details')));
   }, []);
   useEffect(() => {
     load();
@@ -56,7 +57,7 @@ export default function CloseCompanyPage({ companyName = '' }) {
       notify.success('Full export downloaded. Keep it somewhere safe.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not export.'));
+      notify.error(errorWords(e, 'download the export'));
     } finally {
       setBusy('');
     }
@@ -70,7 +71,7 @@ export default function CloseCompanyPage({ companyName = '' }) {
       setTyped('');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not scheduled.'));
+      notify.error(errorWords(e, 'schedule the closure'));
     } finally {
       setBusy('');
     }
@@ -83,7 +84,7 @@ export default function CloseCompanyPage({ companyName = '' }) {
       notify.success('Closure cancelled. Nothing will be deleted.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not cancelled.'));
+      notify.error(errorWords(e, 'cancel the closure'));
     } finally {
       setBusy('');
     }
@@ -102,14 +103,14 @@ export default function CloseCompanyPage({ companyName = '' }) {
       <div className="ws-inner">
         <PageHead
           crumbs={['Settings', 'Close company']}
-          title={`Close ${name || 'this company'}`}
-          description="Closing stops the company’s apps and, after a notice period, deletes every record. Export first."
+          title="Close company"
+          description={`Closing ${name || 'this company'} stops its apps and, after a notice period, deletes every record. Export first.`}
         />
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         {!state ? (
-          error ? null : <Loading shape="card" label="Loading…" />
+          error ? null : <Loading shape="card" label="Loading the closure details…" />
         ) : !canClose ? (
           <Panel title="Only an administrator can close this company">
             <p className="ws-card-blurb">Only an administrator of this company can close it{scheduled ? ' or cancel its closure' : ''}.</p>
@@ -154,7 +155,7 @@ export default function CloseCompanyPage({ companyName = '' }) {
                 <h2 id="ask-h">2. Ask to close</h2>
                 <p className="text-sm">The company keeps working for {state.noticeDays} days and you can cancel at any time in them. After that, nothing can be recovered.</p>
                 <label className="grid gap-1">
-                  <span className="text-sm font-medium">Why are you closing? (optional)</span>
+                  <span className="text-sm font-medium">Why are you closing? <span className="ui-caption">(optional)</span></span>
                   <input className="ui-input w-full" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
                 </label>
                 <label className="grid gap-1">

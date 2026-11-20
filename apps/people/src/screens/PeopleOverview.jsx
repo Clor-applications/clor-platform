@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Cake, CalendarDays, ChevronRight, CircleAlert, Hourglass, LogOut, Medal, Megaphone, MessagesSquare, Pin, Plane, Plus, Users } from 'lucide-react';
 
@@ -295,7 +296,7 @@ export default function PeopleOverview({ openScreen }) {
   useEffect(() => {
     getOverview()
       .then(setData)
-      .catch((e) => setError(String(e?.message || 'Could not load the overview.')));
+      .catch((e) => setError(errorWords(e, 'load the overview')));
     loadTodos();
     loadPeople();
     loadLeave();
@@ -303,7 +304,7 @@ export default function PeopleOverview({ openScreen }) {
     loadNews();
     loadEvents();
     loadFinalPay();
-    /* Opened from the Monday summary's e-mail: counted once (PRODUCT-VIEW §7). */
+    /* Opened from the Monday summary's email: counted once (PRODUCT-VIEW §7). */
     try {
       if (new URLSearchParams(window.location.search).get('from') === 'weekly') summaryOpened().catch(() => {});
     } catch { /* no address to read */ }
@@ -381,7 +382,7 @@ export default function PeopleOverview({ openScreen }) {
         <div className="people-home-actions">
           <div className="people-home-secondary">
             <button type="button" className="ui-btn ui-btn-secondary" onClick={go('leaveRequests')}><CalendarDays size={16} aria-hidden="true" /> Leave requests</button>
-            {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('helpdesk')}><MessagesSquare size={16} aria-hidden="true" /> HR cases</button> : null}
+            {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('helpdesk')}><MessagesSquare size={16} aria-hidden="true" /> Help desk</button> : null}
             {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('announcements')}><Megaphone size={16} aria-hidden="true" /> Announce</button> : null}
           </div>
           {may('PEOPLE::Employees::CREATE') ? (
@@ -391,7 +392,7 @@ export default function PeopleOverview({ openScreen }) {
             <MoreButton
               items={[
                 { key: 'leaveRequests', label: 'Leave requests', Icon: CalendarDays },
-                may('PEOPLE::HR Cases::VIEW') ? { key: 'helpdesk', label: 'HR cases', Icon: MessagesSquare } : null,
+                may('PEOPLE::HR Cases::VIEW') ? { key: 'helpdesk', label: 'Help desk', Icon: MessagesSquare } : null,
                 may('PEOPLE::Announcements::CREATE') ? { key: 'announcements', label: 'Announce', Icon: Megaphone } : null,
               ]}
               onSelect={(key) => openScreen?.(key)}

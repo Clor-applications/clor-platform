@@ -3,12 +3,13 @@ import { AlertTriangle, Clock, Fingerprint, History, Info, MapPin, ShieldCheck, 
 
 import Drawer from '@ui/components/ui/Drawer';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 
 const STATUS_LABEL = { PRESENT: 'Present', HALF_DAY: 'Half day', ABSENT: 'Absent', ON_LEAVE: 'On leave', HOLIDAY: 'Holiday', WEEKLY_OFF: 'Weekly off' };
 const STATUS_TONE = { PRESENT: 'pos', HALF_DAY: 'warn', ABSENT: 'neg', ON_LEAVE: 'info', HOLIDAY: 'neutral', WEEKLY_OFF: 'neutral' };
 const FIELD = { status: 'Status', in: 'In', out: 'Out', workedMinutes: 'Worked', lateMinutes: 'Late', earlyOutMinutes: 'Left early', overtimeMinutes: 'Overtime', overtimeApproved: 'Overtime approved', validated: 'Validated', source: 'Set by', note: 'Note' };
 const ACTION = { WRITE: 'Changed', DELETE: 'Removed', VALIDATE: 'Validated', OVERTIME: 'Overtime decision', LEAVE_CANCELLED: 'Leave undone', BULK: 'Bulk change' };
-const SOURCE = { DEVICE: 'reader punches', CLOCK: 'app clock-in', MANUAL: 'hand entry', REQUEST: 'correction', LEAVE: 'leave', IMPORT: 'import' };
+const SOURCE = { DEVICE: 'reader punches', CLOCK: 'browser punch', MANUAL: 'hand entry', REQUEST: 'correction', LEAVE: 'leave', IMPORT: 'import' };
 
 /* Reader trust (O-11): shown only when the server sends it, i.e. the company has it on. */
 const TRUST = {
@@ -43,7 +44,7 @@ export default function DayExplain({ open, onClose, load, actions = null, title 
     Promise.resolve()
       .then(load)
       .then((d) => !off && setResult({ for: load, data: d, error: '' }))
-      .catch((e) => !off && setResult({ for: load, data: null, error: String(e?.message || 'Could not explain this day.') }));
+      .catch((e) => !off && setResult({ for: load, data: null, error: errorWords(e, 'explain this day') }));
     return () => {
       off = true;
     };
@@ -61,7 +62,7 @@ export default function DayExplain({ open, onClose, load, actions = null, title 
           <section className="ui-explain-summary" aria-label="The day">
             <div>
               <span className="ui-caption">Status</span>
-              {r ? <span className={`ui-pill ui-pill-${STATUS_TONE[r.status] || 'neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span> : <span className="ui-pill ui-pill-neutral">No record</span>}
+              {r ? <span className={`ui-pill ui-pill-${STATUS_TONE[r.status] || 'neutral'}`}>{STATUS_LABEL[r.status] || enumWords(r.status)}</span> : <span className="ui-pill ui-pill-neutral">No record</span>}
             </div>
             <div><span className="ui-caption">In</span><strong className="tabular-nums">{r?.in || '—'}</strong></div>
             <div><span className="ui-caption">Out</span><strong className="tabular-nums">{r?.out || '—'}</strong></div>

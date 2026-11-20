@@ -1,0 +1,167 @@
+# UX copy audit fixes: shell and shared UI kit (packages/shell, packages/ui/src, packages/platform/http.js)
+
+- [x] #1 packages/shell/Shell.jsx:1946 — a personal contact address → "Questions? Write to support@clor.in."
+- [x] #2 packages/shell/Shell.jsx:1945 — "Your CLOR subscription is {status lowercased}." → subscriptionSentence(status), e.g. "Your payment is overdue. Pay the open invoice to keep your apps working."; plan pill falls back to subscriptionWord(status) instead of the raw status
+- [x] #3 packages/ui/src/components/ui/ErrorBoundary.jsx:23 — "Something went wrong" / "Try refreshing the page. If the problem continues, check the last change." + raw error text / "Refresh" → "This page could not be shown" / "Reload the page. Nothing you saved is lost. If it happens again, write to support@clor.in." / "Reload the page"; raw error moved to the dev console
+- [x] #4 packages/ui/src/components/ui/notify.js:59 — defaults "Are you sure?" / "Confirm" → no named defaults: an unnamed call falls back to "Continue with this?" / "Continue" and warns in development; cancel default stays "Cancel" so other apps' calls keep working
+- [x] #5 packages/ui/src/timeOff/MyDays.jsx:125 — "Cancel request" / "Cancel" (and "Withdraw" / "Cancel") → "Cancel request" / "Keep request" ("Withdraw request" / "Keep request")
+- [x] #6 packages/shell/Shell.jsx:1459 — "{App} is not on your plan, so it cannot be used here yet. ({server message})" → "{App} is not on your plan, so it cannot be used here yet. Add it from More apps to use it." (raw server text no longer appended)
+- [x] #7 packages/shell/Shell.jsx:1702 — "Nothing selected." → "Pick an app from the apps menu at the top left."
+- [x] #8 packages/ui/src/profile/ProfileScreen.jsx:187, 234, 247, 503 (+ 623) — `String(e?.message || e)` → errorWords(e, 'load your profile' / 'send the confirmation link' / 'use that photo' / 'change your password' or 'send the reset link' / 'prepare your data')
+- [x] #9 packages/ui/src/profile/AuthenticatorCard.jsx:42, TextCodesCard.jsx:40 — "Not done." → errorWords(e, 'change two-factor sign-in') ("Could not change two-factor sign-in. Try again.")
+- [x] #10 packages/ui/src/company/CloseCompany.jsx:32, 52, 66, 79 — "Could not load." / "Could not export." / "Not scheduled." / "Not cancelled." → "Could not load the closure details. Try again." / "Could not download the export. Try again." / "Could not schedule the closure. Try again." / "Could not cancel the closure. Try again."
+- [x] #11 packages/ui/src/company/CompanyDetails.jsx:91 (+ 75) — "Not saved." → "Could not save the company details. Try again."
+- [x] #12 packages/ui/src/permissions/rbacErrors.js:25 — fallback "Something went wrong" → "Could not change the role. Try again." (callers passing '' unchanged)
+- [x] #13 packages/shell/SignUp.jsx:37-39 — "Tell us who you are." / "An email address, so you can be signed back in." / "A password of at least eight characters." → "Enter your name." / "Enter your email address." / "Use at least 8 characters for the password."; hint "At least eight characters." → "At least 8 characters." (also InviteAccept.jsx:164)
+- [x] #14 packages/shell/CompanySetup.jsx:72 — "The company these books belong to." → "Enter the company name."
+- [x] #15 packages/shell/TwoFactorGate.jsx:111, 182, 246 — "Two-step sign-in …" → "Two-factor sign-in …" (test updated)
+- [x] #16 packages/ui/src/components/ui/ShownOnce.jsx:21 — "CLOR keeps only a hash and cannot show it again." → "CLOR cannot show this again, so copy it now."
+- [x] #17 packages/ui/src/profile/ProfileScreen.jsx:472-473 — "Client ID" → "CLOR account number" (plain "Account number" is the bank field in People); "User ID" kept as is: it is the column name on Workspace → Members (apps/admin SettingsUsers.jsx), so renaming it here alone would split the term
+- [x] #18 packages/shell/Shell.jsx:1850 — "…gives it its own database — no other app's data is touched, and the apps it already uses carry on unchanged." → "…keeps its records separate. The apps it already uses carry on unchanged."
+- [x] #19 packages/ui/src/components/ColumnFilters.jsx:454 — "OK" (sr-only "Apply Filter") → "Apply filter"
+- [x] #20 packages/ui/src/components/ColumnFilters.jsx:26, 316, 327, 334, 387, 398 — "Choose One" / "Sort Oldest to Newest"… / "Date Filters", "Number Filters", "Select Values", "Text Filters" / "Clear Filter From “…”" / "Search (All)" → "Choose a condition" / "Sort oldest to newest"… / "Date filters", "Number filters", "Choose values", "Text filters" / "Clear the filter on “…”" / "Search values". Shared by Books, Payroll, Attendance, People. Two Books tests outside my folders still assert the old words: apps/accounting/src/features/reports/CatalogReport.test.jsx:45 ('Text Filters') and InventoryRegisterReport.test.jsx:28-29 ('Text Filters', 'Search (All)')
+- [x] #21 packages/ui/src/components/ui/CommandPalette.jsx:38 — default placeholder "Search invoices, customers, reports, settings…" → "Search screens and apps…" outside Books; Books (palette indigo, which passes no placeholder) keeps its words
+- [x] #22 packages/ui/src/components/ui/CommandPalette.jsx:141, 146 — aria "Command palette" / "Close command palette" → "Search CLOR" / "Close search"
+- [x] #23 packages/ui/src/company/companyFields.js:72 — "Uploaded in Accounting’s company settings." → "Uploaded in Books’ company settings."
+- [x] #24 packages/shell/helpContent.js:33, 224, 238 — "Accounting, Payroll, People and Attendance are the apps." / "Open Accounting" / "Books: post the run to Accounting, or export it for Tally." → "Books, Payroll, People and Attendance are the apps." / "Open Books" / "Post the approved run to Books, or export it for Tally."
+- [x] #25 packages/ui/src/notifications/emailApps.js:10 — label "Accounting" → "Books". apps/admin/src/screens/NotificationSettings.test.jsx:77, 108 (not my folder) still look for the region named 'Accounting' and need 'Books'
+- [x] #26 packages/ui/src/components/ui/Primitives.jsx:197 — tooltip "Unregistered status: {label}" (and red dashed outline) → shown in development only; an unknown UPPER_SNAKE status now reads as words (PENDING_REVIEW → "Pending review")
+- [x] #27 packages/ui/src/components/ui/Primitives.jsx:243 — default empty title "Nothing here yet" → "Nothing added yet" (callers still pass their own title; the action button is the caller's `routes`/`action`, unchanged)
+- [ ] #28 packages/shell/NotificationBell.jsx:94 — skipped: "{n} things wait for your answer" / "Nothing waits for your answer" is the same phrase People Overview uses (apps/people PeopleOverview.jsx and its test); changing the bell alone would split the term. Change both together if wanted
+- [x] #29 packages/shell/NotificationBell.jsx:132 — "Nothing yet. Approvals, reader alerts, bank changes and directory changes land here." → "No notifications yet. Approvals, attendance machine alerts and bank detail changes will appear here."
+- [x] #30 packages/shell/HelpMenu.jsx:54, 60 — "Help and contact" → "Help and support" (same as the rail trigger at :48 and AskSupport.jsx:55; test updated)
+- [x] #31 packages/shell/HelpMenu.jsx:65, helpContent.js:51 — "Set up your workspace" → "Set up your company"
+- [x] #32 packages/shell/HelpMenu.jsx:68 — "Integration guides" → "Connect machines and other tools" (it opens the attendance machines topic, in the Integrations group)
+- [x] #33 packages/shell/Shell.jsx:1156, ScreenHelp.jsx:37 — "Open help centre" / "Open in the Help centre" → "Open Help centre" / "Open in Help centre" (test updated)
+- [x] #34 packages/shell/AskSupport.jsx:87 — "Send to CLOR" → "Send to CLOR support" (Workspace's own Support.jsx and PlanChange.jsx, not my folder, still say "Send to CLOR")
+- [x] #35 packages/shell/InviteAccept.jsx:167 — "Create my login and join" → "Create my account and join" (test updated)
+- [x] #36 packages/ui/src/profile/ProfileScreen.jsx:385 — toast "Verification link sent" → "Confirmation link sent." (matches the "Send the confirmation link" button and the "Not confirmed" pill)
+- [x] #37 packages/shell/Start.jsx:136, 111 — "Check your mail" / "Checking the link from your mail." → "Check your email" / "Checking the link from your email." (test updated)
+- [x] #38 packages/shell/Start.jsx:368, CompanySetup.jsx:161 — "Choose" / "Select a state" → "Choose a state" in both
+- [x] #39 packages/shell/TwoFactorGate.jsx:191, 215; ui/src/profile/AuthenticatorCard.jsx:107, 117; TextCodesCard.jsx:119, 130 — "Turn on" / "Turn off" → "Turn on text codes" / "Turn on authenticator" / "Turn off authenticator" / "Turn off text codes" / "Turn on text codes" (tests updated)
+- [x] #40 packages/ui/src/components/ui/Toaster.jsx:191, 207 — "Authenticator code" / "Continue" → "Enter your authenticator code" / "Confirm code"
+- [x] #41 packages/ui/src/components/ui/ErrorState.jsx:31, 32, 34 — "Ask an admin if you need it." / "Not found" / "Too many requests" → "Ask an administrator of this company if you need it." / "This is no longer here" / "Too many tries"
+- [ ] #42 packages/ui/src/components/ui/ErrorState.jsx:25 — skipped: "Retry" appears only in the Books palette branch and Books screens are kept as they are; every other app already says "Try again"
+- [x] #43 packages/ui/src/timeOff/LeaveBalances.jsx:294, 305 — "Yes, put it back" / "Cancel" and "Yes, remove" / "Cancel" → "Use the policy days" / "Keep these days" and "Remove line" / "Keep line"
+- [x] #44 packages/ui/src/components/PrintDownloadFrame.jsx:94, 120 — "Unable to generate PDF. Please try again." / "Preparing..." → "The PDF could not be made. Try again." / "Preparing…"
+- [x] #45a packages/ui/src/components/ui/Modal.jsx:22 — default title "Form" → no default title; a dialog opened without one warns in development
+- [ ] #45b packages/ui/src/components/BranchField.jsx:54, 34 — skipped: "Select Branch" / "Head Office" only appear in Books (every caller is in apps/accounting), and Books screens stay as they are; "Head Office" is also the default branch's name in Attendance data
+- [x] #46 packages/shell/Announcements.jsx:11 — "What’s new note" → "New in CLOR"
+- [x] #47 packages/shell/CompanySetup.jsx:230, Shell.jsx:1826 — pill "Coming" → "Coming soon" (same as Shell.jsx:1834)
+- [x] #48 packages/ui/src/components/ui/NotConnected.jsx:28 — "Preview — {what} is not connected yet." → "Preview: {what} is not connected yet." apps/admin/src/screens/accountArea.test.jsx:104, 121 (not my folder) still match "Preview — …" and need the colon
+- [x] #49 packages/ui/src/personnel/LetterTemplates.jsx:64 — "Leave this letter?" with "Leave" / "Cancel" → "Leave" / "Stay", with Stay as the main button (same as Shell.jsx:37)
+- [x] #50 packages/shell/ScreenBoundary.jsx:58-59 — "The rest of CLOR is unaffected — pick another screen, or another app, from the rail." → "The rest of CLOR still works: pick another screen from the menu, or another app."
+- [x] #51 Pattern: terse error fallbacks (`String(e?.message || 'Not saved.')` and the like) → errorWords(e, '<action>'), 94 places in packages/ui/src (lifecycle, timeOff, personnel, automations). Each one:
+  - automations/AutomationsList.jsx:213 'Not saved.' → errorWords: "Could not save the automation. Try again."
+  - lifecycle/Joining.jsx:66 'Not sent.' → errorWords: "Could not send the details to Payroll. Try again."
+  - lifecycle/LeavingExtras.jsx:121 'Not saved.' → errorWords: "Could not save the clearance line. Try again."
+  - lifecycle/LeavingExtras.jsx:132 'Not removed.' → errorWords: "Could not remove the line. Try again."
+  - lifecycle/LeavingExtras.jsx:217 'Not added.' → errorWords: "Could not add the line. Try again."
+  - lifecycle/LeavingExtras.jsx:310 'Not saved.' → errorWords: "Could not save the exit interview. Try again."
+  - lifecycle/LeavingExtras.jsx:347 'Not saved.' → errorWords: "Could not save the exit interview. Try again."
+  - lifecycle/Plan.jsx:52 'Not started.' → errorWords: "Could not start the plan. Try again."
+  - lifecycle/Steps.jsx:48 'Not saved.' → errorWords: "Could not save the steps. Try again."
+  - lifecycle/Steps.jsx:56 'Not saved.' → errorWords: "Could not go back to CLOR’s steps. Try again."
+  - lifecycle/shared.jsx:86 'Not saved.' → errorWords: "Could not update the task. Try again."
+  - personnel/CustomFieldsSettings.jsx:46 'Not changed.' → errorWords: "Could not change the field. Try again."
+  - personnel/DataHealth.jsx:52 'Could not check the data.' → errorWords: "Could not check the data. Try again."
+  - personnel/DataHealth.jsx:72 'Not changed.' → errorWords: "Could not make the change. Try again."
+  - personnel/DataHealth.jsx:86 'Not undone.' → errorWords: "Could not undo the change. Try again."
+  - personnel/DataHealth.jsx:273 'Not changed.' → errorWords: "Could not make the change. Try again."
+  - personnel/DataHealth.jsx:306 'Not snoozed.' → errorWords: "Could not snooze it. Try again."
+  - personnel/Employees.jsx:241 'Could not load employees.' → errorWords: "Could not load employees. Try again."
+  - personnel/Employees.jsx:276 'Could not read the file.' → errorWords: "Could not read the file. Try again."
+  - personnel/Employees.jsx:322 'Not deleted.' → errorWords: "Could not delete the view. Try again."
+  - personnel/Employees.jsx:335 'The template could not be downloaded.' → errorWords: "Could not download the template. Try again."
+  - personnel/Employees.jsx:510 'Not changed.' → errorWords: "Could not make the change. Try again."
+  - personnel/Employees.jsx:522 'Not saved.' → errorWords: "Could not save the changes. Try again."
+  - personnel/Employees.jsx:577 'Could not open that file.' → errorWords: "Could not open that file. Try again."
+  - personnel/Employees.jsx:600 'Could not delete.' → errorWords: "Could not delete it. Try again."
+  - personnel/Employees.jsx:619 'Not saved.' → errorWords: "Could not save the changes. Try again."
+  - personnel/Employees.jsx:629 'Not withdrawn.' → errorWords: "Could not withdraw the change. Try again."
+  - personnel/Employees.jsx:643 'Not rehired.' → errorWords: "Could not rehire them. Try again."
+  - personnel/Employees.jsx:655 'Note not saved.' → errorWords: "Could not save the note. Try again."
+  - personnel/Employees.jsx:876 'Could not delete.' → errorWords: "Could not delete it. Try again."
+  - personnel/Employees.jsx:994 'Could not load.' → errorWords: "Could not load this. Try again."
+  - personnel/Employees.jsx:1038 'Not sent.' → errorWords: "Could not send it. Try again."
+  - personnel/Employees.jsx:1101 'Could not load.' → errorWords: "Could not load this. Try again."
+  - personnel/Employees.jsx:1195 'Not saved.' → errorWords: "Could not save the changes. Try again."
+  - personnel/Employees.jsx:1204 'Not started.' → errorWords: "Could not start it. Try again."
+  - personnel/Employees.jsx:1297 'Not shown.' → errorWords: "Could not show it. Try again."
+  - personnel/Employees.jsx:1319 'Not saved.' → errorWords: "Could not save the changes. Try again."
+  - personnel/Employees.jsx:1400 'Not saved.' → errorWords: "Could not save the changes. Try again."
+  - personnel/Employees.jsx:1463 'Import failed.' → errorWords: "Could not import the file. Try again."
+  - personnel/Employees.jsx:1476 'Not undone.' → errorWords: "Could not undo the import. Try again."
+  - personnel/Employees.jsx:1570 'Not sent.' → errorWords: "Could not send the invite. Try again."
+  - personnel/Employees.jsx:1639 'Not saved.' → errorWords: "Could not save the changes. Try again."
+  - personnel/Employees.jsx:1715 'Not saved.' → errorWords: "Could not save the changes. Try again."
+  - personnel/Employees.jsx:1862 'Not saved.' → errorWords: "Could not save the changes. Try again."
+  - personnel/Employees.jsx:1958 'Could not use that photo.' → errorWords: "Could not use that photo. Try again."
+  - personnel/Employees.jsx:2157 'Not uploaded.' → errorWords: "Could not upload the file. Try again."
+  - personnel/Employees.jsx:2170 'Could not open.' → errorWords: "Could not open it. Try again."
+  - personnel/Employees.jsx:2184 'Could not open it.' → errorWords: "Could not open it. Try again."
+  - personnel/Employees.jsx:2195 'Not asked.' → errorWords: "Could not send the request. Try again."
+  - personnel/Employees.jsx:2204 'Reminder not sent.' → errorWords: "Could not send the reminder. Try again."
+  - personnel/Employees.jsx:2209 'Could not remove.' → errorWords: "Could not remove it. Try again."
+  - personnel/Employees.jsx:2235 'Not replaced.' → errorWords: "Could not replace the file. Try again."
+  - personnel/Employees.jsx:2247 'Could not load versions.' → errorWords: "Could not load the versions. Try again."
+  - personnel/Employees.jsx:2382 'Could not load letters.' → errorWords: "Could not load the letters. Try again."
+  - personnel/Employees.jsx:2398 'Not issued.' → errorWords: "Could not issue the letter. Try again."
+  - personnel/Employees.jsx:2408 'Not noted.' → errorWords: "Could not note it. Try again."
+  - personnel/JoiningStatutory.jsx:39 'Could not open them.' → errorWords: "Could not open them. Try again."
+  - personnel/JoiningStatutory.jsx:54 'Not saved.' → errorWords: "Could not save the details. Try again."
+  - personnel/JoiningStatutory.jsx:73 'Not sent.' → errorWords: "Could not send it. Try again."
+  - personnel/LetterTemplates.jsx:133 'Not saved.' → errorWords: "Could not save the letter. Try again."
+  - personnel/SelfServiceSettings.jsx:34 'Not saved.' → errorWords: "Could not save the settings. Try again."
+  - personnel/StructureList.jsx:106 'Not saved.' → errorWords: "Could not save it. Try again."
+  - personnel/StructureList.jsx:124 'Could not delete it.' → errorWords: "Could not delete it. Try again."
+  - timeOff/AttendanceRequests.jsx:154 'Not done.' → errorWords: "Could not review the requests. Try again."
+  - timeOff/AttendanceRequests.jsx:296 'Not done.' → errorWords: "Could not update the request. Try again."
+  - timeOff/AttendanceRequests.jsx:462 'Not saved.' → errorWords: "Could not send the request. Try again."
+  - timeOff/BulkGrant.jsx:45 'Could not work out who it goes to.' → errorWords: "Could not work out who it goes to. Try again."
+  - timeOff/BulkGrant.jsx:59 'Not granted.' → errorWords: "Could not grant the leave. Try again."
+  - timeOff/LeaveBalances.jsx:210 'Not granted.' → errorWords: "Could not grant the leave. Try again."
+  - timeOff/LeaveBalances.jsx:288 'Not saved.' → errorWords: "Could not change the balance. Try again."
+  - timeOff/LeaveBalances.jsx:301 'Not changed.' → errorWords: "Could not put the policy days back. Try again."
+  - timeOff/LeaveBalances.jsx:312 'Not removed.' → errorWords: "Could not remove the line. Try again."
+  - timeOff/LeaveBlocks.jsx:52 'Not removed.' → errorWords: "Could not remove the block. Try again."
+  - timeOff/LeaveBlocks.jsx:120 'Not saved.' → errorWords: "Could not save the block. Try again."
+  - timeOff/LeavePolicy.jsx:508 'Not deleted.' → errorWords: "Could not delete the leave type. Try again."
+  - timeOff/LeaveRequests.jsx:146 'Not approved.' → errorWords: "Could not approve the request. Try again."
+  - timeOff/LeaveRequests.jsx:167 'Not approved.' → errorWords: "Could not approve the requests. Try again."
+  - timeOff/LeaveRequests.jsx:192 'Could not export.' → errorWords: "Could not export the requests. Try again."
+  - timeOff/LeaveRequests.jsx:332 'Not done.' → errorWords: "Could not update the request. Try again."
+  - timeOff/LeaveRequests.jsx:351 'The document did not open.' → errorWords: "Could not open the document. Try again."
+  - timeOff/LeaveRequests.jsx:658 'Could not work out the days.' → errorWords: "Could not work out the days. Try again."
+  - timeOff/LeaveRequests.jsx:684 'Not saved.' → errorWords: "Could not send the request. Try again."
+  - timeOff/MyDays.jsx:48 'Not recorded.' → errorWords: "Could not record your check-in. Try again."
+  - timeOff/MyDays.jsx:133 'Not done.' → errorWords: "Could not cancel the request. Try again."
+  - timeOff/PhonePunch.jsx:164 'That photo could not be used.' → errorWords: "Could not use that photo. Try again."
+  - timeOff/PhonePunch.jsx:183 'Not punched.' → errorWords: "Could not record the punch. Try again."
+  - timeOff/RequestRules.jsx:70 'Not saved.' → errorWords: "Could not save the request rules. Try again."
+  - timeOff/StandIns.jsx:45 'Not removed.' → errorWords: "Could not remove the stand-in. Try again."
+  - timeOff/StandIns.jsx:114 'Not saved.' → errorWords: "Could not add the stand-in. Try again."
+  - timeOff/TeamAttendance.jsx:132 'Not saved.' → errorWords: "Could not mark the day. Try again."
+  - timeOff/TeamAttendance.jsx:149 'Could not export.' → errorWords: "Could not export the attendance. Try again."
+  - timeOff/WorkingWeek.jsx:81 'Not saved.' → errorWords: "Could not save the working week. Try again."
+  - timeOff/YearEnd.jsx:56 'Not run.' → errorWords: "Could not run the year end. Try again."
+  - timeOff/YearEnd.jsx:69 'Not undone.' → errorWords: "Could not undo the year end. Try again."  - skipped: personnel/Employees.jsx:2149 'Uploaded, but not asked to accept.' (it says what happened and that the upload worked; errorWords would lose that), and the empty-string fallbacks in timeOff/PhonePunch.jsx:182, shell/SecondStep.jsx:51, 88 (they pass the server's own text through on purpose)
+- [x] #52 Pattern: "Could not X." with no next step in the shell → next step added: SignIn.jsx:84 "Could not sign you in." → "…Check your email and password, then try again."; SignIn.jsx:98, Start.jsx:247 "…Try again in a minute."; SignUp.jsx:51, CompanySetup.jsx:96 "…Try again."; Shell.jsx:1881 → errorWords(e, 'add that app'); SecondStep.jsx:58 "The code could not be sent." → "…Try again in a minute."; SecondStep.jsx:91 "That code did not work." → "…Check it and try again."; VerifyEmail.jsx:29 "Verification links work once; sign in and ask for a new one." → "Confirmation links work once. Sign in and ask for a new one." Sign-in flows keep String(...) rather than errorWords, because errorWords reads a bare 401 as "You have been signed out", which is wrong on the sign-in page
+- [x] #53 Pattern: raw server text shown as is → covered by #51/#52 and #8; packages/platform/http.js no longer produces "Request failed (status)." or "Please retry" (see #57)
+- [x] #54 Pattern: confirm dialogs where the confirm button is itself a cancel or a bare "Yes" → keep-side named: timeOff/AttendanceRequests.jsx:310 "Cancel request" / "Cancel" → "Cancel request" or "Withdraw request" / "Keep request"; timeOff/LeaveRequests.jsx:377 "Cancel leave" / "Cancel" → "Cancel leave" / "Keep leave" ("Withdraw request" / "Keep request"); personnel/StructureList.jsx:117 and personnel/Employees.jsx:593 "Yes, delete" → "Delete {department/…}" / "Delete employee". The other ~16 calls keep "Cancel" beside a named action ("Remove", "Undo", "Pay out"); that pairing is clear and changing them would only be churn
+- [x] #55 Pattern: Title Case in the shared list kit → done in #20 (ColumnFilters). BranchField skipped (#45b, Books only)
+- [ ] #56 Pattern: look-alike Books palette branches ("Retry" vs "Try again", "Reset" vs "Clear filters" in ListControls.jsx:138, ListPageParts.jsx:211) — skipped: both branches are deliberate Books-only copy and Books screens stay as they are
+- [x] #57 packages/platform/http.js:93, 126, 128 (+ 124, 127) — "Your session has expired. Please sign in again." / "The server could not load this data (500). Please retry." / "Request failed (404)." / "The server could not be reached (502). It may be restarting — try again in a moment." / "The server could not complete that (500). Nothing was saved." → "You have been signed out. Sign in again." / "CLOR could not load this just now. Try again in a moment." / per status: 401 "You have been signed out. Sign in again.", 403 role sentence, 404 "That is no longer there. Reload the page.", 409 "Someone else changed this. Reload the page and try again.", 429 "Too many tries. Wait a minute and try again.", other "That did not work. Try again." / "CLOR could not be reached. It may be restarting, so try again in a moment." / "CLOR could not finish that, so nothing was saved. Try again in a moment." No status codes are shown. Matching Hindi keys in packages/ui/src/i18n/hi.js updated
+- [x] #58 Pattern: Books-flavoured defaults in shared components → CommandPalette done (#21); ShortcutSheet.jsx left as is, it only opens in Books (Tally keys)
+- [x] Extra 1: "Attendance fixes" → "Attendance corrections" in packages/shell/notificationKinds.js:70, packages/shell/helpGuides.js:451, 819, 833, 836, 837 and packages/ui/src/timeOff/AttendanceRequests.jsx:186 (title)
+- [x] Extra 2: packages/ui/src/settings/SettingsHub.jsx:33 — hard-coded title "Settings" → title={menuLabel || 'Settings'}; Shell already passes menuLabel and People's PeopleSettings spreads its props, so the page now reads "All settings" like the menu
+- [x] Extra 3: packages/ui/src/components/list/DocumentListShell.jsx — new optional `countLine` prop (CountLine items array, or a node), drawn directly under the title and carried with the header when it is portalled; no app screens converted
+- [x] Extra 4: packages/ui/src/permissions/WriteGuard.jsx resourceWords — 'PEOPLE::HR Cases::VIEW' now reads "Help desk (People)" (small rename map for keys that kept an old name); test/write-guard.test.jsx:59 updated
+- [ ] Extra 5: packages/ui/src/referrals/ReferJobs.test.jsx:19, 33 — not changed: the referrer's status text is not set in packages/ui but by the server (server/src/services/people/talent/referrals.ts:59 REFERRER_WORD, which still sends "Not taken forward" for REJECTED and WITHDRAWN), so the test matches what the API sends. Added a 'Rejected' pill colour in ReferJobs.jsx so the screen is ready if the server agent changes that word; the test fixture then needs the same word
+- [x] X6 packages/shell/session.jsx, SignUp.jsx — sign-up reply without a session now shows a "Check your email" screen instead of a signed-out error (follows server #1)
+- [x] X7 packages/shell/Start.jsx:290 — 'Tick at least one app.' → 'Tick at least one product.' (matches the server)
+- [x] X8 packages/ui/src/rnd.css `.ui-split-panel .ui-caption` — rail group names ("EACH MONTH") were uppercase with tracking → sentence case as written (DESIGN.md: group names label size, sentence case). Found in browser check.
+- [x] X9 packages/ui/src/rnd.css `.ui-gate-eyebrow` — gate page eyebrow uppercase → sentence case.
+- [x] X10 packages/ui/src/index.css `.ui-auth-fact-about` — sign-in quote topic ("FINANCE") uppercase → sentence case. Found in browser check.
+- [x] X11 packages/ui/src/index.css `.ui-calendar-head` — date picker weekday heads uppercase → as written. Left: receipt print, cell-settled and Books table heads — left: printed documents and Books are out of scope.
+- [x] X12 packages/ui/src/timeOff/LeaveRequests.jsx, AttendanceRequests.jsx, api.js — tab, figure and status 'Not approved' → 'Rejected' (one word for saying no, as People). Found in browser check.

@@ -4,6 +4,7 @@ import { confirmDialog } from '@ui/components/ui/notify';
 import { ExitQuestionsForm } from '@ui/lifecycle/LeavingExtras';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, getCelebrations, getExitInterview, getTodayPosts, sendExitInterview, setCelebrations } from './portalApi';
+import { errorWords } from '@ui/utils/errorWords';
 
 /*
  * The employee app's side of leaving and engagement (WORKFLOW-GAP-RESEARCH-2026-10-30 4.8, 4.9; server
@@ -12,7 +13,7 @@ import { SignedOut, getCelebrations, getExitInterview, getTodayPosts, sendExitIn
  *  - ExitInterview (Me, while leaving): five short questions, about two minutes, sent once.
  *  - Celebrations (Me): whether my team is told on my birthday and work anniversary.
  */
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 const day = (iso) => new Date(`${String(iso).slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 function useLoad(fetcher, guard) {
@@ -21,7 +22,7 @@ function useLoad(fetcher, guard) {
   const load = useCallback(() => {
     guard(fetcher())
       .then((d) => { setData(d || {}); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not load.')));
+      .catch((e) => setFailed(errText(e, 'load this')));
   }, [fetcher, guard]);
   useEffect(() => { load(); }, [load]);
   return { data, failed, load };
@@ -73,7 +74,7 @@ export function ExitInterview({ guard, refreshKey }) {
       setOpen(false);
       load();
     } catch (err) {
-      const text = errText(err, 'Not sent.');
+      const text = errText(err, 'send it');
       if (text) setNote({ ok: false, text });
     } finally {
       setBusy(false);
@@ -122,7 +123,7 @@ export function Celebrations({ guard }) {
       setNote({ ok: true, text: announced ? 'Done. Your team will not be told.' : 'Done. Your team will be told on the day.' });
       load();
     } catch (e) {
-      const text = errText(e, 'Not saved.');
+      const text = errText(e, 'save the changes');
       if (text) setNote({ ok: false, text });
     } finally {
       setBusy(false);

@@ -7,6 +7,7 @@ import { ICON, Loading, PageHead, WsDrawer } from './wsKit';
 import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Workspace → Invitations (W-3).
@@ -73,7 +74,7 @@ export default function Invitations({ tenant, companies = [] }) {
       .then((r) => setRows(r?.invitations || []))
       .catch((e) => {
         setRows([]);
-        setError(String(e?.message || 'Could not load invitations.'));
+        setError(errorWords(e, 'load the invitations'));
       });
   }, []);
   useEffect(load, [load]);
@@ -95,7 +96,7 @@ export default function Invitations({ tenant, companies = [] }) {
       setInviting(false);
       load();
     } catch (err) {
-      setError(String(err?.message || 'Could not send the invitation.'));
+      setError(errorWords(err, 'send the invitation'));
     } finally {
       setBusy(false);
     }
@@ -109,7 +110,7 @@ export default function Invitations({ tenant, companies = [] }) {
       setNotice(done);
       load();
     } catch (err) {
-      setError(String(err?.message || 'That did not work.'));
+      setError(errorWords(err, 'make the change'));
     }
   };
 
@@ -183,7 +184,7 @@ export default function Invitations({ tenant, companies = [] }) {
         {error && !inviting ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
 
         {rows === null ? (
-          <Loading shape="rows" label="Loading…" />
+          <Loading shape="rows" label="Loading invitations…" />
         ) : rows.length === 0 ? (
           <div className="ws-empty">
             <span className="ws-tile" aria-hidden="true"><ICON.mail size={20} /></span>

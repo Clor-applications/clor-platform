@@ -14,6 +14,7 @@ import { listAsks, sendAgain } from '../services/people/money/salaryAdvance.js';
 import { reimbursementComponent } from '../services/people/money/payrollBridge.js';
 import { z } from 'zod';
 import { check, flag, idParams, id, list, noBody, q, rawText, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Expenses, advances and salary advances for HR, owners and approvers
@@ -36,7 +37,7 @@ const fail = (res: Response, e: unknown) => {
   if (e instanceof MoneyError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
   const id = (res.req as any)?.id || (res.getHeader('x-request-id') as string) || '';
   console.error('[people-money]', id, e instanceof Error ? e.message : e); // eslint-disable-line no-console
-  return res.status(500).json({ error: `Something went wrong. Try again${id ? ` (request ${id})` : ''}.` });
+  return res.status(500).json({ error: ourFault(id), ...(id ? { requestId: id } : {}) });
 };
 const run = (fn: (req: Request, res: Response) => Promise<unknown>) => async (req: Request, res: Response) => {
   if (!(await peopleRouteOk(req, res))) return;

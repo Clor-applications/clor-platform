@@ -11,6 +11,7 @@ import { countFrom, workingCalendar } from '../lifecycle/workdays.js';
 import { registerRecipe } from './automations.js';
 import { addDays } from '../../../utils/istDate.js';
 import { isCompanyUser } from '../members.js';
+import { statusWords } from '../../../utils/statusWords.js';
 
 /**
  * No-dues sign-off and the final-pay clock (WORKFLOW-GAP-RESEARCH-2026-10-30 A9, A10, 4.3).
@@ -396,7 +397,7 @@ registerRecipe('finalPayDue', async ({ accountId, orgId, today: t }) => {
     count += await sendNotice(accountId, orgId, to, {
       kind: 'people.final_pay',
       title: `Final pay for ${b.name} ${when}`,
-      body: `Last day ${b.lastDay}. ${b.payrollUnknown ? 'Payroll could not be read just now.' : b.settlement ? `Payroll settlement: ${b.settlement.status.toLowerCase()}.` : 'Payroll has no settlement for them yet.'}`,
+      body: `Last day ${b.lastDay}. ${b.payrollUnknown ? 'Payroll could not be read just now.' : b.settlement ? `Payroll settlement: ${statusWords(b.settlement.status)}.` : 'Payroll has no settlement for them yet.'}`,
       link: { app: 'people', screen: 'leavers', params: { open: b.employeeId } },
     }, { dedupeKey: `final-pay:${b.employeeId}:${b.dueDate}:${onTheDay ? 'on-the-day' : 'day-before'}` });
   }

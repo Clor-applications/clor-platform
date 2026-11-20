@@ -3,7 +3,7 @@ import { Search } from '@ui/components/ui/lineIcons';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
-import { Empty, Err, Loading, Pager, ReasonDrawer, may, when } from './kit';
+import { Empty, Err, Loading, Pager, ReasonDrawer, may, when, errorWords, countLine } from './kit';
 import {
   opsEmailLog,
   opsEmailSenders,
@@ -36,7 +36,7 @@ export function EmailAddresses({ role }) {
   const load = useCallback(() => {
     opsEmailSenders()
       .then((r) => (setD(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the sender addresses')));
   }, []);
   useEffect(load, [load]);
   const owner = role === 'SUPER_ADMIN';
@@ -57,7 +57,7 @@ export function EmailAddresses({ role }) {
     try {
       testToast(await opsTestSender(s.purpose));
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(errorWords(e, 'send the test email'));
     } finally {
       setTesting('');
     }
@@ -155,13 +155,13 @@ export function EmailTemplates({ role }) {
   const load = useCallback(() => {
     opsEmailTemplates()
       .then((r) => (setD(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the email templates')));
   }, []);
   useEffect(load, [load]);
   const list = (d?.templates || []).filter((t) => !q || `${t.label} ${t.description}`.toLowerCase().includes(q.toLowerCase()));
   return (
     <>
-      <PageHead crumbs={['Platform']} title="Email templates" meta={d ? `${d.templates.length} emails · ${d.templates.filter((t) => t.changed).length} reworded` : null} />
+      <PageHead crumbs={['Platform']} title="Email templates" meta={d ? countLine([[d.templates.length, 'emails'], [d.templates.filter((t) => t.changed).length, 'reworded']]) : null} />
       <label className="relative" style={{ maxWidth: 460 }}>
         <span className="sr-only">Search emails</span>
         <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
@@ -216,7 +216,7 @@ function TemplateEditor({ template: t, role, onClose, onSaved }) {
     try {
       setPreview(await opsPreviewTemplate(t.key, { subject, body }));
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'show the preview'));
     }
   };
   const test = async () => {
@@ -224,7 +224,7 @@ function TemplateEditor({ template: t, role, onClose, onSaved }) {
     try {
       testToast(await opsTestTemplate(t.key));
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(errorWords(e, 'send the test email'));
     } finally {
       setTesting(false);
     }
@@ -298,7 +298,7 @@ function TemplateEditor({ template: t, role, onClose, onSaved }) {
         open={Boolean(confirm)}
         title={confirm === 'reset' ? 'Reset to the default wording' : 'Save the new wording'}
         what={confirm === 'reset' ? `${t?.label} goes back to CLOR’s built-in wording. Your changes are kept in the audit log only.` : `Every ${t?.label?.toLowerCase()} email sent from now on uses this wording.`}
-        confirmLabel={confirm === 'reset' ? 'Reset' : 'Save wording'}
+        confirmLabel={confirm === 'reset' ? 'Reset wording' : 'Save wording'}
         onClose={() => setConfirm(null)}
         onConfirm={run}
       />
@@ -318,7 +318,7 @@ export function EmailLog({ role, initialStatus = 'all', openCustomer }) {
   const load = useCallback(() => {
     opsEmailLog(view)
       .then((r) => (setD(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the email log')));
   }, [view]);
   useEffect(() => {
     const t = setTimeout(load, 200);

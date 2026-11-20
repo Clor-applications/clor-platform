@@ -28,6 +28,7 @@ import { eachDay } from '../utils/istDate.js';
 import { LIVE_LINE, paymentLockKey } from '../services/payroll/payment.js';
 import { gapsAdvice, gapsSentence, statutoryGapsOnRun, unwaived, waiverOf } from '../services/payroll/statutoryGaps.js';
 import { missingRegistrations } from '../services/payroll/statutoryRegistrations.js';
+import { statusWords } from '../utils/statusWords.js';
 
 /**
  * A payroll run, from who is in it to payslips somebody can approve.
@@ -135,7 +136,7 @@ const paymentBlocksCancel = (n: number) =>
 const editable = (run: any, res: any) => {
   if (EDITABLE.includes(run.status)) return true;
   res.status(409).json({
-    error: `This payroll is ${run.status.toLowerCase()} and can no longer be changed. Record an adjustment, or run a fresh payroll.`,
+    error: `This payroll is ${statusWords(run.status)} and can no longer be changed. Record an adjustment, or run a fresh payroll.`,
     code: 'RUN_NOT_EDITABLE',
   });
   return false;
@@ -1090,7 +1091,7 @@ const transition = (
 
       if (!from.includes(run.status)) {
         return res.status(409).json({
-          error: `A payroll that is ${run.status.toLowerCase()} cannot be ${path === 'submit-review' ? 'sent for review' : `${path}d`}.`,
+          error: `A payroll that is ${statusWords(run.status)} cannot be ${path === 'submit-review' ? 'sent for review' : `${path}d`}.`,
           code: 'RUN_WRONG_STATUS',
         });
       }
@@ -1404,7 +1405,7 @@ payrollRunsRouter.post(
       entity: 'PAYROLL_RUN',
       entityId: run.id,
       action: 'CANCEL',
-      message: `Payroll ${run.number || run.id} cancelled from ${run.status} (${gone.length} payslips removed)`,
+      message: `Payroll ${run.number || run.id} cancelled from ${statusWords(run.status)} (${gone.length} payslips removed)`,
       metadata: {
         fromStatus: run.status,
         slips: gone.map((x) => ({ number: x.number, employeeId: x.employeeId, gross: Number(x.grossEarnings), deductions: Number(x.totalDeductions), net: Number(x.netPay) })),

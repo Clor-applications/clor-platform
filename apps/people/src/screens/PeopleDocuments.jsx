@@ -1,8 +1,9 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { CalendarClock, CircleX, FileText, Users } from 'lucide-react';
 import FileBadge, { fileSize } from '@ui/components/ui/FileBadge';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
-import { KpiTiles } from '../components/Core';
+import { CountLine } from '@ui/components/ui/CountLine';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -66,7 +67,7 @@ export default function PeopleDocuments({ openScreen }) {
   const shared = docs.filter((r) => r.visibleToEmployee).length;
   const kinds = [...new Set(docs.map((r) => r.kind).filter(Boolean))].sort();
   const download = async (r) => {
-    try { const d = await getDocument(r.id); const a = document.createElement('a'); a.href = d.dataUrl; a.download = r.title; a.click(); } catch (e) { notify.error(String(e?.message || 'Could not download.')); }
+    try { const d = await getDocument(r.id); const a = document.createElement('a'); a.href = d.dataUrl; a.download = r.title; a.click(); } catch (e) { notify.error(errorWords(e, 'download the document')); }
   };
   /* PEOPLE-06: the person first, then the document, its category, when it was added, when it runs out and where it stands. */
   const columns = [
@@ -89,7 +90,7 @@ export default function PeopleDocuments({ openScreen }) {
         title="Documents"
         description="Every document on people's records, with who may see it and when it runs out."
         strip={req.data && docs.length ? (
-          <KpiTiles label="Documents at a glance" items={[
+          <CountLine label="Documents at a glance" items={[
             { key: 'docs', label: 'Documents', cat: 1, Icon: FileText, value: docs.length.toLocaleString('en-IN'), note: `Across ${people} ${people === 1 ? 'person' : 'people'}` },
             { key: 'soon', label: `Expiring in ${SOON_DAYS} days`, cat: 4, Icon: CalendarClock, value: soon, tone: 'warn', note: soon ? 'Renew before they run out' : 'Nothing runs out soon' },
             { key: 'expired', label: 'Expired', cat: 8, Icon: CircleX, value: counts.expired, tone: 'neg', note: counts.expired ? 'Action needed' : 'None', onClick: counts.expired ? () => setTab('expired') : undefined },
@@ -97,7 +98,7 @@ export default function PeopleDocuments({ openScreen }) {
           ]} />
         ) : null}
         secondary={<button type="button" className="ui-btn ui-btn-secondary" disabled={!shown.length} onClick={() => runListExport({ format: 'csv', title: 'Documents', fileName: 'document-register', label: 'Documents', rows: shown, columns: EXPORT_COLUMNS })}><Download size={16} aria-hidden="true" /> Export</button>}
-        primary={mayAdd ? { label: 'Upload', icon: Plus, onClick: () => setDrawer({ employeeId: '' }) } : null}
+        primary={mayAdd ? { label: 'Upload document', icon: Plus, onClick: () => setDrawer({ employeeId: '' }) } : null}
         toolbar={<>
           <SearchField value={q} onSearch={setQ} placeholder="Search employee or document" label="Search documents" className="w-full sm:w-80" />
           {kinds.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Category" icon={null} placeholder="Category: All" value={kind} onChange={(v) => setKind(v || '')} options={[{ value: '', label: 'Category: All' }, ...kinds.map((k) => ({ value: k, label: kindWord(k) }))]} /></div> : null}
@@ -116,7 +117,7 @@ export default function PeopleDocuments({ openScreen }) {
             ? (tab === 'nextmonth' && !q && !kind
               ? <EmptyState kind="filtered" title={`Nothing runs out in ${nextMonth.label}`} description="Documents with a valid-until date next month are listed here, to renew together." />
               : <EmptyState kind="filtered" title="No documents match" description="Nothing here matches the search or the tab." />)
-            : <EmptyState title="No documents yet" description="Documents added on a person's record, or here, are listed with who may see them and their expiry." routes={mayAdd ? [{ label: 'New document', onSelect: () => setDrawer({ employeeId: '' }) }] : []} />} />
+            : <EmptyState title="No documents yet" description="Documents added on a person's record, or here, are listed with who may see them and their expiry." routes={mayAdd ? [{ label: 'Upload document', onSelect: () => setDrawer({ employeeId: '' }) }] : []} />} />
       )}
       {drawer ? (
         <Drawer open title="Employee documents" onClose={() => { setDrawer(null); req.reload(); }} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet">

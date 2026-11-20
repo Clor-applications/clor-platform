@@ -53,9 +53,9 @@ export function SettingUp() {
             <div className="setup-art" aria-hidden="true">
               <div className="sf">
                 <span className="sf-label">Company name</span>
-                <span className="sf-field"><span className="sf-type sf-type--1">CLOR Applications Private Limited</span></span>
+                <span className="sf-field"><span className="sf-type sf-type--1">Anand Traders</span></span>
                 <span className="sf-label">GSTIN</span>
-                <span className="sf-field"><span className="sf-type sf-type--2">29AAACA1234F1Z5</span></span>
+                <span className="sf-field"><span className="sf-type sf-type--2">27AAKFA4821L1Z3</span></span>
                 <span className="sf-ok"><Check size={12} weight="bold" /> Saved</span>
               </div>
             </div>
@@ -83,7 +83,7 @@ export function SettingUp() {
             <div className="setup-copy">
               <Tile icon={ToggleRight} />
               <h3 className="h-3">Switch on your products</h3>
-              <p className="body">Only the ones you bought. Add the rest whenever you like.</p>
+              <p className="body">Only the ones you bought. Add the rest at any time.</p>
             </div>
           </li>
           <li className="setup-step">
@@ -101,7 +101,7 @@ export function SettingUp() {
             <div className="setup-copy">
               <Tile icon={PaperPlaneTilt} />
               <h3 className="h-3">Invite your team</h3>
-              <p className="body">Your accountant and your staff, each with their own login.</p>
+              <p className="body">Your accountant and your staff, each with their own sign-in.</p>
             </div>
           </li>
         </ol>

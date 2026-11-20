@@ -5,6 +5,7 @@ import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
 import { PageHeader, SkeletonCard } from '../components/ui/Primitives';
 import { notify } from '../components/ui/notify';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 const base = () => `/orgs/${encodeURIComponent(String(platformOrgId() || ''))}`;
 const day = (iso) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
@@ -29,7 +30,7 @@ export default function CloseCompany({ companyName = '' }) {
   const load = useCallback(() => {
     apiFetch(`${base()}/closure`)
       .then((r) => { setState(r); setError(''); })
-      .catch((e) => setError(String(e?.message || 'Could not load.')));
+      .catch((e) => setError(errorWords(e, 'load the closure details')));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -49,7 +50,7 @@ export default function CloseCompany({ companyName = '' }) {
       notify.success('Full export downloaded. Keep it somewhere safe.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not export.'));
+      notify.error(errorWords(e, 'download the export'));
     } finally {
       setBusy('');
     }
@@ -63,7 +64,7 @@ export default function CloseCompany({ companyName = '' }) {
       setTyped('');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not scheduled.'));
+      notify.error(errorWords(e, 'schedule the closure'));
     } finally {
       setBusy('');
     }
@@ -76,7 +77,7 @@ export default function CloseCompany({ companyName = '' }) {
       notify.success('Closure cancelled. Nothing will be deleted.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not cancelled.'));
+      notify.error(errorWords(e, 'cancel the closure'));
     } finally {
       setBusy('');
     }

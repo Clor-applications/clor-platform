@@ -6,6 +6,7 @@ import SuggestInput from "@ui/components/ui/SuggestInput";
 import { getDeductionCap, saveDeductionCap } from "../api/payrollSetup";
 import { recordOverLimitReason } from "../api/payrollRuns";
 import { rupees as inr } from "@ui/utils/money";
+import { errorWords } from "@ui/utils/errorWords";
 
 /**
  * How much of a payslip's wages deductions may take. Half is the law's limit;
@@ -28,7 +29,7 @@ export function DeductionCapSetting() {
         setCountsStatutory(Boolean(s.countsStatutory));
         setCountsPenalties(s.countsPenalties !== false);
       })
-      .catch((e) => setFailed(String(e?.message || "Could not read this setting.")));
+      .catch((e) => setFailed(errorWords(e, "read this setting")));
   }, []);
 
   if (failed) return <p className="ui-caption" role="alert">{failed}</p>;
@@ -48,7 +49,7 @@ export function DeductionCapSetting() {
       setCountsPenalties(next.countsPenalties !== false);
       notify.success(`Deductions held to ${next.percent}% of wages.`);
     } catch (e) {
-      notify.error(String(e?.message || "Could not save this setting."));
+      notify.error(errorWords(e, "save this setting"));
     } finally {
       setSaving(false);
     }
@@ -139,7 +140,7 @@ export function OverLimitPanel({ run, onSaved }) {
       setReason("");
       if (onSaved) await onSaved();
     } catch (e) {
-      notify.error(String(e?.message || "Could not record the reason."));
+      notify.error(errorWords(e, "record the reason"));
     } finally {
       setSaving(false);
     }

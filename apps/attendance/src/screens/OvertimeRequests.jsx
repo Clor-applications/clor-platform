@@ -13,6 +13,8 @@ import { overCapQuestion } from '@ui/picks/round28';
 import { decideOvertimeRequest, getOvertimeRules, listOvertimeRequests, saveOvertimeRules } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import OvertimeRuleFields from '../components/OvertimeRuleFields';
+import { errorWords, dayText } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Overtime and comp-off asked for from the employee app, and the company's
@@ -64,7 +66,7 @@ export default function OvertimeRequests() {
   const load = useCallback(() => {
     Promise.all(TABS.map((t) => listOvertimeRequests(t.value)))
       .then((list) => { setByStatus(Object.fromEntries(TABS.map((t, i) => [t.value, list[i]?.requests || []]))); setError(''); })
-      .catch((e) => setError(String(e?.message || 'Could not load requests.')));
+      .catch((e) => setError(errorWords(e, 'load requests')));
   }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -93,10 +95,10 @@ export default function OvertimeRequests() {
     if (ask && !(await confirmDialog(ask))) return;
     try {
       await decideOvertimeRequest(r.id, approve, notes[r.id] || null);
-      notify.success(approve ? (r.kind === 'COMP_OFF' ? `${r.days} comp-off day${r.days === 1 ? '' : 's'} added for ${r.employeeName}.` : `${r.employeeName}'s overtime on ${r.date} is approved.`) : `${r.employeeName}'s request was declined.`);
+      notify.success(approve ? (r.kind === 'COMP_OFF' ? `${r.days} comp-off day${r.days === 1 ? '' : 's'} added for ${r.employeeName}.` : `${r.employeeName}'s overtime on ${dayText(r.date, { year: false })} is approved.`) : `${r.employeeName}'s request was declined.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     }
   };
   const save = async (next) => {
@@ -105,7 +107,7 @@ export default function OvertimeRequests() {
       setRules(r.rules);
       notify.success('Rules saved.');
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     }
   };
 
@@ -116,7 +118,6 @@ export default function OvertimeRequests() {
       description="Requests from the employee app, and who decides them."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search requests…', label: 'Search overtime and comp-off requests' }}
       moreItems={[exportMenuItem('Export'), ...(rules ? [{ key: 'rules', label: 'Rules', Icon: Settings2 }] : [])]}
       onMoreSelect={(k) => {
@@ -124,12 +125,12 @@ export default function OvertimeRequests() {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Overtime & comp-off', fileName: 'Overtime and comp-off', label: 'request/requests', columns: EXPORT_COLUMNS, rows: rows });
       }}
-      cards={[
+      countLine={countItems([
         { label: 'Waiting', value: counts.PENDING, count: true, tone: 'partial', Icon: Clock, onSelect: () => setStatus('PENDING') },
         { label: 'With the manager', value: figures.withManager, count: true, tone: 'sent', Icon: UserRound },
         { label: 'Overtime waiting', value: hours(figures.overtimeMinutes), count: true, tone: 'outstanding', Icon: Timer },
         { label: 'Comp-off days', value: figures.compOffDays, count: true, tone: 'draft', Icon: CalendarPlus },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -161,7 +162,7 @@ export default function OvertimeRequests() {
                       ) : (
                         <EmptyState
                           icon={Timer}
-                          title={status === 'PENDING' ? 'Nothing waiting' : 'None'}
+                          title={status === 'PENDING' ? 'Nothing waiting' : status === 'APPROVED' ? 'No approved requests' : status === 'REJECTED' ? 'No declined requests' : 'No withdrawn requests'}
                           description="Employees ask for overtime or comp-off from the app, from the days their extra work is recorded on. Approved overtime is paid; approved comp-off adds its days to the chosen leave type."
                         />
                       )}

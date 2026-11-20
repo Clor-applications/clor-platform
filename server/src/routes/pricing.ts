@@ -210,7 +210,7 @@ const draftBody = z.object({ fromId: z.string().max(40).optional().nullable(), e
 opsPricingRouter.post('/ops/pricing/books', requireOperatorRole('BILLING'), requireOperatorStepUp, (req: Request, res) =>
   outsideTenant('ops: a new draft price book', async () => {
     const parsed = draftBody.safeParse(req.body ?? {});
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid draft.' });
+    if (!parsed.success) return res.status(400).json({ error: 'This draft price list is not complete. Check each plan and try again.' });
     try {
       const book = await createDraft(req.auth!.userId, parsed.data);
       await audit(req, 'PRICE_BOOK_DRAFTED', {}, { priceBookId: book.id, version: book.version, copiedFromId: book.copiedFromId, empty: Boolean(parsed.data.empty) });

@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useEffect, useState } from 'react';
 import RangePresets from '@ui/components/ui/RangePresets';
 import { Download, Printer } from '@ui/components/ui/lineIcons';
@@ -83,7 +84,7 @@ export default function HrReport({ params = {}, updateParams, openScreen, tenant
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      notify.error(String(e?.message || 'Not exported.'));
+      notify.error(errorWords(e, 'export the rows'));
     } finally {
       setExporting(false);
     }
@@ -114,7 +115,7 @@ export default function HrReport({ params = {}, updateParams, openScreen, tenant
   return (
     <div className="space-y-4 pb-8">
       <ListHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Reports', onClick: openScreen ? () => openScreen('reportsHome') : undefined }, { label: title }]}
+        breadcrumb={[{ label: 'People' }, { label: 'All reports', onClick: openScreen ? () => openScreen('reportsHome') : undefined }, { label: title }]}
         title={title}
         description={spec?.description || null}
         entity="report"

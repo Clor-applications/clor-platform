@@ -77,6 +77,7 @@ import {
   updateEmployee,
 } from './api';
 import { TaskDrawer } from '../lifecycle/shared';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * The staff directory, after Horilla's employee view: cards or a list, a
@@ -238,7 +239,7 @@ export default function Employees({ description = '' } = {}) {
       setError('');
     } catch (e) {
       if (seq !== loadSeq.current) return;
-      setError(String(e?.message || 'Could not load employees.'));
+      setError(errorWords(e, 'load employees'));
     } finally {
       if (seq === loadSeq.current) setLoading(false);
     }
@@ -273,7 +274,7 @@ export default function Employees({ description = '' } = {}) {
       if (!rows.length) return notify.error('That file has no rows under its header.');
       setImporting({ name: file.name, headers: keys, rows });
     } catch (e) {
-      notify.error(String(e?.message || 'Could not read the file.'));
+      notify.error(errorWords(e, 'read the file'));
     } finally {
       if (fileRef.current) fileRef.current.value = '';
     }
@@ -319,7 +320,7 @@ export default function Employees({ description = '' } = {}) {
       setViewId('');
       loadViews();
     } catch (e) {
-      notify.error(String(e?.message || 'Not deleted.'));
+      notify.error(errorWords(e, 'delete the view'));
     }
   };
   const figures = useMemo(() => {
@@ -332,7 +333,7 @@ export default function Employees({ description = '' } = {}) {
     };
   }, [all, counts]);
   const importTemplate = () =>
-    downloadImportTemplate('employees', 'CLOR employees import template').catch((e) => notify.error(String(e?.message || 'The template could not be downloaded.')));
+    downloadImportTemplate('employees', 'CLOR employees import template').catch((e) => notify.error(errorWords(e, 'download the template')));
 
   if (loading) return <SkeletonCard lines={6} />;
 
@@ -507,7 +508,7 @@ export default function Employees({ description = '' } = {}) {
             setSelected(new Set());
             load();
           } catch (e) {
-            notify.error(String(e?.message || 'Not changed.'));
+            notify.error(errorWords(e, 'make the change'));
           }
         }} /> : null}
       {savingView ? (
@@ -519,7 +520,7 @@ export default function Employees({ description = '' } = {}) {
               await loadViews();
               setViewId(v.id);
             } catch (e) {
-              notify.error(String(e?.message || 'Not saved.'));
+              notify.error(errorWords(e, 'save the changes'));
             }
           }}>Save view</button>}>
           <div className="space-y-3">
@@ -574,7 +575,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
     let cancelled = false;
     getEmployee(id)
       .then((r) => !cancelled && setPerson({ ...r.employee, scheduledChanges: r.scheduledChanges || [], permits: r.permits || [] }))
-      .catch((e) => notify.error(String(e?.message || 'Could not open that file.')));
+      .catch((e) => notify.error(errorWords(e, 'open that file')));
     return () => {
       cancelled = true;
     };
@@ -589,7 +590,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
     const ok = await confirmDialog({
       title: `Delete ${person.name}?`,
       message: 'Only a file payroll has never used can be deleted. Anyone else is marked as having left.',
-      confirmLabel: 'Yes, delete',
+      confirmLabel: 'Delete employee',
     });
     if (!ok) return;
     try {
@@ -597,7 +598,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
       notify.success(`${person.name} deleted.`);
       onDeleted();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not delete.'));
+      notify.error(errorWords(e, 'delete it'));
     }
   };
 
@@ -616,7 +617,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
       }
       setExtendTo('');
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     }
   };
   const withdrawChange = async (c) => {
@@ -626,7 +627,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
       setPerson((x) => ({ ...x, scheduledChanges: (x.scheduledChanges || []).filter((y) => y.id !== c.id) }));
       notify.success('Withdrawn.');
     } catch (e) {
-      notify.error(String(e?.message || 'Not withdrawn.'));
+      notify.error(errorWords(e, 'withdraw the change'));
     }
   };
   const rehire = async () => {
@@ -640,7 +641,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
       setPerson((x) => ({ ...x, ...r.employee }));
       onDeleted();
     } catch (e) {
-      notify.error(String(e?.message || 'Not rehired.'));
+      notify.error(errorWords(e, 'rehire them'));
     }
   };
 
@@ -652,7 +653,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
       setDraft('');
       setNotes(await listNotes(id));
     } catch (err) {
-      notify.error(String(err?.message || 'Note not saved.'));
+      notify.error(errorWords(err, 'save the note'));
     }
   };
 
@@ -873,7 +874,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                           type="button"
                           className="ui-link"
                           onClick={async () => {
-                            await deleteNote(n.id).catch((e) => notify.error(String(e?.message || 'Could not delete.')));
+                            await deleteNote(n.id).catch((e) => notify.error(errorWords(e, 'delete it')));
                             setNotes(await listNotes(id));
                           }}
                         >
@@ -991,7 +992,7 @@ export function Journey({ employeeId }) {
       setWhy({ entry: e, why: await getWhy(employeeId, e.key) });
     } catch (err) {
       setWhy(null);
-      notify.error(String(err?.message || 'Could not load.'));
+      notify.error(errorWords(err, 'load this'));
     }
   };
   return (
@@ -1035,7 +1036,7 @@ export function Journey({ employeeId }) {
                 notify.success('Sent to the help desk with this change attached.');
                 setWhy({ ...why, raising: null });
               } catch (err) {
-                notify.error(String(err?.message || 'Not sent.'));
+                notify.error(errorWords(err, 'send it'));
               }
             }}>
               <div role="radiogroup" aria-label="Kind" className="flex gap-1">
@@ -1098,7 +1099,7 @@ function PayQuestion({ employeeId }) {
     try {
       setData(await getSalaryQuestion(employeeId, m));
     } catch (err) {
-      notify.error(String(err?.message || 'Could not load.'));
+      notify.error(errorWords(err, 'load this'));
       setMonth(null);
     }
   };
@@ -1192,7 +1193,7 @@ export function EmployeeChecklist({ person }) {
     try {
       setData(await updateChecklistTask(t.id, { done: !t.done }));
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setBusy('');
     }
@@ -1201,7 +1202,7 @@ export function EmployeeChecklist({ person }) {
     try {
       setData(await startChecklist(person.id, kind));
     } catch (e) {
-      notify.error(String(e?.message || 'Not started.'));
+      notify.error(errorWords(e, 'start it'));
     }
   };
   if (!data) return <SkeletonCard lines={4} />;
@@ -1294,7 +1295,7 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
         setShown((x) => { const next = { ...x }; delete next[field]; return next; });
       }, 60_000);
     } catch (e) {
-      notify.error(String(e?.message || 'Not shown.'));
+      notify.error(errorWords(e, 'show it'));
     }
   };
   const Masked = ({ label, field, value }) => (
@@ -1316,7 +1317,7 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
       setEditing(null);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setSaving(false);
     }
@@ -1397,7 +1398,7 @@ export function CustomFields({ employeeId, embedded = false }) {
       setEdits({});
       notify.success(r.changed.length ? 'Saved.' : 'Nothing changed.');
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setBusy(false);
     }
@@ -1460,7 +1461,7 @@ export function ImportDrawer({ file, onClose, onDone }) {
         notify.success(res.failed ? `${res.imported} ${mode === 'update' ? 'taken' : 'imported'}, ${res.failed} rows not.` : `${res.imported} people ${mode === 'update' ? 'taken' : 'imported'}.`);
       }
     } catch (e) {
-      notify.error(String(e?.message || 'Import failed.'));
+      notify.error(errorWords(e, 'import the file'));
     } finally {
       setBusy(false);
     }
@@ -1473,7 +1474,7 @@ export function ImportDrawer({ file, onClose, onDone }) {
       notify.success(`Undone: ${r.removed} removed, ${r.restored} put back${r.kept ? `, ${r.kept} kept (already in payroll)` : ''}.`);
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not undone.'));
+      notify.error(errorWords(e, 'undo the import'));
     } finally {
       setBusy(false);
     }
@@ -1567,7 +1568,7 @@ export function InviteForm({ person, onClose, onDone }) {
         onDone();
       }
     } catch (err) {
-      notify.error(String(err?.message || 'Not sent.'));
+      notify.error(errorWords(err, 'send the invite'));
     } finally {
       setSaving(false);
     }
@@ -1636,7 +1637,7 @@ export function JoiningDetails({ person, onChecked }) {
       setInvites((list) => list.map((i) => (i.id === latest.id ? r.invite : i)));
       onChecked(Object.fromEntries(JOINER_FIELDS.map(([k]) => [k, edits[k] !== undefined ? edits[k] : latest.submitted?.fields?.[k]]).filter(([, v]) => v !== undefined)));
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setBusy(false);
     }
@@ -1712,7 +1713,7 @@ export function ResignForm({ person, onClose, onDone }) {
         : r.readers ? `${person.name} recorded as left and removed from ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : `${person.name} recorded as left.`);
       onDone(r.employee);
     } catch (err) {
-      setError(String(err?.message || 'Not saved.'));
+      setError(errorWords(err, 'save the changes'));
     } finally {
       setSaving(false);
     }
@@ -1859,7 +1860,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
         setDupes({ list: err.data.duplicates, reason: dupes?.reason || '' });
         return;
       }
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setSaving(false);
     }
@@ -1955,7 +1956,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
                   const url = await shrinkPhoto(f);
                   setForm((x) => ({ ...x, photoUrl: url }));
                 } catch (err) {
-                  notify.error(String(err?.message || 'Could not use that photo.'));
+                  notify.error(errorWords(err, 'use that photo'));
                 }
               }}
             />
@@ -2154,7 +2155,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       load();
       return true;
     } catch (err) {
-      notify.error(String(err?.message || 'Not uploaded.'));
+      notify.error(errorWords(err, 'upload the file'));
     } finally {
       setBusy(false);
     }
@@ -2167,7 +2168,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       a.download = `${d.title}.${(d.mime.split('/')[1] || 'bin').replace('vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx').replace('vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx').replace('jpeg', 'jpg')}`;
       a.click();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not open.'));
+      notify.error(errorWords(err, 'open it'));
     }
   };
   /* A look without a download: images and PDFs open in a panel; other kinds say so and offer the download. */
@@ -2181,7 +2182,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       const blob = await (await fetch(full.dataUrl)).blob();
       setViewing((v) => (v?.doc.id === d.id ? { ...v, url: URL.createObjectURL(blob) } : v));
     } catch (err) {
-      setViewing((v) => (v?.doc.id === d.id ? { ...v, error: String(err?.message || 'Could not open it.') } : v));
+      setViewing((v) => (v?.doc.id === d.id ? { ...v, error: errorWords(err, 'open it') } : v));
     }
   };
   const closePreview = () => { if (viewing?.url) URL.revokeObjectURL(viewing.url); setViewing(null); };
@@ -2192,7 +2193,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       notify.success(r?.newlyAsked ? `${personName || 'They'} will be asked to read and accept ${d.title}.` : 'Already asked.');
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not asked.'));
+      notify.error(errorWords(err, 'send the request'));
     }
   };
   const remind = async (d) => {
@@ -2201,12 +2202,12 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       notify.success('Reminder sent.');
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Reminder not sent.'));
+      notify.error(errorWords(err, 'send the reminder'));
     }
   };
   const remove = async (d) => {
     if (!(await confirmDialog({ title: `Remove ${d.title}?`, message: 'The file is deleted from the record.', confirmLabel: 'Remove' }))) return;
-    await deleteDocument(d.id).catch((e) => notify.error(String(e?.message || 'Could not remove.')));
+    await deleteDocument(d.id).catch((e) => notify.error(errorWords(e, 'remove it')));
     load();
   };
   /* India's date, as the server counts expiry: the browser's UTC date would call a document expired 5½ hours late. */
@@ -2232,7 +2233,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       setVersions({});
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not replaced.'));
+      notify.error(errorWords(err, 'replace the file'));
     } finally {
       setBusy(false);
       setReplacing(null);
@@ -2244,7 +2245,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       const list = await listDocumentVersions(d.id);
       setVersions((v) => ({ ...v, [d.id]: list }));
     } catch (err) {
-      notify.error(String(err?.message || 'Could not load versions.'));
+      notify.error(errorWords(err, 'load the versions'));
     }
   };
 
@@ -2379,7 +2380,7 @@ export function IssueLetter({ employeeId, onClose, onIssued }) {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!openForm || templates) return;
-    getLetterTemplates().then((t) => { setTemplates(t); if (t?.signatory) setExtra((x) => ({ signatory: t.signatory, ...x })); }).catch((e) => notify.error(String(e?.message || 'Could not load letters.')));
+    getLetterTemplates().then((t) => { setTemplates(t); if (t?.signatory) setExtra((x) => ({ signatory: t.signatory, ...x })); }).catch((e) => notify.error(errorWords(e, 'load the letters')));
   }, [openForm, templates]);
   useEffect(() => {
     if (!openForm || kind !== 'SERVICE_CERT') { setDue(null); return; }
@@ -2395,7 +2396,7 @@ export function IssueLetter({ employeeId, onClose, onIssued }) {
       setExtra(templates?.signatory ? { signatory: templates.signatory } : {});
       onIssued();
     } catch (err) {
-      notify.error(String(err?.message || 'Not issued.'));
+      notify.error(errorWords(err, 'issue the letter'));
     } finally {
       setBusy(false);
     }
@@ -2405,7 +2406,7 @@ export function IssueLetter({ employeeId, onClose, onIssued }) {
       const r = await requestLetter(employeeId, { kind });
       notify.success(`Noted. Due ${r.dueOn}${r.source ? ` (${r.dueDays} days by law)` : ''}; the task is on the record.`);
     } catch (err) {
-      notify.error(String(err?.message || 'Not noted.'));
+      notify.error(errorWords(err, 'note it'));
     }
   };
   return (

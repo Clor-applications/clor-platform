@@ -21,6 +21,7 @@ import { optedOut, setOptOut } from '../services/people/engagement/greetings.js'
 import { istDate } from '../services/attendance/compute.js';
 import { z } from 'zod';
 import { anyBody, check, flag, id, idParams, list, num, q, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Leaving and engagement, HR's and the manager's side (WORKFLOW-GAP-RESEARCH-2026-10-30 4.3, 4.7, 4.8, 4.9).
@@ -54,7 +55,7 @@ const handle = (fn: (req: Request, res: Response) => Promise<unknown>) => async 
       return res.status(e.status || 400).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
     }
     console.error('[leaving and engagement]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong. Try again in a moment.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 };
 const hrOnly = (fn: (req: Request, res: Response) => Promise<unknown>) => handle(async (req, res) => {

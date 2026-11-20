@@ -44,7 +44,7 @@ it('shows Held in the list, and a held settlement cannot be marked paid', async 
   await open(user);
   expect(screen.getAllByText('Held').length).toBe(2);
   const drawer = screen.getByRole('complementary', { name: 'drawer' });
-  expect(within(drawer).getByRole('button', { name: 'Mark paid' })).toBeDisabled();
+  expect(within(drawer).getByRole('button', { name: 'Mark received' })).toBeDisabled();
   expect(within(drawer).getByText('Absconded; laptop not returned')).toBeInTheDocument();
   expect(within(drawer).getByText(/Nothing is forfeited/)).toBeInTheDocument();
   expect(within(drawer).getByText(/Code on Wages 2019, s\.17/)).toBeInTheDocument();
@@ -62,7 +62,7 @@ it('lifting the hold needs a reason, and then paying is open', async () => {
   await user.type(screen.getByLabelText('Why is the hold lifted?'), 'Came in to settle, 4 Nov');
   await user.click(lift);
   await waitFor(() => expect(releaseSettlementHold).toHaveBeenCalledWith('s1', 'Came in to settle, 4 Nov'));
-  expect(await screen.findByRole('button', { name: 'Mark paid' })).toBeEnabled();
+  expect(await screen.findByRole('button', { name: 'Mark received' })).toBeEnabled();
   expect(screen.queryByRole('button', { name: 'Lift the hold' })).toBeNull();
 });
 
@@ -75,11 +75,11 @@ it('a settlement with no hold pays as before', async () => {
   expect(screen.queryByText(/Nothing is forfeited/)).toBeNull();
   /* Asked first (QA of #82, F7): she owes ₹3,000, so it is money received. */
   vi.mocked(confirmDialog).mockResolvedValueOnce(false);
-  await user.click(screen.getByRole('button', { name: 'Mark paid' }));
+  await user.click(screen.getByRole('button', { name: 'Mark received' }));
   expect(vi.mocked(confirmDialog).mock.calls.at(-1)[0].title).toMatch(/^Mark ₹3,000(\.00)? received from Ravi Kumar\?$/);
   expect(markSettlementPaid).not.toHaveBeenCalled();
   vi.mocked(confirmDialog).mockResolvedValueOnce(true);
-  await user.click(screen.getByRole('button', { name: 'Mark paid' }));
+  await user.click(screen.getByRole('button', { name: 'Mark received' }));
   await waitFor(() => expect(markSettlementPaid).toHaveBeenCalledWith('s1', null));
 });
 
@@ -138,7 +138,7 @@ it('F2: your own full and final is shown, never editable or approvable by you', 
   expect(within(drawer).queryByRole('button', { name: 'Add a line' })).toBeNull();
   expect(within(drawer).queryAllByRole('textbox', { name: 'Item' })).toEqual([]);
   expect(within(drawer).getByText(/This is your own full and final/)).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: /Work it out/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Calculate settlement/ })).toBeNull();
 });
 
 it('F6: held since the India day, not the UTC one', async () => {
@@ -233,7 +233,7 @@ describe('the limit on recovering loans and advances (setting 4)', () => {
     await open(user);
     const drawer = screen.getByRole('complementary', { name: 'drawer' });
     expect(within(row(drawer, 'Stays owed by Ravi Kumar')).getByText('₹6,000')).toBeInTheDocument();
-    expect(within(drawer).queryByText(/Work it out again then/)).not.toBeInTheDocument();
+    expect(within(drawer).queryByText(/Calculate it again then/)).not.toBeInTheDocument();
   });
 
   it('review of #86: when the payslip changed and the share now allows more, says the figures are from the earlier payslip and offers to work it out again', async () => {
@@ -246,7 +246,7 @@ describe('the limit on recovering loans and advances (setting 4)', () => {
     const drawer = screen.getByRole('complementary', { name: 'drawer' });
     const note = within(drawer).getByText(/These figures are from the earlier payslip/);
     expect(note).toHaveTextContent("These figures are from the earlier payslip (PS-10). The leaving month's payroll has changed since, and the limit now allows ₹7,000 to be recovered.");
-    await user.click(within(drawer).getByRole('button', { name: 'Work it out again' }));
+    await user.click(within(drawer).getByRole('button', { name: 'Calculate again from the new payslip' }));
     expect(recalculateSettlement).toHaveBeenCalledWith('s1');
     unmount();
 
@@ -255,8 +255,8 @@ describe('the limit on recovering loans and advances (setting 4)', () => {
     render(<FinalSettlements />);
     await open(user);
     const d2 = screen.getByRole('complementary', { name: 'drawer' });
-    expect(within(d2).getByText(/These figures are from the earlier payslip/)).toHaveTextContent('To recover it, cancel this settlement and work it out again.');
-    expect(within(d2).queryByRole('button', { name: 'Work it out again' })).not.toBeInTheDocument();
+    expect(within(d2).getByText(/These figures are from the earlier payslip/)).toHaveTextContent('To recover it, cancel this settlement and calculate it again.');
+    expect(within(d2).queryByRole('button', { name: 'Calculate again from the new payslip' })).not.toBeInTheDocument();
   });
 
   it('says nothing about an earlier payslip when the figures are current', async () => {
@@ -272,7 +272,7 @@ describe('the limit on recovering loans and advances (setting 4)', () => {
     const user = userEvent.setup();
     const { unmount } = render(<FinalSettlements />);
     await open(user);
-    expect(screen.getByText(/Save it or work it out again to apply the limit/)).toBeInTheDocument();
+    expect(screen.getByText(/Save it or calculate it again to apply the limit/)).toBeInTheDocument();
     unmount();
     load([{ ...capped, status: 'PAID', paidAt: '2026-10-20T00:00:00Z', sourcesClosedAt: 't', recoveryCap: null }]);
     render(<FinalSettlements />);

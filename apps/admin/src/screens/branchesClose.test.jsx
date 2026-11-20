@@ -49,7 +49,7 @@ describe('Branches', () => {
     const drawer = within(screen.getByRole('dialog', { name: 'Add a branch' }));
     fireEvent.change(drawer.getByLabelText(/Branch code/), { target: { value: 'NEW' } });
     fireEvent.submit(drawer.getByRole('button', { name: 'Add branch' }).closest('form'));
-    expect(await drawer.findByRole('alert')).toHaveTextContent('State is required');
+    expect(await drawer.findByRole('alert')).toHaveTextContent('Choose the state the branch is in.');
     expect(api.createBranch).not.toHaveBeenCalled();
   });
 });

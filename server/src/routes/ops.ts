@@ -138,7 +138,7 @@ opsRouter.get('/ops/console-grant', async (req, res) => {
   const u = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, fullName: true, email: true } });
   if (!u?.email) return res.status(403).json({ error: 'This is for CLOR staff only.', code: 'OPERATOR_ONLY' });
   const redirectTo = consoleGrantUrl({ userId: u.id, email: u.email, name: u.fullName || u.email }, state);
-  if (!redirectTo) return res.status(503).json({ error: 'Sign-in to the Console with a CLOR login is not set up yet. Use GitHub on the Console sign-in page.', code: 'CONSOLE_OFF' });
+  if (!redirectTo) return res.status(503).json({ error: 'Sign-in to the Console with a CLOR sign-in is not set up yet. Use GitHub on the Console sign-in page.', code: 'CONSOLE_OFF' });
   await audit(req, 'CONSOLE_PASS_ISSUED', { userId: u.id }, { role: res.locals.operatorRole });
   res.setHeader('Cache-Control', 'no-store');
   res.json({ redirectTo });
@@ -282,7 +282,7 @@ const PAGE = 25;
 opsRouter.get('/ops/accounts', (req, res) =>
   outsideTenant('ops: accounts', async () => {
     const parsed = listQuery.safeParse(req.query);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
+    if (!parsed.success) return res.status(400).json({ error: 'Those filters are not right. Clear them and try again.' });
     const { q = '', status = 'all', page = 0, tag, sort = 'created', limit = PAGE, endingWithin } = parsed.data;
     const where: any = {};
     if (tag) {
@@ -857,7 +857,7 @@ opsRouter.post('/ops/operators', requireOperatorRole(), requireOperatorStepUp, (
     const email = parsed.data.email.toLowerCase();
     const inviter = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { fullName: true, email: true } });
     const users = await platformPrisma.user.findMany({ where: { email: { equals: email, mode: 'insensitive' }, isActive: true }, select: { id: true } });
-    if (users.length > 1) return res.status(409).json({ error: 'More than one login uses that email. Ask engineering which one is the staff member.' });
+    if (users.length > 1) return res.status(409).json({ error: 'More than one sign-in uses that email. Ask engineering which one is the staff member.' });
     const mail = (invited: boolean) =>
       sendTemplate({
         templateKey: 'ops.staff_invited',
@@ -915,7 +915,7 @@ opsRouter.patch('/ops/operators/:userId', requireOperatorRole(), requireOperator
     const userId = String(req.params.userId);
     if (userId === req.auth!.userId) return res.status(409).json({ error: 'Another owner changes your own access.' });
     const parsed = changeOperator.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid change' });
+    if (!parsed.success) return res.status(400).json({ error: 'Choose the new role or the switch to change, and say why.' });
     const before = await platformPrisma.platformOperator.findUnique({ where: { userId } });
     if (!before) return res.status(404).json({ error: 'Not an operator (bootstrap operators are changed in the server settings).' });
     const { reason, ...data } = parsed.data;

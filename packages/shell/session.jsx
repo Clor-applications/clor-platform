@@ -393,6 +393,8 @@ export function SessionProvider({ children }) {
   const signUp = useCallback(
     async ({ fullName, email, password, noticeVersion }) => {
       const res = await apiSignup({ email, password, fullName, noticeVersion });
+      /* No session in the reply: the server sent an email instead, and the screen says so. */
+      if (!res?.token) return { checkEmail: true };
       writeToken(res.token);
       const data = await apiMe();
       return adopt(data);

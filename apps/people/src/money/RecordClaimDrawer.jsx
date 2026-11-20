@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useRef, useState } from 'react';
 import MoneyInput from '@ui/components/ui/MoneyInput';
 import { Plus, Upload, X } from '@ui/components/ui/lineIcons';
@@ -38,7 +39,7 @@ export default function RecordClaimDrawer({ person, onClose, onDone }) {
     e.target.value = '';
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { notify.error('Bills up to 5 MB.'); return; }
-    try { const b = await readBill(file); set(key, { bill: b.data, billName: b.name }); } catch (err) { notify.error(String(err?.message || 'Could not read the file.')); }
+    try { const b = await readBill(file); set(key, { bill: b.data, billName: b.name }); } catch (err) { notify.error(errorWords(err, 'read the file')); }
   };
   const save = async () => {
     const bad = lines.find((l) => !l.categoryId || !l.merchant.trim() || !(Number(l.amount) > 0) || !l.spentOn);

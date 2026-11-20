@@ -69,7 +69,7 @@ export const SECTIONS = [
 export const LOGO = {
   title: 'Logo',
   used: 'invoices and payment receipts',
-  where: 'Uploaded in Accounting’s company settings.',
+  where: 'Uploaded in Books’ company settings.',
 };
 
 /** The fields a person types into here (what Save sends and what "changed" compares). */

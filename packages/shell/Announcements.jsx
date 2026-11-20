@@ -8,7 +8,7 @@ import { apiFetch } from '@platform/http';
  * CLOR ends it; planned maintenance and news can be closed, and stay closed
  * for that person on every device. Looked up on opening and every ten minutes.
  */
-export const KIND_WORD = { info: 'News', maintenance: 'Planned maintenance', incident: 'Problem we are fixing', release: 'What’s new note' };
+export const KIND_WORD = { info: 'News', maintenance: 'Planned maintenance', incident: 'Problem we are fixing', release: 'New in CLOR' };
 const KIND_STYLE = {
   info: { backgroundColor: 'rgb(var(--info-soft))' },
   maintenance: { backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))' },

@@ -10,6 +10,8 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createContractor, deleteContractor, listContractors, updateContractor } from '@ui/personnel/api';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const BLANK = { name: '', code: '', contactPerson: '', phone: '', email: '', gstin: '', licenceNo: '', licenceValidTo: '', address: '', isActive: true };
 
@@ -49,7 +51,7 @@ export default function Contractors({ openScreen } = {}) {
   const [editing, setEditing] = useState(null);
   const [status, setStatus] = useState('ACTIVE');
   const load = useCallback(() => {
-    listContractors().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load contractors.')));
+    listContractors().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load contractors')));
   }, []);
   useEffect(() => {
     load();
@@ -90,15 +92,14 @@ export default function Contractors({ openScreen } = {}) {
       description="Companies that supply workers. Link a worker to their contractor on their employee file."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search contractors…', label: 'Search contractors' }}
       primary={<button type="button" className="ui-btn ui-btn-primary" onClick={add}><Plus size={16} aria-hidden="true" /> New contractor</button>}
-      cards={[
+      countLine={countItems([
         { label: 'Active', value: figures.active, count: true, tone: 'all', Icon: HardHat },
         { label: 'Workers', value: figures.workers, count: true, tone: 'sent', Icon: Users },
         { label: 'In today', value: figures.present, count: true, tone: 'paid', Icon: UserCheck },
         { label: 'Licence expired', value: figures.expired, count: true, tone: 'overdue', Icon: BadgeAlert },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -131,7 +132,7 @@ export default function Contractors({ openScreen } = {}) {
                       <EmptyState
                         icon={HardHat}
                         title={status === 'INACTIVE' ? 'No inactive contractors' : 'No contractors'}
-                        description={status === 'INACTIVE' ? 'Try another tab.' : 'Add the agencies and labour contractors who supply people.'}
+                        description={status === 'INACTIVE' ? 'Pick Active to see the ones in use.' : 'Add the agencies and labour contractors who supply people.'}
                         routes={status === 'INACTIVE' ? undefined : [{ label: 'New contractor', description: 'Add the agencies and labour contractors who supply people.', onSelect: add }]}
                       />
                     )}
@@ -177,7 +178,7 @@ function ContractorForm({ initial, onClose, onSaved }) {
       notify.success('Contractor saved.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setSaving(false);
     }
@@ -188,7 +189,7 @@ function ContractorForm({ initial, onClose, onSaved }) {
       await deleteContractor(form.id);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not deleted.'));
+      notify.error(errorWords(err, 'delete it'));
     }
   };
   const field = (k, label, props = {}) => (

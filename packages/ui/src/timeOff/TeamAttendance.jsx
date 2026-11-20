@@ -18,6 +18,7 @@ import { DAY_LABEL, DAY_PILL, attendanceIsOn, listRecords, markDay, todayIst } f
 import { homeCrumbs } from './shared';
 import { BarList, ChartPanel, Columns, StatTiles, TILE_ICON } from './Figures';
 import { addDaysIso } from '@ui/utils/dates';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Time & Leave → Attendance: everyone's days, read only — the day record leave
@@ -129,7 +130,7 @@ export default function TeamAttendance() {
       notify.success(`${p.name}: ${done}.`);
       records.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'mark the day'));
     } finally {
       setBusy('');
     }
@@ -146,7 +147,7 @@ export default function TeamAttendance() {
       const cols = [['name', 'Employee'], ['code', 'Employee ID'], ['department', 'Department'], ['present', 'Present'], ['leave', 'Leave'], ['absent', 'Absent'], ['unpaid', 'Unpaid leave'], ['lop', 'Unpaid days (LOP)'], ['payable', 'Payable days'], ['totalDays', 'Days in month'], ['why', 'Unpaid days from']].map(([key, label]) => ({ key, label }));
       runListExport({ format: 'xlsx', title: `Attendance ${monthTitle(month)}`, fileName: `attendance-${month}`, label: 'Attendance', rows, columns: cols });
     } catch (e) {
-      notify.error(String(e?.message || 'Could not export.'));
+      notify.error(errorWords(e, 'export the attendance'));
     }
   };
 

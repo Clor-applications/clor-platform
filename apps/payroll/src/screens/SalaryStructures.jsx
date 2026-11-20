@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, GripVertical, Layers, Pencil, Plus, SlidersHorizontal, Trash2, Users } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, GripVertical, Layers, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -19,6 +19,8 @@ import {
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { rupees as money } from '@ui/utils/money';
 import { wagesHalfWords } from '@ui/picks/round66';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * The shape of a salary, before anybody is on it.
@@ -102,7 +104,7 @@ export default function SalaryStructures() {
         setComponents(comps);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load salary structures.')));
+      .catch((e) => setError(errorWords(e, 'load salary structures')));
   }, []);
 
   useEffect(() => {
@@ -113,7 +115,7 @@ export default function SalaryStructures() {
     try {
       setEditing(await getSalaryStructure(id));
     } catch (e) {
-      notify.error(String(e?.message || 'Could not open that structure.'));
+      notify.error(errorWords(e, 'open that structure'));
     }
   };
 
@@ -122,7 +124,7 @@ export default function SalaryStructures() {
       title: `Delete ${row.name}?`,
       message:
         'A structure nobody is on can be deleted. One with people assigned must be archived instead, so their payslips keep the structure they name.',
-      confirmLabel: 'Yes, delete',
+      confirmLabel: 'Delete structure',
     });
     if (!ok) return;
     try {
@@ -130,7 +132,7 @@ export default function SalaryStructures() {
       notify.success(`${row.name} deleted.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not delete that structure.'));
+      notify.error(errorWords(e, 'delete that structure'));
     }
   };
 
@@ -168,7 +170,6 @@ export default function SalaryStructures() {
       description="Reusable salary templates. A structure becomes a salary when somebody is assigned to it."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search structures…', label: 'Search salary structures' }}
       moreItems={all?.length ? [exportMenuItem('Export structures')] : null}
       onMoreSelect={(k) => {
@@ -181,12 +182,12 @@ export default function SalaryStructures() {
           <Plus size={16} aria-hidden="true" /> New structure
         </button>
       }
-      cards={[
-        { label: 'Active', value: counts.ACTIVE, count: true, tone: 'paid', Icon: Layers, onSelect: () => setStatus('ACTIVE') },
-        { label: 'Draft', value: counts.DRAFT, count: true, tone: 'outstanding', Icon: Pencil, onSelect: () => setStatus('DRAFT') },
-        { label: 'People', value: people, count: true, tone: 'sent', Icon: Users },
-        { label: 'Components', value: components.length, count: true, tone: 'partial', Icon: SlidersHorizontal },
-      ]}
+      countLine={countItems([
+        { label: 'Active', value: counts.ACTIVE, count: true, tone: 'paid', onSelect: () => setStatus('ACTIVE') },
+        { label: 'Draft', value: counts.DRAFT, count: true, tone: 'outstanding', onSelect: () => setStatus('DRAFT') },
+        { label: 'People', value: people, count: true, tone: 'sent' },
+        { label: 'Components', value: components.length, count: true, tone: 'partial' },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -303,7 +304,7 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
         .catch((e) => {
           if (seq.current === mine) {
             setPreview(null);
-            setPreviewError(String(e?.message || 'Could not work this structure out.'));
+            setPreviewError(errorWords(e, 'calculate this structure'));
           }
         });
     }, 300);
@@ -353,7 +354,7 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
       notify.success(`${form.name} saved.`);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not save that structure.'));
+      notify.error(errorWords(err, 'save that structure'));
     } finally {
       setSaving(false);
     }
@@ -570,7 +571,7 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
                 <option value="">Add a component…</option>
                 {unused.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} — {c.type === 'EARNING' ? 'earning' : c.type === 'DEDUCTION' ? 'deduction' : 'employer cost'}
+                    {c.name} · {c.type === 'EARNING' ? 'earning' : c.type === 'DEDUCTION' ? 'deduction' : 'employer cost'}
                   </option>
                 ))}
               </select>
@@ -654,13 +655,17 @@ const Figure = ({ label, value, strong = false }) => (
   </div>
 );
 
+/* What a percentage is of, in words: "40% of CTC for the period", never "40% of MONTHLY_CTC". */
+const BASE_WORDS = { BASIC: 'Basic', GROSS: 'gross for the period', MONTHLY_CTC: 'CTC for the period', CTC: 'CTC for the whole year' };
+
 /** How a line is worked out, taking the structure's override into account. */
 const describeLine = (line, component) => {
   const method = line.calculationMethod || component?.calculationMethod;
   if (line.isBalancing || method === 'BALANCING') return 'Balance of CTC';
   if (method === 'PERCENTAGE') {
     const pct = line.percentage ?? component?.percentage;
-    const base = line.calculationBase || component?.calculationBase || '—';
+    const id = line.calculationBase || component?.calculationBase;
+    const base = BASE_WORDS[id] || id || '—';
     return `${Number(pct || 0)}% of ${base}`;
   }
   if (method === 'FORMULA') return line.formula || component?.formula || 'Formula';

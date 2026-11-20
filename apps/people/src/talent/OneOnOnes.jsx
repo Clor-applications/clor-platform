@@ -32,7 +32,7 @@ export default function OneOnOnes() {
   return (
     <div className="space-y-6">
       <ListHeader
-        module="Talent"
+        module="Performance"
         title="One-on-ones"
         description="What you talked about with each person in your team, and what you both agreed."
         primary={reports.length ? { label: 'New one-on-one', icon: Plus, onClick: () => setEditing(blank) } : null}

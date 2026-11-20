@@ -64,6 +64,7 @@ import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employ
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { addDays as addDaysIso, todayIst } from '../utils/istDate.js';
 import { BLOOD_GROUPS, FOOD_PREFERENCES, HIRE_SOURCES, HR_ONLY_FIELDS, RECORD_EXTRAS_PERSONAL, RECORD_EXTRAS_TEXT, languageWord, normaliseLanguages } from '../services/people/recordExtras.js';
+import { statusWords } from '../utils/statusWords.js';
 
 /**
  * People: the staff directory.
@@ -269,7 +270,7 @@ async function resolveStructure(orgId: string, b: EmployeeBody, existing?: { bra
       return null;
     }
     const row = await find(id);
-    if (!row) throw Object.assign(new Error(`That ${String(key).replace(/Id$/, '')} is not in this organisation.`), { status: 400 });
+    if (!row) throw Object.assign(new Error(`That ${String(key).replace(/Id$/, '')} is not in this company.`), { status: 400 });
     out[key as string] = id;
     return row;
   };
@@ -304,7 +305,7 @@ async function checkManager(orgId: string, employeeId: string | null, managerId:
       where: { id: cursor, orgId },
       select: { id: true, reportingManagerId: true },
     });
-    if (!row) throw Object.assign(new Error('That manager is not in this organisation.'), { status: 400 });
+    if (!row) throw Object.assign(new Error('That manager is not in this company.'), { status: 400 });
     if (employeeId && row.reportingManagerId === employeeId) {
       throw Object.assign(new Error('That would make a reporting loop: the manager already reports to this person.'), { status: 400 });
     }
@@ -386,7 +387,7 @@ const withMeta = async (orgId: string, rows: any[]) => {
 
 const sendError = (res: any, e: any) => {
   if (e?.status) return res.status(e.status).json({ error: e.message, ...(e.expose && e.code ? { code: e.code } : {}) });
-  if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'That code, name or reader ID is already used in this organisation.' });
+  if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'That code, name or reader ID is already used in this company.' });
   throw e;
 };
 
@@ -480,7 +481,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/statutory/reveal', can(Perm
   const field = String(req.body?.field || '');
   const payrollField = (PAYROLL_STATUTORY_FIELDS as readonly string[]).includes(field);
   const peopleField = ['passportNumber', 'workPermitNumber'].includes(field);
-  if (!payrollField && !peopleField) return res.status(400).json({ error: 'Say which value to show: pan, uan, esic, account, passportNumber or workPermitNumber.' });
+  if (!payrollField && !peopleField) return res.status(400).json({ error: 'Choose what to show: PAN, UAN, ESIC number, bank account, passport or work permit.' });
   const refused = await stepUpRefusal(req, 'Showing a full identifier needs an authenticator app. Set one up in your profile first (your name or picture, top right).');
   if (refused) return res.status(refused.status).json(refused.body);
   const value = payrollField
@@ -1388,7 +1389,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/checklist/:kind', can(Permi
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const kind = kindParam(req.params.kind);
-  if (!kind) return res.status(404).json({ error: 'Checklists are JOINING or LEAVING.' });
+  if (!kind) return res.status(404).json({ error: 'No such checklist: choose the joining or the leaving checklist.' });
   const employee = await scopedEmployee(req, String(req.params.id));
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const started = await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, kind, kind === 'JOINING' ? employee.dateOfJoining : employee.dateOfLeaving);
@@ -1470,7 +1471,7 @@ peopleRouter.put('/orgs/:orgId/people/checklist-templates/:kind', can(Permission
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const kind = kindParam(req.params.kind);
-  if (!kind) return res.status(404).json({ error: 'Checklists are JOINING or LEAVING.' });
+  if (!kind) return res.status(404).json({ error: 'No such checklist: choose the joining or the leaving checklist.' });
   const items = cleanItems(req.body?.items);
   if (typeof items === 'string') return res.status(400).json({ error: items });
   /* "Only for" names this company's employment types, nothing else. */
@@ -1489,7 +1490,7 @@ peopleRouter.delete('/orgs/:orgId/people/checklist-templates/:kind', can(Permiss
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const kind = kindParam(req.params.kind);
-  if (!kind) return res.status(404).json({ error: 'Checklists are JOINING or LEAVING.' });
+  if (!kind) return res.status(404).json({ error: 'No such checklist: choose the joining or the leaving checklist.' });
   await peoplePrisma.checklistTemplate.deleteMany({ where: { orgId, kind } });
   await recordAudit(req, { entity: 'ChecklistTemplate', entityId: kind, action: 'RESET', message: `${kind === 'JOINING' ? 'Joining' : 'Leaving'} steps back to CLOR's defaults`, metadata: { kind } });
   res.json(await itemsFor(orgId, kind));
@@ -1676,9 +1677,9 @@ peopleRouter.put('/orgs/:orgId/people/employees/:id/user', can(PermissionAction.
     /* Linking your own login to a record makes its manager approvals and self-service yours: only an administrator may do that to themselves. */
     if (userId === req.auth!.userId && !req.isAdmin) return res.status(403).json({ error: 'Ask an administrator to link your own sign-in.' });
     const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
-    if (!member) return res.status(400).json({ error: 'That login is not a member of this company.' });
+    if (!member) return res.status(400).json({ error: 'That sign-in is not a member of this company.' });
     const other = await peoplePrisma.employee.findFirst({ where: { orgId, userId, id: { not: existing.id } }, select: { name: true } });
-    if (other) return res.status(409).json({ error: `That login is already linked to ${other.name}.` });
+    if (other) return res.status(409).json({ error: `That sign-in is already linked to ${other.name}.` });
   }
   if ((existing.userId || null) === userId) return res.json({ employee: (await withMeta(orgId, [existing]))[0] });
   const { row } = await updateEmployee(actorOf(req, 'FORM', userId ? 'Linked a sign-in' : 'Removed the sign-in link'), existing, { userId });
@@ -2300,7 +2301,7 @@ async function badHead(orgId: string, id: string, keep: string | null) {
 peopleRouter.get('/orgs/:orgId/people/structure/:kind', can(PermissionAction.VIEW, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const kind = kindOf(req);
-  if (!kind) return res.status(404).json({ error: 'Unknown list.' });
+  if (!kind) return res.status(404).json({ error: 'No such list.' });
   const { accountId, orgId } = req.tenant!;
   const cfg = STRUCTURE_KINDS[kind];
   /* "Detailed structure" is decided once for a company that already uses these lists (organization.ts). */
@@ -2361,7 +2362,7 @@ async function badStructureRef(orgId: string, model: string, data: Record<string
 peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CREATE, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const kind = kindOf(req);
-  if (!kind) return res.status(404).json({ error: 'Unknown list.' });
+  if (!kind) return res.status(404).json({ error: 'No such list.' });
   const { accountId, orgId } = req.tenant!;
   const parsed = structureSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid.' });
@@ -2402,12 +2403,12 @@ peopleRouter.post('/orgs/:orgId/people/structure/:kind', can(PermissionAction.CR
 peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const kind = kindOf(req);
-  if (!kind) return res.status(404).json({ error: 'Unknown list.' });
+  if (!kind) return res.status(404).json({ error: 'No such list.' });
   const { orgId, accountId } = req.tenant!;
   const cfg = STRUCTURE_KINDS[kind];
   const model: any = (peoplePrisma as any)[cfg.model];
   const existing = await model.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'Not found.' });
+  if (!existing) return res.status(404).json({ error: 'No such entry. It may have been removed; reload the list.' });
   const parsed = structureSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid.' });
   if (kind === 'departments' && parsed.data.parentId === existing.id) {
@@ -2474,12 +2475,12 @@ peopleRouter.put('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction
 peopleRouter.delete('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAction.DELETE, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const kind = kindOf(req);
-  if (!kind) return res.status(404).json({ error: 'Unknown list.' });
+  if (!kind) return res.status(404).json({ error: 'No such list.' });
   const { accountId, orgId } = req.tenant!;
   const cfg = STRUCTURE_KINDS[kind];
   const model: any = (peoplePrisma as any)[cfg.model];
   const existing = await model.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'Not found.' });
+  if (!existing) return res.status(404).json({ error: 'No such entry. It may have been removed; reload the list.' });
   const inUse = cfg.usedBy
     ? await peoplePrisma.employee.count({ where: { orgId, [cfg.usedBy]: existing.id } as any })
     : await peoplePrisma.establishment.count({ where: { orgId, legalEntityId: existing.id } });
@@ -2503,7 +2504,7 @@ peopleRouter.delete('/orgs/:orgId/people/structure/:kind/:id', can(PermissionAct
 peopleRouter.post('/orgs/:orgId/people/structure/:kind/:id/merge', can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const kind = kindOf(req);
-  if (!kind) return res.status(404).json({ error: 'Unknown list.' });
+  if (!kind) return res.status(404).json({ error: 'No such list.' });
   if (!MERGEABLE.has(kind)) return res.status(400).json({ error: `${KIND_LABEL[kind]}s cannot be merged.` });
   if (!(await wholeCompany(req, res))) return;
   const refused = await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES);
@@ -2536,7 +2537,7 @@ peopleRouter.post('/orgs/:orgId/people/branches/:branchId/retire', requirePermis
 peopleRouter.get('/orgs/:orgId/people/structure-history', can(PermissionAction.VIEW, STRUCTURE), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const kindAsked = String(req.query.kind || '').trim();
-  if (kindAsked && kindAsked !== 'branches' && !(kindAsked in STRUCTURE_KINDS)) return res.status(400).json({ error: 'Unknown list.' });
+  if (kindAsked && kindAsked !== 'branches' && !(kindAsked in STRUCTURE_KINDS)) return res.status(400).json({ error: 'No such list.' });
   const { orgId } = req.tenant!;
   res.json(await structureHistory(orgId, {
     kind: (kindAsked || null) as Kind | null,
@@ -2761,7 +2762,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/documents', can(PermissionA
   const employee = await scopedEmployee(req, String(req.params.id), { id: true });
   if (!employee) return res.status(404).json({ error: 'No such employee.' });
   const kind = String(req.body?.kind || 'OTHER').toUpperCase();
-  if (!DOC_KINDS.has(kind)) return res.status(400).json({ error: 'Unknown document kind.' });
+  if (!DOC_KINDS.has(kind)) return res.status(400).json({ error: 'Choose a kind of document from the list.' });
   /* Nobody files what they could not open themselves: a team manager adds only files the person can see, and no payslip. */
   if (!docOpens(await docAccess(req), { classification, kind, employeeId: employee.id })) {
     return res.status(403).json({ error: kind === 'PAYSLIP' ? 'Only HR adds payslips to someone\'s file.' : 'Only HR adds files the person cannot see. Choose "The person and HR", or ask HR to add it.' });
@@ -2836,9 +2837,9 @@ peopleRouter.post('/orgs/:orgId/people/data-requests/:id/resolve', can(Permissio
   const { accountId, orgId } = req.tenant!;
   const r = await peoplePrisma.dataRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
-  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${r.status.toLowerCase()}.` });
+  if (r.status !== 'PENDING') return res.status(409).json({ error: `This request was already ${statusWords(r.status)}.` });
   const status = String(req.body?.status || '').toUpperCase();
-  if (!['RESOLVED', 'REJECTED'].includes(status)) return res.status(400).json({ error: 'status must be RESOLVED or REJECTED.' });
+  if (!['RESOLVED', 'REJECTED'].includes(status)) return res.status(400).json({ error: 'Choose resolved or rejected.' });
   const resolution = String(req.body?.resolution || '').trim().slice(0, 2000);
   if (!resolution) return res.status(400).json({ error: 'Say what was done. The person reads this.' });
   const updated = await peoplePrisma.dataRequest.update({ where: { id: r.id }, data: { status, resolution, reviewedByUserId: req.auth!.userId, reviewedAt: new Date() } });

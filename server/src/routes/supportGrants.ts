@@ -21,6 +21,8 @@ import {
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { audit } from './ops.js';
+import { otherCompany } from '../utils/companyWords.js';
+import { timeWords } from '../utils/istDate.js';
 
 /**
  * Support grants (docs/workspace/SUPPORT_GRANTS.md): CLOR staff ask on the
@@ -46,7 +48,7 @@ const EDIT = requirePermission('SETTINGS', PermissionAction.EDIT, 'Users');
 
 const orgOk = (req: Request, res: Response) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;
@@ -67,7 +69,7 @@ supportGrantsRouter.post(`${base}/:id/approve`, EDIT, async (req, res) => {
       grantId: g!.id,
       action: 'APPROVED',
       byUserId: req.auth!.userId,
-      message: `Let CLOR support in, ${g!.scope === 'READ_WRITE' ? 'to read and change' : 'to read only'}, until ${g!.expiresAt!.toISOString()}`,
+      message: `Let CLOR support in, ${g!.scope === 'READ_WRITE' ? 'to read and change' : 'to read only'}, until ${timeWords(g!.expiresAt!)}`,
     });
     res.json({ ok: true });
   } catch (e) {

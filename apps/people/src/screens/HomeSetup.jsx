@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Check } from '@ui/components/ui/lineIcons';
 
@@ -42,7 +43,7 @@ export default function HomeSetup({ openScreen, onState }) {
     try {
       apply(await changePeopleSetup(body));
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
+      notify.error(errorWords(e, 'make the change'));
     } finally {
       setBusy('');
     }
@@ -56,7 +57,7 @@ export default function HomeSetup({ openScreen, onState }) {
       notify.success('Simple mode is off: every People screen is in the menu.');
       apply(await changePeopleSetup({ action: 'simpleAdviceSeen' }));
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
+      notify.error(errorWords(e, 'make the change'));
     } finally {
       setBusy('');
     }

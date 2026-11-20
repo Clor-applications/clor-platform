@@ -69,7 +69,7 @@ describe('email verification', () => {
     expect(sent?.status).toBe('SENT');
     // The link, not a placeholder, must reach the recipient.
     expect(sent?.bodyText).toContain('/?verify=');
-    expect(sent?.subject).toBe('Confirm your email address');
+    expect(sent?.subject).toBe('Confirm your email for CLOR');
   });
 
   it('marks the address verified, once', async () => {
@@ -91,7 +91,7 @@ describe('email verification', () => {
       .post('/api/auth/verify-email')
       .send({ token: signup.body.devVerifyToken })
       .expect(400);
-    expect(String(second.body.error)).toMatch(/already been used/i);
+    expect(String(second.body.error)).toMatch(/already used/i);
   });
 
   it('rejects a bogus token', async () => {
@@ -346,7 +346,7 @@ describe('notifications on real events', () => {
 
     const msg = await platformPrisma.emailOutbox.findFirst({ where: { toEmail: email, templateKey: 'auth.user_invited' } });
     expect(msg?.status).toBe('SENT');
-    expect(msg?.subject).toMatch(/added to/i);
+    expect(msg?.subject).toMatch(/added you to/i);
   });
 
   it('records a delivery failure with its reason instead of losing the message', async () => {

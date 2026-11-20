@@ -7,7 +7,7 @@ import { includedIn, shownApps } from '@platform/includedApps';
  * A key no app claims goes under "Every app", so a new email is never hidden.
  */
 export const EMAIL_APPS = [
-  { id: 'accounting', label: 'Accounting', prefixes: ['invoice.', 'approval.'] },
+  { id: 'accounting', label: 'Books', prefixes: ['invoice.', 'approval.'] },
   { id: 'people', label: 'People', prefixes: ['people.'] },
   { id: 'attendance', label: 'Attendance', prefixes: ['attendance.', 'reports.'] },
   { id: 'payroll', label: 'Payroll', prefixes: ['payroll.'] },

@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { Avatar } from '@ui/personnel/Employees';
 import '../people-core.css';
@@ -36,7 +37,7 @@ export const STATES = [...new Set(Object.values(GST_STATE_BY_CODE).filter((s) =>
 
 export const KINDS = {
   departments: {
-    blurb: 'Teams and who heads them. Heads approve leave when the reporting manager is away.', title: 'Departments', singular: 'department', screen: 'departments',
+    blurb: 'Departments and who heads each. The head approves leave when the manager is away.', title: 'Departments', singular: 'department', screen: 'departments',
     fields: [
       { key: 'parentId', label: 'Under', type: 'ref', ref: 'departments', placeholder: 'Top level', tree: true },
       { key: 'headEmployeeId', label: 'Head', type: 'person', placeholder: 'Not set' },
@@ -210,11 +211,11 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
     .sort((a, b) => (TREE_KEY[kind] ? pathOf(items, a, TREE_KEY[kind]).localeCompare(pathOf(items, b, TREE_KEY[kind])) : a.name.localeCompare(b.name)));
 
   const reactivate = async (r) => {
-    try { await updateItem(kind, r.id, { name: r.name, isActive: true }); notify.success(`${r.name} is back in use.`); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not changed.')); }
+    try { await updateItem(kind, r.id, { name: r.name, isActive: true }); notify.success(`${r.name} is back in use.`); req.reload(); } catch (e) { notify.error(errorWords(e, 'make the change')); }
   };
   const remove = async (r) => {
     if (!(await confirmDialog({ title: `Delete ${r.name}?`, message: 'Nobody uses it, so it goes for good. Retire it instead to keep it in the history.', confirmLabel: 'Delete' }))) return;
-    try { await deleteItem(kind, r.id); notify.success('Deleted.'); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
+    try { await deleteItem(kind, r.id); notify.success(`${r.name} deleted.`); req.reload(); } catch (e) { notify.error(errorWords(e, 'delete it')); }
   };
   const blockedRemove = async (r) => {
     if (await confirmDialog(blockedDelete(r.name, r.employeeCount, cfg.singular))) openScreen?.('employees', { dept: r.id });
@@ -263,7 +264,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
         title={cfg.title}
         description={cfg.blurb || `The ${noun} people are filed under, in use or retired, and how many are in each.`}
         primary={canCreate ? { label: `Add ${cfg.singular}`, icon: Plus, onClick: () => setEditing({ name: '', isActive: true }) } : null}
-        toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search" label={`Search ${noun}`} className="w-full sm:w-80" />}
+        toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />}
         toolbarEnd={req.data ? <span className="pc-note tabular-nums" aria-live="polite">{shown.length} {shown.length === 1 ? 'item' : 'items'}</span> : null}
         tabs={[{ key: 'active', label: 'In use', count: counts.active }, { key: 'retired', label: 'Retired', count: counts.retired }]}
         tab={tab}
@@ -292,7 +293,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
             ? <EmptyState kind="filtered" title={`No ${noun} match`} description="Nothing here matches the search." />
             : tab === 'retired'
               ? <EmptyState title={`No retired ${noun}`} description="What you retire stays here, with its history." />
-              : <EmptyState title={`No ${noun} yet`} description={`People are filed under ${noun} once there is one to file them under.`} routes={canCreate ? [{ label: `Add ${cfg.singular}`, onSelect: () => setEditing({ name: '', isActive: true }) }] : undefined} />}
+              : <EmptyState title={`No ${noun} yet`} description={`The ${noun} you add appear here, with how many people are in each.`} routes={canCreate ? [{ label: `Add ${cfg.singular}`, onSelect: () => setEditing({ name: '', isActive: true }) }] : undefined} />}
         />
       )}
       {editing ? <EditDrawer kind={kind} cfg={cfg} value={editing} items={items} refs={req.data?.refs || {}} staff={req.data?.staff || []} onClose={() => { setEditing(null); if (params.new) updateParams?.({ new: null }); }} onDone={() => { setEditing(null); if (params.new) updateParams?.({ new: null }); req.reload(); }} onRetire={(r) => { setEditing(null); setRetiring(r); }} /> : null}

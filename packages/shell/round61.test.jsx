@@ -22,7 +22,7 @@ describe('round 61: "How this works" for the screen (pagehelp A)', () => {
     render(<ScreenHelp appId="admin" screen="invitations" onOpenHelpCentre={toCentre} />);
     fireEvent.click(screen.getByRole('button', { name: 'How this works ›' }));
     expect(screen.getByText('Send an invitation')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Open in the Help centre' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open in Help centre' }));
     expect(toCentre).toHaveBeenCalledWith('invite');
   });
 

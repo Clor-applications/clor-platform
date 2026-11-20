@@ -129,7 +129,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
               ))}
             </ul>
           ) : (
-            <p className="ui-caption px-2 py-3">Nothing yet. Approvals, reader alerts, bank changes and directory changes land here.</p>
+            <p className="ui-caption px-2 py-3">No notifications yet. Approvals, attendance machine alerts and bank detail changes will appear here.</p>
           )}
           {mutes.length ? (
             <div className="border-t px-2 pt-2 mt-1" style={{ borderColor: 'rgb(var(--border))' }}>

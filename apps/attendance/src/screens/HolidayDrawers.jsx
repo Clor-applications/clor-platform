@@ -6,6 +6,7 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { dayLabel, getHolidayCalendars, getRestrictedPicks, importHolidayCalendar } from '../api/attendance';
+import { errorWords } from '@ui/utils/errorWords';
 
 /*
  * Holidays per branch (time depth, gaps 17 and 22): a built-in calendar —
@@ -37,7 +38,7 @@ export function CalendarImport({ year, onClose, onDone }) {
     setPreview(null);
     if (!key) return undefined;
     let live = true;
-    importHolidayCalendar({ key, branchId: branchId || null, dryRun: true }).then((r) => { if (live) setPreview(r); }).catch((e) => { if (live) setPreview({ error: String(e?.message || 'Could not check.') }); });
+    importHolidayCalendar({ key, branchId: branchId || null, dryRun: true }).then((r) => { if (live) setPreview(r); }).catch((e) => { if (live) setPreview({ error: errorWords(e, 'check it') }); });
     return () => { live = false; };
   }, [key, branchId]);
 
@@ -48,7 +49,7 @@ export function CalendarImport({ year, onClose, onDone }) {
       notify.success(`${r.added.length} holiday${r.added.length === 1 ? '' : 's'} added${r.skipped.length ? `; ${r.skipped.length} already there or in a closed month` : ''}.`);
       onDone(Number(cal?.year) || pickYear);
     } catch (e) {
-      notify.error(String(e?.message || 'Not added.'));
+      notify.error(errorWords(e, 'add it'));
     } finally {
       setBusy(false);
     }

@@ -10,6 +10,7 @@ import { FROM_ACCOUNTING, LOGO, SECTIONS, bodyOf, editableOf, filled, isDirty, l
 import { Loading, PageHead } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('office-building');
@@ -68,7 +69,7 @@ export default function CompanyProfile() {
         setForm(r.company);
         setSaved(r.company);
       })
-      .catch((e) => setError(String(e?.message || 'Could not load the company profile.')));
+      .catch((e) => setError(errorWords(e, 'load the company profile')));
     /* The logo lives in Accounting's company settings; a page without it still works. */
     me()
       .then((r) => setLogo(logoFromMe(r, platformOrgId())))
@@ -87,7 +88,7 @@ export default function CompanyProfile() {
       setSaved(r.company);
       notify.success('Company profile saved.');
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the company profile'));
     } finally {
       setSaving(false);
     }
@@ -99,8 +100,8 @@ export default function CompanyProfile() {
         <PageHead
           crumbs={['Home', 'Company profile']}
           icon={PAGE_ICON}
-          title={form?.name || 'Company profile'}
-          description="Who the company is, on its letters, tax forms and invoices."
+          title="Company profile"
+          description={`${form?.name ? `${form.name}: who` : 'Who'} the company is, on its letters, tax forms and invoices.`}
           actions={
             form ? (
               <button type="submit" form="company-profile" className="ws-btn ws-btn--primary" disabled={saving || !dirty}>

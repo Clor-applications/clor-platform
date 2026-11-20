@@ -76,7 +76,7 @@ describe('Invoices list', () => {
     api.list.mockResolvedValue({ invoices: [{ ...issued, buyerName: 'Kaveri Traders', overdue: true }, { id: 'd1', number: null, status: 'DRAFT', total: 100000, buyerName: 'Godavari Foods', booksStatus: 'NOT_SENT' }], hasMore: false, totals: { ISSUED: { count: 1, amount: 247500 }, OVERDUE: { count: 1, amount: 247500 } } });
     const open = vi.fn();
     render(<Invoices role="BILLING" openInvoice={open} />);
-    expect(await screen.findByText('1 unpaid, ₹2,475; 1 overdue')).toBeTruthy();
+    expect(await screen.findByText('1 unpaid, ₹2,475 · 1 overdue')).toBeTruthy();
     const rows = screen.getAllByRole('row');
     expect(within(rows[1]).getByText('Overdue')).toBeTruthy();
     expect(within(rows[1]).getByText('₹2,475')).toBeTruthy();
@@ -435,7 +435,7 @@ describe('Invoice settings', () => {
     expect(await screen.findByText('Next invoice: CLOR/26-27/0001')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Next number'), { target: { value: '41' } });
     expect(screen.getByText(/The next one issued is CLOR\/26-27\/0041/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save numbering' }));
     await waitFor(() => expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ prefix: 'CLOR', nextNumber: 41, dueDays: 15 })));
 
     fireEvent.change(screen.getByLabelText('CLOR’s account'), { target: { value: 'Clor' } });

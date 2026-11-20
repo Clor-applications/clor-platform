@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -44,7 +45,7 @@ export default function Plans({ params = {} }) {
   return (
     <div className="space-y-6">
       <ListHeader
-        module="Talent"
+        module="Performance"
         title="Improvement plans"
         description="Plans agreed with someone whose work needs to change: why, what is expected, and by when."
         primary={canStart ? { label: 'New plan', icon: Plus, onClick: () => setCreating(true) } : null}
@@ -81,7 +82,7 @@ function PlanDrawer({ plan: p, onClose, onChanged }) {
     e.preventDefault();
     if (!note.trim()) return;
     setBusy(true);
-    try { await notePlan(p.id, note.trim()); setNote(''); notify.success('Note added.'); onChanged(); } catch (err) { notify.error(String(err?.message || 'Not added.')); } finally { setBusy(false); }
+    try { await notePlan(p.id, note.trim()); setNote(''); notify.success('Note added.'); onChanged(); } catch (err) { notify.error(errorWords(err, 'add it')); } finally { setBusy(false); }
   };
   return (
     <Drawer open onClose={onClose} title={`Plan: ${p.employee?.name || ''}`} widthClass={WIDE_SHEET} dirty={Boolean(note.trim())}
@@ -101,7 +102,7 @@ function PlanDrawer({ plan: p, onClose, onChanged }) {
           {live ? (
             <form onSubmit={addNote} className="flex gap-2">
               <input className="ui-input w-full" maxLength={4000} placeholder="What was seen this week" aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} />
-              <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !note.trim()}>Add</button>
+              <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !note.trim()}>Add note</button>
             </form>
           ) : null}
           {!p.notes.length ? <p className="text-sm ui-muted">None yet.</p> : (

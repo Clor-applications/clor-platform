@@ -3,6 +3,7 @@ import { KeyRound } from '@ui/components/ui/lineIcons';
 import QRCode from 'qrcode';
 
 import { disableTwoFactor, enableTwoFactor, getTwoFactor, startTwoFactor } from './twoFactorApi';
+import { errorWords } from '@ui/utils/errorWords.js';
 import TextCodesCard from './TextCodesCard';
 
 /**
@@ -39,7 +40,7 @@ export default function AuthenticatorCard() {
     try {
       await fn();
     } catch (e) {
-      setNote({ ok: false, text: String(e?.message || 'Not done.') });
+      setNote({ ok: false, text: errorWords(e, 'change two-factor sign-in') });
     } finally {
       setBusy(false);
     }
@@ -104,7 +105,7 @@ export default function AuthenticatorCard() {
           <span className="ui-caption w-full">Set up {new Date(state.enabledAt).toLocaleDateString()} · {state.recoveryCodesLeft} recovery codes left{state.sms?.enabled ? ' (they stay while codes by text message are on)' : ''}.</span>
           <input type="password" className="ui-input" placeholder="Your password" aria-label="Your password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           <input className="ui-input ui-num w-44 text-center tracking-widest" inputMode="text" autoComplete="one-time-code" maxLength={9} placeholder="Code or recovery code" aria-label="Code from the app, or a recovery code" value={offCode} onChange={(e) => setOffCode(e.target.value)} required />
-          <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !password || !offCode.trim()}>Turn off</button>
+          <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !password || !offCode.trim()}>Turn off authenticator</button>
         </form>
       ) : setup ? (
         <form onSubmit={confirm} className="flex flex-wrap items-start gap-4">
@@ -114,7 +115,7 @@ export default function AuthenticatorCard() {
             <p className="ui-caption">Can’t scan? Enter this key: <span className="ui-mono break-all">{setup.secret}</span></p>
             <div className="flex flex-wrap gap-2">
               <input className="ui-input ui-num w-36 text-center tracking-widest" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456" aria-label="Code from the app" value={code} onChange={(e) => setCode(e.target.value)} required />
-              <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.trim().length !== 6}>Turn on</button>
+              <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.trim().length !== 6}>Turn on authenticator</button>
             </div>
           </div>
         </form>

@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import CallButtons from '@ui/components/ui/CallButtons';
 
@@ -31,7 +32,7 @@ const STATUS = {
 };
 const TABS = [['open', 'Open'], ['absconded', 'Absconded'], ['closed', 'Closed']];
 const NEXT = { NOTICE_1: 'Send notice 1', NOTICE_2: 'Send notice 2', RECORD: 'Record the leaving' };
-const CHANNEL = { APP: 'employee app', EMAIL: 'e-mail', POST: 'post' };
+const CHANNEL = { APP: 'employee app', EMAIL: 'email', POST: 'post' };
 /* The India day of a moment: a hold at 05:15 IST on 31 Oct is the 31st, not the UTC 30th (QA retest of #82). */
 const indiaDay = (iso) => (iso ? new Date(Date.parse(iso) + 330 * 60_000).toISOString().slice(0, 10) : '');
 const plus = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
@@ -54,7 +55,7 @@ export default function Absences({ params = {}, updateParams }) {
       notify.success(out.opened ? `${out.opened} new.` : 'Nobody new.');
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not check.'));
+      notify.error(errorWords(e, 'check for absences'));
     } finally {
       setChecking(false);
     }
@@ -64,7 +65,7 @@ export default function Absences({ params = {}, updateParams }) {
     { key: 'name', label: 'Employee', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span> },
     { key: 'since', label: 'Absent since', render: (r) => <span className="tabular-nums whitespace-nowrap">{dayText(r.fromDate)}</span> },
     { key: 'days', label: 'Working days', align: 'right', render: (r) => <span className="tabular-nums">{r.days}</span> },
-    { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap gap-1"><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0] || r.status}</span>{r.backSince ? <span className="ui-pill ui-pill-pos">Back since {dayText(r.backSince)}</span> : null}{r.hold && !r.hold.releasedAt ? <span className="ui-pill ui-pill-warn">Settlement held</span> : null}</span> },
+    { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap gap-1"><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0] || enumWords(r.status)}</span>{r.backSince ? <span className="ui-pill ui-pill-pos">Back since {dayText(r.backSince)}</span> : null}{r.hold && !r.hold.releasedAt ? <span className="ui-pill ui-pill-warn">Settlement held</span> : null}</span> },
     { key: 'next', label: 'Next', render: (r) => (r.next ? <span className="whitespace-nowrap">{NEXT[r.next.step]}{r.next.from && r.next.from > istToday() ? <span className="ui-caption block tabular-nums">from {dayText(r.next.from)}</span> : null}</span> : <span className="ui-caption">—</span>) },
   ];
 
@@ -96,7 +97,7 @@ export default function Absences({ params = {}, updateParams }) {
             <span className="block ui-caption tabular-nums">Since {dayText(r.fromDate)} · {r.days} working days{r.next ? ` · ${NEXT[r.next.step]}` : ''}</span>
           </span>
         )}
-        empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState title={status === 'open' ? 'Nobody is missing' : 'None here'} description={status === 'open' ? `Someone absent ${req.data?.rules?.days || 5} working days in a row with no leave shows here.` : undefined} />}
+        empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState title={status === 'open' ? 'Nobody is missing' : status === 'closed' ? 'No closed cases' : 'Nobody recorded as absconded'} description={status === 'open' ? `Someone absent ${req.data?.rules?.days || 5} working days in a row with no leave shows here.` : undefined} />}
       />
       {open ? <CaseDrawer row={open} rules={req.data?.rules} canAct={canAct} onClose={() => setOpenId(null)} onChanged={() => req.reload()} /> : null}
     </div>
@@ -123,7 +124,7 @@ function CaseDrawer({ row, rules, canAct, onClose, onChanged }) {
     try {
       setCopy(await getNoticeCopy(n.id));
     } catch (e) {
-      notify.error(String(e?.message || 'Could not open it.'));
+      notify.error(errorWords(e, 'open it'));
     }
   };
   const done = () => { setMode(null); onChanged(); };
@@ -144,7 +145,7 @@ function CaseDrawer({ row, rules, canAct, onClose, onChanged }) {
           <div><dt className="ui-t-label">Working days</dt><dd className="tabular-nums">{row.days}</dd></div>
           {row.backSince ? <div className="col-span-2"><dt className="ui-t-label">Back at work since</dt><dd className="tabular-nums">{dayText(row.backSince)}</dd></div> : null}
           {row.phone ? <div className="col-span-2"><dt className="ui-t-label">Phone</dt><dd><CallButtons phone={row.phone} name={row.name} /></dd></div> : null}
-          <div><dt className="ui-t-label">E-mail</dt><dd className="truncate">{row.email || 'None on file'}</dd></div>
+          <div><dt className="ui-t-label">Email</dt><dd className="truncate">{row.email || 'None on file'}</dd></div>
         </dl>
         <ol className="space-y-3" aria-label="What has happened">
           <Step done title={`Found ${dayText(row.createdAt)}`} />
@@ -177,7 +178,7 @@ function CaseDrawer({ row, rules, canAct, onClose, onChanged }) {
 function NoticeLine({ n, onRead }) {
   return (
     <span className="ui-caption block">
-      By {n.channels.map((c) => CHANNEL[c] || c).join(', ')}{n.emailTo ? ` (${n.emailTo}${n.emailStatus && n.emailStatus !== 'SENT' ? `, ${n.emailStatus.toLowerCase()}` : ''})` : ''}{n.postRef ? `, post ${n.postRef}` : ''}. Answer by {dayText(n.reportBy)}.{' '}
+      By {n.channels.map((c) => CHANNEL[c] || enumWords(c)).join(', ')}{n.emailTo ? ` (${n.emailTo}${n.emailStatus && n.emailStatus !== 'SENT' ? `, ${n.emailStatus.toLowerCase()}` : ''})` : ''}{n.postRef ? `, post ${n.postRef}` : ''}. Answer by {dayText(n.reportBy)}.{' '}
       <button type="button" className="ui-link" onClick={onRead}>Read it</button>
     </span>
   );
@@ -205,7 +206,7 @@ const useAct = (fn, onDone, ok) => {
       notify.success(ok);
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setBusy(false);
     }
@@ -227,7 +228,7 @@ function NoticeForm({ row, rules, onCancel, onDone }) {
         <DateField label="Report back or explain by" value={reportBy} min={plus(istToday(), 1)} onChange={(v) => setReportBy(v || '')} />
         <label className="block"><span className="ui-label">Signed by</span><SuggestInput value={signatory} onChange={setSignatory} suggestions={me?.fullName ? [`${me.fullName}, HR`, `${me.fullName}, Owner`] : []} maxLength={120} /></label>
       </div>
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={email} disabled={!row.email} onChange={(e) => setEmail(e.target.checked)} />{row.email ? `E-mail it to ${row.email}` : 'No e-mail on file'}</label>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={email} disabled={!row.email} onChange={(e) => setEmail(e.target.checked)} />{row.email ? `Email it to ${row.email}` : 'No email on file'}</label>
       <label className="block"><span className="ui-label">Also posted: reference</span><SuggestInput value={postRef} onChange={setPostRef} suggestions={[]} maxLength={120} placeholder="Registered post number" /></label>
       <p className="ui-caption">It goes into {row.name}’s documents and employee app too.</p>
     </FormShell>
@@ -279,7 +280,7 @@ function HoldForm({ row, release, onCancel, onDone }) {
   const [text, setText] = useState('');
   const [busy, run] = useAct(() => (release ? releaseSettlement(row.id, text) : holdSettlement(row.id, text)), onDone, release ? 'Released.' : 'Held.');
   return (
-    <FormShell title={release ? 'Release the settlement' : 'Hold the settlement'} busy={busy} ready={text.trim().length > 2} label={release ? 'Release' : 'Hold'} onCancel={onCancel} onSubmit={run}>
+    <FormShell title={release ? 'Release the settlement' : 'Hold the settlement'} busy={busy} ready={text.trim().length > 2} label={release ? 'Release settlement' : 'Hold settlement'} onCancel={onCancel} onSubmit={run}>
       <label className="block"><span className="ui-label">Why</span><SuggestInput value={text} onChange={setText} suggestions={release ? ['Laptop returned', 'Came in to settle'] : ['Company laptop not returned', 'Advance to recover']} maxLength={300} /></label>
     </FormShell>
   );

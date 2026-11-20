@@ -6,6 +6,7 @@ import SuggestInput from '@ui/components/ui/SuggestInput';
 import ErrorState from '@ui/components/ui/ErrorState';
 import { notify } from '@ui/components/ui/notify';
 import { getWebClock, saveWebClock } from '../api/attendance';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Clock-in from a browser (audit 7 Nov 2026, #6): whether it counts at all, and
@@ -31,7 +32,7 @@ export default function WebClockSettings({ onClose, canEdit = true }) {
 
   const suggestions = useMemo(() => [
     ...(data?.yourAddress ? [{ value: data.yourAddress, hint: 'This network' }] : []),
-    ...((data?.recent || []).map((r) => ({ value: r.address, hint: `${r.clockIns} clock-in${r.clockIns === 1 ? '' : 's'}` }))),
+    ...((data?.recent || []).map((r) => ({ value: r.address, hint: `${r.clockIns} punch${r.clockIns === 1 ? '' : 'es'}` }))),
   ], [data]);
   const original = JSON.stringify([data?.allowed !== false, data?.addresses || []]);
   const cleaned = rows.map((r) => r.trim()).filter(Boolean);
@@ -42,17 +43,17 @@ export default function WebClockSettings({ onClose, canEdit = true }) {
     setProblem('');
     try {
       await saveWebClock({ allowed, addresses: cleaned });
-      notify.success(!allowed ? 'Clock-in from a browser is off.' : cleaned.length ? 'Clock-in from a browser counts from these addresses only.' : 'Clock-in from a browser counts from anywhere.');
+      notify.success(!allowed ? 'Punching from a browser is off.' : cleaned.length ? 'Punches from a browser count from these addresses only.' : 'Punches from a browser count from anywhere.');
       onClose();
     } catch (e) {
-      setProblem(String(e?.message || 'Not saved.'));
+      setProblem(errorWords(e, 'save the changes'));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Drawer open onClose={onClose} dirty={dirty} title="Clock-in from a browser" widthClass="w-[min(32rem,96vw)] ui-drawer-sheet"
+    <Drawer open onClose={onClose} dirty={dirty} title="Punch from a browser" widthClass="w-[min(32rem,96vw)] ui-drawer-sheet"
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
         {canEdit ? <button type="button" className="ui-btn ui-btn-primary" disabled={!data || busy || !dirty} aria-busy={busy || undefined} onClick={save}>Save</button> : null}
@@ -63,7 +64,7 @@ export default function WebClockSettings({ onClose, canEdit = true }) {
           <label className="flex items-start gap-2">
             <input type="checkbox" className="ui-checkbox mt-0.5" checked={allowed} disabled={!canEdit} onChange={(e) => setAllowed(e.target.checked)} />
             <span>
-              <span className="block font-medium">Clock in and out from a browser</span>
+              <span className="block font-medium">Punch in and out from a browser</span>
               <span className="ui-caption">Off, only readers and phone punches count. People set to punch from their phone always punch there.</span>
             </span>
           </label>

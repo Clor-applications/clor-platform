@@ -186,7 +186,7 @@ export async function tellStaff(opened: { title: string; severity: string; audie
       transactional: true,
       relatedType: 'OpsAlert',
       data: {
-        userName: u.fullName || u.email,
+        userName: u.fullName || '',
         count: String(mine.length),
         headline: critical ? `${plural(critical, 'urgent alert')} on CLOR` : `${plural(mine.length, 'new alert')} on CLOR`,
         list: mine.map((a) => `- ${a.severity === 'critical' ? '[urgent] ' : ''}${a.title}${a.detail ? `\n  ${a.detail}` : ''}`).join('\n'),

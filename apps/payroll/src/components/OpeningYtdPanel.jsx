@@ -8,6 +8,7 @@ import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { wholeRupees as money } from '@ui/utils/money';
 import { importOpeningYtd, listOpeningYtd, setFirstPayrollYear } from '../api/payrollTaxDeclarations';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Earlier this year, before CLOR: everyone's opening figures for the year in
@@ -60,7 +61,7 @@ function Panel({ fy, onClose, onOpenPerson }) {
         setData(r);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load the figures.')));
+      .catch((e) => setError(errorWords(e, 'load the figures')));
   }, [fy]);
   useEffect(() => {
     load();
@@ -77,7 +78,7 @@ function Panel({ fy, onClose, onOpenPerson }) {
       setReason('');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the opening figures'));
     } finally {
       setBusy(false);
     }
@@ -97,7 +98,7 @@ function Panel({ fy, onClose, onOpenPerson }) {
       load();
     } catch (err) {
       setProblems(err?.data?.problems || []);
-      notify.error(String(err?.message || 'Nothing was saved.'));
+      notify.error(errorWords(err, 'import the file'));
     } finally {
       setBusy(false);
     }
@@ -154,7 +155,7 @@ function Panel({ fy, onClose, onOpenPerson }) {
             ) : data.canSetFirstYear ? (
               <>
                 <p className="ui-caption">If the company only began paying salaries this year, there is nothing earlier to enter. Say so once and the first payroll goes ahead.</p>
-                <label className="ui-label" htmlFor="first-year-why">Why</label>
+                <label className="ui-label" htmlFor="first-year-why">Reason</label>
                 <SuggestInput id="first-year-why" value={reason} onChange={setReason} maxLength={300} placeholder={`e.g. Company registered in August ${start}`} suggestions={[]} aria-label="Why this is the first year" />
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || reason.trim().length < 5} onClick={() => answer(true)}>
                   This is our first year
@@ -192,7 +193,7 @@ function Panel({ fy, onClose, onOpenPerson }) {
                 </tbody>
               </table>
             </div>
-            <p className="ui-caption">Open someone to enter or change their figures. The file takes the same columns: code, gross, taxable, tds, pt, pf, basic, hra, nps, through and note. A previous employer’s pay goes in Form 12B, not here.</p>
+            <p className="ui-caption">Open someone to enter or change their figures. To fill many at once, use “Download the file to fill”: one row per person, with the same figures as this form. A previous employer’s pay goes in Form 12B, not here.</p>
           </section>
         </div>
       )}

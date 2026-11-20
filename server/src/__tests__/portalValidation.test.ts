@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
+import { fieldWords } from '../middleware/validate.js';
 
 /**
  * Schemas at the edge of the employee portal (platform audit, 11 Nov 2026: 35 body reads and no schema).
@@ -36,8 +37,9 @@ beforeAll(async () => {
 const phone = (m: 'get' | 'post' | 'put' | 'delete', p: string, b?: unknown) => (request(app) as any)[m](`/api/portal${p}`).set('Authorization', `Bearer ${token}`).send(b as any);
 const refused = (r: any, field?: string) => {
   expect(r.status).toBe(400);
-  expect(r.body.error).toMatch(/^Validation error: /);
-  if (field) expect(r.body.error).toContain(`"${field}"`);
+  /* A plain sentence naming the answer in words, never "Validation error:" or the field's key (UX copy audit, 20 Nov 2026). */
+  expect(r.body.error).not.toMatch(/Validation error|Invalid input/);
+  if (field) expect(r.body.error).toContain(fieldWords([field]));
 };
 
 describe('sign-in: malformed input is refused before anything is looked up', () => {
@@ -132,16 +134,16 @@ describe('signed in: each route refuses what it cannot be', () => {
       else expect(x.body.error).toMatch(words);
       return x;
     };
-    await say(phone('post', '/overtime', { date: '1 March', kind: 'OVERTIME', reason: 'Stock count' }), 400, 'date must be YYYY-MM-DD.');
-    await say(phone('post', '/overtime', {}), 400, 'date must be YYYY-MM-DD.');
-    await say(phone('post', '/overtime', { date: '2026-03-01', kind: 'BONUS', reason: 'Stock count' }), 400, 'kind must be OVERTIME or COMP_OFF.');
+    await say(phone('post', '/overtime', { date: '1 March', kind: 'OVERTIME', reason: 'Stock count' }), 400, 'Choose a day.');
+    await say(phone('post', '/overtime', {}), 400, 'Choose a day.');
+    await say(phone('post', '/overtime', { date: '2026-03-01', kind: 'BONUS', reason: 'Stock count' }), 400, 'Choose overtime or comp-off.');
     await say(phone('post', '/overtime', { date: '2026-03-01', kind: '', reason: 'x' }), 400, 'Say what the extra work was for.');
     await say(phone('post', '/data-requests', { type: 'PARTY', details: 'x' }), 400, 'Ask to see, correct or erase your data, name a nominee, or raise a grievance.');
     await say(phone('post', '/data-requests', { type: 'access' }), 400, 'Say what you are asking for.');
     await say(phone('post', '/consent/withdraw', {}), 400, 'Say what you are withdrawing.');
     await say(phone('post', '/approvals/party/abc', { decision: 'approve' }), 400, 'Unknown request type.');
-    await say(phone('post', '/approvals/leave/abc', { decision: 'maybe' }), 400, 'decision must be approve or reject.');
-    await say(phone('post', '/month-review/March/confirm'), 400, 'month must be YYYY-MM.');
+    await say(phone('post', '/approvals/leave/abc', { decision: 'maybe' }), 400, 'Choose approve or reject.');
+    await say(phone('post', '/month-review/March/confirm'), 400, 'Choose a month.');
     await say(phone('post', '/month-review/2026-03/dispute', { note: 'no' }), 400, 'Say what is wrong, so HR can check it.');
     await say(phone('post', '/password', { current: 'not mine', next: 'new pass 123' }), 400, 'Your current password is not right.');
     await say(phone('post', '/password', { current: 'app pass 12', next: 'short' }), 400, 'Use at least 8 characters.');

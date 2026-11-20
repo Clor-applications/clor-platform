@@ -15,6 +15,8 @@ import ColorDots from '@ui/components/ui/ColorDots';
 import { splitShiftLabel } from '../components/round24';
 import { mondayFirst, sortMondayFirst } from '@ui/timeOff/round33';
 import { SettingHelp, ShiftBar } from '@ui/picks/round64';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BLANK = {
@@ -101,7 +103,7 @@ export default function Shifts({ openScreen }) {
   const [status, setStatus] = useState('');
 
   const load = useCallback(() => {
-    listShifts().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load shifts.')));
+    listShifts().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load shifts')));
   }, []);
   useEffect(() => {
     load();
@@ -137,19 +139,18 @@ export default function Shifts({ openScreen }) {
       }
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search shifts…', label: 'Search shifts' }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" onClick={create}>
           <Plus size={16} aria-hidden="true" /> New shift
         </button>
       }
-      cards={[
+      countLine={countItems([
         { label: 'Shifts', value: counts[''], count: true, tone: 'all', Icon: Clock3 },
         { label: 'Active', value: counts.ACTIVE, count: true, tone: 'paid', Icon: CheckCircle2, onSelect: () => setStatus('ACTIVE') },
         { label: 'Night shifts', value: figures.night, count: true, tone: 'sent', Icon: Moon },
         { label: 'People assigned', value: figures.people, count: true, tone: 'outstanding', Icon: Users },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -305,20 +306,20 @@ function ShiftForm({ initial, onClose, onSaved }) {
       notify.success('Shift saved.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setSaving(false);
     }
   };
 
   const remove = async () => {
-    const ok = await confirmDialog({ title: `Delete ${form.name}?`, message: 'Only a shift nobody has used can be deleted.', confirmLabel: 'Yes, delete' });
+    const ok = await confirmDialog({ title: `Delete ${form.name}?`, message: 'Only a shift nobody has used can be deleted.', confirmLabel: 'Delete shift' });
     if (!ok) return;
     try {
       await deleteShift(form.id);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not deleted.'));
+      notify.error(errorWords(err, 'delete it'));
     }
   };
 
@@ -389,8 +390,8 @@ function ShiftForm({ initial, onClose, onSaved }) {
           ) : null}
         </label>
         {num('overtimeAfterMinutes', 'Overtime after (minutes)', 'Blank = after a full day.')}
-        {num('checkInBeforeMinutes', 'Earliest check-in (minutes before start)', 'A punch earlier than this does not count. Blank = no limit.')}
-        {num('checkOutAfterMinutes', 'Latest check-out (minutes after end)', 'A punch later than this does not count. Blank = no limit.')}
+        {num('checkInBeforeMinutes', 'Earliest punch in (minutes before start)', 'A punch earlier than this does not count. Blank = no limit.')}
+        {num('checkOutAfterMinutes', 'Latest punch out (minutes after end)', 'A punch later than this does not count. Blank = no limit.')}
         <label className="flex items-start gap-2 text-sm sm:col-span-2">
           <input type="checkbox" className="ui-checkbox mt-0.5" checked={Boolean(form.autoPick)} disabled={form.endTime <= form.startTime} onChange={(e) => setForm((f) => ({ ...f, autoPick: e.target.checked }))} />
           <span>

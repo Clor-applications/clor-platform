@@ -7,6 +7,7 @@ import { apiFetch } from '@platform/http';
 import { AppTag, Loading, PageHead, ago } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('puzzle-piece');
@@ -37,7 +38,7 @@ const AVAILABLE = [
   { key: 'connectors', label: 'On-site connector', about: 'A small program on your office computer that links readers and Tally to CLOR.', time: true, screen: 'integrations' },
   { key: 'webhooks', label: 'Webhooks', about: 'Addresses CLOR tells when something happens, such as a punch or approved leave.', time: true, screen: 'integrations' },
   { key: 'sso', label: 'Single sign-on', about: 'People sign in with your company account instead of a CLOR password.', app: 'admin', screen: 'sso' },
-  { key: 'scim', label: 'User provisioning (SCIM)', about: 'Your directory adds and removes CLOR users for you.', app: 'admin', screen: 'sso' },
+  { key: 'scim', label: 'Directory sync', about: 'Your directory (Microsoft Entra, Okta, Google) adds and removes CLOR users for you.', app: 'admin', screen: 'sso' },
   { key: 'apiKeys', label: 'API keys', about: 'Keys other systems use to read from or send to CLOR.', app: 'admin', screen: 'credentials' },
 ];
 
@@ -49,7 +50,7 @@ export default function Integrations({ openApp, openScreen }) {
     let live = true;
     getIntegrations()
       .then((r) => live && setRows(r?.integrations || []))
-      .catch((e) => live && setError(e?.message || 'Integrations could not be loaded. Try again in a minute.'));
+      .catch((e) => live && setError(errorWords(e, 'load the integrations')));
     return () => { live = false; };
   }, []);
 
@@ -74,7 +75,7 @@ export default function Integrations({ openApp, openScreen }) {
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
 
         {rows === null && !error ? (
-          <Loading shape="rows" label="Loading…" />
+          <Loading shape="rows" label="Loading integrations…" />
         ) : rows ? (
           <div className="ws-activity-layout">
             <div className="ws-activity-main">

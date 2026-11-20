@@ -87,10 +87,10 @@ describe('the operator console', () => {
     expect(await screen.findByRole('button', { name: 'Asha · Support' })).toBeInTheDocument();
     expect(screen.getByRole('note', { name: 'Staff console' })).toHaveTextContent('CLOR Ops · internal · every action is logged with your name and a reason');
     expect(screen.getByRole('heading', { name: 'Home screen' })).toBeInTheDocument();
-    const nav = screen.getByRole('navigation', { name: 'Operator console' });
-    expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Sales', 'Platform', 'Comms', 'Trust', 'Billing', 'Product']);
+    const nav = screen.getByRole('navigation', { name: 'Staff console' });
+    expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Sales', 'Platform', 'Messages', 'Trust', 'Billing', 'Product']);
     expect([...nav.querySelectorAll('.ops-nav-label')].map((b) => b.textContent.trim())).toEqual([
-      'Overview', 'Insights', 'Accounts', 'Organizations', 'Users', 'Subscriptions', 'Tickets', 'Saved replies', 'Trials', 'Demo requests', 'Explore links', 'Jobs & workers', 'Entitlement denials', 'Feature switches', 'Alerts', 'Status page', 'Announcements', 'Email addresses', 'Email templates', 'Email log', 'Text messages', 'Staff audit log', 'Access requests', 'Approvals', 'Data breaches', 'Pricing', 'Custom plans', 'Offers', 'Invoices', 'Proformas', 'TDS certificates', 'Vendor documents', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Forms on clor.in',
+      'Overview', 'Insights', 'Accounts', 'Companies', 'Users', 'Subscriptions', 'Tickets', 'Saved replies', 'Trials', 'Demo requests', 'Explore links', 'Background jobs', 'Access refused', 'Feature switches', 'Alerts', 'Status page', 'Announcements', 'Email addresses', 'Email templates', 'Email log', 'Text messages', 'Staff audit log', 'Access requests', 'Approvals', 'Data breaches', 'Pricing', 'Custom plans', 'Offers', 'Invoices', 'Proformas', 'TDS certificates', 'Vendor documents', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Forms on clor.in',
     ]);
     expect(screen.queryByRole('button', { name: /Staff and roles/ })).toBeNull();
     /* There is no Gateways entry: the gateways are the Providers tab of Payments. */
@@ -101,7 +101,7 @@ describe('the operator console', () => {
     expect(within(nav).getByRole('button', { name: /Access requests/ })).toHaveTextContent('Access requests1');
     /* Nothing open shows no count, and the lists of everything show none either. */
     expect(within(nav).getByRole('button', { name: /^Alerts/ })).toHaveTextContent(/^Alerts$/);
-    for (const name of [/^Accounts/, /^Organizations/, /^Users/, /^Trials/]) expect(within(nav).getByRole('button', { name }).querySelector('.ops-nav-count')).toBeNull();
+    for (const name of [/^Accounts/, /^Companies/, /^Users/, /^Trials/]) expect(within(nav).getByRole('button', { name }).querySelector('.ops-nav-count')).toBeNull();
     /* The rail opens a section's first page and marks where you are. */
     const rail = screen.getByRole('navigation', { name: 'Sections' });
     fireEvent.click(within(rail).getByRole('button', { name: 'Trust' }));
@@ -126,7 +126,7 @@ describe('the operator console', () => {
     fireEvent.click(screen.getByRole('button', { name: /Staff and roles/ }));
     expect(screen.getByRole('heading', { name: 'Staff screen' })).toBeInTheDocument();
     expect(window.location.hash).toBe('#/staff');
-    fireEvent.click(within(screen.getByRole('navigation', { name: 'Operator console' })).getByRole('button', { name: /^Overview$/ }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Staff console' })).getByRole('button', { name: /^Overview$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Failed emails' }));
     expect(screen.getByRole('heading', { name: 'Log screen FAILED' })).toBeInTheDocument();
     expect(window.location.hash).toBe('#/emailLog?status=FAILED');
@@ -146,7 +146,7 @@ describe('the operator console', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Paid plan stand-in' }));
     expect(screen.getByRole('heading', { name: 'Customer a9 subscription' })).toBeInTheDocument();
     expect(window.location.hash).toBe('#/customers/a9/subscription');
-    fireEvent.click(within(screen.getByRole('navigation', { name: 'Operator console' })).getByRole('button', { name: /^Payments/ }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Staff console' })).getByRole('button', { name: /^Payments/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Payer stand-in' }));
     expect(screen.getByRole('heading', { name: 'Customer a7 overview' })).toBeInTheDocument();
   });

@@ -54,7 +54,7 @@ it('asks for each registration, says where the number is found, and saves them a
   expect(screen.getByText(/PF wages up to ₹15,000 a month/)).toBeInTheDocument();
   expect(screen.getByText(/up to ₹21,000 a month; that limit is set by law/)).toBeInTheDocument();
   /* Skipping is allowed and says where to come back to. */
-  expect(screen.getByText('You can add this later in Settings › Statutory › Compliance.')).toBeInTheDocument();
+  expect(screen.getByText('You can add this later in Settings → Compliance.')).toBeInTheDocument();
 
   await user.click(screen.getByRole('checkbox', { name: /PF applies to this company/ }));
   await user.type(screen.getByRole('textbox', { name: 'PF establishment code' }), 'kn/bng/0012345/000');
@@ -105,7 +105,7 @@ it('can be skipped, and then says where to come back to', async () => {
   const user = userEvent.setup();
   render(<StatutoryRegistrationsStep startOpen />);
   await user.click(await screen.findByRole('button', { name: 'Skip for now' }));
-  expect(screen.getByRole('status')).toHaveTextContent('Skipped. You can add this later in Settings › Statutory › Compliance.');
+  expect(screen.getByRole('status')).toHaveTextContent('Skipped. You can add this later in Settings → Compliance.');
   expect(screen.queryByRole('textbox', { name: 'TAN' })).toBeNull();
   expect(saveStatutoryRegistrations).not.toHaveBeenCalled();
 });

@@ -7,7 +7,7 @@ import Popover from '@ui/components/ui/Popover';
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { getPermissionCatalog } from '@ui/api/permissions';
-import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
+import { failWords } from './failWords';
 import TemplateDrift from './TemplateDrift';
 import PermissionMatrix from './PermissionMatrix';
 import { RoleAccessList } from './round38';
@@ -18,6 +18,7 @@ import { Empty, Loading, PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-access.css';
 import './ws-security.css';
+import { enumWords, errorWords } from '@ui/utils/errorWords';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('key');
@@ -37,10 +38,10 @@ function permKey(p) {
  * admin, member) are the account's, shown above the company's roles.
  */
 const ACCOUNTING_MODULES = new Set(['SALES', 'PURCHASE', 'INVENTORY', 'ACCOUNTING', 'CASHBANK', 'EXPENSES', 'MASTERS']);
-const APP_OF_MODULE = (m) => (ACCOUNTING_MODULES.has(m) ? 'Accounting' : m === 'PAYROLL' ? 'Payroll' : m === 'PEOPLE' || m === 'ATTENDANCE' ? 'People and Attendance' : null);
+const APP_OF_MODULE = (m) => (ACCOUNTING_MODULES.has(m) ? 'Books' : m === 'PAYROLL' ? 'Payroll' : m === 'PEOPLE' || m === 'ATTENDANCE' ? 'People and Attendance' : null);
 /* Each group heading carries its app's colour, as the app tags do elsewhere. */
-const GROUP_COLOUR = { 'Company administration': '42 120 214', Accounting: 'var(--app-accounting, 30 41 99)', Payroll: 'var(--app-payroll, 30 100 160)', 'People and Attendance': 'var(--app-people, 147 51 170)' };
-const GROUP_ORDER = ['Company administration', 'Accounting', 'Payroll', 'People and Attendance', 'Across apps', 'Settings and reports only'];
+const GROUP_COLOUR = { 'Company administration': '42 120 214', Books: 'var(--app-accounting, 30 41 99)', Payroll: 'var(--app-payroll, 30 100 160)', 'People and Attendance': 'var(--app-people, 147 51 170)' };
+const GROUP_ORDER = ['Company administration', 'Books', 'Payroll', 'People and Attendance', 'Across apps', 'Settings and reports only'];
 export function roleGroup(role) {
   if (String(role?.roleType || '') === 'ADMIN') return 'Company administration';
   const apps = new Set((role?._normalizedPermissions || []).filter((p) => p.allowed !== false).map((p) => APP_OF_MODULE(String(p.module || ''))).filter(Boolean));
@@ -105,7 +106,7 @@ function RoleHolders({ users, roleId }) {
       {names.length ? (
         <p className="text-sm">{shown.join(', ')}{names.length > shown.length ? ` and ${names.length - shown.length} more` : ''}</p>
       ) : (
-        <p className="ws-foot-note">Nobody in this company holds it yet. Give it from Users.</p>
+        <p className="ws-foot-note">Nobody in this company holds it yet. Give it from Company users.</p>
       )}
     </section>
   );
@@ -164,7 +165,7 @@ export function SettingsRoles({ orgId }) {
       });
       setRoles(next);
     } catch (err) {
-      setError(err.message || 'Failed to load roles');
+      setError(errorWords(err, 'load the roles'));
     } finally {
       setLoading(false);
     }
@@ -242,20 +243,20 @@ export function SettingsRoles({ orgId }) {
       reloadMyPermissions?.();
     } catch (err) {
       const perm = err?.data?.permission;
-      const permHint = perm?.module && perm?.action ? ` (missing: ${perm.module}${perm.subModule ? ` / ${perm.subModule}` : ''} / ${perm.action})` : '';
-      setError(err?.data?.code ? rbacErrorMessage(err) : (err.message || 'Failed to save role') + permHint);
+      const permHint = perm?.module && perm?.action ? ` It needs the “${perm.subModule || enumWords(perm.module)}: ${String(perm.action).toLowerCase()}” permission.` : '';
+      setError(err?.data?.code ? failWords(err, 'save the role') : errorWords(err, 'save the role') + permHint);
     } finally {
       setSaving(false);
     }
   };
 
-  const removeRole = async (id) => {
-    if (!await confirmDialog({ title: 'Please confirm', message: 'Delete this role?', confirmLabel: 'Yes, continue' })) return;
+  const removeRole = async (id, name) => {
+    if (!await confirmDialog({ title: name ? `Delete the role “${name}”?` : 'Delete this role?', message: 'People who hold it lose what it allowed. This cannot be undone.', confirmLabel: 'Delete role', tone: 'danger' })) return;
     try {
       await deleteRole(orgId, id);
       setRoles((prev) => prev.filter((r) => r.id !== id));
     } catch (err) {
-      setError(rbacErrorMessage(err, 'Failed to delete role'));
+      setError(failWords(err, 'delete the role'));
     }
   };
 
@@ -352,7 +353,7 @@ export function SettingsRoles({ orgId }) {
             {loading && !roles.length ? (
               <Loading shape="rows" rows={3} label="Loading roles…" />
             ) : !shownRole ? (
-              <Empty icon={EMPTY_ICON} compact>{roles.length ? 'No role matches this search.' : 'No roles yet. Create the first one.'}</Empty>
+              <Empty icon={EMPTY_ICON} compact actionNode={roles.length ? null : <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={openCreate} className="ws-btn ws-btn--quiet ws-btn--small">Create role</PermissionButton>}>{roles.length ? 'No role matches this search.' : 'Roles say what people can do in each app. They will be listed here.'}</Empty>
             ) : (
               <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -387,7 +388,7 @@ export function SettingsRoles({ orgId }) {
                           type="button"
                           className="report-menu-item"
                           style={{ color: 'rgb(var(--neg))' }}
-                          onClick={() => { setOpenMenuForRoleId(null); removeRole(shownRole.id); }}
+                          onClick={() => { setOpenMenuForRoleId(null); removeRole(shownRole.id, shownRole.name); }}
                         >
                           Delete
                         </PermissionButton>
@@ -422,7 +423,7 @@ export function SettingsRoles({ orgId }) {
               <label className="ws-search" style={{ flex: '1 1 auto' }}>
                 <span className="sr-only">Search roles</span>
                 <Search size={16} aria-hidden="true" />
-                <input className="ui-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search roles" />
+                <input className="ui-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by role name" />
               </label>
             </div>
             {groups.map(({ group, rows }) => (

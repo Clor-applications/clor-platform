@@ -110,7 +110,7 @@ export const CONNECTIONS = [
 
 export const NAV = {
   solutions: [
-    { href: '/solutions/businesses', name: 'For businesses', line: 'GST invoices, staff records and salaries under one login.' },
+    { href: '/solutions/businesses', name: 'For businesses', line: 'GST invoices, staff records and salaries under one sign-in.' },
     { href: '/solutions/accounting-firms', name: 'For accounting firms', line: 'Work in clients’ books with the access they give you.' },
   ],
   resources: [

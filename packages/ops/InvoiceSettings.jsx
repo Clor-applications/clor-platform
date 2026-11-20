@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsBooksChoices, opsInvoicing, opsRenewals, opsRunRenewals, opsSaveBooksLink, opsSaveInvoicing, opsSaveSelfServe, opsTestBooks } from './api';
-import { Err, Loading, day, may } from './kit';
+import { Err, Loading, day, may, errorWords } from './kit';
 
 /**
  * Invoice settings (server: routes/opsInvoices.ts, billing/invoicing.ts).
@@ -38,14 +38,14 @@ export function InvoiceSettings({ role, openTax, openPayments, openTemplates }) 
   const load = useCallback(() => {
     opsInvoicing()
       .then((r) => (setS(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the invoice settings')));
   }, []);
   useEffect(load, [load]);
   if (!s) return error ? <Err>{error}</Err> : <Loading />;
   const mayChange = may(role, 'BILLING');
   return (
     <>
-      <PageHead crumbs={['Billing and setup', 'Invoice settings']} title="Invoice settings" meta={`Next invoice: ${s.nextNumber}`} />
+      <PageHead crumbs={['Billing and setup']} title="Invoice settings" meta={`Next invoice: ${s.nextNumber}`} />
       <div className="grid gap-6" style={{ maxWidth: 820 }}>
         <Numbering s={s} mayChange={mayChange} onSaved={load} />
         <Renewals s={s} mayChange={mayChange} onSaved={load} />
@@ -61,7 +61,7 @@ export function InvoiceSettings({ role, openTax, openPayments, openTemplates }) 
               </button>
             </dd>
             <dt className="ws-item-sub">Legal name</dt>
-            <dd>{s.gst.legalName || 'Clor Applications Private Limited (set it under Billing and setup, Tax)'}</dd>
+            <dd>{s.gst.legalName || 'CLOR Applications Private Limited (set it under Billing and setup, Tax)'}</dd>
             <dt className="ws-item-sub">Way to pay</dt>
             <dd>
               {s.manualPayments ? 'UPI QR and bank account, from Manual: UPI and bank transfer.' : 'Not set up: invoices show no UPI QR or bank account.'}{' '}
@@ -95,7 +95,7 @@ function Numbering({ s, mayChange, onSaved }) {
       notify.success('Saved.');
       onSaved();
     } catch (err) {
-      setProblems(err?.data?.problems?.length ? err.data.problems : [String(err?.message || err)]);
+      setProblems(err?.data?.problems?.length ? err.data.problems : [errorWords(err, 'save the numbering')]);
     } finally {
       setBusy(false);
     }
@@ -124,7 +124,7 @@ function Numbering({ s, mayChange, onSaved }) {
         {mayChange ? (
           <div>
             <button type="submit" className="ws-btn ws-btn--primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? 'Saving…' : 'Save numbering'}
             </button>
             <span className="ws-card-blurb" style={{ marginLeft: 12 }}>
               Asks for a code from your authenticator app.
@@ -164,7 +164,7 @@ function Renewals({ s: settings, mayChange, onSaved }) {
       onSaved();
       loadList();
     } catch (err) {
-      setProblems(err?.data?.problems?.length ? err.data.problems : [String(err?.message || err)]);
+      setProblems(err?.data?.problems?.length ? err.data.problems : [errorWords(err, 'save the renewal settings')]);
     } finally {
       setBusy('');
     }
@@ -178,7 +178,7 @@ function Renewals({ s: settings, mayChange, onSaved }) {
       if (r.failed?.length) setProblems(r.failed.map((f) => f.reason));
       loadList();
     } catch (err) {
-      setProblems([String(err?.message || err)]);
+      setProblems([errorWords(err, 'issue the renewal invoices')]);
     } finally {
       setBusy('');
     }
@@ -280,7 +280,7 @@ function Reminders({ s: settings, mayChange, onSaved, openTemplates }) {
       notify.success(on ? 'Reminders go out by themselves on the days you chose.' : 'Automatic reminders are off. Send reminder on an invoice still works.');
       onSaved();
     } catch (err) {
-      setProblems(err?.data?.problems?.length ? err.data.problems : [String(err?.message || err)]);
+      setProblems(err?.data?.problems?.length ? err.data.problems : [errorWords(err, 'save the reminders')]);
     } finally {
       setBusy(false);
     }
@@ -366,7 +366,7 @@ function SelfServeSeats({ s: settings, mayChange, onSaved }) {
       notify.success(on ? 'Customers can add seats themselves.' : 'Customers ask CLOR to add seats.');
       onSaved();
     } catch (err) {
-      setProblems(err?.data?.problems?.length ? err.data.problems : [String(err?.message || err)]);
+      setProblems(err?.data?.problems?.length ? err.data.problems : [errorWords(err, 'save the seat settings')]);
     } finally {
       setBusy(false);
     }
@@ -437,7 +437,7 @@ function BooksConnector({ s, mayChange, onSaved }) {
       setPicking(false);
       onSaved();
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'save the Books connector'));
     } finally {
       setBusy('');
     }
@@ -447,7 +447,7 @@ function BooksConnector({ s, mayChange, onSaved }) {
     try {
       setTest(await opsTestBooks());
     } catch (e) {
-      setTest({ ok: false, message: String(e?.message || e) });
+      setTest({ ok: false, message: errorWords(e, 'test the Books connection') });
     } finally {
       setBusy('');
     }
@@ -466,7 +466,7 @@ function BooksConnector({ s, mayChange, onSaved }) {
 
         {picking && mayChange ? (
           <div className="grid gap-4">
-            <Field id="books-search" label="CLOR’s account" hint="Type the account’s name, its company’s name or its client ID.">
+            <Field id="books-search" label="CLOR’s account" hint="Type the account’s name, its company’s name or its account ID.">
               <input id="books-search" className="ui-input" autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} />
             </Field>
             {found.length ? (

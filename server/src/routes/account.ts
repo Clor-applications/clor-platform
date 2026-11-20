@@ -259,7 +259,7 @@ accountRouter.get('/account/members', requireAccountRole(...ACCOUNT_ADMINS), asy
 /** Change one person's account role (W-1.2): owner rules, last-owner guard, step-up and audit in setAccountRole. */
 accountRouter.put('/account/members/:userId/role', requireAccountRole(...ACCOUNT_ADMINS), async (req, res) => {
   const role = req.body?.role;
-  if (!isAccountRole(role)) return res.status(400).json({ error: 'Role must be OWNER, ADMIN, BILLING_ADMIN or MEMBER.', code: 'BAD_ROLE' });
+  if (!isAccountRole(role)) return res.status(400).json({ error: 'Choose a role: owner, administrator, billing administrator or member.', code: 'BAD_ROLE' });
   try {
     res.json(await setAccountRole(req, String(req.params.userId), role));
   } catch (e) {

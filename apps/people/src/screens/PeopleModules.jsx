@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Lock } from '@ui/components/ui/lineIcons';
 
@@ -20,7 +21,7 @@ const MODULES = ['peopleHiring', 'peoplePerformance', 'peopleEngage', 'peopleBen
 const APPS = [
   { key: 'payroll', name: 'Payroll', mark: '₹', note: 'Salaries, PF, ESI, PT and TDS, and payslips; unpaid leave from HR is loss of pay.' },
   { key: 'attendance', name: 'Attendance', mark: <Clock size={16} />, note: 'Biometric readers, shifts, late marks and overtime; days marked automatically and sent to HR and Payroll.', recommended: true },
-  { key: 'accounting', name: 'Accounting', mark: <BookOpen size={16} />, note: 'Salary journals and cost centres, in Books.' },
+  { key: 'accounting', name: 'Books', mark: <BookOpen size={16} />, note: 'Salary journals and cost centres, in Books.' },
 ];
 /* The apps People switches with it; Accounting is shown for what the subscription carries, and is not switched from here. */
 const TOGGLES = { payroll: true, attendance: true };
@@ -47,7 +48,7 @@ export default function PeopleModules() {
       billingFor(orgId(), branchId()).catch(() => null),
     ])
       .then(([c, b]) => { setCatalog(c); setBilling(b); setError(''); })
-      .catch((e) => setError(String(e?.message || 'Could not load the modules.')));
+      .catch((e) => setError(errorWords(e, 'load the modules')));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -62,7 +63,7 @@ export default function PeopleModules() {
       window.dispatchEvent(new Event('clor:features-changed'));
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
+      notify.error(errorWords(e, 'make the change'));
     } finally {
       setBusy('');
     }

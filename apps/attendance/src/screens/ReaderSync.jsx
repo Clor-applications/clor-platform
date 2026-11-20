@@ -8,6 +8,8 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { deviceCommand, fixReaderGaps, getReaderSync, removeReaderExtras } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const CELL = {
   OK: { mark: '✓', label: 'On the reader', color: 'rgb(var(--pos))' },
@@ -34,7 +36,7 @@ export default function ReaderSync({ menuLabel } = {}) {
   const [loadError, setLoadError] = useState('');
   const [onlyGaps, setOnlyGaps] = useState(true);
   const load = useCallback(() => {
-    getReaderSync().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load.')));
+    getReaderSync().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load this')));
   }, []);
   useEffect(() => {
     load();
@@ -54,7 +56,7 @@ export default function ReaderSync({ menuLabel } = {}) {
       notify.success(r.people ? `${r.people} ${r.people === 1 ? 'person' : 'people'} queued (${r.commands} changes) ${what}. They arrive within a minute or two.` : 'Nothing to fix.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     }
   };
   const extras = async (reader, n) => {
@@ -64,7 +66,7 @@ export default function ReaderSync({ menuLabel } = {}) {
       notify.success(`${r.removed} being removed.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     }
   };
   const readAll = async (reader) => {
@@ -72,7 +74,7 @@ export default function ReaderSync({ menuLabel } = {}) {
       await deviceCommand(reader.id, 'READ_ALL');
       notify.success(`Asked ${reader.name} for everything it holds. Refresh in a minute.`);
     } catch (e) {
-      notify.error(String(e?.message || 'Not queued.'));
+      notify.error(errorWords(e, 'send it to the reader'));
     }
   };
 
@@ -85,23 +87,20 @@ export default function ReaderSync({ menuLabel } = {}) {
       description="Who is on which reader. Enrol once on any reader and CLOR copies fingerprints and faces to the rest."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search people' }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" disabled={!gaps} onClick={() => fix({}, 'on every reader')}>
           <Wrench size={16} aria-hidden="true" /> Fix all gaps{gaps ? ` (${gaps})` : ''}
         </button>
       }
-      cards={
-        data && !noReaders
+      countLine={countItems(data && !noReaders
           ? [
               { label: 'Missing', value: totals.missing, count: true, tone: 'overdue', Icon: UserX },
               { label: 'Partly enrolled', value: totals.partial, count: true, tone: 'partial', Icon: Fingerprint },
               { label: 'On the way', value: totals.queued, count: true, tone: 'sent', Icon: Clock },
               { label: 'Extras', value: totals.extra, count: true, tone: 'outstanding', Icon: AlertTriangle },
             ]
-          : null
-      }
+          : null)}
       tabs={noReaders ? null : TABS}
       statusValue={onlyGaps ? 'gaps' : 'all'}
       statusCounts={counts}
@@ -165,7 +164,7 @@ export default function ReaderSync({ menuLabel } = {}) {
                     ) : (
                       <EmptyState
                         icon={Fingerprint}
-                        title={onlyGaps ? 'No gaps' : 'Nobody'}
+                        title={onlyGaps ? 'No gaps' : 'No one to show yet'}
                         description={onlyGaps ? 'Everyone is on every reader they belong on. Enrol once on any reader and CLOR copies fingerprints and faces to the rest.' : 'No one with an employee code or Reader ID.'}
                       />
                     )}

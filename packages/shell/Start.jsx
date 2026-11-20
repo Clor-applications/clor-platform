@@ -108,7 +108,7 @@ export default function Start({ onHome, onSignIn, signedIn = null, signOut = nul
   if (step === 'setup' && !pending) {
     return (
       <AuthLayout scene="start" title="Opening your link…" subtitle="One moment." onHome={onHome}>
-        <p className="ui-muted text-sm">Checking the link from your mail.</p>
+        <p className="ui-muted text-sm">Checking the link from your email.</p>
       </AuthLayout>
     );
   }
@@ -133,7 +133,7 @@ export default function Start({ onHome, onSignIn, signedIn = null, signOut = nul
     return (
       <AuthLayout
       scene="start"
-        title="Check your mail"
+        title="Check your email"
         subtitle={`We sent a link to ${sentTo}. Open it to set up your company. It works for 24 hours.`}
         onHome={onHome}
         footer={
@@ -244,7 +244,7 @@ function ResendLine({ email, app, plan }) {
       await signupStart({ email, app: app || undefined, plan: plan || undefined });
       setState('sent');
     } catch (err) {
-      setState(String(err?.message || 'Could not send it again.'));
+      setState(String(err?.message || 'Could not send it again. Try again in a minute.'));
     }
   };
   return (
@@ -287,7 +287,7 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
     if (form.ownerName.trim().length < 2) return setError('Tell us your name.');
     if (form.companyName.trim().length < 2) return setError('Give your company a name.');
     if (form.password.length < 8) return setError('Choose a password of at least 8 characters.');
-    if (!picked.length) return setError('Tick at least one app.');
+    if (!picked.length) return setError('Tick at least one product.');
     if (withBooks && !form.state) return setError('Choose the state of your head office. It decides CGST and SGST or IGST on every invoice.');
     setBusy(true);
     setError('');
@@ -365,7 +365,7 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
           <div>
             <label className="ui-label" htmlFor="start-state">State of your head office</label>
             <select id="start-state" className="ui-select h-11 w-full" value={form.state} onChange={(e) => set({ state: e.target.value })} aria-describedby="start-state-hint">
-              <option value="">Choose</option>
+              <option value="">Choose a state</option>
               {GST_STATES.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}

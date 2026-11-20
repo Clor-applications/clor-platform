@@ -1,6 +1,7 @@
 import { platformPrisma, type PlatformDb } from '../utils/platformPrisma.js';
 import { keepAddOnsIn } from '../billing/addOns.js';
 import { APP_CATALOG, APP_CODES, SELLABLE_APP_CODES, appByCode, appForFeature, isSellableApp } from '../constants/appCatalog.js';
+import { statusWords } from '../utils/statusWords.js';
 
 /**
  * A tenant's subscription: which apps it bought, and where it sits in the
@@ -105,7 +106,7 @@ export function lapseReason(sub: { status: string; trialEndsAt: Date | null; cur
   if (!sub || inGoodStanding(sub)) return null;
   if (sub.status === 'trialing') return `Your free trial ended${sub.trialEndsAt ? ` on ${onDay(sub.trialEndsAt)}` : ''}. Everything is still here to read. To keep working, choose a plan or write to sales@clor.in.`;
   if (sub.status === 'past_due') return 'A payment for your CLOR subscription is overdue. Everything is still here to read; to keep working, settle it or write to sales@clor.in.';
-  return `Your CLOR subscription is ${sub.status}. Everything is still here to read; to keep working, write to sales@clor.in.`;
+  return `Your CLOR subscription is ${statusWords(sub.status)}. Everything is still here to read; to keep working, write to sales@clor.in.`;
 }
 
 export type AppStanding = { state: 'entitled' } | { state: 'lapsed'; reason: string } | { state: 'none' };
@@ -137,7 +138,7 @@ export async function appOwnershipReason(accountId: string, featureKey: string):
   if (!app) return null;
   const access = await appAccess(accountId);
   if (access.entitledApps.includes(app.code)) return null;
-  if (access.ownedApps.includes(app.code)) return `The subscription is ${access.status}; ${app.name} is paused until it is renewed.`;
+  if (access.ownedApps.includes(app.code)) return `This subscription is ${statusWords(access.status)}, so ${app.name} is paused. An owner can renew it under Workspace → Billing.`;
   return `${app.name} is not on this account's subscription.`;
 }
 

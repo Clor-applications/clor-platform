@@ -1,0 +1,82 @@
+# Attendance (apps/attendance, mobile/attendance) UX copy audit: fixes
+
+- [x] #1 apps/attendance/src (208 sites in 69 files) — `String(e?.message || 'Not saved.')` and the portal's `errText(e, 'Could not load …')` → `errorWords(e, 'save the changes')` / `errText(e, 'load …')` (shared helper: plain server sentence kept, codes and developer text replaced by "Could not {what}. Try again."); PortalAccess.jsx:109 'No codes given.' → errorWords(e, 'give the activation codes')
+- [x] #2 src/screens/MyAttendance.jsx:48 — 'Could not clock.' → "Your punch was not recorded. Check your connection and try again." (a plain server sentence still wins)
+- [x] #3 src/portal/EmployeePortal.jsx:291 — 'Could not sign in.' → "Could not sign in. Check the company code, employee code and password, or ask HR for a new activation code."
+- [x] #4 src/screens/PhonePunches.jsx:48,64,292 — `REFUSED[r.code] || r.code` → `REFUSED[r.code] || 'Refused'` (the server's own reason sentence beside it is kept)
+- [x] #5 src/screens/AttendanceDevices.jsx:769 — Load last payload → Show what it last sent
+- [x] #6 src/screens/AttendanceDevices.jsx:453 — 'Send punches with POST, as JSON, in whatever shape…' → 'Give this address to whoever set up the device or software. The first punch it sends is kept so you can match its fields…' + 'For your IT person: send punches with HTTP POST, as JSON, in any shape.'
+- [x] #7 src/screens/AttendanceDevices.jsx:1278 — 'This driver follows the maker’s published API…' → 'CLOR has not yet tested this make of reader. If punches do not arrive, send us the message shown above.'
+- [x] #8 src/screens/AttendanceDevices.jsx:1175,1277 — 'Last pull failed: {lastError}' → 'CLOR could not collect punches last time. Check the address and sign-in details, then choose Sync now.' with the raw text under 'For your IT person:'
+- [x] #9 src/screens/AttendanceDevices.jsx:95,342,1433 — '…on its next heartbeat' → '…within about 30 seconds'
+- [x] #10 src/portal/EmployeePortal.jsx:126,129 — 'Employee portal · Clor' / 'Clor' → 'Employee portal · CLOR' / 'CLOR'
+- [x] #11 src/screens/AttendanceToday.jsx:53 (and IdMapping.jsx:173) — 'under Personnel' → 'under People → Employees'
+- [x] #12 src/screens/AttendanceDevices.jsx:82 — 'See Portal access and Work sites' → 'See Employee portal access and Punch areas'
+- [x] #13 src/screens/PortalAccess.jsx:227 (also :213, :220) — 'No work sites yet… Add them under Work sites.' → 'No punch areas yet… Add them under Settings → Punch areas.'; 'Work sites only' → 'Punch areas only'
+- [x] #14 src/screens/AttendanceDevices.jsx:1357,1091,1445 — 'Sync status' → 'Sync monitoring' (the menu name)
+- [x] #15 src/screens/Geofences.jsx:91,95,98,104,114,127,133,288,295,329 — 'New site', 'Active sites', 'Tied to a site', 'Site status', 'No sites match', 'Site saved.', 'Only a site…' → 'New punch area', 'Active punch areas', 'Tied to one area', 'Punch area status', 'No punch areas match', 'Punch area saved.', 'Only a punch area…' (the note about People's work sites at :82 is a real distinction and stays)
+- [x] #16 src/screens/MyAttendance.jsx:93,44 — 'Clock out' / 'Clock in', 'Clocked in at …' → 'Punch out' / 'Punch in', 'Punched in at …'
+- [x] #17 src/screens/AttendanceToday.jsx:54 — 'Nobody has clocked in yet.' → 'Nobody has punched in yet.'
+- [x] #18 src/components/WebClockSettings.jsx:34,45,55,66 (and Geofences.jsx:87, DayExplain.jsx:11) — 'Clock-in from a browser' and friends → 'Punch from a browser', 'Punches from a browser count…', 'N punches'; DayExplain 'app clock-in' → 'browser punch'
+- [x] #19 src/screens/AttendanceRecords.jsx:179 kept 'No punch out'; 'No check-out' → 'No punch out' in Exceptions.jsx:27, MonthClose.jsx:34,189,330, MonthSummary.jsx:83,142,46, EmployeePortal.jsx:512; 'check-in/check-out' → 'punch in/punch out' in AttendanceRules.jsx:332, AttendanceRecords.jsx:363,365, Shifts.jsx:393,394, AttendanceDevices.jsx:964
+- [x] #20 manifest.jsx:382 — 'Attendance fixes' (short 'Fixes') → 'Attendance corrections' (short 'Corrections'); search action 'Fix a punch' → 'Correct a punch' (old words kept as keywords); EmployeePortal.jsx:1535 and AttendanceToday.jsx:139 'attendance requests' → 'corrections'. 'Attendance request types' (manifest.jsx:426) stays: it also covers work from home, on duty and permission, which are not corrections
+- [x] #21 manifest.jsx:376 (and PhonePunches.jsx:138,142) — 'Mobile punches' → 'Phone punches'
+- [x] #22 manifest.jsx:371 — 'Punch transactions' → 'Punches'. Both routes stay (`transactions` under Readers, `punches` under Attendance; old links and permissions use both) with one name; Transactions.jsx title, search label, export menu and export title → 'Punches'
+- [x] #23 manifest.jsx:370 (and Enrolments.jsx:73,77) — 'Device enrollment' / 'Device enrolment' → 'Reader enrolment'
+- [x] #24 manifest.jsx:302,330 — 'Organization' → 'Organisation'
+- [x] #25 src/screens/PortalAccess.jsx:149 — 'Employee Portal Access' → 'Employee portal access'
+- [x] #26 src/screens.js:41,65,78,82 — 'Audit Logs', 'Users & Security', 'Roles & Access', 'Email Notifications' → sentence case, matching the menu
+- [x] #27 src/screens/MonthSummary.jsx:44 — `Close ${month}?` ("Close 2026-11?") → `Close ${monthText(month)}?` ("Close November 2026?")
+- [x] #28 src/screens/AttendanceRecords.jsx:508 — `${form.employeeName} · ${form.date}` → `… · ${dayLabel(form.date)}` (also aria-labels at :276 and :318)
+- [x] #29 src/screens/OvertimeRequests.jsx:96 — '…overtime on ${r.date} is approved.' → '…overtime on 14 Nov is approved.' (dayText)
+- [x] #30 src/screens/PhonePunches.jsx:110 — selfie caption `${p.time}` (raw timestamp) → dayTimeText ('14 Nov 2026, 9:05 am'); also the approve toast at :92
+- [x] #31 src/components/LeaveExplain.jsx:33 — 'as of ${data.asOf}' → 'as of 14 Nov 2026'
+- [x] #32 AttendanceRecords.jsx:494, Holidays.jsx:123, Shifts.jsx:316, AttendanceDevices.jsx:1379 — 'Yes, delete' / 'Yes, remove' → 'Delete day', 'Delete holiday', 'Delete shift', 'Remove reader'
+- [x] #33 src/portal/CaseRating.jsx:25 — 'Yes' → 'Yes, solved'
+- [x] #34 src/screens/OvertimeRequests.jsx:164 — 'None' → 'No approved requests' / 'No declined requests' / 'No withdrawn requests' by tab
+- [x] #35 src/screens/ReaderSync.jsx:168 — 'Nobody' → 'No one to show yet'
+- [x] #36 src/screens/DataRequests.jsx:160 — 'Nothing here' → 'No answered requests' / 'No declined requests' / 'No requests yet' by tab
+- [x] #37 AttendanceDevices.jsx:278, PortalAccess.jsx:268, Contractors.jsx:135, Geofences.jsx:132, Resignations.jsx:154 — 'No readers here' / 'Try another tab.' → title names the tab ('No readers need a look' …) and the description says where to look ('Pick All to see every reader.')
+- [x] #38 src/screens/PhonePunches.jsx:288 — 'Attempts the server refuses (outside every site, a rough location, too soon after the last) list here.' → 'Punches CLOR refuses (outside every punch area, location not accurate enough, or within a minute of the last one) are listed here.'
+- [x] #39 src/screens/PhonePunches.jsx:26 — 'Location too rough' → 'Location not accurate enough' (also :25 'Outside the work sites' → 'Outside the punch areas', :28 'No work site set up' → 'No punch area set up')
+- [x] #40 src/screens/AttendanceToday.jsx:18, ReaderHealth.jsx:22 — 'Late checking in' (reader status) → 'Slow to report'
+- [x] #41 src/screens/AttendanceDevices.jsx:268,1069,1469 — 'Commands waiting', '(N commands)' → 'Changes waiting', '(N changes)'
+- [x] #42 src/screens/AttendanceDevices.jsx:601 — 'Work it out (ISO, YYYY-MM-DD, epoch)' → 'Work it out for me'. 'Seconds since 1970' / 'Milliseconds since 1970' (:75-76, :604-605) kept: they are plain words and the options an IT person needs
+- [x] #43 src/screens/AttendanceDevices.jsx:1328 — 'Failed' → 'Not delivered'
+- [x] #44 src/screens/AttendanceDevices.jsx:1088,1443,1450 — 'Send new staff' → 'Send new people'
+- [x] #45 MonthClose.jsx:188,190, MonthSummary.jsx:79,90,92,93,141, ReportInsights.jsx:118, portal/MonthAndOvertime.jsx:76,194 — 'Unpaid days (LOP)', 'Approved OT', 'OT at the rate', 'OT over the cap', '+2:00 OT' → 'Unpaid days', 'Approved overtime', 'Overtime at the rate', 'Overtime over the cap', '+2:00 overtime'
+- [x] #46 src/screens/MonthClose.jsx:171 — 'November closed. Snapshot 2 kept for Payroll.' → 'November closed. Payroll now uses these figures (copy 2).'; 'snapshot' → 'copy' also at :185,210,277,374 and ReopenMonth.jsx:42
+- [x] #47 src/screens/MonthClose.jsx:72 — 'Dock these {n days} from pay as unpaid absence.' → 'Count these {n days} as unpaid.'
+- [x] #48 MyLeave.jsx:268, SiteCheck.jsx:111, ReportInsights.jsx:72 — 'Leave Policy', 'Settings → Punch Areas', 'Monthly Attendance Summary's' → 'Settings → Leave policy', 'Settings → Punch areas', 'the same as the Monthly attendance summary'
+- [x] #49 Resignations.jsx:105, MonthConfirmations.jsx:100, RecycleBin.jsx:86 — export 'Leavers', 'Month disputes', 'Recycle Bin' → 'Resignations', 'Employee confirmations', 'Recycle bin'
+- [x] #50 src/portal/EmployeePortal.jsx:380,476,786,1060,1323,1522,1697, MonthAndOvertime.jsx:73,183, AskHr.jsx:165, MeExtras.jsx:72, PortalFeeds.jsx:149, components/ReaderEvidence.jsx:58,101 — 'Loading…' → what is loading ('Loading your days…', 'Loading your leave…', 'Loading the privacy notice…' …). Text, not skeletons: the portal cards are small and a skeleton would change layout. AttendanceDevices.jsx:937 keeps 'Loading…' as a button's busy label
+
+## Menu name vs page title
+- [x] M1 PortalAccess.jsx:149 'Employee Portal Access' → 'Employee portal access' (see #25)
+- [x] M2 Enrolments.jsx:73 'Device enrolment' → 'Reader enrolment', menu renamed to match (see #23)
+- [x] M3–M6 screens.js:41,65,78,82 'Audit Logs', 'Users & Security', 'Roles & Access', 'Email Notifications' → sentence case (see #26)
+- [x] M7 Punch areas page: 'site' → 'punch area' in button, tiles, empty state, toast (see #15)
+- [x] M8 'Mobile punches' menu → 'Phone punches', matching the page (see #21)
+- [x] M9 'Punch transactions' + 'Punches' → one name 'Punches' (see #22)
+- [x] M10 AttendanceRegister.jsx:81 — export 'Attendance register' (subtitle 2026-11) → 'Daily attendance register' (subtitle 'November 2026')
+- [x] M11 MonthSummary.jsx:127 — export 'Attendance summary' → 'Monthly attendance summary', subtitle as 'November 2026'
+- [x] M12 AttendanceRecords.jsx:169 — export 'Attendance' → 'Attendance records', subtitle dates as '1 Nov 2026 to 30 Nov 2026'
+- [x] M13 manifest.jsx:343 — group 'Self-Service' → 'Self-service'
+- [x] M14 AttendanceToday.jsx:53 'Personnel' → 'People → Employees' (see #11)
+
+## Repeating patterns
+- [x] P1 error fallbacks (208 sites) — see #1
+- [x] P2 figure tiles → count line — 25 list screens now pass `countLine={countItems([…])}` to DocumentListShell (drawn under the title) instead of `cards`: the 18 with `cards={[…]}` (AttendanceRecords, Exceptions, Shifts, ShiftAssignments, DepartmentSchedule, TemporarySchedule, Rotations, Holidays, OvertimeRequests, Contractors, Resignations, DataRequests, PortalAccess, Geofences, Transactions, UnmatchedPunches, Enrolments, DeviceLogs), the 6 with conditional cards (PhonePunches, AttendanceDevices, ReaderSync, AttendanceRegister, MonthSummary, MonthConfirmations), and ReaderHealth (StatCards → CountLine under its PageHeader). New src/components/countItems.js keeps the same figures (numbers in en-IN form), drops zero and loading ones (CountLine), keeps a figure's filter click, and maps overdue → red and outstanding → amber; tile hints and icons are dropped. Not changed: StatTile panels on ReportInsights, PayrollReadiness, DataProtection, AttendanceReports and IdMapping, which are dashboards and report results, not list pages
+- [x] P3 ISO dates in user text — toasts/titles (#27–#31); export subtitles AttendanceRecords.jsx:169, Transactions.jsx:133, DeviceLogs.jsx:85, AttendanceRegister.jsx:81, MonthSummary.jsx:127 → dayText/monthText; MonthSummary.jsx:55 toast '2026-11 closed.' → 'November 2026 closed.'; Exceptions.jsx:389 drawer description; scheduleCheck.js:4 clash lines; evidenceXlsx.js:33,38 period and months closed. File names keep ISO dates on purpose (they sort)
+- [x] P4 raw enum fallbacks (20 sites) — `STATUS[r.status]?.label || r.status`, `SOURCE[r.source] || r.source`, `KIND[r.kind] || r.kind` and the pills in EmployeePortal.jsx:390,514,549, MyAttendance.jsx:130, AttendanceRecords.jsx:45,48,63,65,310,311,318, Exceptions.jsx:65,71,342, MyLeave.jsx:41, DayExplain.jsx:65, ReaderHealth.jsx:410, AttendanceDevices.jsx:1513, MyGrowth.jsx:86, MonthAndOvertime.jsx:22, evidenceXlsx.js:43 → `… || enumWords(value)` ('PENDING_REVIEW' → 'Pending review'); PhonePunches refusal codes → 'Refused' (#4)
+- [x] P5 'Yes, …' confirms (4) — see #32; vague empty states (9) — see #34–#37
+- [x] P6 generic 'Loading…' (14) — see #50
+- [x] P7 menu names quoted wrong in copy — Work sites, Sync status, Personnel, Portal access, Leave Policy, Punch Areas, Monthly Attendance Summary — see #11–#14, #48
+- [x] P8 reader-setup jargon in AttendanceDevices.jsx — main fixes #5–#9, #41–#43; signed pushes (:746) now lead with 'Only punches signed with the secret below are accepted, so nobody else can send punches to this address.' and the header/HMAC detail sits under 'For your IT person:'. Kept: date-format options (ISO, seconds since 1970) and the Cloud Server menu paths, which are what the IT person types
+- [x] P9 lower-case status pills AttendanceDevices.jsx:298–316 — 'off', 'online', 'mapping needed', 'last push failed', 'pull failing', 'pulled 3 min ago', 'new network', 'last seen …', 'never connected' → sentence case; 'mapping needed' → 'Fields to match', 'pull failing' / 'pulled' → 'Not collecting' / 'Collected'
+- [x] P10 'E-mail' / 'e-mail' (26 places, e.g. PortalAccess.jsx:46, ReaderHealth.jsx:454, DataProtection.jsx:229) → 'Email' / 'email'
+- [x] #22 (follow-up) manifest.jsx — the Attendance › Daily operations 'Punches' item (key `punches`, the same screen as `transactions`) is dropped from the menu so 'Punches' appears once (owner rule: each menu label once, test/split-navigation.test.js). The `punches` screen key stays in `screens`, so old links still open it
+- [x] mobile/attendance — checked Info.plist permission texts, strings.xml and capacitor.config.json: plain and correct ('CLOR Attendance'); nothing to change
+- [x] P11 src/portal/portalApi.js:69, moneyApi.js:32 — failed calls with no server text threw 'Something went wrong (500).', which reads as a sentence and reached the screen → 'Request failed (500)', which the shared helper recognises, so screens show 'Could not {what}. Try again.' (status kept on the error for 401/403/404/409/429 wording)
+- [x] X1 packages/ui/src/i18n/hi.js — Hindi added for the 54 new employee-portal lines (the 'Loading your …' lines, the action words that errorWords puts into "Could not {}. Try again." such as 'load your days' → 'आपके दिन खोलना', the new sign-in error, 'No punch out', 'Unpaid days', 'Yes, solved', 'Employee portal · CLOR', 'Request failed ({})'); packages/ui/src/i18n tests pass (8/8)
+- [x] X2 apps/attendance/src/attendance.css — uppercase tile label rule → as written (DESIGN.md: no uppercase labels).

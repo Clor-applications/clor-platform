@@ -7,6 +7,7 @@ import { wholeRupees as money } from '@ui/utils/money';
 import { requestOpenScreen } from '@platform/context';
 import { inForceIds, SKILL_LEVELS } from './minimumWageText';
 import { addMinimumWage, getMinimumWages, importMinimumWages, removeMinimumWage } from '../api/payrollMinimumWages';
+import { errorWords } from '@ui/utils/errorWords';
 
 const STATES = [...new Set(Object.values(GST_STATE_BY_CODE).filter((s) => !/\(Old\)/.test(s)))].sort((a, b) => a.localeCompare(b));
 const TEMPLATE = 'state,zone,skill,effective_from,monthly_rate,note\n';
@@ -32,7 +33,7 @@ export default function MinimumWagesSection() {
         setData(r);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load minimum wages.')));
+      .catch((e) => setError(errorWords(e, 'load minimum wages')));
   }, []);
   useEffect(() => {
     load();
@@ -52,7 +53,7 @@ export default function MinimumWagesSection() {
       setAdding(false);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not add that rate.'));
+      notify.error(errorWords(err, 'add that rate'));
     } finally {
       setBusy('');
     }
@@ -71,7 +72,7 @@ export default function MinimumWagesSection() {
       load();
     } catch (err) {
       setImportErrors(Array.isArray(err?.data?.errors) ? err.data.errors : []);
-      notify.error(String(err?.message || 'Could not import that file.'));
+      notify.error(errorWords(err, 'import that file'));
     } finally {
       setBusy('');
     }
@@ -81,7 +82,7 @@ export default function MinimumWagesSection() {
     const ok = await confirmDialog({
       title: 'Remove this rate?',
       message: `${r.stateLabel}${r.zone ? ` (${r.zone})` : ''}, ${r.skillLabel}, from ${formatDateIn(r.effectiveFrom)}. Pay is no longer checked against it.`,
-      confirmLabel: 'Remove',
+      confirmLabel: 'Remove rate',
       tone: 'danger',
     });
     if (!ok) return;
@@ -90,7 +91,7 @@ export default function MinimumWagesSection() {
       notify.success('Rate removed.');
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not remove that rate.'));
+      notify.error(errorWords(err, 'remove that rate'));
     }
   };
 
@@ -213,7 +214,7 @@ export default function MinimumWagesSection() {
             <input id="mw-from" type="date" className="ui-input w-full" value={form.effectiveFrom} onChange={set('effectiveFrom')} required />
           </div>
           <div>
-            <label className="ui-label" htmlFor="mw-rate">A month (₹)</label>
+            <label className="ui-label" htmlFor="mw-rate">Monthly rate</label>
             <input id="mw-rate" inputMode="decimal" className="ui-input w-full tabular-nums text-right" value={form.monthlyRate} onChange={set('monthlyRate')} required />
           </div>
           <div className="ui-minwage-note">

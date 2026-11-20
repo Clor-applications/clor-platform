@@ -32,6 +32,7 @@ import {
 } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { requestOpenApp } from '@platform/context';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* Groups for the webhook form; the words come from the server (eventHelp). */
 const EVENT_GROUPS = [
@@ -69,7 +70,7 @@ export default function Integrations() {
       })
       .catch((e) => {
         setHooks([]);
-        setLoadError(String(e?.message || 'Could not load webhooks.'));
+        setLoadError(errorWords(e, 'load the webhooks'));
       });
   }, []);
   useEffect(() => {
@@ -86,7 +87,7 @@ export default function Integrations() {
       setHookForm({ name: '', url: '', events: ['day'] });
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not created.'));
+      notify.error(errorWords(err, 'create it'));
     }
   };
   const rotate = async (h) => {
@@ -95,7 +96,7 @@ export default function Integrations() {
       const r = await rotateWebhookSecret(h.id);
       setShown({ label: `New signing secret for “${h.name}” — the old one works until ${new Date(r.previousSecretUntil).toLocaleString()}`, value: r.secret, kept: 'CLOR keeps it encrypted to sign with and does not show it again.' });
     } catch (err) {
-      notify.error(String(err?.message || 'Not changed.'));
+      notify.error(errorWords(err, 'make the change'));
     }
   };
   const test = async (h) => {
@@ -252,7 +253,7 @@ function Deliveries({ hook }) {
       else notify.error(r.error || `Answered ${r.status}.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not sent.'));
+      notify.error(errorWords(e, 'send it'));
     } finally {
       setBusy('');
     }
@@ -336,7 +337,7 @@ function Connectors({ onShown }) {
       setForm(null);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setBusy(false);
     }
@@ -349,19 +350,19 @@ function Connectors({ onShown }) {
       onShown({ label: `New token for “${a.name}”`, value: r.token });
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not rotated.'));
+      notify.error(errorWords(err, 'make a new one'));
     }
   };
   const remove = async (a) => {
     if (!(await confirmDialog({ title: `Remove ${a.name}?`, message: 'Its readers go back to being pulled by CLOR directly (which only works if they are reachable from the internet).', confirmLabel: 'Remove' }))) return;
-    await deleteAgent(a.id).catch((err) => notify.error(String(err?.message || 'Not removed.')));
+    await deleteAgent(a.id).catch((err) => notify.error(errorWords(err, 'remove it')));
     load();
   };
   const showJobs = async (a) => {
     try {
       setJobs({ agent: a, rows: (await listAgentJobs(a.id)).jobs });
     } catch (err) {
-      notify.error(String(err?.message || 'Could not load.'));
+      notify.error(errorWords(err, 'load this'));
     }
   };
 
@@ -440,7 +441,7 @@ function Connectors({ onShown }) {
               <label className="block"><span className="ui-label">Bind user (DN or UPN) *</span><input className="ui-input w-full ui-mono" required value={form.ldap.bindDn} onChange={setL('bindDn')} placeholder="svc-clor@corp.local" autoComplete="off" /></label>
               <label className="block"><span className="ui-label">Bind password{form.id ? '' : ' *'}</span><input type="password" className="ui-input w-full" required={!form.id} value={form.ldap.bindPassword} onChange={setL('bindPassword')} placeholder={form.id ? 'Leave blank to keep the saved one' : ''} autoComplete="new-password" /></label>
               <label className="block"><span className="ui-label">Filter</span><input className="ui-input w-full ui-mono" value={form.ldap.filter} onChange={setL('filter')} placeholder="(&(objectClass=user)(mail=*))" /></label>
-              <label className="block"><span className="ui-label">E-mail attribute</span><input className="ui-input w-full ui-mono" value={form.ldap.emailAttr} onChange={setL('emailAttr')} placeholder="mail" /></label>
+              <label className="block"><span className="ui-label">Email attribute</span><input className="ui-input w-full ui-mono" value={form.ldap.emailAttr} onChange={setL('emailAttr')} placeholder="mail" /></label>
               <label className="flex items-center gap-2 text-sm md:col-span-2"><input type="checkbox" className="ui-checkbox" checked={Boolean(form.ldap.deactivateMissing)} onChange={setL('deactivateMissing')} /> Switch off people the connector added when they leave the directory (never anyone added by hand)</label>
               <p className="ui-caption md:col-span-2">People found in the directory are added as CLOR users with no role until one is assigned; disabled accounts follow. The bind password stays on CLOR encrypted and is given only to this connector.</p>
             </div>
@@ -522,7 +523,7 @@ function HrTools() {
       setForm(null);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setBusy('');
     }
@@ -536,14 +537,14 @@ function HrTools() {
       else if (label === 'flush') notify.success(`${r.sent} sent.`);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Failed.'));
+      notify.error(errorWords(err, 'do that'));
     } finally {
       setBusy('');
     }
   };
   const remove = async (c) => {
     if (!(await confirmDialog({ title: `Disconnect ${c.name}?`, message: 'Nothing already sent is withdrawn; waiting punches are dropped.', confirmLabel: 'Disconnect' }))) return;
-    await deleteHrConnection(c.id).catch((e) => notify.error(String(e?.message || 'Not removed.')));
+    await deleteHrConnection(c.id).catch((e) => notify.error(errorWords(e, 'remove it')));
     load();
   };
   const startNew = (a) => setForm({ adapter: a.id, name: a.label, fields: Object.fromEntries(a.fields.filter((f) => f.default != null).map((f) => [f.key, f.default])), enabled: false, pushPunches: a.capabilities.includes('pushPunches'), pullEmployees: false, createEmployees: false });
@@ -581,7 +582,7 @@ function HrTools() {
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => act(c.id, testHrConnection, 'test')}>Test</button>
                 {c.capabilities.includes('pullEmployees') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => act(c.id, pullHrConnection, 'pull')}>Read people now</button> : null}
                 {c.outbox?.PENDING || c.outbox?.FAILED ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => act(c.id, flushHrConnection, 'flush')}>Send now</button> : null}
-                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => updateHrConnection(c.id, { enabled: !c.enabled }).then(load).catch((e) => notify.error(String(e?.message || 'Not changed.')))}>{c.enabled ? 'Switch off' : 'Switch on'}</button>
+                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => updateHrConnection(c.id, { enabled: !c.enabled }).then(load).catch((e) => notify.error(errorWords(e, 'make the change')))}>{c.enabled ? 'Switch off' : 'Switch on'}</button>
                 <button type="button" className="ui-link text-sm" onClick={() => showLog(c)}>Log</button>
                 <button type="button" className="ui-link text-sm" onClick={() => edit(c)}>Edit</button>
                 <button type="button" className="ui-link text-sm" onClick={() => remove(c)}>Disconnect</button>

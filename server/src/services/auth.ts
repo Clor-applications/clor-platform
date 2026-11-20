@@ -5,6 +5,7 @@ import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { sessionPolicyFor } from './policy.js';
+import { SIGNED_OUT_TEXT, SIGN_IN_OFF_TEXT } from '../utils/companyWords.js';
 
 /**
  * Session and credential handling.
@@ -90,6 +91,10 @@ export async function createSession(opts: {
   return { session, refreshToken };
 }
 
+/* One sentence for a reset or confirmation link that no longer works, whichever way it ended (UX copy audit, 20 Nov 2026). */
+export const RESET_LINK_ENDED = 'This reset link has expired or was already used. Choose Forgot password on the sign-in page to get a new one.';
+export const CONFIRM_LINK_ENDED = 'This confirmation link has expired or was already used. Sign in to ask for a new one.';
+
 export class AuthError extends Error {
   status: number;
   code?: string;
@@ -115,7 +120,7 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
   const hash = sha256(String(refreshToken || ''));
   const session = await platformPrisma.session.findUnique({ where: { refreshTokenHash: hash } });
 
-  if (!session) throw new AuthError('Invalid session');
+  if (!session) throw new AuthError(SIGNED_OUT_TEXT);
 
   if (session.revokedAt) {
     if (session.revokedReason === 'ROTATED' && Date.now() - session.revokedAt.getTime() < ROTATION_GRACE_MS) {
@@ -133,18 +138,18 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
      */
     if (session.revokedReason !== 'ROTATED') await refuseEnded(session, session.revokedReason, ctx);
     await revokeFamily(session, ctx);
-    throw new AuthError('Session is no longer valid. Please sign in again.');
+    throw new AuthError(SIGNED_OUT_TEXT);
   }
 
   if (session.expiresAt.getTime() < Date.now()) {
-    throw new AuthError('Session expired. Please sign in again.');
+    throw new AuthError(SIGNED_OUT_TEXT);
   }
 
   const user = await platformPrisma.user.findFirst({
     where: { id: session.userId, isActive: true },
     select: { id: true, accountId: true, email: true, emailVerifiedAt: true },
   });
-  if (!user) throw new AuthError('Account is no longer active');
+  if (!user) throw new AuthError(SIGN_IN_OFF_TEXT);
 
   /* An Explore session lives only while its pass does: an operator's End access, or the pass running out, ends it here too. */
   if (session.explorePassId) {
@@ -175,7 +180,7 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
     /* Signed out (or ended otherwise) between the read and the claim: refused, nothing else ended (see above). */
     if (now?.revokedReason !== 'ROTATED') await refuseEnded(session, now?.revokedReason ?? null, ctx);
     await revokeFamily(session, ctx);
-    throw new AuthError('Session is no longer valid. Please sign in again.');
+    throw new AuthError(SIGNED_OUT_TEXT);
   }
 
   /*
@@ -244,7 +249,7 @@ async function refuseEnded(session: SessionRow, reason: string | null, ctx: { ip
       userAgent: ctx.userAgent,
     });
   }
-  throw new AuthError('Session is no longer valid. Please sign in again.');
+  throw new AuthError(SIGNED_OUT_TEXT);
 }
 
 export async function revokeSession(refreshToken: string, reason = 'LOGOUT', ctx: { ip?: string; userAgent?: string } = {}) {
@@ -377,13 +382,13 @@ export async function peekPasswordResetToken(token: string) {
 
 export async function consumePasswordResetToken(token: string) {
   const row = await platformPrisma.passwordResetToken.findUnique({ where: { tokenHash: sha256(String(token || '')) } });
-  if (!row) throw new AuthError('Invalid or expired reset link', 400);
-  if (row.usedAt) throw new AuthError('That reset link has already been used', 400);
-  if (row.expiresAt.getTime() < Date.now()) throw new AuthError('That reset link has expired', 400);
+  if (!row) throw new AuthError(RESET_LINK_ENDED, 400);
+  if (row.usedAt) throw new AuthError(RESET_LINK_ENDED, 400);
+  if (row.expiresAt.getTime() < Date.now()) throw new AuthError(RESET_LINK_ENDED, 400);
 
   /* Used once: two requests with the same link cannot both pass (A-06). */
   const used = await platformPrisma.passwordResetToken.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } });
-  if (used.count !== 1) throw new AuthError('That reset link has already been used', 400);
+  if (used.count !== 1) throw new AuthError(RESET_LINK_ENDED, 400);
   return row;
 }
 
@@ -414,12 +419,12 @@ export async function consumeEmailVerificationToken(token: string) {
   const row = await platformPrisma.emailVerificationToken.findUnique({
     where: { tokenHash: sha256(String(token || '')) },
   });
-  if (!row) throw new AuthError('Invalid or expired verification link', 400);
-  if (row.usedAt) throw new AuthError('That link has already been used', 400);
-  if (row.expiresAt.getTime() < Date.now()) throw new AuthError('That verification link has expired', 400);
+  if (!row) throw new AuthError(CONFIRM_LINK_ENDED, 400);
+  if (row.usedAt) throw new AuthError(CONFIRM_LINK_ENDED, 400);
+  if (row.expiresAt.getTime() < Date.now()) throw new AuthError(CONFIRM_LINK_ENDED, 400);
 
   const used = await platformPrisma.emailVerificationToken.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } });
-  if (used.count !== 1) throw new AuthError('That link has already been used', 400);
+  if (used.count !== 1) throw new AuthError(CONFIRM_LINK_ENDED, 400);
   await platformPrisma.user.update({ where: { id: row.userId }, data: { emailVerifiedAt: new Date() } });
   return row;
 }

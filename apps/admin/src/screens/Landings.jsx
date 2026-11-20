@@ -5,7 +5,7 @@ import { emoji } from '@ui/components/ui/emoji';
 import { accountAudit, listInvitations, memberDirectory } from '@platform/admin/account';
 import { getMySessions, getPolicy, getProviders } from '@platform/admin/security';
 import { listCredentials } from '@platform/admin/credentials';
-import { ACTION_WORDS } from './AccountActivity';
+import { actionText } from './AccountActivity';
 import { Avatar, DeviceMark, Empty, ICON, PageHead, Panel, Stat, ago, device, ipText } from './wsKit';
 
 const cap = (t) => String(t || '').replace(/^./, (c) => c.toUpperCase());
@@ -99,7 +99,7 @@ export function AccessHome({ navItems = [], openScreen }) {
           description="Who is in the account, who is waiting to join, and who can administer it."
           actions={may.has('invitations') ? <button type="button" className="ws-btn ws-btn--primary" onClick={() => openScreen('invitations')}><ICON.invite size={18} /> Invite people</button> : null}
         />
-        {dir === null ? <p role="alert" className="text-sm">Visible to owners and administrators.</p> : null}
+        {dir === null ? <p role="alert" className="text-sm">Only the account’s owners and administrators can see who has access. Ask one of them.</p> : null}
         {dir ? (
           <div className="ws-stats">
             <Stat icon={ICON.people} label="Active members" value={active.length} note={`${members.length - active.length} suspended`} onOpen={may.has('members') ? () => openScreen('members') : null} />
@@ -122,7 +122,7 @@ export function AccessHome({ navItems = [], openScreen }) {
                           return <span className="ws-change-mark" data-tone={tone} aria-hidden="true"><Glyph size={16} /></span>;
                         })()}
                         <span className="ws-item-text">
-                          <span className="ws-item-title">{ACTION_WORDS[e.action] || e.action}{e.targetName ? `: ${e.targetName}` : ''}</span>
+                          <span className="ws-item-title">{actionText(e.action)}{e.targetName ? `: ${e.targetName}` : ''}</span>
                           <span className="ws-item-sub">{e.actor?.name || 'Someone'}</span>
                         </span>
                         <span className="ws-item-end">{ago(e.at)}</span>
@@ -211,7 +211,7 @@ export function SecurityHome({ navItems = [], openScreen }) {
                       <div className="ws-item">
                         <span className="ws-tile ws-tile--danger" aria-hidden="true"><ICON.warning size={18} /></span>
                         <span className="ws-item-text">
-                          <span className="ws-item-title">{ACTION_WORDS[e.action] || e.action}</span>
+                          <span className="ws-item-title">{actionText(e.action)}</span>
                           <span className="ws-item-sub">{e.actor?.name || 'Someone'}{e.message ? ` · ${e.message}` : ''}</span>
                         </span>
                         <span className="ws-item-end">{ago(e.at)}</span>

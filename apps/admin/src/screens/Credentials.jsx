@@ -20,6 +20,7 @@ import { Empty, FilterSelect, Loading, PageHead, WsDrawer } from './wsKit';
 import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('locked');
@@ -70,7 +71,7 @@ function NewKey({ scopes, onDone, onClose }) {
       const r = await createApiKey({ name: form.name, scopes: form.scopes, allowedIps: form.allowedIps || null, expiresAt: form.expiry === 'none' ? null : inDays(Number(form.expiry)) });
       onDone({ label: `API key “${form.name}”`, value: r.token });
     } catch (err) {
-      notify.error(String(err?.message || 'Not made.'));
+      notify.error(errorWords(err, 'make the key'));
     } finally {
       setBusy(false);
     }
@@ -79,7 +80,7 @@ function NewKey({ scopes, onDone, onClose }) {
     <WsDrawer open onClose={onClose} title="New API key" description="Shown once, when made.">
       <div className="ws" style={DRAWER_WS}>
         <form onSubmit={submit} className="grid gap-4">
-          <label className="grid gap-1"><span className="text-sm font-medium">Name *</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="What uses it, e.g. greytHR sync" /></label>
+          <label className="grid gap-1"><span className="text-sm font-medium">Name <span className="ui-required" aria-hidden="true">*</span></span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="What uses it, e.g. greytHR sync" /></label>
           <fieldset className="grid gap-1">
             <legend className="text-sm font-medium mb-1">It may</legend>
             {(scopes || Object.keys(SCOPE_LABEL)).map((k) => (
@@ -88,7 +89,7 @@ function NewKey({ scopes, onDone, onClose }) {
               </label>
             ))}
           </fieldset>
-          <label className="grid gap-1"><span className="text-sm font-medium">Only from these addresses</span><input className="ui-input w-full" value={form.allowedIps} onChange={(e) => setForm({ ...form, allowedIps: e.target.value })} placeholder="Blank = anywhere; e.g. 203.0.113.10" /></label>
+          <label className="grid gap-1"><span className="text-sm font-medium">Only from these addresses</span><input className="ui-input w-full" value={form.allowedIps} onChange={(e) => setForm({ ...form, allowedIps: e.target.value })} placeholder="203.0.113.10" /><span className="ui-caption">Leave it empty to allow any address.</span></label>
           <label className="grid gap-1"><span className="text-sm font-medium">Expires</span>
             <select className="ui-select" value={form.expiry} onChange={(e) => setForm({ ...form, expiry: e.target.value })}>
               <option value="365">In a year</option>
@@ -137,7 +138,7 @@ function Change({ action, credential, onDone, onClose }) {
       }
       onDone(null, { suspend: 'Paused.', revoke: 'Revoked.', extend: 'Extended.' }[action]);
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'make the change'));
     } finally {
       setBusy(false);
     }
@@ -162,7 +163,7 @@ function Change({ action, credential, onDone, onClose }) {
                   {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </label>
-              <label className="grid gap-1"><span className="text-sm font-medium">Note</span><input className="ui-input w-full" maxLength={150} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional — kept in the history" /></label>
+              <label className="grid gap-1"><span className="text-sm font-medium">Note <span className="ui-caption">(optional)</span></span><input className="ui-input w-full" maxLength={150} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Kept in the history" /></label>
             </>
           )}
           <div className="flex gap-2">
@@ -194,7 +195,7 @@ export default function Credentials() {
         setReadAt(Date.now());
         setFailed('');
       })
-      .catch((e) => setFailed(String(e?.message || 'Could not load credentials.')));
+      .catch((e) => setFailed(errorWords(e, 'load the credentials')));
   }, [showRevoked]);
   useEffect(() => {
     load();
@@ -207,11 +208,11 @@ export default function Credentials() {
 
   const act = async (c, action) => {
     if (action === 'review') {
-      await markCredentialReviewed(c.id).then(() => notify.success('Marked reviewed.')).catch((e) => notify.error(String(e?.message || 'Not done.')));
+      await markCredentialReviewed(c.id).then(() => notify.success('Marked reviewed.')).catch((e) => notify.error(errorWords(e, 'mark it reviewed')));
       return load();
     }
     if (action === 'resume') {
-      await resumeCredential(c.id).then(() => notify.success('Resumed.')).catch((e) => notify.error(String(e?.message || 'Not done.')));
+      await resumeCredential(c.id).then(() => notify.success('Resumed.')).catch((e) => notify.error(errorWords(e, 'resume it')));
       return load();
     }
     if (action === 'rotate' && (c.kind === 'AGENT' || c.kind === 'DEVICE_PUSH')) {
@@ -321,7 +322,7 @@ export default function Credentials() {
             </table>
           </div>
         ) : (
-          <Empty icon={EMPTY_ICON} compact>{data.credentials.length ? 'Nothing matches these filters.' : 'No keys or tokens yet.'}</Empty>
+          <Empty icon={EMPTY_ICON} compact action={!data.credentials.length && data.mayCreateApiKey ? { label: 'Create an API key', onClick: () => setCreating(true) } : null}>{data.credentials.length ? 'Nothing matches these filters.' : 'Keys and tokens you give other systems will be listed here.'}</Empty>
         )}
 
         {data?.links ? (

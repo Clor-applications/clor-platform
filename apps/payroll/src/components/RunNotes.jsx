@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { NEXT_NOTE_HINT, NEXT_NOTE_LABEL, earlierNoteTitle } from '@ui/picks/payLines';
 import { saveNoteForNext } from '../api/payrollRuns';
+import { errorWords } from '@ui/utils/errorWords';
 
 /** The note last month's payroll left for this one, at the top of the run (picks round 32). */
 export function EarlierNote({ note }) {
@@ -28,7 +29,7 @@ export function NextMonthNote({ run, onSaved }) {
       notify.success(text.trim() ? 'Saved for next month.' : 'Note cleared.');
       onSaved?.();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not save the note.'));
+      notify.error(errorWords(e, 'save the note'));
     } finally {
       setBusy(false);
     }

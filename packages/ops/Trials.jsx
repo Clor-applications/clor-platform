@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
-import { Pager } from './kit';
+import { Loading, Pager, errorWords } from './kit';
 import { opsAccounts, opsExtendTrial, opsResendSignup, opsSignups } from './api';
 
 /**
@@ -64,14 +64,14 @@ export function Trials({ role, openAccount, openSubscription = openAccount, endi
           else setAccounts(a);
           setError('');
         })
-        .catch((e) => setError(String(e?.message || e))),
+        .catch((e) => setError(errorWords(e, 'load the trials'))),
     [page, within],
   );
   const loadSignups = useCallback(
     () =>
       opsSignups({})
         .then(setSignups)
-        .catch((e) => setError(String(e?.message || e))),
+        .catch((e) => setError(errorWords(e, 'load the sign-ups'))),
     [],
   );
   useEffect(() => {
@@ -107,7 +107,7 @@ export function Trials({ role, openAccount, openSubscription = openAccount, endi
           </p>
         ) : null}
         {!accounts ? (
-          <p className="ws-card-blurb">Loading…</p>
+          <Loading />
         ) : accounts.accounts.length === 0 ? (
           <div className="ws-empty"><p>{within ? `No trial ends in the next ${within} days.` : 'Nobody is on a trial right now.'}</p></div>
         ) : (
@@ -140,7 +140,7 @@ export function Trials({ role, openAccount, openSubscription = openAccount, endi
                       {day(a.trialEndsAt)}
                       <div className="ws-item-sub">{daysLeft(a.trialEndsAt, now)}</div>
                     </td>
-                    <td>{a.lastActiveAt ? ago(a.lastActiveAt) : 'never'}</td>
+                    <td>{a.lastActiveAt ? ago(a.lastActiveAt) : 'Never'}</td>
                     <td className="num">
                       {billing ? (
                         <span className="inline-flex gap-2">
@@ -160,7 +160,7 @@ export function Trials({ role, openAccount, openSubscription = openAccount, endi
 
       <Panel title="Sign-ups from clor.in">
         {!signups ? (
-          <p className="ws-card-blurb">Loading…</p>
+          <Loading />
         ) : signups.signups.length === 0 ? (
           <div className="ws-empty"><p>Nobody has started a trial from clor.in yet. The pricing page’s Start free trial lands here.</p></div>
         ) : (
@@ -226,7 +226,7 @@ function ResendButton({ id, onDone }) {
       notify.success('A new link is on its way. The old one no longer works.');
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(errorWords(e, 'send the link'));
     } finally {
       setBusy(false);
     }
@@ -258,7 +258,7 @@ function TrialDrawer({ action, onClose, onDone }) {
       notify.success(`Trial now ends ${day(r.trialEndsAt)}.`);
       onDone();
     } catch (err) {
-      setError(String(err?.message || err));
+      setError(errorWords(err, 'extend the trial'));
     } finally {
       setBusy(false);
     }

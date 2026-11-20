@@ -10,6 +10,7 @@ import { ESIC_COLUMNS, checklistLine, esicRow } from '../components/filingChecks
 import { listPayrollPeriods } from '../api/payrollCalendar';
 import { getSalaryRegister, getStatutoryReport, getVarianceReport, getCostReport, getFilings } from '../api/payrollReports';
 import { rupees as money } from '@ui/utils/money';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Payroll reports.
@@ -32,11 +33,11 @@ const REPORTS = [
 ];
 
 const SCHEME_NAMES = {
-  PF: 'Provident Fund',
-  ESI: 'Employee State Insurance',
-  PT: 'Professional Tax',
-  TDS: 'Income Tax (TDS)',
-  LWF: 'Labour Welfare Fund',
+  PF: 'Provident fund (PF)',
+  ESI: 'Employees’ State Insurance (ESI)',
+  PT: 'Professional tax (PT)',
+  TDS: 'Income tax withheld (TDS)',
+  LWF: 'Labour welfare fund (LWF)',
 };
 
 
@@ -68,7 +69,7 @@ export default function PayrollReports({ menuLabel } = {}) {
         setPeriods(rows);
         setPeriodId((p) => p || rows[0]?.id || '');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load payroll periods.')));
+      .catch((e) => setError(errorWords(e, 'load payroll periods')));
   }, []);
 
   /* Round 60 slowload A: Cancel stops waiting; a run that answers after Cancel is not shown. */
@@ -112,7 +113,7 @@ export default function PayrollReports({ menuLabel } = {}) {
       setError('');
     } catch (e) {
       if (mine !== run.current) return;
-      setError(String(e?.message || 'Could not run that report.'));
+      setError(errorWords(e, 'run that report'));
       setData(null);
     } finally {
       if (mine === run.current) setLoading(false);
@@ -133,7 +134,7 @@ export default function PayrollReports({ menuLabel } = {}) {
     try {
       if (report === 'register') {
         downloadCsv({
-          fileName: `Salary register — ${periodName}`,
+          fileName: `Salary register ${periodName}`,
           columns: [
             { key: 'employeeCode', label: 'Code' },
             { key: 'employeeName', label: 'Employee' },
@@ -147,7 +148,7 @@ export default function PayrollReports({ menuLabel } = {}) {
         });
       } else if (report === 'statutory') {
         downloadCsv({
-          fileName: `Statutory — ${periodName}`,
+          fileName: `Statutory ${periodName}`,
           columns: [
             { key: 'scheme', label: 'Scheme' },
             { key: 'employeeCode', label: 'Code' },
@@ -162,7 +163,7 @@ export default function PayrollReports({ menuLabel } = {}) {
         });
       } else if (report === 'variance') {
         downloadCsv({
-          fileName: `What changed — ${periodName}`,
+          fileName: `What changed ${periodName}`,
           columns: [
             { key: 'employeeCode', label: 'Code' },
             { key: 'employeeName', label: 'Employee' },
@@ -176,7 +177,7 @@ export default function PayrollReports({ menuLabel } = {}) {
         });
       } else {
         downloadCsv({
-          fileName: `Cost by department — ${periodName}`,
+          fileName: `Cost by department ${periodName}`,
           columns: [
             { key: 'department', label: 'Department' },
             { key: 'headcount', label: 'People' },
@@ -190,7 +191,7 @@ export default function PayrollReports({ menuLabel } = {}) {
       }
       notify.success('Downloaded.');
     } catch (e) {
-      notify.error(String(e?.message || 'Could not build that file.'));
+      notify.error(errorWords(e, 'build that file'));
     }
   };
 
@@ -198,7 +199,7 @@ export default function PayrollReports({ menuLabel } = {}) {
     <div className="space-y-3">
       <PageHeader
         entity="report"
-        title={menuLabel || 'Payroll reports'}
+        title={menuLabel || 'Reports'}
         description="Read from the payslips themselves, so a report of a month says what was paid rather than what today's rates would say."
         actions={
           report === 'filings' ? null : (
@@ -258,8 +259,14 @@ export default function PayrollReports({ menuLabel } = {}) {
         </>
       ) : !periods.length ? (
         <EmptyState
-          title="No payroll periods yet"
-          description="A report covers a month. Add payroll periods under Settings → Payroll → Payroll periods."
+          title="No periods in the pay calendar yet"
+          description="A report covers a month. Add one under Settings → Pay calendar."
+          describe
+          action={
+            <button type="button" className="ui-btn ui-btn-primary" onClick={() => requestOpenScreen('periods')}>
+              Open Pay calendar
+            </button>
+          }
         />
       ) : report === 'filings' && !hasRows && shown?.waiting > 0 ? (
         <EmptyState
@@ -319,7 +326,7 @@ function Register({ data }) {
               <th scope="col">Employee</th>
               <th scope="col" className="ui-col-h-right">Gross</th>
               <th scope="col" className="ui-col-h-right">Deductions</th>
-              <th scope="col" className="ui-col-h-right">Take-home</th>
+              <th scope="col" className="ui-col-h-right">Net pay</th>
             </tr>
           </thead>
           <tbody className="ui-rows">
@@ -446,8 +453,8 @@ const Statutory = ({ data }) => (
                 <th scope="col">Employee</th>
                 <th scope="col">{s.scheme === 'PF' ? 'UAN' : s.scheme === 'ESI' ? 'ESI number' : 'PAN'}</th>
                 <th scope="col" className="ui-col-h-right">Wages</th>
-                <th scope="col" className="ui-col-h-right">Withheld</th>
-                <th scope="col" className="ui-col-h-right">From the company</th>
+                <th scope="col" className="ui-col-h-right">Employee share</th>
+                <th scope="col" className="ui-col-h-right">Employer share</th>
               </tr>
             </thead>
             <tbody className="ui-rows">
@@ -592,7 +599,7 @@ const Problems = ({ rows, fixable = false }) =>
         <li key={p.employeeId} className="flex items-start gap-2">
           <AlertTriangle size={14} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
           <span className="min-w-0 flex-1">
-            <span className="font-medium">{p.name}</span> — {p.message}
+            <span className="font-medium">{p.name}</span>: {p.message}
           </span>
           {fixable && p.kind ? (
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm shrink-0" onClick={() => fixPerson(p.employeeId)} aria-label={`Fix ${p.name}`}>
@@ -643,8 +650,8 @@ function StateReturns({ rows, periodLabel, showEmployer = false }) {
             <th scope="col">Return</th>
             <th scope="col" className="ui-col-h-center">Due</th>
             <th scope="col" className="ui-col-h-right">People</th>
-            <th scope="col" className="ui-col-h-right">Employees</th>
-            {showEmployer ? <th scope="col" className="ui-col-h-right">Employer</th> : null}
+            <th scope="col" className="ui-col-h-right">Employee share</th>
+            {showEmployer ? <th scope="col" className="ui-col-h-right">Employer share</th> : null}
             <th scope="col" className="ui-col-h-right">Total</th>
           </tr>
         </thead>
@@ -687,7 +694,7 @@ function Filings({ data, periodName }) {
       fn();
       notify.success('Downloaded.');
     } catch (e) {
-      notify.error(String(e?.message || 'Could not build that file.'));
+      notify.error(errorWords(e, 'build that file'));
     }
   };
   const doneAsync = async (fn) => {
@@ -695,14 +702,14 @@ function Filings({ data, periodName }) {
       await fn();
       notify.success('Downloaded.');
     } catch (e) {
-      notify.error(String(e?.message || 'Could not build that file.'));
+      notify.error(errorWords(e, 'build that file'));
     }
   };
   return (
     <div className="space-y-4">
       <FilingCard
-        title="Provident Fund: ECR"
-        label="Download ECR"
+        title="Provident fund: ECR (electronic challan cum return)"
+        label="Download PF ECR"
         checklist={ecr.checklist}
         summary={
           ecr.rows.length
@@ -730,7 +737,7 @@ function Filings({ data, periodName }) {
       />
       <FilingCard
         title="Professional tax"
-        label="PT by state"
+        label="Download PT by state"
         summary={
           pt.states.length
             ? pt.states.map((s) => `${s.state}: ${plural(s.people, 'person', 'people')}, ${money(s.total)}`).join(' · ')
@@ -760,7 +767,7 @@ function Filings({ data, periodName }) {
       </FilingCard>
       <FilingCard
         title="Labour Welfare Fund"
-        label="LWF by state"
+        label="Download LWF by state"
         summary={
           lwf?.states?.length
             ? lwf.states.map((s) => `${s.state} (${s.collection}): ${plural(s.people, 'person', 'people')}, ${money(s.total)}`).join(' · ')

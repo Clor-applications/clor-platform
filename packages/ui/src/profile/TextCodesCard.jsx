@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MessageSquare } from '@ui/components/ui/lineIcons';
 
 import { disableSmsTwoFactor, enableSmsTwoFactor, sendSmsOffCode, startSmsTwoFactor } from './twoFactorApi';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Codes by text message: the second way to do the second step of a sign-in,
@@ -37,7 +38,7 @@ export default function TextCodesCard({ sms, appOn = false, payrollStepUp = fals
       await fn();
     } catch (e) {
       if (e?.code === 'SMS_HELD' && e?.data?.retryAfter <= 60) setWait(e.data.retryAfter);
-      setNote({ ok: false, text: String(e?.message || 'Not done.') });
+      setNote({ ok: false, text: errorWords(e, 'change two-factor sign-in') });
     } finally {
       setBusy(false);
     }
@@ -116,7 +117,7 @@ export default function TextCodesCard({ sms, appOn = false, payrollStepUp = fals
           </span>
           <input type="password" className="ui-input" placeholder="Your password" aria-label="Your password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           <input className="ui-input ui-num w-44 text-center tracking-widest" inputMode="text" autoComplete="one-time-code" maxLength={9} placeholder="Code" aria-label="A texted code, a code from the app, or a recovery code" value={code} onChange={(e) => setCode(e.target.value)} required />
-          <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !password || !code.trim()}>Turn off</button>
+          <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !password || !code.trim()}>Turn off text codes</button>
           <button type="button" className="ui-btn ui-btn-ghost" disabled={busy || wait > 0} onClick={textOffCode}>
             {wait > 0 ? `Text me a code in ${wait}s` : 'Text me a code'}
           </button>
@@ -127,7 +128,7 @@ export default function TextCodesCard({ sms, appOn = false, payrollStepUp = fals
           <p className="text-sm">We texted a code to <span className="ui-mono">{sentTo}</span>. Type it here within 5 minutes.</p>
           <div className="flex flex-wrap items-center gap-2">
             <input className="ui-input ui-num w-36 text-center tracking-widest" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456" aria-label="Code from the text message" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus required />
-            <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.length !== 6}>Turn on</button>
+            <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.length !== 6}>Turn on text codes</button>
             <button type="button" className="ui-btn ui-btn-ghost" disabled={busy || wait > 0} onClick={() => begin()}>{resendLabel}</button>
             <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={() => { setSentTo(''); setCode(''); setNote(null); }}>Change number</button>
           </div>

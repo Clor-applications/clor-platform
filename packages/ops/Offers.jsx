@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
-import { Empty, Err, Loading, ReasonDrawer, Tabs, day, may } from './kit';
+import { Empty, Err, Loading, ReasonDrawer, Tabs, day, may, errorWords, countLine } from './kit';
 import { inr, rupeesText, toPaise } from './money';
 import { opsOfferSave, opsOfferStep, opsOffers } from './api';
 
@@ -88,7 +88,7 @@ function Editor({ editing, plans, onClose, onSaved }) {
       const r = await opsOfferSave(isNew ? null : e.id, body);
       onSaved(r.offer, isNew);
     } catch (err) {
-      setError(String(err?.message || err));
+      setError(errorWords(err, 'save the offer'));
     } finally {
       setBusy(false);
     }
@@ -105,7 +105,7 @@ function Editor({ editing, plans, onClose, onSaved }) {
             Cancel
           </button>
           <button type="submit" form="ops-offer" className="ws-btn ws-btn--primary" disabled={busy || !ready}>
-            {busy ? 'Saving…' : isNew ? 'Make offer' : 'Save'}
+            {busy ? 'Saving…' : isNew ? 'Make offer' : 'Save offer'}
           </button>
         </>
       }
@@ -207,7 +207,7 @@ export function Offers({ role }) {
   const load = useCallback(() => {
     opsOffers()
       .then(setD)
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the offers')));
   }, []);
   useEffect(load, [load]);
 
@@ -230,10 +230,10 @@ export function Offers({ role }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Billing and setup', 'Offers']}
+          crumbs={['Billing and setup']}
           title="Offers"
           description="Codes that take a percent or an amount off a plan. Finance gives one to a customer when setting their subscription."
-          meta={d ? `${n('active')} can be used · ${n('paused')} paused` : null}
+          meta={d ? countLine([[n('active'), 'can be used'], [n('paused'), 'paused']], 'No offers in force') : null}
           actions={
             mayChange ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setEditing('new')}>

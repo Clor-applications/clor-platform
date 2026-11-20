@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { confirmDialog } from '@ui/components/ui/notify';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, getFixes, getMyMarks, getNightConsent, setNightConsent } from './portalApi';
+import { errorWords } from '@ui/utils/errorWords';
 
 /*
  * The employee app's side of the attendance rules (WORKFLOW-GAP-RESEARCH-2026-10-30 4.4, 4.5, 4.6, B19;
@@ -12,7 +13,7 @@ import { SignedOut, getFixes, getMyMarks, getNightConsent, setNightConsent } fro
  *  - MyMarks (My days): "2 of 3 late marks; the next one costs ½ day", and the rule.
  *  - NightConsent (Me, women only): consent to night work, given or withdrawn by her.
  */
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 const day = (iso) => new Date(`${String(iso).slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const half = (d) => (d === 0.5 ? '½ day' : d === 1 ? '1 day' : `${d} days`);
 
@@ -22,7 +23,7 @@ function useLoad(fetcher, guard) {
   const load = useCallback(() => {
     guard(fetcher())
       .then((d) => { setData(d || {}); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not load.')));
+      .catch((e) => setFailed(errText(e, 'load this')));
   }, [fetcher, guard]);
   useEffect(() => { load(); }, [load]);
   return { data, failed, load };
@@ -105,7 +106,7 @@ export function NightConsent({ guard }) {
       setNote({ ok: true, text: given ? 'Withdrawn. HR has been told.' : 'Recorded. HR can see it.' });
       load();
     } catch (e) {
-      if (!(e instanceof SignedOut)) setNote({ ok: false, text: String(e?.message || 'Not saved.') });
+      if (!(e instanceof SignedOut)) setNote({ ok: false, text: errorWords(e, 'save the changes') });
     } finally {
       setBusy(false);
     }

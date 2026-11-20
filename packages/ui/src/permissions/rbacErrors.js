@@ -22,7 +22,7 @@ const MESSAGES = {
       : `This role is assigned to ${d?.assignedUsersCount || 'some'} user${d?.assignedUsersCount === 1 ? '' : 's'}. Give them another role first.`,
 };
 
-export function rbacErrorMessage(err, fallback = 'Something went wrong') {
+export function rbacErrorMessage(err, fallback = 'Could not change the role. Try again.') {
   const data = err?.data || {};
   const build = data.code ? MESSAGES[data.code] : null;
   if (build) return build(data);

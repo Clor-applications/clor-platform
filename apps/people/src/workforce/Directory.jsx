@@ -1,10 +1,12 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useEffect, useState } from 'react';
 import { saveRecordList } from '@ui/picks/round62';
 import { CalendarClock, CalendarDays, Smartphone, UserPlus, UserRoundX, Users } from 'lucide-react';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from './suggestions';
 import { Download, Filter, Pencil, Plus, Trash2, Upload, X } from '@ui/components/ui/lineIcons';
-import { KpiTiles, BarPanel } from '../components/Core';
+import { BarPanel } from '../components/Core';
+import { CountLine } from '@ui/components/ui/CountLine';
 import { getOverview } from '@ui/personnel/api';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -155,7 +157,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       setSelected(new Set(r.ids || []));
       if (r.capped) notify.info(`The first ${r.ids.length} are selected; a bulk change takes at most that many.`);
     } catch (e) {
-      notify.error(String(e?.message || 'Could not select them.'));
+      notify.error(errorWords(e, 'select them'));
     } finally {
       setSelectingAll(false);
     }
@@ -179,7 +181,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       downloadText(text, `employees-${todayIst()}.csv`);
       notify.success('Exported.');
     } catch (e) {
-      notify.error(String(e?.message || 'Export failed.'));
+      notify.error(errorWords(e, 'export the employees'));
     } finally {
       setExporting(false);
     }
@@ -188,7 +190,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const clearFilters = () => { setPrivateQ(''); set(Object.fromEntries([...FILTER_KEYS, 'q', 'page', 'view'].map((k) => [k, null]))); };
   const lookup = (listName, id) => lists[listName]?.find((x) => x.id === id)?.name || 'Chosen';
   const chips = [
-    p.status && { k: 'status', label: p.status === 'ALL' ? 'Including people who left' : `Status: ${STATUS[p.status]?.label || p.status}` },
+    p.status && { k: 'status', label: p.status === 'ALL' ? 'Including people who left' : `Status: ${STATUS[p.status]?.label || enumWords(p.status)}` },
     p.dept && { k: 'dept', label: p.dept === 'none' ? 'No department' : `Department: ${lookup('departments', p.dept)}` },
     p.pos && { k: 'pos', label: `Designation: ${lookup('positions', p.pos)}` },
     p.type && { k: 'type', label: `Type: ${lookup('types', p.type)}` },
@@ -329,7 +331,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
             setResult({ ...r, field: bulk.field, names: Object.fromEntries(rows.map((x) => [x.id, x.name])) });
             list.reload();
           } catch (e) {
-            notify.error(String(e?.message || 'Not changed.'));
+            notify.error(errorWords(e, 'make the change'));
           }
         }} /> : null}
       {result ? <BulkResult result={result} onClose={() => setResult(null)} /> : null}
@@ -401,7 +403,7 @@ function MetricStrip({ counts, onPick }) {
     { key: 'joinedMonth', label: 'Joined this month', cat: 3, Icon: UserPlus, value: n(counts.joinedThisMonth), note: counts.monthStart ? `Since ${formatDate(counts.monthStart)}` : null, onClick: () => onPick({ status: 'ALL', from: counts.monthStart, to: todayIst() }) },
     counts.leavingsHidden ? null : { key: 'onNotice', label: 'On notice', cat: 2, Icon: UserRoundX, value: n(counts.onNotice), note: counts.leftThisMonth != null ? `${n(counts.leftThisMonth)} left this month` : null, onClick: () => onPick({ status: 'ON_NOTICE' }) },
   ];
-  return <KpiTiles label="Workforce counts" items={items} />;
+  return <CountLine label="Workforce counts" items={items} />;
 }
 
 /*
@@ -497,7 +499,7 @@ function FiltersDrawer({ params, lists, managers, noticeHidden = false, onClose,
       footer={<>
         <button type="button" className="ui-btn ui-btn-ghost mr-auto" onClick={() => setDraft(Object.fromEntries(FILTER_KEYS.map((k) => [k, ''])))}>Reset</button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="button" className="ui-btn ui-btn-primary" onClick={() => onApply(Object.fromEntries(FILTER_KEYS.map((k) => [k, draft[k] || null])))}>Apply</button>
+        <button type="button" className="ui-btn ui-btn-primary" onClick={() => onApply(Object.fromEntries(FILTER_KEYS.map((k) => [k, draft[k] || null])))}>Apply filters</button>
       </>}>
       {/* Grouped by what a person asks: who they are in the job, where they sit, who they report to, when they joined. */}
       <div className="ui-filter-groups">
@@ -716,7 +718,7 @@ function PendingActions({ data, error, reload, openScreen }) {
           </li>
         ))}
       </Group>
-      {!data.requests.length && !data.scheduled.length && !data.invites.length && !data.drafts.length ? <EmptyState title="Nothing waiting" /> : null}
+      {!data.requests.length && !data.scheduled.length && !data.invites.length && !data.drafts.length ? <EmptyState title="No pending actions" description="Approvals, upcoming changes, app invites and drafts appear here." /> : null}
     </div>
   );
 }
@@ -734,12 +736,12 @@ function SavedViews({ params, prefs, onApply, canShare }) {
       setNaming(null);
       views.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     }
   };
   const remove = async (v) => {
     if (!(await confirmDialog({ title: `Delete the view "${v.name}"?`, confirmLabel: 'Delete' }))) return;
-    try { await deleteView(v.id); views.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
+    try { await deleteView(v.id); views.reload(); } catch (e) { notify.error(errorWords(e, 'delete it')); }
   };
   const WORDS = { q: 'Search', status: 'Status', dept: 'Department', pos: 'Designation', type: 'Employment type', wtype: 'Work mode', hrs: 'Hours', prob: 'Probation', contract: 'Contract end', area: 'Location', est: 'Work site', branch: 'Works at', unit: 'Business unit', grade: 'Grade', centre: 'Cost centre', tag: 'Tag', mgr: 'Manager', from: 'Joined from', to: 'Joined to', sort: 'Sorted' };
   const describe = (f = {}) => { const used = Object.keys(f).filter((k) => WORDS[k] && k !== 'dir'); return used.length ? used.map((k) => WORDS[k]).join(', ') : 'All employees'; };
@@ -749,7 +751,7 @@ function SavedViews({ params, prefs, onApply, canShare }) {
         <h2 className="ui-t-sec">Saved views{views.data?.length ? <span className="ui-section-count tabular-nums">{views.data.length}</span> : null}</h2>
         <button type="button" className="ui-btn ui-btn-secondary ml-auto" onClick={() => setNaming({ name: '', shared: false })}><Plus size={16} aria-hidden="true" /> Save current view</button>
       </div>
-      {views.loading ? <span className="ui-skel ui-skel-text" /> : views.error ? <ErrorState error={views.error} onRetry={views.reload} compact /> : !views.data.length ? <EmptyState title="No saved views yet" /> : (
+      {views.loading ? <span className="ui-skel ui-skel-text" /> : views.error ? <ErrorState error={views.error} onRetry={views.reload} compact /> : !views.data.length ? <EmptyState title="No saved views yet" description="Set filters and columns on the directory, then save them as a view to open again in one click." /> : (
         <ul className="ui-doc-list">
           {views.data.map((v) => (
             <li key={v.id}>

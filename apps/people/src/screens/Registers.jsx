@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Download, Printer } from '@ui/components/ui/lineIcons';
 
@@ -14,7 +15,7 @@ import { todayIst } from '@ui/utils/dates';
 
 /**
  * Insights → Registers (HR view audit, gap 4): what a labour inspector asks
- * to see, ready to print or export for an establishment and a period. The
+ * to see, ready to print or export for a work site and a period. The
  * register of employees, the leave register, the muster roll (from the day
  * record, so a People-only company has one too) and a leave summary; wages
  * are Payroll's register. These are the content of each register, not a
@@ -93,7 +94,7 @@ export default function Registers({ params = {}, updateParams, register: fixed }
       runListExport({ format: 'csv', fileName: `${slug}-${reg.period === 'month' ? month : reg.period === 'range' ? `${from}-to-${to}` : d.generatedOn || today}`, columns, rows, label: 'rows', title: reg.label });
       notify.success('Exported.');
     } catch (e) {
-      notify.error(String(e?.message || 'Could not export.'));
+      notify.error(errorWords(e, 'export the register'));
     }
   };
 
@@ -101,9 +102,9 @@ export default function Registers({ params = {}, updateParams, register: fixed }
     <div className="space-y-6">
       <style>{PRINT_CSS}</style>
       <ListHeader
-        section="Reports"
+        section="Insights"
         title={fixed ? reg.label : 'Statutory registers'}
-        description="What a labour inspector asks to see, for an establishment and a period, ready to print or export. Wages are in Payroll's registers."
+        description="What a labour inspector asks to see, for a work site and a period, ready to print or export. Wages are in Payroll's registers."
         secondary={<button type="button" className="ui-btn ui-btn-secondary" disabled={!d?.rows?.length} onClick={exportCsv}><Download size={16} aria-hidden="true" /> Export CSV</button>}
         primary={{ label: 'Print', icon: Printer, disabled: !d?.rows?.length, onClick: () => window.print() }}
         toolbar={<>
@@ -113,7 +114,7 @@ export default function Registers({ params = {}, updateParams, register: fixed }
           </div>
         ) : null}
         {(places.data || []).length ? (
-          <div className="w-full sm:w-64"><PopupSelect showValueSubtext={false} label="Establishment" value={est} onChange={(v) => setEst(v || '')} options={establishmentOptions} /></div>
+          <div className="w-full sm:w-64"><PopupSelect showValueSubtext={false} label="Work site" value={est} onChange={(v) => setEst(v || '')} options={establishmentOptions} /></div>
         ) : null}
         {reg.period === 'month' ? (
           <div className="inline-flex items-center gap-1" role="group" aria-label="Month">

@@ -10,7 +10,7 @@ vi.mock('@ui/components/ui/notify', () => ({ notify }));
 
 import { EmailAddresses, EmailLog, EmailTemplates } from './Email';
 
-const reason = (text) => fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: text } });
+const reason = (text) => fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: text } });
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   notify.success.mockReset();

@@ -11,6 +11,7 @@ import { activeManagerOf, chainFor } from './approvalChain.js';
 import { configuredLeaveApproval, LEAVE_APPROVE, leaveStepDeciders, portalOf } from './leaveRules.js';
 import { deciderFor } from './standIns.js';
 import { fail } from './days.js';
+import { dateWords } from '../../utils/istDate.js';
 
 /**
  * Leave on the approval engine (docs/people/workflow-engine/SPEC.md section 9, phase 2c-i).
@@ -656,7 +657,7 @@ async function leaveOverdue(step: { id: string; requestId: string; accountId: st
     const { sendNotice } = await import('../notifications.js');
     const app = (await import('../features.js')).isFeatureEnabled;
     const where = (await app(accountId, orgId, 'people')) ? 'people' : 'attendance';
-    if (to.length) await sendNotice(accountId, orgId, to, { kind: 'attendance.leave_asked', title: `Overdue: ${engine.title}`, body: `Was due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: where, screen: 'leaveRequests', params: { id: lead.id } } as any }, { dedupeKey: `leave-overdue:${lead.id}:${step.id}:${now.toISOString().slice(0, 10)}`, subjectKey: `leave:${lead.id}` });
+    if (to.length) await sendNotice(accountId, orgId, to, { kind: 'attendance.leave_asked', title: `Overdue: ${engine.title}`, body: `It was due on ${dateWords(step.dueAt)}.`, link: { app: where, screen: 'leaveRequests', params: { id: lead.id } } as any }, { dedupeKey: `leave-overdue:${lead.id}:${step.id}:${now.toISOString().slice(0, 10)}`, subjectKey: `leave:${lead.id}` });
     return 'REMINDED' as const;
   };
   if (!step.remindedAt) return remind();
@@ -670,7 +671,7 @@ async function leaveOverdue(step: { id: string; requestId: string; accountId: st
       if (ok) {
         const { tellWaiting, withHistory } = await import('../../routes/leave.js');
         const row = await peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id: lead.id } });
-        await peoplePrisma.leaveRequest.update({ where: { id: lead.id }, data: { history: withHistory(row, { by: 'system', what: 'STEP_HANDED_ON', note: `Step ${step.order} handed on: it was due ${step.dueAt.toISOString().slice(0, 10)}` }) as any } });
+        await peoplePrisma.leaveRequest.update({ where: { id: lead.id }, data: { history: withHistory(row, { by: 'system', what: 'STEP_HANDED_ON', note: `Handed on: it was due on ${dateWords(step.dueAt)}` }) as any } });
         await tellWaiting(orgId, lead.id);
       }
       return ok;

@@ -3,7 +3,8 @@ import { Download } from 'lucide-react';
 import { emoji } from '@ui/components/ui/emoji';
 
 import NotConnected from '@ui/components/ui/NotConnected';
-import { Empty, ICON, LoadError, Loading, PageHead, Stat } from './wsKit';
+import { CountLine } from '@ui/components/ui/CountLine';
+import { Empty, LoadError, Loading, PageHead } from './wsKit';
 import { inr } from './InvoiceDocument';
 import { InvoiceDrawer, InvoiceTable, invoiceDay, useInvoices } from './InvoiceDrawer';
 import BillingDocs from './BillingDocs';
@@ -64,7 +65,7 @@ export default function Invoices() {
         <PageHead
           crumbs={['Plan', 'Invoices']} scope="account"
           title="Invoices"
-          description="Tax invoices from Clor Applications Pvt Ltd. Claim the GST on them as input tax credit."
+          description="Tax invoices from CLOR Applications Private Limited. Claim the GST on them as input tax credit."
           actions={
             invoices?.length ? (
               <button type="button" className="ws-btn ws-btn--quiet" onClick={() => openInvoice(invoices[0].id)}>
@@ -81,35 +82,20 @@ export default function Invoices() {
         ) : null}
 
         {f ? (
-          <div className="ws-stats">
-            <Stat icon={ICON.payments} label={`Paid this FY`} value={inr(f.paidThisFy)} note={`${f.paidCount} ${f.paidCount === 1 ? 'invoice' : 'invoices'} · ${fyName}`} />
-            <Stat
-              icon={ICON.plan}
-              tone={f.next?.overdue ? 'danger' : null}
-              label="Next to pay"
-              value={f.next ? inr(f.next.total) : inr(0)}
-              note={
-                f.next
-                  ? `${f.next.number} · ${f.next.overdue ? 'overdue since' : 'due'} ${invoiceDay(f.next.dueDate)}${f.unpaidCount > 1 ? ` · ${f.unpaidCount} unpaid, ${inr(f.unpaidTotal)}${f.overdue ? `, ${f.overdue} overdue` : ''}` : ''}`
-                  : 'Nothing to pay'
-              }
-            />
-            <Stat
-              icon={ICON.guide}
-              label="GST input credit"
-              value={inr(f.gstThisFy)}
-              note={f.gstThisFy ? `On ${f.gstCount} ${f.gstCount === 1 ? 'invoice' : 'invoices'} · ${fyName}` : `No GST charged · ${fyName}`}
-            />
-          </div>
+          <CountLine label="Invoice figures" items={[
+            { key: 'due', label: f.next ? `${f.overdue ? 'to pay, overdue since' : 'to pay, next due'} ${invoiceDay(f.next.dueDate)}` : 'to pay', value: f.unpaidTotal ? inr(f.unpaidTotal) : null, tone: f.overdue ? 'neg' : undefined },
+            { key: 'paid', label: `paid in ${fyName}`, value: f.paidThisFy ? inr(f.paidThisFy) : null },
+            { key: 'gst', label: `GST you can claim as input credit, ${fyName}`, value: f.gstThisFy ? inr(f.gstThisFy) : null },
+          ]} />
         ) : null}
 
         <section className="ws-section" aria-label="Invoices">
           {failed ? (
             <LoadError onRetry={reload}>Invoices could not be loaded. Try again in a minute.</LoadError>
           ) : invoices === null ? (
-            <Loading shape="rows" label="Reading invoices…" />
+            <Loading shape="rows" label="Loading invoices…" />
           ) : !invoices.length ? (
-            <Empty icon={EMPTY_ICON} compact>No invoices yet.</Empty>
+            <Empty icon={EMPTY_ICON} compact>No invoices yet. CLOR’s tax invoices for your plan will appear here.</Empty>
           ) : (
             <InvoiceTable invoices={invoices} onOpen={openInvoice} detail />
           )}

@@ -33,10 +33,10 @@ function check(f, apps) {
   const digits = f.phone.replace(/[\s\-().]/g, '').replace(/^(\+91|0091|91(?=\d{10}$)|0(?=\d{10}$))/, '');
   if (!/^[1-9]\d{9}$/.test(digits)) e.phone = f.phone.trim() ? 'Enter a 10-digit Indian phone number.' : 'Enter a phone number.';
   if (f.city.trim().length < 2) e.city = 'Enter your city.';
-  if (!f.companySize) e.companySize = 'Choose how many people work there.';
+  if (!f.companySize) e.companySize = 'Choose how many employees your company has.';
   const n = Number(f.users);
   if (!f.users || !Number.isInteger(n) || n < 1) e.users = 'Enter how many people will sign in.';
-  if (!apps.size) e.apps = 'Tick at least one app.';
+  if (!apps.size) e.apps = 'Tick at least one product.';
   return e;
 }
 
@@ -146,9 +146,13 @@ export default function Demo() {
         setErrors(body.fields);
         return focusFirst(body.fields);
       }
-      setFailed(body.error || 'Not sent. Try again in a minute.');
+      setFailed(
+        r.status === 429
+          ? `Too many requests came from your connection just now. Wait a few minutes and try again, or write to ${SITE.salesEmail}.`
+          : `We could not send your request. Try again in a minute, or write to ${SITE.salesEmail}.`,
+      );
     } catch {
-      setFailed(`Not sent: we could not reach CLOR. Check your connection and try again, or write to ${SITE.salesEmail}.`);
+      setFailed(`We could not reach CLOR, so your request was not sent. Check your connection and try again, or write to ${SITE.salesEmail}.`);
     } finally {
       setSending(false);
     }
@@ -158,7 +162,7 @@ export default function Demo() {
   if (done) {
     return (
       <>
-        <PageHead eyebrow="Demo" title="Request a demo" />
+        <PageHead eyebrow="Demo" title="Demo requested" />
         <section className="section">
           <div className="wrap demo-thanks" ref={thanksRef} tabIndex={-1} role="status">
             <h2 className="h-2">Thank you{done.name ? `, ${done.name}` : ''}.</h2>
@@ -169,7 +173,7 @@ export default function Demo() {
                   Until then, look around CLOR with a sample company: a made-up business with a few months of invoices, pay runs, people and attendance. Open any screen; nothing you change is saved. The link is in your email too, and works for 14 days.
                 </p>
                 <a className="btn btn--primary" href={done.explore}>
-                  Explore the apps now
+                  Explore the sample company
                 </a>
               </>
             ) : null}
@@ -206,14 +210,14 @@ export default function Demo() {
                 <input id="demo-email" name="email" type="email" autoComplete="email" spellCheck={false} value={form.email} onChange={set('email')} maxLength={200} {...a('email')} />
               </Field>
               <Field id="demo-phone" label="Phone" error={errors.phone}>
-                <input id="demo-phone" name="tel" type="tel" inputMode="tel" autoComplete="tel" placeholder="98450 12345…" value={form.phone} onChange={set('phone')} maxLength={20} {...a('phone')} />
+                <input id="demo-phone" name="tel" type="tel" inputMode="tel" autoComplete="tel" placeholder="98450 12345" value={form.phone} onChange={set('phone')} maxLength={20} {...a('phone')} />
               </Field>
             </div>
             <div className="field-row">
               <Field id="demo-city" label="City" error={errors.city}>
                 <input id="demo-city" name="city" autoComplete="address-level2" value={form.city} onChange={set('city')} maxLength={80} {...a('city')} />
               </Field>
-              <Field id="demo-companySize" label="People who work there" error={errors.companySize}>
+              <Field id="demo-companySize" label="Number of employees" error={errors.companySize}>
                 <select id="demo-companySize" name="companySize" value={form.companySize} onChange={set('companySize')} {...a('companySize')}>
                   <option value="">Choose</option>
                   {SIZES.map(([v, l]) => (
@@ -224,11 +228,11 @@ export default function Demo() {
                 </select>
               </Field>
             </div>
-            <Field id="demo-users" label="How many will sign in to CLOR" hint="Owners, accountants, HR: everyone who needs a login. Staff using only the employee app don’t count." error={errors.users}>
+            <Field id="demo-users" label="How many will sign in to CLOR" hint="Owners, accountants, HR: everyone who needs their own sign-in. Staff using only the employee app don’t count." error={errors.users}>
               <input id="demo-users" name="users" type="number" inputMode="numeric" min={1} step={1} value={form.users} onChange={set('users')} className="field-short" {...a('users', true)} />
             </Field>
             <fieldset className="field field-set" aria-invalid={errors.apps ? true : undefined} aria-describedby={errors.apps ? 'demo-apps-error' : undefined}>
-              <legend>Which apps</legend>
+              <legend>Products you want to see</legend>
               <div className="field-checks">
                 {AVAILABLE.map((p) => (
                   <label key={p.slug} className="check">
@@ -275,7 +279,7 @@ export default function Demo() {
             <ol className="demo-steps body">
               <li>We call you within one working day and fix a time.</li>
               <li>We show you CLOR doing work like yours, on a video call.</li>
-              <li>If it suits you, we set up your account with the apps you chose, on a 30-day trial, and email you a link to set your password.</li>
+              <li>If it suits you, we set up your account with the products you chose, on a free trial, and email you a link to set your password.</li>
             </ol>
             <h2 className="h-3">Rather write?</h2>
             <p className="body">

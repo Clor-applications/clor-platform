@@ -12,6 +12,8 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getPortalAccess, issuePortalCodes, listGeofences, resetPortalPassword, setPortalAccess, signOutPortalEverywhere } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const STATE = {
   off: { label: 'Not set up', pill: 'ui-pill-neutral' },
@@ -43,7 +45,7 @@ const EXPORT_COLUMNS = [
   { key: 'portal', label: 'Portal', value: (r) => STATE[stateOf(r)]?.label || '' },
   { key: 'mobilePunch', label: 'Phone punch', value: (r) => (r.mobilePunch ? 'On' : 'Off') },
   { key: 'site', label: 'Where they may punch', value: (r) => siteOf(r) },
-  { key: 'email', label: 'E-mail' },
+  { key: 'email', label: 'Email' },
   { key: 'portalPasswordSetAt', label: 'Signed up', value: (r) => (r.portalPasswordSetAt ? String(r.portalPasswordSetAt).slice(0, 10) : '') },
 ];
 
@@ -63,7 +65,7 @@ export default function PortalAccess() {
   const [email, setEmail] = useState(false);
   const [issued, setIssued] = useState(null);
   const load = useCallback(() => {
-    getPortalAccess().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load.')));
+    getPortalAccess().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load this')));
   }, []);
   useEffect(() => {
     load();
@@ -105,7 +107,7 @@ export default function PortalAccess() {
       setPicked(new Set());
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'No codes given.'));
+      notify.error(errorWords(e, 'give the activation codes'));
     }
   };
   const change = async (body, done) => {
@@ -115,7 +117,7 @@ export default function PortalAccess() {
       setPicked(new Set());
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
+      notify.error(errorWords(e, 'make the change'));
     }
   };
   const reset = async (p) => {
@@ -125,7 +127,7 @@ export default function PortalAccess() {
       notify.success(`Give ${p.name} a new activation code.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     }
   };
   /* A-33: a lost or shared phone — signed out everywhere, password kept. */
@@ -135,7 +137,7 @@ export default function PortalAccess() {
       const r = await signOutPortalEverywhere(p.id);
       notify.success(r?.ended ? `${p.name} is signed out on ${r.ended} device${r.ended === 1 ? '' : 's'}.` : `${p.name} was not signed in anywhere.`);
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     }
   };
   /* This web app's own address: the portal is served wherever HR is looking from. Company code filled in. */
@@ -145,7 +147,7 @@ export default function PortalAccess() {
   return (
     <DocumentListShell
       entity="employee"
-      title={activeApp() === 'people' ? 'Employee app' : 'Employee Portal Access'}
+      title={activeApp() === 'people' ? 'Employee app' : 'Employee portal access'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
@@ -154,19 +156,18 @@ export default function PortalAccess() {
       description="Employees sign in to the portal with the company code, their employee code and a password they choose."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search people' }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" disabled={!picked.size} onClick={give} title={picked.size ? undefined : 'Pick people in the list first'}>
           <KeyRound size={16} aria-hidden="true" /> Give activation codes{picked.size ? ` (${picked.size})` : ''}
         </button>
       }
-      cards={[
+      countLine={countItems([
         { label: 'Active', value: figures.active, count: true, tone: 'paid', Icon: UserCheck, onSelect: () => setStatus('active') },
         { label: 'Code given', value: figures.pending, count: true, tone: 'partial', Icon: KeyRound, onSelect: () => setStatus('pending') },
         { label: 'Phone punch on', value: figures.phone, count: true, tone: 'sent', Icon: Smartphone },
         { label: 'Field: anywhere', value: figures.field, count: true, tone: 'outstanding', Icon: MapPin },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -189,7 +190,7 @@ export default function PortalAccess() {
             <span className="text-sm"><strong className="tabular-nums">{picked.size}</strong> picked</span>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={give}><KeyRound size={14} aria-hidden="true" /> Give activation codes</button>
             <label className="flex items-center gap-1.5 text-sm">
-              <input type="checkbox" className="ui-checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} /> and e-mail them
+              <input type="checkbox" className="ui-checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} /> and email them
             </label>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => change({ mobilePunch: true }, 'may punch from their phone')}><Smartphone size={14} aria-hidden="true" /> Allow phone punch</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => change({ mobilePunch: false }, 'may no longer punch from their phone')}>Stop phone punch</button>
@@ -209,21 +210,21 @@ export default function PortalAccess() {
               aria-label="Where phone punches are accepted"
               onChange={(e) => {
                 const v = e.target.value;
-                if (v === 'SITE') change({ phonePunchMode: 'SITE' }, 'may punch only inside a work site');
+                if (v === 'SITE') change({ phonePunchMode: 'SITE' }, 'may punch only inside a punch area');
                 else if (v === 'FIELD') change({ phonePunchMode: 'FIELD', mobilePunch: true }, 'may punch from anywhere (field), recorded with the address');
                 else if (v === 'SELFIE') change({ selfieRequired: true }, 'must add a selfie to each phone punch');
                 else if (v === 'NOSELFIE') change({ selfieRequired: false }, 'may punch without a selfie');
               }}
             >
               <option value="">Mode…</option>
-              <option value="SITE">Work sites only</option>
+              <option value="SITE">Punch areas only</option>
               <option value="FIELD">Field: anywhere</option>
               <option value="SELFIE">Selfie required</option>
               <option value="NOSELFIE">Selfie optional</option>
             </select>
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => change({ portalEnabled: false }, 'switched off')}>Switch portal off</button>
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPicked(new Set())}>Clear</button>
-            {!fences.length ? <p className="ui-caption w-full">No work sites yet: phone punches need one, except for people set to Field. Add them under Work sites.</p> : null}
+            {!fences.length ? <p className="ui-caption w-full">No punch areas yet: phone punches need one, except for people set to Field. Add them under Settings → Punch areas.</p> : null}
             <p className="ui-caption w-full">Field: for sales, service and site staff. A phone punch is accepted anywhere; the place and its address are recorded, marked outside a site, and wait for approval under Phone punches (or the person’s manager) when the company asks.</p>
           </div>
         ) : null
@@ -252,7 +253,7 @@ export default function PortalAccess() {
                   <ColumnHeader label="Portal" col="portal" state={filters} />
                   <th scope="col" className="ui-col-h-center">Phone punch</th>
                   <ColumnHeader label="Site" col="site" state={filters} />
-                  <th scope="col" className="hidden 2xl:table-cell">E-mail</th>
+                  <th scope="col" className="hidden 2xl:table-cell">Email</th>
                   <th scope="col" className="hidden 2xl:table-cell">Signed up</th>
                   <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -264,7 +265,7 @@ export default function PortalAccess() {
                       {inTab.length ? (
                         <EmptyState kind="filtered" totalCount={inTab.length} title="Nobody matches" description="Nothing in this tab matches the search or the column filters." />
                       ) : all.length ? (
-                        <EmptyState icon={KeyRound} title="Nobody here" description="Try another tab." />
+                        <EmptyState icon={KeyRound} title="Nobody in this group" description="Pick All to see everyone." />
                       ) : (
                         <EmptyState icon={KeyRound} title="No employees" description="Add employees first." />
                       )}
@@ -330,7 +331,7 @@ function IssuedCodes({ issued, portalUrl, onClose }) {
               <th scope="col" className="ui-col-grow ui-th">Employee</th>
               <th scope="col" className="ui-th">Employee code</th>
               <th scope="col" className="ui-th">Activation code</th>
-              <th scope="col" className="ui-th">E-mailed</th>
+              <th scope="col" className="ui-th">Emailed</th>
             </tr>
           </thead>
           <tbody>

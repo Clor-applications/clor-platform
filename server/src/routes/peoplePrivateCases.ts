@@ -9,6 +9,7 @@ import { CaseKeyMissing } from '../services/people/caseBox.js';
 import { z } from 'zod';
 import { check, flag, id, idParams, list, rawText, text } from '../middleware/validate.js';
 import { CaseError, addEvidence, advance, annualReport, committeeOf, intake, myCases, onPoshCommittee, openCase, openEvidence, saveCommittee } from '../services/people/privateCases.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Private cases (docs/people/02-PRD.md PRIV-01..06). The grant lets someone
@@ -26,7 +27,7 @@ const sendError = (res: any, e: unknown) => {
   if (e instanceof CaseError) return res.status(e.status).json({ error: e.message });
   if (e instanceof CaseKeyMissing) return res.status(503).json({ error: e.message, code: 'CASE_KEY_MISSING' });
   console.error('[people-private-cases]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 
 /*

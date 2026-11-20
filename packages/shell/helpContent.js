@@ -30,7 +30,7 @@ const OVERVIEWS = [
         heading: 'How CLOR is laid out',
         points: [
           'The Workspace is where the account is run: companies, who has access, sign-in rules, the plan and your data.',
-          'Accounting, Payroll, People and Attendance are the apps. Each company switches on the apps it uses.',
+          'Books, Payroll, People and Attendance are the apps. Each company switches on the apps it uses.',
           'The rail on the left lists the sections of the app you are in; each opens its own page.',
         ],
       },
@@ -48,7 +48,7 @@ const OVERVIEWS = [
   {
     key: 'setup',
     group: 'start',
-    title: 'Set up your workspace',
+    title: 'Set up your company',
     summary: 'Four things make a new company ready to use. The Setup ring at the foot of the Workspace rail shows how far you are.',
     sections: [
       {
@@ -221,7 +221,7 @@ const OVERVIEWS = [
         ],
       },
     ],
-    open: { app: 'accounting', screen: '', label: 'Open Accounting' },
+    open: { app: 'accounting', screen: '', label: 'Open Books' },
   },
   {
     key: 'payroll',
@@ -235,7 +235,7 @@ const OVERVIEWS = [
           'Before the run: check adjustments, loans and advances, and tax declarations.',
           'Pay runs: start the month’s run, review, approve.',
           'Salary slips and payments follow from the approved run.',
-          'Books: post the run to Accounting, or export it for Tally.',
+          'Post the approved run to Books, or export it for Tally.',
         ],
       },
       {

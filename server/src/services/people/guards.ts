@@ -14,7 +14,7 @@ export const peopleEnabled = async (req: Request, res: Response): Promise<boolea
   if (await isFeatureEnabled(accountId, orgId, 'people')) return true;
   if (await isFeatureEnabled(accountId, orgId, 'attendance')) return true;
   res.status(403).json({
-    error: 'People is not switched on for this organisation.',
+    error: 'People is not switched on for this company.',
     code: 'PEOPLE_DISABLED',
   });
   return false;
@@ -81,7 +81,7 @@ export const hrOrAttendanceRouteOk = async (req: Request, res: Response): Promis
   const on: string[] = [];
   for (const app of ['people', 'attendance']) if (await isFeatureEnabled(accountId, orgId, app)) on.push(app);
   if (!on.length) {
-    res.status(403).json({ error: 'Switch on People or Attendance for this organisation to use leave and holidays.', code: 'TIME_OFF_DISABLED' });
+    res.status(403).json({ error: 'Switch on People or Attendance for this company to use leave and holidays.', code: 'TIME_OFF_DISABLED' });
     return false;
   }
   const refused = await appGate(accountId, on, req.method, { name: on.length > 1 ? 'People or Attendance' : on[0] === 'people' ? 'People' : 'Attendance', app: on[0] });

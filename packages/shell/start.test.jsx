@@ -49,7 +49,7 @@ describe('Start a free trial', () => {
     fireEvent.change(screen.getByLabelText('Work email'), { target: { value: ' Asha@Rao.in ' } });
     fireEvent.click(screen.getByRole('button', { name: /Send me the link/ }));
     await waitFor(() => expect(api.start).toHaveBeenCalledWith({ email: 'asha@rao.in', app: 'accounting', plan: undefined, website: undefined }));
-    expect(await screen.findByRole('heading', { name: 'Check your mail' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeInTheDocument();
     expect(screen.getByText(/We sent a link to asha@rao.in/)).toBeInTheDocument();
     /* It can be sent again, once. */
     fireEvent.click(screen.getByRole('button', { name: 'Send it again' }));

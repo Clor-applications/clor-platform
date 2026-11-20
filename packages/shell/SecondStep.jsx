@@ -55,7 +55,7 @@ export default function SecondStep({ challenge, methods = ['APP'], phone, frame,
         setSentTo((s) => s || phone || 'your phone');
         setWait(held);
       } else {
-        setError(String(err?.message || 'The code could not be sent.'));
+        setError(String(err?.message || 'The code could not be sent. Try again in a minute.'));
       }
     } finally {
       setSending(false);
@@ -88,7 +88,7 @@ export default function SecondStep({ challenge, methods = ['APP'], phone, frame,
       if (expired(err)) return onExpired?.(String(err?.message || ''));
       const hold = lockoutSeconds(err);
       if (hold > 0) setLocked(hold);
-      else setError(String(err?.message || 'That code did not work.'));
+      else setError(String(err?.message || 'That code did not work. Check it and try again.'));
     } finally {
       setBusy(false);
     }

@@ -30,17 +30,17 @@ describe('Attendance navigation structure', () => {
     expect(s.People).toEqual([
       ['Directory', ['Employees', 'Contractors']],
       ['Employment changes', ['Joining & leaving tasks', 'Resignations', 'Transfers']],
-      ['Organization', ['Departments', 'Designations', 'Locations & sites']],
+      ['Organisation', ['Departments', 'Designations', 'Locations & sites']],
       ['Access', ['Employee portal access']],
     ]);
     expect(s.Readers).toEqual([
       ['Monitoring', ['Reader health', 'Sync monitoring', 'Reader logs']],
-      ['Devices', ['All readers', 'Device enrollment']],
-      ['Punch data', ['Punch transactions', 'Unmatched punches', 'Employee ID mapping']],
-      ['Other punch sources', ['Mobile punches']],
+      ['Devices', ['All readers', 'Reader enrolment']],
+      ['Punch data', ['Punches', 'Unmatched punches', 'Employee ID mapping']],
+      ['Other punch sources', ['Phone punches']],
     ]);
     expect(s.Attendance).toEqual([
-      ['Daily operations', ['Attendance records', 'Punches', 'Exceptions', 'Attendance fixes']],
+      ['Daily operations', ['Attendance records', 'Exceptions', 'Attendance corrections']],
       ['Scheduling', ['Schedule calendar', 'Shifts', 'Shift assignments', 'Department schedules', 'Temporary schedules', 'Shift rotations']],
       /* Time & Leave: the screens People shows, shared (TIME-LEAVE-DECISIONS.md). */
       ['Leave', ["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Leave register', 'Delegates']],
@@ -56,7 +56,7 @@ describe('Attendance navigation structure', () => {
       ['All reports', ['Report catalogue']],
     ]);
     expect(s.Settings).toEqual([
-      ['Organization', ['Attendance setup', 'Punch areas', 'Punch area check', 'Joining & leaving steps']],
+      ['Organisation', ['Attendance setup', 'Punch areas', 'Punch area check', 'Joining & leaving steps']],
       ['Work policy', ['Attendance policy', 'Weekly off policy', 'Overtime policy', 'Leave policy', 'Working week', 'Holidays', 'Leave year end', 'Attendance request types', 'Automations']],
       ['Integrations', ['Integrations']],
       ['Access & security', ['Users & security', 'Roles & access', 'Email notifications']],
@@ -65,7 +65,7 @@ describe('Attendance navigation structure', () => {
       ['Privacy', ['Data protection', 'Data requests']],
       ['Audit & recovery', ['Audit logs', 'Recycle bin']],
     ]);
-    expect(s.Me).toEqual([['Self-Service', ['My attendance', 'My leave']]]);
+    expect(s.Me).toEqual([['Self-service', ['My attendance', 'My leave']]]);
   });
   it('labels are sentence case and appear once (People plan, 8 Nov 2026: one wording rule in both apps)', () => {
     const labels = attendanceApp.nav.filter((i) => i.key).map((i) => i.label);

@@ -7,6 +7,7 @@ import { getFeatures, setFeatures } from '@ui/api/features';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { dayLabel, getRules, hm, listRuleVersions, listShifts, recompute, recomputeTrust, saveRules, simulateRules, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
 
 const monthStart = () => `${todayIst().slice(0, 7)}-01`;
 
@@ -33,7 +34,7 @@ export default function AttendanceRules({ menuLabel } = {}) {
   const [range, setRange] = useState({ from: monthStart(), to: todayIst() });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    getRules().then((v) => { setRules(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load the rules.')));
+    getRules().then((v) => { setRules(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load the rules')));
     listShifts().then((s) => setShifts(s.filter((x) => x.isActive))).catch(() => setShifts([]));
   }, [attempt]);
 
@@ -43,7 +44,7 @@ export default function AttendanceRules({ menuLabel } = {}) {
       setRules(await saveRules({ ...rules, defaultShiftId: rules.defaultShiftId || null, readerLateUploadHours: Number(rules.readerLateUploadHours) || 24 }));
       notify.success('Rules saved. Past days keep their figures until you recalculate them below.');
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     }
   };
   /* Reader trust for days recorded before it was on (or before the window changed): only the trust changes. */
@@ -53,7 +54,7 @@ export default function AttendanceRules({ menuLabel } = {}) {
       const r = await recomputeTrust(range.from, range.to);
       notify.success(`Trust worked out for ${r.worked} day${r.worked === 1 ? '' : 's'}.`);
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'do that'));
     } finally {
       setBusy(false);
     }
@@ -64,7 +65,7 @@ export default function AttendanceRules({ menuLabel } = {}) {
       const r = await recompute(range);
       notify.success(`${r.recomputed} days recalculated.`);
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'do that'));
     } finally {
       setBusy(false);
     }
@@ -241,7 +242,7 @@ export function NightShifts() {
       setOn(Boolean((r?.features || {}).attendanceNightShifts ?? next));
       notify.success(next ? 'Night shifts are on. Recalculate past days below if any were worked across midnight.' : 'Night shifts are off.');
     } catch (err) {
-      notify.error(String(err?.message || 'Not changed.'));
+      notify.error(errorWords(err, 'make the change'));
     } finally {
       setSaving(false);
     }
@@ -292,7 +293,7 @@ function RulePreview({ shifts }) {
       const body = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== '' && v !== undefined).map(([k, v]) => [k, k.endsWith('Time') ? v : Number(v)]));
       setResult(await simulateRules({ shiftId, changes: body, ...range }));
     } catch (err) {
-      notify.error(String(err?.message || 'Could not preview.'));
+      notify.error(errorWords(err, 'show the preview'));
     } finally {
       setBusy(false);
     }
@@ -328,7 +329,7 @@ function RulePreview({ shifts }) {
           <p className="text-sm">
             <strong>{result.changedDays}</strong> of {result.compared} day{result.compared === 1 ? '' : 's'} would change
             {result.changedDays ? ` (status ${result.tally.status}, late ${result.tally.late}, overtime ${result.tally.overtime})` : ''}.
-            {result.skipped ? <span className="ui-caption"> {result.skipped} not compared: leave, no check-in, or a closed month.</span> : null}
+            {result.skipped ? <span className="ui-caption"> {result.skipped} not compared: leave, no punch in, or a closed month.</span> : null}
           </p>
           {result.days.length ? (
             <div className="ui-table-scroll">

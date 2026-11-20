@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { Panel } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, ReasonDrawer, may } from './kit';
+import { Err, Loading, ReasonDrawer, may, errorWords } from './kit';
 import { opsCustomerLimits, opsSetCustomerFeature, opsSetCustomerLimits } from './api';
 
 /**
@@ -33,7 +33,7 @@ export function Limits({ id, name, role }) {
   const load = useCallback(() => {
     opsCustomerLimits(id)
       .then(setD)
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the limits')));
   }, [id]);
   useEffect(load, [load]);
   if (!d) return error ? <Err>{error}</Err> : <Loading />;
@@ -172,7 +172,7 @@ export function Limits({ id, name, role }) {
           ))
         ) : null}
       </Panel>
-      {!mayChange ? <p className="ws-card-blurb">Your role can look at these limits but not change them. Billing changes them.</p> : null}
+      {!mayChange ? <p className="ws-card-blurb">Your role can look at these limits but not change them. Finance changes them.</p> : null}
 
       <ReasonDrawer
         open={editing}

@@ -210,23 +210,24 @@ export async function domainRefusalFor(orgIds: string[], email: string): Promise
   return null;
 }
 
-/** Returns a human-readable problem, or null when the password is acceptable. */
+/**
+ * Returns a human-readable problem, or null when the password is acceptable. Every rule is said at once
+ * ("Choose a password with at least 10 characters, upper and lower case letters and a number."), so a person
+ * is not refused one rule at a time (UX copy audit, 20 Nov 2026).
+ */
 export function validatePassword(password: string, policy: Policy) {
   const value = String(password || '');
-  if (value.length < policy.passwordMinLength) {
-    return `Password must be at least ${policy.passwordMinLength} characters`;
-  }
-  if (policy.passwordRequireMixedCase && !(/[a-z]/.test(value) && /[A-Z]/.test(value))) {
-    return 'Password must contain both upper and lower case letters';
-  }
-  if (policy.passwordRequireNumber && !/[0-9]/.test(value)) {
-    return 'Password must contain a number';
-  }
-  if (policy.passwordRequireSymbol && !/[^A-Za-z0-9]/.test(value)) {
-    return 'Password must contain a symbol';
+  const short = value.length < policy.passwordMinLength;
+  const mixed = policy.passwordRequireMixedCase && !(/[a-z]/.test(value) && /[A-Z]/.test(value));
+  const number = policy.passwordRequireNumber && !/[0-9]/.test(value);
+  const symbol = policy.passwordRequireSymbol && !/[^A-Za-z0-9]/.test(value);
+  if (short || mixed || number || symbol) {
+    const rules = describePasswordRules(policy).map((r) => (r === 'upper and lower case' ? 'upper and lower case letters' : r));
+    const list = rules.length > 1 ? `${rules.slice(0, -1).join(', ')} and ${rules[rules.length - 1]}` : rules[0];
+    return `Choose a password with ${list}.`;
   }
   if (isCommonPassword(value)) {
-    return 'That password is too common. Choose one that is harder to guess';
+    return 'That password is too common. Choose one that is harder to guess.';
   }
   return null;
 }

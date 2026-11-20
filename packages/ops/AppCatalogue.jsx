@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, productIcon } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, ReasonDrawer, when } from './kit';
+import { Err, Loading, ReasonDrawer, when, errorWords } from './kit';
 import { opsApps, opsSaveApp } from './api';
 
 /**
@@ -27,7 +27,7 @@ export function AppCatalogue({ role }) {
   const load = useCallback(() => {
     opsApps()
       .then((r) => (setD(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the app catalogue')));
   }, []);
   useEffect(load, [load]);
   const owner = role === 'SUPER_ADMIN';
@@ -75,7 +75,7 @@ export function AppCatalogue({ role }) {
         open={Boolean(edit)}
         title={edit ? edit.name : ''}
         what="How clor.in and the app switcher list this app."
-        confirmLabel="Save"
+        confirmLabel="Save listing"
         ready={form.blurb.trim().length >= 3 && form.blurb.length <= 160}
         onClose={() => setEdit(null)}
         onConfirm={save}

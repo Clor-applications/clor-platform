@@ -5,6 +5,7 @@ import { OfferError, acceptOffer, declineOffer, findOfferByToken, offerPdf, offe
 import { escapeHtml as esc } from '../utils/html.js';
 import { z } from 'zod';
 import { anyBody, check, code, flag, list, noBody, q, rawText, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * The joiner's link (docs/people/02-PRD.md LIFE-01). No sign-in: the token
@@ -118,7 +119,7 @@ peopleJoinRouter.post('/people/join/:token', check({ params: TOKEN_PARAMS, body:
   } catch (e) {
     if (e instanceof InviteError) return res.status(e.status).json({ error: e.message });
     console.error('[people-join]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 });
 
@@ -170,7 +171,7 @@ const answerOffer = (action: 'accept' | 'decline') => async (req: Request, res: 
   } catch (e) {
     if (e instanceof OfferError) return res.status(e.status).json({ error: e.message });
     console.error('[people-offer]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 };
 peopleJoinRouter.post('/people/offer/:token/accept', check({ params: TOKEN_PARAMS, body: noBody }), answerOffer('accept'));

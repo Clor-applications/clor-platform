@@ -7,6 +7,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { getEmployeeReaderIds, getMappingAudit, listEmployees, listSiteReaderIds, matchPunches, removeReaderExtras, saveEmployeeReaderIds } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Reader IDs and employees, checked against each other: punches from IDs that
@@ -24,7 +25,7 @@ export default function IdMapping({ openScreen, menuLabel }) {
   const q = query.trim().toLowerCase();
   const hit = (...vals) => !q || vals.filter(Boolean).join(' ').toLowerCase().includes(q);
   const load = useCallback(() => {
-    getMappingAudit().then((d) => { setData(d); setError(''); }).catch((e) => setError(String(e?.message || 'Could not check the reader IDs.')));
+    getMappingAudit().then((d) => { setData(d); setError(''); }).catch((e) => setError(errorWords(e, 'check the reader IDs')));
     listSiteReaderIds().then(setSites).catch(() => setSites([]));
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -38,7 +39,7 @@ export default function IdMapping({ openScreen, menuLabel }) {
       notify.success(`Reader ID ${u.pin} is now ${u.suggestion.name}.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not matched.'));
+      notify.error(errorWords(e, 'match the punches'));
     }
   };
   const removeStale = async (deviceId, name) => {
@@ -49,7 +50,7 @@ export default function IdMapping({ openScreen, menuLabel }) {
       notify.success('Queued for the reader.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not queued.'));
+      notify.error(errorWords(e, 'send it to the reader'));
     }
   };
 
@@ -169,7 +170,7 @@ export default function IdMapping({ openScreen, menuLabel }) {
                   {data.orphan.filter((o) => hit(o.nameOnReader, o.pin, o.reader)).slice(0, 100).map((o) => <li key={`${o.deviceId}-${o.pin}`} className="flex justify-between gap-3 py-1.5"><span>{o.nameOnReader || 'No name'} <span className="ui-mono ui-caption">{o.pin}</span></span><span className="ui-caption">{o.reader}</span></li>)}
                 </ul>
               ) : <p className="ui-caption">None.</p>}
-              {data.orphan.length ? <p className="ui-caption mt-2">Give these IDs to an employee under Personnel, or remove them at the reader.</p> : null}
+              {data.orphan.length ? <p className="ui-caption mt-2">Give these IDs to an employee under People → Employees, or remove them at the reader.</p> : null}
             </section>
             <section className="ui-card p-4" aria-labelledby="nopin-h">
               <h2 id="nopin-h" className="ui-t-sec mb-2">Employees with no reader ID</h2>
@@ -207,7 +208,7 @@ function SiteIdsEditor({ initial, onClose, onSaved }) {
     let live = true;
     getEmployeeReaderIds(employeeId)
       .then((r) => { if (live) { setLoaded({ employeeId, ...r }); setRows(r.sites.map((x) => ({ ...x }))); } })
-      .catch((e) => notify.error(String(e?.message || 'Could not load their IDs.')));
+      .catch((e) => notify.error(errorWords(e, 'load their IDs')));
     return () => { live = false; };
   }, [employeeId]);
   const current = loaded && loaded.employeeId === employeeId ? loaded : null;
@@ -218,7 +219,7 @@ function SiteIdsEditor({ initial, onClose, onSaved }) {
       notify.success(r.changed ? `Saved. ${r.changed} site${r.changed === 1 ? '' : 's'}’ readers are being updated.` : 'Saved. Nothing changed.');
       onSaved();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setBusy(false);
     }

@@ -20,7 +20,7 @@ import { listAssignments } from '../../../payroll/src/api/payrollPeople';
 const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const day = (iso) => formatDate(String(iso).slice(0, 10));
 
-/* contactactions A: the phone and e-mail in the record's header open the call or the mail, each with Copy. */
+/* contactactions A: the phone and email in the record's header open the call or the mail, each with Copy. */
 export function PhoneFact({ phone }) {
   const links = phoneLinks(phone);
   if (!phone) return <span className="ui-muted">Not given</span>;
@@ -37,7 +37,7 @@ export function EmailLink({ email }) {
   return (
     <span className="r62-contact">
       <a className="ui-link" href={`mailto:${email}`}><Mail size={14} aria-hidden="true" /> {email}</a>
-      <CopyWord value={email} what="e-mail" />
+      <CopyWord value={email} what="email" />
     </span>
   );
 }

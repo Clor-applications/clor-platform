@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Download, Plus } from '@ui/components/ui/lineIcons';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
@@ -71,7 +72,7 @@ export default function Trainings({ params = {} }) {
   return (
     <div className="space-y-6">
       <ListHeader
-        module="Talent"
+        module="Performance"
         title="Training"
         description="Trainings, who attends them, and the certificates that lapse."
         primary={canCreate ? { label: 'New training', icon: Plus, onClick: () => setEditing({}) } : null}
@@ -116,11 +117,11 @@ function TrainingDrawer({ id, onEdit, onClose, onChanged }) {
   const reload = () => { req.reload(); onChanged(); };
   const act = async (fn, ok) => {
     setBusy(true);
-    try { await fn(); if (ok) notify.success(ok); reload(); } catch (e) { notify.error(String(e?.message || 'Not done.')); } finally { setBusy(false); }
+    try { await fn(); if (ok) notify.success(ok); reload(); } catch (e) { notify.error(errorWords(e, 'finish that')); } finally { setBusy(false); }
   };
   const remove = async () => {
     if (await confirmDialog({ title: `Delete ${t.title}?`, message: 'Only a training nobody has completed can be deleted. Cancel it instead to keep the record.', confirmLabel: 'Delete' })) {
-      try { await deleteTraining(id); notify.success('Deleted.'); onChanged(); onClose(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
+      try { await deleteTraining(id); notify.success('Training deleted.'); onChanged(); onClose(); } catch (e) { notify.error(errorWords(e, 'delete it')); }
     }
   };
   const setStatus = (status) => act(() => saveTraining({ ...t, status }, id), status === 'CANCELLED' ? 'Cancelled.' : 'Marked done.');
@@ -170,7 +171,7 @@ function TrainingDrawer({ id, onEdit, onClose, onChanged }) {
                               {live ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => setCompleting(s)}>{s.status === 'COMPLETED' ? 'Change' : 'Completed'}</button> : null}
                               {s.status === 'ASSIGNED' && live ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy} onClick={() => act(() => markSeat(s.id, { status: 'MISSED' }), 'Marked missed.')}>Missed</button> : null}
                               {s.status === 'MISSED' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy} onClick={() => act(() => markSeat(s.id, { status: 'ASSIGNED' }), 'Back to assigned.')}>Undo</button> : null}
-                              {s.status !== 'COMPLETED' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy} onClick={() => act(() => removeSeat(s.id), 'Removed.')}>Remove</button> : null}
+                              {s.status !== 'COMPLETED' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy} onClick={() => act(() => removeSeat(s.id), 'Seat removed.')}>Remove</button> : null}
                             </span>
                           </td>
                         ) : null}

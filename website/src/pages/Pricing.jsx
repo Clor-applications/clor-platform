@@ -53,8 +53,8 @@ function Plan({ plan, period }) {
             <span className="plan-amount">{inr(price.basePrice)}</span> <span className="small">{per}</span>
           </p>
           <p className="small plan-terms">
-            For up to {plan.includedUnits} {unitWord(plan.unit, plan.includedUnits)}
-            {price.extraUnitPrice ? `, then ${inr(price.extraUnitPrice)} ${per} for each extra ${unitWord(plan.unit, 1)}.` : `. No charge for more ${unitWord(plan.unit, 2)}.`}
+            Includes {plan.includedUnits} {unitWord(plan.unit, plan.includedUnits)}
+            {price.extraUnitPrice ? `, then ${inr(price.extraUnitPrice)} ${per} for each extra ${unitWord(plan.unit, 1)}.` : `. Extra ${unitWord(plan.unit, 2)} are free.`}
             {period === 'yearly' && price.saving ? ` ${inr(price.saving)} less than paying monthly.` : ''}
           </p>
         </>
@@ -107,7 +107,7 @@ export default function Pricing() {
 
   return (
     <>
-      <PageHead eyebrow="Pricing" title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans." />
+      <PageHead eyebrow="Pricing" title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and you can add a product later without changing the plans you have." />
       {plans.length ? (
         <section className="section section--tight">
           <div className="wrap stack" style={{ '--stack': 'var(--s-6)' }}>
@@ -169,7 +169,7 @@ export default function Pricing() {
       ) : (
         <section className="section section--tight">
           <div className="wrap stack" style={{ '--stack': 'var(--s-5)' }}>
-            <p className="lede">Prices are being set now. Ask for a demo and we will tell you what your company would pay.</p>
+            <p className="lede">We have not published prices yet. Request a demo and we will quote for your company.</p>
             <div className="actions">
               <Link className="btn btn--primary" href={SITE.demoUrl}>
                 Request a demo
@@ -189,9 +189,9 @@ export default function Pricing() {
           <Faq
             title="How subscriptions work"
             items={[
-              ['Is there one plan for everything?', 'No. Each product is subscribed to on its own, for the companies in your workspace that use it.'],
-              ['What happens to my data if I stop a product?', 'The data stays in your workspace and can be exported. Switching the product back on brings it back.'],
-              ['Do employees count as users?', 'Employees using only the employee app are not users who sign in. Plans counted per employee count everyone on the payroll or in People.'],
+              ['Is there one plan for everything?', 'No. You can subscribe to each product on its own, for the companies in your account that use it.'],
+              ['What happens to my data if I stop a product?', 'The data stays in your account and can be exported. Switching the product back on brings it back.'],
+              ['Do employees count as users?', 'Employees who use only the employee app are not counted as users. Plans priced per employee count everyone on the payroll or in People.'],
             ]}
           />
         </div>

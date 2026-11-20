@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 
@@ -19,7 +20,7 @@ import { askForm, myFile, myForms, replyMine, withdrawMine } from '../api/reques
  * CLOR, and followed here: waiting, asked for more (answer it), decided.
  * The same requests as in the employee app; opened from My profile.
  */
-const REQUEST_STATUS = { WAITING: 'Waiting for approval', MORE_INFO: 'Asked for more', APPROVED: 'Approved', REJECTED: 'Not approved', WITHDRAWN: 'Withdrawn' };
+const REQUEST_STATUS = { WAITING: 'Waiting for approval', MORE_INFO: 'Asked for more', APPROVED: 'Approved', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn' };
 const REQUEST_TONE = { WAITING: 'warn', MORE_INFO: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'neutral' };
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
 const newKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
@@ -35,13 +36,13 @@ export default function MyRequests() {
     { key: 'form', label: 'Request', always: true, render: (r) => <span className="font-medium">{r.formName}</span> },
     { key: 'what', label: 'What you wrote', render: (r) => <span className="block max-w-sm truncate">{r.lines.map((l) => l.value).join(' · ')}</span> },
     { key: 'asked', label: 'Asked', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.askedAt)}</span> },
-    { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || r.status}</span> },
+    { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || enumWords(r.status)}</span> },
   ];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'My profile' }]}
+        breadcrumb={[{ label: 'People' }, { label: 'Me' }]}
         title="My requests"
         actions={forms.length ? (
           <div className="w-full sm:w-64">
@@ -63,7 +64,7 @@ export default function MyRequests() {
         onRowClick={(r) => setOpen(r)}
         card={(r) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.formName}</span><span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || r.status}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.formName}</span><span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || enumWords(r.status)}</span></span>
             <span className="block truncate ui-caption">{day(r.askedAt)} · {r.lines.map((l) => l.value).join(' · ')}</span>
           </span>
         )}
@@ -71,7 +72,7 @@ export default function MyRequests() {
           /* An owner or HR user with no employee file of their own: said plainly, not "not found". */
           <EmptyState title="No employee file is linked to your sign-in" description="Ask HR to put your email on your employee file; your requests then show here." />
         ) : req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : (
-          <EmptyState title="You have not asked for anything yet" description={forms.length ? 'Choose a request above: HR sees it in Approvals.' : 'HR has not set up any requests yet.'} action={forms.length ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking(forms[0])}><Plus size={14} aria-hidden="true" /> {forms[0].name}</button> : null} />
+          <EmptyState title="You have not asked for anything yet" description={forms.length ? 'Choose a request above. HR sees it in their Inbox.' : 'HR has not set up any requests yet.'} action={forms.length ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking(forms[0])}><Plus size={14} aria-hidden="true" /> {forms[0].name}</button> : null} />
         )}
       />
       {asking ? <AskDrawer form={asking} onClose={() => setAsking(null)} onSent={() => { setAsking(null); req.reload(); }} /> : null}
@@ -96,7 +97,7 @@ function AskDrawer({ form, onClose, onSent }) {
       notify.success(`Sent. You will see the answer here; HR decides within ${form.slaDays} working days.`);
       onSent();
     } catch (err) {
-      notify.error(String(err?.message || 'Not sent.'));
+      notify.error(errorWords(err, 'send it'));
     } finally {
       setSending(false);
     }
@@ -106,7 +107,7 @@ function AskDrawer({ form, onClose, onSent }) {
       footer={(
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="ask-request" className="ui-btn ui-btn-primary" disabled={Boolean(missing) || sending} title={missing || undefined}>{sending ? 'Sending…' : 'Send'}</button>
+          <button type="submit" form="ask-request" className="ui-btn ui-btn-primary" disabled={Boolean(missing) || sending} title={missing || undefined}>{sending ? 'Sending…' : 'Send request'}</button>
         </>
       )}
     >
@@ -127,10 +128,10 @@ function RequestDrawer({ request: r, onClose, onDone }) {
     try {
       if (what === 'reply') await replyMine(r.id, note.trim());
       else await withdrawMine(r.id);
-      notify.success(what === 'reply' ? 'Answer sent.' : 'Withdrawn.');
+      notify.success(what === 'reply' ? 'Answer sent.' : 'Request withdrawn.');
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'finish that'));
     } finally {
       setBusy('');
     }
@@ -147,7 +148,7 @@ function RequestDrawer({ request: r, onClose, onDone }) {
     >
       <div className="space-y-4 text-sm">
         <dl className="grid gap-3 sm:grid-cols-2">
-          <div><dt className="ui-t-label">Status</dt><dd><span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || r.status}</span></dd></div>
+          <div><dt className="ui-t-label">Status</dt><dd><span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || enumWords(r.status)}</span></dd></div>
           <div><dt className="ui-t-label">Asked</dt><dd className="tabular-nums">{day(r.askedAt)}{r.dueAt && open ? ` · due ${day(r.dueAt)}` : ''}</dd></div>
           {r.lines.map((l) => <div key={l.label} className="sm:col-span-2"><dt className="ui-t-label">{l.label}</dt><dd>{l.value}</dd></div>)}
           {r.said ? <div className="sm:col-span-2"><dt className="ui-t-label">{r.status === 'MORE_INFO' ? 'HR asks' : 'Note'}</dt><dd>{r.said}</dd></div> : null}
@@ -155,7 +156,7 @@ function RequestDrawer({ request: r, onClose, onDone }) {
         </dl>
         {r.files.length ? (
           <ul className="space-y-1">
-            {r.files.map((f) => <li key={f.fileId}><button type="button" className="ui-link" onClick={() => myFile(f.fileId).then(openFile).catch((e) => notify.error(String(e?.message || 'Could not open.')))}>{f.name}</button></li>)}
+            {r.files.map((f) => <li key={f.fileId}><button type="button" className="ui-link" onClick={() => myFile(f.fileId).then(openFile).catch((e) => notify.error(errorWords(e, 'open it')))}>{f.name}</button></li>)}
           </ul>
         ) : null}
         {r.status === 'MORE_INFO' ? (

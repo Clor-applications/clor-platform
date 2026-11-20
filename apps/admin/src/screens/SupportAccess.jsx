@@ -5,6 +5,7 @@ import { ICON, Loading, PageHead } from './wsKit';
 import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Workspace → CLOR support access (docs/workspace/SUPPORT_GRANTS.md).
@@ -22,9 +23,9 @@ const SCOPE = { READ_ONLY: 'Read only', READ_WRITE: 'Read and change' };
 const STATE = {
   PENDING: ['Waiting for you', 'ws-pill ws-pill--warn'],
   ACTIVE: ['Open', 'ws-pill ws-pill--ok'],
-  EXPIRED: ['Ran out', 'ws-pill ws-pill--neutral'],
+  EXPIRED: ['Expired', 'ws-pill ws-pill--neutral'],
   ENDED: ['Ended', 'ws-pill ws-pill--neutral'],
-  REVOKED: ['Refused', 'ws-pill ws-pill--neutral'],
+  REVOKED: ['Not let in', 'ws-pill ws-pill--neutral'],
 };
 
 /** One request, with the choice of how long and how much. */
@@ -44,7 +45,7 @@ function Request({ g, defaultHours, onDone }) {
       }
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'make the change'));
     } finally {
       setBusy('');
     }
@@ -96,7 +97,7 @@ export default function SupportAccess() {
         setData(r);
         setFailed('');
       })
-      .catch((e) => setFailed(String(e?.message || 'Could not load CLOR support access.')));
+      .catch((e) => setFailed(errorWords(e, 'load CLOR support access')));
   }, []);
   useEffect(() => {
     load();
@@ -107,7 +108,7 @@ export default function SupportAccess() {
       await endSupportGrant(g.id, null);
       notify.success(`${g.staff} can no longer look.`);
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'end the access'));
     }
     load();
   };
@@ -140,7 +141,7 @@ export default function SupportAccess() {
             <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={load}>Try again</button>
           </div>
         ) : !data ? (
-          <Loading shape="rows" label="Loading…" />
+          <Loading shape="rows" label="Loading support access…" />
         ) : (
           <>
             {waiting.length ? (

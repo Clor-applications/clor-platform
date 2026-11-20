@@ -12,6 +12,8 @@ import Modal from '@ui/components/ui/Modal';
 import { getPunchPhoto, listDevices, listEmployees, listTransactions, matchPunches, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { repeatPunchIds } from '../components/repeatPunches';
+import { errorWords, dayText } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const TABS = [
   { value: '', label: 'All', tone: 'all' },
@@ -49,7 +51,7 @@ const EXPORT_COLUMNS = [
  * how was it verified, whose ID was it? (ClorTime's Transaction view.)
  */
 /* `title`: the same log is Punches under Attendance and Punch Transactions under Readers. */
-export default function Transactions({ title = 'Punch transactions' }) {
+export default function Transactions({ title = 'Punches' }) {
   const [filters, setFilters] = useState({ from: todayIst(), to: todayIst(), employeeId: '', deviceId: '', unmatched: '' });
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -68,7 +70,7 @@ export default function Transactions({ title = 'Punch transactions' }) {
       notify.success(`Reader ID ${pin} is ${who}: ${r.matched} ${r.matched === 1 ? 'punch' : 'punches'} matched, ${r.days} ${r.days === 1 ? 'day' : 'days'} worked out.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not matched.'));
+      notify.error(errorWords(e, 'match the punches'));
     }
   };
   const showPhoto = async (t) => {
@@ -76,12 +78,12 @@ export default function Transactions({ title = 'Punch transactions' }) {
       const r = await getPunchPhoto(t.photoId);
       setPhoto({ src: r.photo, caption: `${t.employeeName || t.pin} · ${t.localTime}${t.siteName ? ` · ${t.siteName}` : ''}` });
     } catch (e) {
-      notify.error(String(e?.message || 'The photo could not be loaded.'));
+      notify.error(errorWords(e, 'load the photo'));
     }
   };
 
   const load = useCallback(() => {
-    listTransactions(filters).then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load transactions.')));
+    listTransactions(filters).then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load transactions')));
   }, [filters]);
   useEffect(() => {
     load();
@@ -123,20 +125,19 @@ export default function Transactions({ title = 'Punch transactions' }) {
       description="Every punch as the readers sent it, before it becomes a day."
       compact
       tight
-      denseCards
-      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search punches…', label: 'Search transactions' }}
-      moreItems={[exportMenuItem('Export transactions')]}
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search punches…', label: 'Search punches' }}
+      moreItems={[exportMenuItem('Export punches')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (!format) return;
-        runListExport({ format, title: 'Transactions', subtitle: `${filters.from} to ${filters.to}`, fileName: `Transactions ${filters.from} to ${filters.to}`, label: 'punch/punches', columns: EXPORT_COLUMNS, rows });
+        runListExport({ format, title: 'Punches', subtitle: `${dayText(filters.from)} to ${dayText(filters.to)}`, fileName: `Punches ${filters.from} to ${filters.to}`, label: 'punch/punches', columns: EXPORT_COLUMNS, rows });
       }}
-      cards={[
+      countLine={countItems([
         { label: 'Punches', value: figures.punches, count: true, tone: 'all', Icon: Fingerprint },
         { label: 'People', value: figures.people, count: true, tone: 'paid', Icon: Users },
         { label: 'Readers', value: figures.readers, count: true, tone: 'sent', Icon: Router },
         { label: 'Not matched', value: figures.unmatched, count: true, tone: 'outstanding', Icon: UserX, onSelect: () => setFilters((f) => ({ ...f, unmatched: f.unmatched === 'true' ? '' : 'true' })) },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={direction}
       statusCounts={counts}

@@ -9,6 +9,7 @@ import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { deleteFromBin, listRecycleBin, restoreFromBin } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Settings → Recycle Bin. What was deleted in People and Attendance stays
@@ -37,7 +38,7 @@ export default function RecycleBin() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const load = useCallback(() => {
-    listRecycleBin().then((d) => { setData(d); setError(''); }).catch((e) => setError(String(e?.message || 'Could not load the recycle bin.')));
+    listRecycleBin().then((d) => { setData(d); setError(''); }).catch((e) => setError(errorWords(e, 'load the recycle bin')));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -53,7 +54,7 @@ export default function RecycleBin() {
       notify.success(`${item.type} restored: ${item.label}`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not restored.'));
+      notify.error(errorWords(e, 'restore it'));
     } finally {
       setBusy('');
     }
@@ -66,7 +67,7 @@ export default function RecycleBin() {
       await deleteFromBin(item.id);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not deleted.'));
+      notify.error(errorWords(e, 'delete it'));
     } finally {
       setBusy('');
     }
@@ -83,7 +84,7 @@ export default function RecycleBin() {
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
-        if (format) runListExport({ format, title: 'Recycle Bin', fileName: 'Recycle bin', label: 'item/items', columns: EXPORT_COLUMNS, rows });
+        if (format) runListExport({ format, title: 'Recycle bin', fileName: 'Recycle bin', label: 'item/items', columns: EXPORT_COLUMNS, rows });
       }}
     >
       <LoadFailed message={error} onRetry={load} />

@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useEffect, useState } from 'react';
 import MoneyInput from '@ui/components/ui/MoneyInput';
 import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
@@ -13,7 +14,7 @@ import TakeHomeEstimate from './TakeHomeEstimate';
  * Send an offer from CLOR (HR-VIEW gap 5), to a draft hire (`employee`) or
  * a candidate (`candidate`). The letter is the company's offer template; the
  * pay annexure is the CTC and its monthly lines, worked out from a salary
- * structure when Payroll is on, or typed. It goes by e-mail with a link to
+ * structure when Payroll is on, or typed. It goes by email with a link to
  * accept; accepting is recorded and HR is told.
  */
 
@@ -24,7 +25,7 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
   const target = employee || candidate;
   const [setup, setSetup] = useState(null);
   const [initial, setInitial] = useState(() => ({
-    /* A candidate (Talent): their e-mail, and the opening's designation as the position. */
+    /* A candidate (Talent): their email, and the opening's designation as the position. */
     email: employee ? employee.personalEmail || employee.email || employee.workEmail || '' : candidate?.email || candidate?.details?.email || '',
     designation: employee?.designation || candidate?.designation || '',
     joiningDate: employee?.dateOfJoining ? String(employee.dateOfJoining).slice(0, 10) : '',
@@ -63,7 +64,7 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
     try {
       setAnnexure((await previewOffer(pay())).annexure.join('\n').trim());
     } catch (e) {
-      notify.error(String(e?.message || 'Could not work it out.'));
+      notify.error(errorWords(e, 'work out the preview'));
     }
   };
   const send = async (e) => {
@@ -78,7 +79,7 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
       notify.success(`Offer sent to ${r.offer.email}. You will be told when they answer.`);
       onSent?.(r.offer);
     } catch (err) {
-      notify.error(String(err?.message || 'Not sent.'));
+      notify.error(errorWords(err, 'send it'));
     } finally {
       setBusy(false);
     }
@@ -90,11 +91,11 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
       <form id="offer-form" onSubmit={send} className="grid gap-4">
         <div className="ui-form-grid">
           <label className="block">
-            <span className="ui-label">E-mail *</span>
+            <span className="ui-label">Email *</span>
             <input className="ui-input w-full" type="email" required value={form.email} onChange={(e) => set({ email: e.target.value })} />
           </label>
           <label className="block">
-            <span className="ui-label">Position *</span>
+            <span className="ui-label">Designation *</span>
             <input className="ui-input w-full" required maxLength={120} value={form.designation} onChange={(e) => set({ designation: e.target.value })} />
           </label>
           <div><label className="ui-label" htmlFor="offer-joining">Joining date</label><DatePicker id="offer-joining" value={form.joiningDate} onChange={(v) => set({ joiningDate: v || '' })} /></div>
@@ -129,7 +130,7 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
           <input className="ui-input w-full" required maxLength={200} placeholder="Name and title, e.g. Asha Rao, Director" value={form.signatory} onChange={(e) => set({ signatory: e.target.value })} />
         </label>
         <label className="block">
-          <span className="ui-label">Note in the e-mail (optional)</span>
+          <span className="ui-label">Note in the email (optional)</span>
           <textarea className="ui-input w-full" rows={2} maxLength={2000} value={form.message} onChange={(e) => set({ message: e.target.value })} />
         </label>
         <div>

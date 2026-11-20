@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -82,11 +83,11 @@ const OP_WORDS = { eq: 'is', ne: 'is not', in: 'is one of', gt: 'is more than', 
 const MONEY_FIELDS_SET = new Set(['amount', 'monthTotal']);
 /* `names` maps an id to its name (departments, grades, ...), when the screen has the lists. */
 const conditionWords = (c, names) => {
-  const field = c.from === 'request' && c.field !== 'days' && c.field !== 'amount' && c.field !== 'monthTotal' && c.field !== 'leaveTypeId' ? `the new ${String(FIELD_WORDS[c.field] || c.field).replace(/^their /, '')}` : FIELD_WORDS[c.field] || c.field;
+  const field = c.from === 'request' && c.field !== 'days' && c.field !== 'amount' && c.field !== 'monthTotal' && c.field !== 'leaveTypeId' ? `the new ${String(FIELD_WORDS[c.field] || enumWords(c.field)).replace(/^their /, '')}` : FIELD_WORDS[c.field] || enumWords(c.field);
   if (c.op === 'changed') return `${field} changes`;
   const one = (v) => (MONEY_FIELDS_SET.has(c.field) ? `₹${Number(v).toLocaleString('en-IN')}` : names?.get(String(v)) || (FIELD_WORDS[c.field] ? 'the one chosen' : String(v)));
   const values = Array.isArray(c.value) ? c.value.map(one).join(', ') : one(c.value);
-  return `${field} ${OP_WORDS[c.op] || c.op} ${values}`;
+  return `${field} ${OP_WORDS[c.op] || enumWords(c.op)} ${values}`;
 };
 const andWords = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] || '');
 /* One step of a version 2 rule in words: who decides, any one or all of them, when, by when, if late, who may step in, and their own requests. */
@@ -105,7 +106,7 @@ const autoWords = (rule, names) => (rule.autoApprove || []).map((a) => `Approved
 const ruleLine = (rule, variants, users, roles) => {
   const steps = rule.editableHere === false
     ? (rule.spec || []).map((s) => `${andWords((s.approvers || []).map((a) => approverWords(a, users, roles)))}${(s.approvers || []).length > 1 ? (s.mode === 'ALL' ? ', all' : ', any one') : ''} (${s.due?.hours ? `${s.due.hours} h` : `${s.due?.workingDays || 2} d`})`).join(' → ')
-    : (rule.steps || []).map((s) => `${approverWords(s.approver, users, roles)} (${s.dueDays} d)`).join(' → ');
+    : (rule.steps || []).map((s) => `${approverWords(s.approver, users, roles)} (${s.dueDays} ${s.dueDays === 1 ? 'day' : 'days'})`).join(' → ');
   const extra = [
     (rule.autoApprove || []).length ? 'approves some on its own' : null,
     (rule.spec || []).some((s) => s.overdue?.action === 'AUTO_APPROVE') ? 'approves on its own when late' : null,
@@ -149,7 +150,7 @@ export default function ApprovalRules() {
       notify.success('Switched off.');
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
+      notify.error(errorWords(e, 'make the change'));
     }
   };
   const steps = (rule) => ruleLine(rule, variantsOf(rule.requestType), users, roles);
@@ -170,7 +171,7 @@ export default function ApprovalRules() {
           total={kinds.length} pageSize={Math.max(25, kinds.length)} noun="kinds of request"
           onRowClick={open} rowActions={rowActions}
           card={(t) => { const rule = active(t); return <span className="min-w-0 flex-1"><span className="block truncate font-medium">{typeName(t)}</span><span className="block truncate ui-caption">{rule ? steps(rule) : 'Applies at once'}</span></span>; }}
-          empty={<EmptyState title="No kinds of request" description="Reload; the kinds of request come with People." />} />
+          empty={<EmptyState title="No kinds of request yet" description="They come with People. Reload the page; if this stays empty, write to support@clor.in." />} />
       )}
       {editing ? <RuleDrawer rule={editing} users={users} roles={roles} versions={versions(editing.requestType)} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); req.reload(); }} /> : null}
     </div>
@@ -250,7 +251,7 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
                 <div className="ui-form-grid">
                   {fields.length ? <div><PopupSelect showValueSubtext={false} label="Only when" value={s.condition?.field || ''} placeholder="Always" onChange={(v) => setStep(i, { condition: v ? { field: v, op: firstOp(v), value: null } : null })} options={[{ value: '', label: 'Always' }, ...fields.map(([k, l]) => ({ value: k, label: leave || money ? l : `${l} changes` }))]} /></div> : null}
                   {field ? <div><PopupSelect showValueSubtext={false} label="How" value={s.condition.op} onChange={(v) => setStep(i, { condition: { ...s.condition, op: v || ops[0][0], value: v === 'changed' ? null : s.condition.value } })} options={ops.map(([k, l]) => ({ value: k, label: `${field[1]} ${l}` }))} /></div> : null}
-                  {field && !field[2] && (leave || money) ? <label className="block"><span className="ui-label">{money ? 'Amount (₹)' : 'Days'}</span><input className="ui-input w-full tabular-nums" inputMode="decimal" value={s.condition.value ?? ''} onChange={(e) => setStep(i, { condition: { ...s.condition, value: e.target.value.replace(/[^\d.]/g, '').slice(0, money ? 9 : 5) } })} /></label> : null}
+                  {field && !field[2] && (leave || money) ? <label className="block"><span className="ui-label">{money ? 'Amount' : 'Days'}</span><input className="ui-input w-full tabular-nums" inputMode="decimal" value={s.condition.value ?? ''} onChange={(e) => setStep(i, { condition: { ...s.condition, value: e.target.value.replace(/[^\d.]/g, '').slice(0, money ? 9 : 5) } })} /></label> : null}
                   {field?.[2] && s.condition.op !== 'changed' ? <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label={leave ? (s.condition.op === 'eq' ? 'Type' : 'Not this type') : s.condition.op === 'eq' ? 'Becomes' : 'Is not'} value={s.condition.value || ''} placeholder={lists.data ? 'Choose…' : 'Loading…'} alwaysSearch onChange={(v) => setStep(i, { condition: { ...s.condition, value: v || null } })} options={lists.data?.[field[2]] || []} /></div> : null}
                 </div>
                 <div className="ui-form-grid">

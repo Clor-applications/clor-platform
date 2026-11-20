@@ -25,8 +25,8 @@ describe('Inventory Register report', () => {
     expect(header.querySelector('select[aria-label="Warehouse"]')).toBeNull();
     expect(screen.getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['Date', 'Voucher No.', 'Movement Type', 'Branch', 'Warehouse', 'Item Code', 'Item Name', 'Quantity', 'Amount']);
     fireEvent.click(screen.getByRole('button', { name: 'Sort and filter Voucher No.' }));
-    expect(screen.getByRole('dialog')).toHaveTextContent('Text Filters');
-    expect(screen.getByPlaceholderText('Search (All)')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveTextContent('Text filters');
+    expect(screen.getByPlaceholderText('Search values')).toBeInTheDocument();
     expect(screen.getByText('(Select All)')).toBeInTheDocument();
   });
 

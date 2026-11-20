@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsAskSupportGrant, opsEndSupportGrant, opsSupportGrants } from './api';
-import { Empty, Err, Loading, may, when } from './kit';
+import { Empty, Err, Loading, may, when, errorWords } from './kit';
 
 /**
  * Customer page → Support access (docs/workspace/SUPPORT_GRANTS.md).
@@ -34,7 +34,7 @@ export function SupportAccess({ id, companies, role }) {
   const load = useCallback(() => {
     opsSupportGrants(id)
       .then((r) => (setData(r.grants || []), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the support access requests')));
   }, [id]);
   useEffect(load, [load]);
 
@@ -53,7 +53,7 @@ export function SupportAccess({ id, companies, role }) {
       setChange(false);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not asked.'));
+      notify.error(errorWords(err, 'ask the customer'));
     } finally {
       setBusy(false);
     }
@@ -63,7 +63,7 @@ export function SupportAccess({ id, companies, role }) {
       await opsEndSupportGrant(g.id);
       notify.success(g.state === 'PENDING' ? 'Withdrawn.' : 'Closed.');
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'close the request'));
     }
     load();
   };

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BadgePercent, MinusCircle, Pencil, Plus, PlusCircle, SlidersHorizontal, Trash2 } from '@ui/components/ui/lineIcons';
+import { Plus, SlidersHorizontal, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -18,6 +18,8 @@ import {
   setComponentConditions,
 } from '../api/payrollComponents';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { dayText, errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * The lines a salary is built from.
@@ -64,6 +66,20 @@ const BASES = [
   { id: 'CTC', label: 'CTC for the whole year' },
 ];
 const SCHEMES = ['PF', 'ESI', 'PT', 'TDS', 'LWF'];
+/* The acronym spelled out where somebody first picks it. */
+const SCHEME_WORDS = {
+  PF: 'Provident fund (PF)',
+  ESI: 'Employees’ State Insurance (ESI)',
+  PT: 'Professional tax (PT)',
+  TDS: 'Income tax withheld (TDS)',
+  LWF: 'Labour welfare fund (LWF)',
+};
+/* What a percentage is of, in words for a table cell: "12% of Basic", never "12% of BASIC". */
+const baseWords = (id) => {
+  const label = BASES.find((b) => b.id === id)?.label;
+  if (!label) return id || '—';
+  return id === 'BASIC' ? label : label[0].toLowerCase() + label.slice(1);
+};
 
 const blank = (type) => ({
   name: '',
@@ -116,7 +132,7 @@ const blank = (type) => ({
 const describeWho = (c) => {
   const named = (c.employeeTargets || []).length;
   const extra = named ? ` · ${named} named` : '';
-  const when = c.oneTimeDate ? ` · once on ${c.oneTimeDate}` : '';
+  const when = c.oneTimeDate ? ` · once on ${dayText(c.oneTimeDate)}` : '';
   if (c.appliesTo === 'ALL_EMPLOYEES') return `Everybody${extra}${when}`;
   if (c.appliesTo === 'CONDITIONS') {
     const n = (c.conditions || []).length;
@@ -127,7 +143,7 @@ const describeWho = (c) => {
 
 /** How a component works, in the words somebody configuring payroll would use. */
 const describeMethod = (c) => {
-  if (c.calculationMethod === 'PERCENTAGE') return `${Number(c.percentage)}% of ${c.calculationBase || '—'}`;
+  if (c.calculationMethod === 'PERCENTAGE') return `${Number(c.percentage)}% of ${baseWords(c.calculationBase)}`;
   if (c.calculationMethod === 'FORMULA') return c.formula || 'Formula';
   if (c.calculationMethod === 'VARIABLE') return 'Entered each month';
   if (c.calculationMethod === 'STATUTORY') return `${c.statutoryScheme || 'Statutory'} rule`;
@@ -168,7 +184,7 @@ export default function SalaryComponents() {
         setAll(v);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load salary components.')));
+      .catch((e) => setError(errorWords(e, 'load salary components')));
   }, []);
 
   useEffect(() => {
@@ -203,7 +219,7 @@ export default function SalaryComponents() {
       title: `Delete ${row.name}?`,
       message:
         'A component that has never been used on a payslip can be deleted. One that has must be made inactive instead, so old payslips stay readable.',
-      confirmLabel: 'Yes, delete',
+      confirmLabel: 'Delete component',
     });
     if (!ok) return;
     try {
@@ -211,7 +227,7 @@ export default function SalaryComponents() {
       notify.success(`${row.name} deleted.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not delete that component.'));
+      notify.error(errorWords(e, 'delete that component'));
     }
   };
   const create = () => setEditing(blank(type));
@@ -223,7 +239,6 @@ export default function SalaryComponents() {
       description="The earnings, deductions and employer costs a salary is built from."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search components…', label: 'Search salary components' }}
       moreItems={all?.length ? [exportMenuItem('Export components')] : null}
       onMoreSelect={(k) => {
@@ -236,12 +251,12 @@ export default function SalaryComponents() {
           <Plus size={16} aria-hidden="true" /> New component
         </button>
       }
-      cards={[
-        { label: 'Earnings', value: counts.EARNING || 0, count: true, tone: 'paid', Icon: PlusCircle, onSelect: () => setType('EARNING') },
-        { label: 'Deductions', value: counts.DEDUCTION || 0, count: true, tone: 'overdue', Icon: MinusCircle, onSelect: () => setType('DEDUCTION') },
-        { label: 'Statutory', value: figures.statutory, count: true, tone: 'sent', Icon: BadgePercent },
-        { label: 'Variable', value: figures.variable, count: true, tone: 'partial', Icon: Pencil },
-      ]}
+      countLine={countItems([
+        { label: 'Earnings', value: counts.EARNING || 0, count: true, tone: 'paid', onSelect: () => setType('EARNING') },
+        { label: 'Deductions', value: counts.DEDUCTION || 0, count: true, tone: 'overdue', onSelect: () => setType('DEDUCTION') },
+        { label: 'Statutory', value: figures.statutory, count: true, tone: 'sent' },
+        { label: 'Variable', value: figures.variable, count: true, tone: 'partial' },
+      ])}
       tabs={TABS}
       statusValue={type}
       statusCounts={counts}
@@ -429,7 +444,7 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
       notify.success(`${form.name} saved.`);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not save that component.'));
+      notify.error(errorWords(err, 'save that component'));
     } finally {
       setSaving(false);
     }
@@ -537,7 +552,7 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
                 />
               </div>
               <div>
-                <label className="ui-label" htmlFor="component-base">Of</label>
+                <label className="ui-label" htmlFor="component-base">Percentage of</label>
                 <select
                   id="component-base"
                   className="ui-select w-full"
@@ -564,7 +579,7 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
               >
                 <option value="">Choose one</option>
                 {SCHEMES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>{SCHEME_WORDS[s]}</option>
                 ))}
               </select>
             </div>
@@ -610,7 +625,7 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
             ) : null}
             {!formulaCheck ? (
               <span className="ui-caption block mt-1">
-                BASIC, GROSS, CTC, PAYABLE_DAYS and WORKING_DAYS, with IF, MIN, MAX and ROUND.
+                A formula can use BASIC, GROSS, CTC, PAYABLE_DAYS and WORKING_DAYS, with IF, MIN, MAX and ROUND.
               </span>
             ) : null}
           </div>
@@ -633,7 +648,7 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="ui-label" htmlFor="component-applies">Reaches</label>
+            <label className="ui-label" htmlFor="component-applies">Applies to</label>
             <select
               id="component-applies"
               className="ui-select w-full"
@@ -656,7 +671,7 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
               onChange={(e) => set({ oneTimeDate: e.target.value || null })}
             />
             <span className="ui-caption">
-              A date rather than a switch: &ldquo;the March bonus&rdquo; has to survive being read in June.
+              Pick the date if this is paid once only, such as a March bonus. Leave it empty for every period.
             </span>
           </div>
         </div>

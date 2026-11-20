@@ -13,7 +13,8 @@ import { settingHits } from '../picks/round64';
  * groups: [{ title, note, tone?, items: [[navKey, note]], apps?: [[appId, label, note]] }]; `tone` (1–8) names the
  * group's identity colour (--cat-N), which a portal's stylesheet may use behind each tile's icon (People, PEOPLE-28).
  */
-export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [], words = null, description = 'What you set up once and rarely change.' }) {
+/* `menuLabel` is the menu's name for this page (Shell passes it); the title follows it, so People's "All settings" reads the same in the menu and on the page. */
+export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [], words = null, description = 'What you set up once and rarely change.', menuLabel = '' }) {
   const [q, setQ] = useState('');
   const byKey = useMemo(() => new Map(navItems.filter((i) => i.key).map((i) => [i.key, i])), [navItems]);
   const match = (...texts) => !q.trim() || texts.join(' ').toLowerCase().includes(q.trim().toLowerCase());
@@ -30,7 +31,7 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
     <div className="space-y-6 pb-8">
       {/* The search is a toolbar under the title (People plan 8 Nov 2026, step 3), not a right-hand column. */}
       <header className="ui-list-header">
-        <PageHeader entity="settings" title="Settings" description={description} />
+        <PageHeader entity="settings" title={menuLabel || 'Settings'} description={description} />
         <div className="ui-list-toolbar">
           <label className="relative block w-72 max-w-full">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" aria-hidden="true" />

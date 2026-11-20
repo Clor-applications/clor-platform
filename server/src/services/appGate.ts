@@ -25,5 +25,5 @@ export async function appGate(
   const reading = ['GET', 'HEAD', 'OPTIONS'].includes(String(method || '').toUpperCase());
   if (lapsed && reading) return null;
   if (lapsed) return { status: 402, body: { error: lapsed, app: words.app, code: 'SUBSCRIPTION_LAPSED' } };
-  return { status: 402, body: { error: `${words.name} is not on this account’s subscription.`, app: words.app, code: 'APP_NOT_SUBSCRIBED' } };
+  return { status: 402, body: { error: `${words.name} is not on this account’s subscription. An owner can add it under Workspace → Billing.`, app: words.app, code: 'APP_NOT_SUBSCRIBED' } };
 }

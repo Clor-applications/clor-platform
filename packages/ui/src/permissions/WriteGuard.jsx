@@ -42,9 +42,13 @@ export const writeKeysOf = (viewPermission) => {
  * Create and no Edit), and naming one it does not have sent people to ask for a
  * right no administrator can give (People audit, 30 Oct 2026).
  */
+/* Resources whose permission key kept an old name after the screen was renamed: the words follow the menu. */
+const RENAMED = { 'HR Cases': 'Help desk' };
+
 export const resourceWords = (viewPermission) => {
   const m = /^([^:]+)::([^:]*)::VIEW$/.exec(String(viewPermission || ''));
   if (!m) return '';
+  if (RENAMED[m[2]]) return `${RENAMED[m[2]]} (${m[1].charAt(0) + m[1].slice(1).toLowerCase()})`;
   const word = (w, i) => (i === 0 || /^[A-Z0-9&-]{2,}$/.test(w) ? w : w.toLowerCase());
   const thing = m[2].split(' ').map(word).join(' ');
   const app = m[1].charAt(0) + m[1].slice(1).toLowerCase();

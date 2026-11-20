@@ -203,8 +203,8 @@ ssoRouter.get('/callback', async (req: Request, res: Response) => {
     const tokens = await oidc.authorizationCodeGrant(config, current, { pkceCodeVerifier: String(ticket.v), expectedState: String(ticket.s), expectedNonce: String(ticket.n) });
     const claims = (tokens.claims() || {}) as Record<string, any>;
     const email = String(claims.email || '').trim().toLowerCase();
-    if (!email) throw new Error('The provider did not give an e-mail address');
-    if (claims.email_verified === false) throw new Error('The provider says that e-mail is not verified');
+    if (!email) throw new Error('The provider did not give an email address');
+    if (claims.email_verified === false) throw new Error('The provider says that email is not verified');
     const name = String(claims.name || `${claims.given_name || ''} ${claims.family_name || ''}`.trim() || '');
     return finishSignIn(p, { email, name }, req, res, String(ticket.r || '/'));
   } catch (e: any) {
@@ -232,7 +232,7 @@ async function finishSignIn(p: { id: string; name: string; accountId: string; or
   if (!user) {
     if (!p.autoProvision) {
       await recordAuthEvent({ email, eventType: 'LOGIN_FAILED', ip, userAgent, detail: `SSO ${p.name}: no CLOR user for this e-mail` });
-      return fail(`${email} has no CLOR login yet. Ask your administrator to invite you.`);
+      return fail(`${email} has no CLOR sign-in yet. Ask your administrator to invite you.`);
     }
     /* #4: the company's allowed email domains bind its identity provider too. */
     const domainRefused = await domainRefusalFor([p.orgId], email);
@@ -317,7 +317,7 @@ ssoRouter.post('/saml/:providerId/acs', ...ssoLimiter, express.urlencoded({ exte
       throw new Error('This sign-in was already used; start again');
     }
     const who = samlClaims(profile as any);
-    if (!who.email) throw new Error('The assertion carries no e-mail address (NameID or an e-mail claim is needed)');
+    if (!who.email) throw new Error('The assertion carries no email address (NameID or an email claim is needed)');
     return await finishSignIn(p, who, req, res, back);
   } catch (e: any) {
     const msg = String(e?.message || e).slice(0, 300);

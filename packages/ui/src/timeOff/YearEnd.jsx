@@ -13,6 +13,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { can, homeCrumbs } from './shared';
 import { daysText, getLeaveSettings, getYearEnd, periodChoices, runYearEnd, thisYear, undoYearEnd } from './api';
 import { addDaysIso as addDays } from '@ui/utils/dates';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Settings → Year end (TIME-LEAVE-DECISIONS.md, advanced build). The engine
@@ -53,7 +54,7 @@ export default function YearEnd() {
       notify.success(`Year end run: ${out.paidOut} pay-out${out.paidOut === 1 ? '' : 's'}, ${daysText(out.totals.payOut)}.`);
       req.reload();
     } catch (err) {
-      notify.error(String(err?.message || 'Not run.'));
+      notify.error(errorWords(err, 'run the year end'));
     } finally {
       setBusy(false);
     }
@@ -66,7 +67,7 @@ export default function YearEnd() {
       notify.success('Year end undone.');
       req.reload();
     } catch (err) {
-      notify.error(String(err?.message || 'Not undone.'));
+      notify.error(errorWords(err, 'undo the year end'));
     }
   };
 

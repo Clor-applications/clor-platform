@@ -8,6 +8,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { Avatar, taskNote } from '@ui/personnel/Employees';
 
 import { KIND_WORD, OWNER_WORD, orgUsers, updateTask, withOwner } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 export { can } from '@ui/permissions/can';
 export const crumbs = () => [{ label: 'People' }, { label: 'Joining & leaving' }];
@@ -83,7 +84,7 @@ export function TaskDrawer({ task, canAssign, onClose, onSaved }) {
       notify.success(body.done ? 'Done.' : 'Handed on.');
       onSaved?.();
     } catch (err) {
-      setError(String(err?.message || 'Not saved.'));
+      setError(errorWords(err, 'update the task'));
     } finally {
       setBusy(false);
     }

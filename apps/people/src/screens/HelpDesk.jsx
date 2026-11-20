@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -56,11 +57,11 @@ export default function HelpDesk({ params = {} }) {
     { key: 'subject', label: 'Request', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.subject}</span><span className="block truncate ui-caption">{catLabel(r.category)}</span></span> },
     { key: 'from', label: 'From', render: (r) => <span>{r.employeeName}{r.employeeCode ? <span className="ui-caption tabular-nums"> · {r.employeeCode}</span> : null}</span> },
     { key: 'queue', label: 'Queue', render: (r) => r.queue },
-    { key: 'urgency', label: 'Urgency', render: (r) => <span className={`ui-pill ${r.urgency === 'URGENT' || r.urgency === 'HIGH' ? 'ui-pill-neg' : 'ui-pill-neutral'}`}>{URGENCY[r.urgency] || r.urgency}</span> },
+    { key: 'urgency', label: 'Urgency', render: (r) => <span className={`ui-pill ${r.urgency === 'URGENT' || r.urgency === 'HIGH' ? 'ui-pill-neg' : 'ui-pill-neutral'}`}>{URGENCY[r.urgency] || enumWords(r.urgency)}</span> },
     { key: 'waiting', label: 'Waiting', render: (r) => <span className="tabular-nums whitespace-nowrap ui-muted r52-desk-waiting">{waitingWords(r).replace(/^Waiting /, '')}</span> },
     { key: 'reply', label: 'Reply by', render: (r) => (r.firstReplyAt ? <span className="ui-muted">Replied</span> : <span className={`tabular-nums whitespace-nowrap ${late(r.replyOverdue)}`}>{when(r.replyBy)}</span>) },
     { key: 'resolve', label: 'Resolve by', render: (r) => <span className={`tabular-nums whitespace-nowrap ${late(r.resolveOverdue)}`}>{day(r.resolveBy)}{r.resolveOverdue ? ' (late)' : ''}</span> },
-    { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || r.status}</span> },
+    { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || enumWords(r.status)}</span> },
   ];
   /* A tab whose rows all share one status already says it; Open keeps the column while a reopened case sits among them. */
   const rowsShown = data?.requests || [];
@@ -102,7 +103,7 @@ export default function HelpDesk({ params = {} }) {
           onRowClick={(r) => setOpen(r.id)}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.subject}</span><span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || r.status}</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.subject}</span><span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || enumWords(r.status)}</span></span>
               <span className="block truncate ui-caption">{[r.employeeName, catLabel(r.category), r.resolveBy ? `resolve by ${day(r.resolveBy)}` : null].filter(Boolean).join(' · ')}</span>
             </span>
           )}
@@ -148,7 +149,7 @@ function RaiseForm({ categories, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="New request for someone" dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={saving} onClick={save}>{saving ? 'Raising…' : 'Raise'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={saving} onClick={save}>{saving ? 'Raising…' : 'Raise request'}</button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Employee *" value={form.employeeId} onChange={(v) => setForm({ ...form, employeeId: v || '' })} placeholder={people.data ? 'Choose…' : 'Loading…'} alwaysSearch options={(people.data || []).map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name }))} /></div>
@@ -181,7 +182,7 @@ function RequestDrawer({ id, canEdit, categories, onClose, onChanged }) {
       onChanged();
       return true;
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'finish that'));
       return false;
     } finally {
       setBusy(false);
@@ -213,7 +214,7 @@ function RequestDrawer({ id, canEdit, categories, onClose, onChanged }) {
         <div className="space-y-5">
           <p className="ui-caption">{[`${r.employeeName}${r.employeeCode ? ` (${r.employeeCode})` : ''}`, catLabel, `${r.queue} queue`, URGENCY[r.urgency] || r.urgency].join(' · ')}</p>
           <dl className="ui-field-grid">
-            <div><dt className="ui-label">Status</dt><dd><span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || r.status}</span></dd></div>
+            <div><dt className="ui-label">Status</dt><dd><span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || enumWords(r.status)}</span></dd></div>
             <div><dt className="ui-label">Reply by</dt><dd className={`text-sm tabular-nums ${r.replyOverdue ? 'ui-text-neg' : ''}`}>{r.firstReplyAt ? `Replied ${when(r.firstReplyAt)}` : when(r.replyBy)}</dd></div>
             <div><dt className="ui-label">Resolve by</dt><dd className={`text-sm tabular-nums ${r.resolveOverdue ? 'ui-text-neg' : ''}`}>{day(r.resolveBy)}{r.resolveOverdue ? ' (late)' : ''}</dd></div>
           </dl>
@@ -255,7 +256,7 @@ function RequestDrawer({ id, canEdit, categories, onClose, onChanged }) {
                   <div className="flex flex-wrap items-center gap-4">
                     <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} />Internal note</label>
                     {!internal ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={waitForEmployee} onChange={(e) => setWaitForEmployee(e.target.checked)} />Waiting on them</label> : null}
-                    <button type="submit" className="ui-btn ui-btn-secondary ms-auto" disabled={busy || (!body.trim() && !templateId)}>{internal ? 'Add note' : 'Send'}</button>
+                    <button type="submit" className="ui-btn ui-btn-secondary ms-auto" disabled={busy || (!body.trim() && !templateId)}>{internal ? 'Add note' : 'Send reply'}</button>
                   </div>
                 </form>
               ) : null}

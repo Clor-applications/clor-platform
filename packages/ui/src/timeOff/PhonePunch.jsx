@@ -4,6 +4,7 @@ import { Camera, CheckCircle2, Clock3, LogIn, LogOut, MapPin, RotateCw, X } from
 import { buzzForPunch } from '../picks/round28';
 import { punchDoneLines, useBackClose } from '../picks/round58';
 import { shrinkPhoto } from './shrinkPhoto';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /** Metres between two points, close enough for a work-site radius. */
 function metresBetween(a, b) {
@@ -161,7 +162,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
       setPhoto(await shrinkPhoto(f));
       setNote('');
     } catch (err) {
-      setNote(String(err?.message || 'That photo could not be used.'));
+      setNote(errorWords(err, 'use that photo'));
     }
   };
 
@@ -180,7 +181,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
     } catch (err) {
       if (err?.name !== 'SignedOut' && !(err && err.constructor && err.constructor.name === 'SignedOut')) {
         if (err?.code === 'OUTSIDE' || err?.body?.code === 'OUTSIDE') setRefusedOutside(String(err?.message || ''));
-        else setMessage({ ok: false, text: String(err?.message || 'Not punched.') });
+        else setMessage({ ok: false, text: errorWords(err, 'record the punch') });
       }
     } finally {
       setBusy(false);

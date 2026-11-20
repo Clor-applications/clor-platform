@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import useRequest from '@ui/components/ui/useRequest';
 
@@ -58,7 +59,7 @@ function ChangeList({ kind, item, firstPage, firstNext }) {
       setOlder((o) => [...o, ...(r?.entries || [])]);
       setNext(r?.nextBefore || null);
     } catch (e) {
-      notify.error(String(e?.message || 'Could not load older changes.'));
+      notify.error(errorWords(e, 'load older changes'));
     } finally { setBusy(false); }
   };
   return (
@@ -68,7 +69,7 @@ function ChangeList({ kind, item, firstPage, firstNext }) {
         {entries.map((e) => (
           <li key={e.id} className="ui-history-row">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <p className="text-sm"><span className="font-medium">{ACTION_WORDS[e.action] || e.action}</span> {e.kindLabel ? `${e.kindLabel.toLowerCase()} ` : ''}<span className="font-medium">{e.itemName}</span></p>
+              <p className="text-sm"><span className="font-medium">{ACTION_WORDS[e.action] || enumWords(e.action)}</span> {e.kindLabel ? `${e.kindLabel.toLowerCase()} ` : ''}<span className="font-medium">{e.itemName}</span></p>
               <p className="ui-caption"><span className="tabular-nums">{day(e.at)}, {time(e.at)}</span>{e.actorName ? ` · ${e.actorName}` : ''}</p>
             </div>
             {e.changes?.length ? (

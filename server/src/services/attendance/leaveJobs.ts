@@ -16,6 +16,7 @@ import { addWorkingDays, REMIND_EVERY_WORKING_DAYS } from '../people/approvals/e
 import { deciders, stepsOf } from './leaveRules.js';
 import { handOnLeaveOnEngine, isOnEngine, refreshLeaveSteps } from './leaveEngine.js';
 import { automation, recordRun } from '../people/engagement/automations.js';
+import { dateWords } from '../../utils/istDate.js';
 
 /**
  * Leave automation that runs on its own (TIME-LEAVE-DECISIONS.md, advanced
@@ -327,7 +328,7 @@ export async function runLeaveRuleDues(now = new Date()) {
       const remind = async () => {
         await peoplePrisma.leaveRequest.updateMany({ where: { id: { in: parts.map((x) => x.id) }, status: 'PENDING', ruleStep: r.ruleStep }, data: { stepRemindedAt: now } });
         const users = r.stepUserIds.filter((u) => !u.startsWith('portal:'));
-        if (users.length) await notifyUsers(r.accountId, r.orgId, users, { kind: 'attendance.leave_asked', title: `Overdue: ${what}`, body: `Step ${r.ruleStep} was due ${r.stepDueAt!.toISOString().slice(0, 10)}.`, link });
+        if (users.length) await notifyUsers(r.accountId, r.orgId, users, { kind: 'attendance.leave_asked', title: `Overdue: ${what}`, body: `This was due on ${dateWords(r.stepDueAt!)}.`, link });
         reminded += 1;
       };
       if (!r.stepRemindedAt) { await remind(); continue; }

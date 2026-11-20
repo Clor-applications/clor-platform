@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, Tabs, when } from './kit';
+import { Err, Loading, Tabs, when, errorWords, countLine } from './kit';
 import { opsAcknowledgeAlert, opsAlerts } from './api';
 
 /**
@@ -19,7 +19,7 @@ export function Alerts({ go, me }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const load = useCallback(() => {
-    opsAlerts().then(setD).catch((e) => setError(String(e?.message || e)));
+    opsAlerts().then(setD).catch((e) => setError(errorWords(e, 'load the alerts')));
   }, []);
   useEffect(load, [load]);
 
@@ -30,7 +30,7 @@ export function Alerts({ go, me }) {
       await opsAcknowledgeAlert(a.id);
       load();
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'mark the alert'));
     } finally {
       setBusy('');
     }
@@ -42,10 +42,10 @@ export function Alerts({ go, me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Platform', 'Alerts']}
+          crumbs={['Platform']}
           title="Alerts"
           description="Checked every ten minutes. An alert closes on its own when the problem clears; new ones are emailed to the team they are for."
-          meta={d ? `${d.counts.open} open · ${d.counts.critical} urgent · ${d.counts.unacknowledged} not acknowledged` : null}
+          meta={d ? countLine([[d.counts.open, 'open'], [d.counts.critical, 'urgent'], [d.counts.unacknowledged, 'not acknowledged']], 'No open alerts') : null}
         />
         <Tabs
           label="Which alerts"
@@ -88,7 +88,7 @@ export function Alerts({ go, me }) {
                   </span>
                   <span className="ws-item-actions inline-flex flex-wrap gap-2">
                     {a.link ? (
-                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => open(a.link)}>Open</button>
+                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => open(a.link)}>Open page</button>
                     ) : null}
                     {!a.resolvedAt && !a.acknowledgedAt && a.forMe && me?.role !== 'READ_ONLY' ? (
                       <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={busy === a.id} onClick={() => ack(a)}>

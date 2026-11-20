@@ -10,6 +10,7 @@ import { getDataHealth, getHeadcount, markFullDaysPaid, snoozeHealthCheck, unmar
 import { notify } from '@ui/components/ui/notify';
 import { plusDaysIso } from '@ui/utils/dates';
 import './data-health.css';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Data health (HR research, Phase 1: the implementation auditor). What is
@@ -49,7 +50,7 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
   const load = useCallback(() => {
     getDataHealth()
       .then((d) => { setData(d); setError(''); })
-      .catch((e) => setError(String(e?.message || 'Could not check the data.')));
+      .catch((e) => setError(errorWords(e, 'check the data')));
   }, []);
   useEffect(() => {
     load();
@@ -69,7 +70,7 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
       await unsnoozeHealthCheck(c.id);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
+      notify.error(errorWords(e, 'make the change'));
     }
   };
   /* Full days paid short (fullDayFix.ts): marked paid after a confirmation with an optional note; the last one can be undone. */
@@ -83,7 +84,7 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
       notify.success(`${was.name}'s days are held again.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not undone.'));
+      notify.error(errorWords(e, 'undo the change'));
     }
   };
   const rows = (data?.checks || []).flatMap((c) => c.people.map((p) => ({ severity: c.severity, title: c.title, name: p.name, code: p.code || '', detail: p.detail || '', fix: c.fix })));
@@ -270,7 +271,7 @@ function PaidDrawer({ person, onClose, onDone }) {
       const r = await markFullDaysPaid(person.settle, note.trim() || null);
       onDone(r?.settled ?? person.settle.length);
     } catch (e) {
-      setError(String(e?.message || 'Not changed.'));
+      setError(errorWords(e, 'make the change'));
     } finally {
       setBusy(false);
     }
@@ -303,7 +304,7 @@ function SnoozeDrawer({ check, onClose, onDone }) {
       notify.success(`Snoozed until ${formatDate(until)}.`);
       onDone();
     } catch (e) {
-      setError(String(e?.message || 'Not snoozed.'));
+      setError(errorWords(e, 'snooze it'));
     } finally {
       setBusy(false);
     }

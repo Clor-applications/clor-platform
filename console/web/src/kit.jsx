@@ -189,6 +189,36 @@ export function ReasonDialog({ title, lede, label = 'Reason', confirm, danger = 
   );
 }
 
+/** A change that needs no reason but cannot be undone: says what will happen, then does it. */
+export function ConfirmDialog({ title, lede, confirm, cancel = 'Cancel', danger = false, onClose, onConfirm }) {
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await onConfirm();
+      onClose();
+    } catch (err) {
+      if (!err.cancelled) setError(err.message);
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog title={title} onClose={onClose}>
+      <form onSubmit={submit} className="con-form">
+        {lede ? <p className="con-lede">{lede}</p> : null}
+        {error ? <p className="con-error" role="alert">{error}</p> : null}
+        <div className="con-dialog-foot">
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>{cancel}</button>
+          <button type="submit" className={`ui-btn ${danger ? 'ui-btn-danger' : 'con-btn-primary'}`} disabled={busy}>{confirm}</button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
 /** Runs one change through the code guard and reports how it went. */
 export function useAction(reload) {
   const guard = useGuard();

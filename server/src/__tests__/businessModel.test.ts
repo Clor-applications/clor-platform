@@ -82,7 +82,7 @@ describe('business model — subscriptions (gateway-agnostic)', () => {
     expect(a.ownedApps).toContain('payroll');
     expect(a.entitledApps).toEqual([]);
     expect(a.inGoodStanding).toBe(false);
-    expect(await appOwnershipReason(acct, 'payroll')).toMatch(/past_due/);
+    expect(await appOwnershipReason(acct, 'payroll')).toMatch(/subscription is overdue/);
   });
 });
 

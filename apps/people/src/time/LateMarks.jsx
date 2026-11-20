@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
@@ -49,7 +50,7 @@ export default function LateMarks({ params = {}, updateParams }) {
       notify.success(`${out.applied} applied${out.skipped?.length ? `; ${out.skipped.length} skipped: ${out.skipped[0].why}` : ''}.`);
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not applied.'));
+      notify.error((errorWords(e, 'apply the late marks').startsWith('Could not') ? 'Late marks were not applied. No leave or pay was changed. Try again.' : errorWords(e, 'apply the late marks')));
     } finally {
       setBusy('');
     }
@@ -60,11 +61,11 @@ export default function LateMarks({ params = {}, updateParams }) {
     setBusy(r.employeeId);
     try {
       await undoPenalty(r.employeeId, month);
-      notify.success('Done.');
+      notify.success(r.status === 'WAIVED' ? `Waiver for ${r.name} taken back.` : r.status === 'APPLIED' && r.fromLeave.length ? `Penalty undone; ${leaveText(r.fromLeave)} is back in ${r.name}’s balance.` : `Penalty for ${r.name} undone.`);
       setOpen(null);
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'finish that'));
     } finally {
       setBusy('');
     }
@@ -81,7 +82,7 @@ export default function LateMarks({ params = {}, updateParams }) {
     ...(stepRule ? [{ key: 'missed', label: 'Time missed', align: 'right', render: (r) => <span className={`tabular-nums ${r.days > r.timeMissedDays ? 'font-medium' : ''}`}>{r.timeMissedMinutes ? `${minutesText(r.timeMissedMinutes)} · ${dayAmount(r.timeMissedDays)}` : '—'}</span> }] : []),
     { key: 'leave', label: 'From leave', render: (r) => <span className="tabular-nums">{r.status === 'WAIVED' ? '—' : leaveText(r.fromLeave)}</span> },
     { key: 'lop', label: 'Unpaid', align: 'right', render: (r) => <span className="tabular-nums font-medium">{dayAmount(r.lossOfPayDays)}</span> },
-    { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0] || r.status}</span> },
+    { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0] || enumWords(r.status)}</span> },
     { key: 'act', label: '', align: 'right', render: (r) => (
       <span className="inline-flex gap-1 whitespace-nowrap">
         {r.status === 'DUE' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === r.employeeId} onClick={() => setWaiving(r)}>Waive</button> : null}
@@ -95,7 +96,7 @@ export default function LateMarks({ params = {}, updateParams }) {
       <PageHeader
         breadcrumb={[{ label: 'People' }, { label: 'Time' }]}
         title="Late marks"
-        actions={d?.canApply && d?.ended && due ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy === 'apply'} onClick={apply}>{busy === 'apply' ? 'Applying…' : `Apply ${monthTitle(month).split(' ')[0]}`}</button> : null}
+        actions={d?.canApply && d?.ended && due ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy === 'apply'} onClick={apply}>{busy === 'apply' ? 'Applying…' : `Apply ${monthTitle(month).split(' ')[0]} penalties`}</button> : null}
       />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
@@ -176,7 +177,7 @@ function WaiveDrawer({ row, month, onClose, onDone }) {
       notify.success(`${row.name}: waived.`);
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not waived.'));
+      notify.error(errorWords(err, 'waive the penalty'));
     } finally {
       setBusy(false);
     }

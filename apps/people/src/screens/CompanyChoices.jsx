@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -129,7 +130,7 @@ export default function CompanyChoices({ openScreen }) {
       }
       notify.success(changed.length === 1 ? 'Choice saved.' : 'Choices saved.');
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       if (last) req.setData?.(last);
       if (!req.setData) req.reload();

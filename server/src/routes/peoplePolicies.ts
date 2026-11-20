@@ -13,6 +13,7 @@ import { AckError, remind, report } from '../services/people/acknowledgements.js
 import { inScope, teamScope } from '../services/people/scope.js';
 import { z } from 'zod';
 import { check, flag, id, idParams, jsonObject, list, q, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Policies (docs/people/02-PRD.md POL-01..06): the library, versions, who
@@ -30,7 +31,7 @@ const actorOf = (req: Request, source: ChangeSource = 'FORM', reason: string | n
 const sendError = (res: any, e: unknown) => {
   if (e instanceof PolicyError || e instanceof AckError) return res.status(e.status).json({ error: e.message });
   console.error('[people-policies]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 const versionParam = (v: unknown) => (Number.isInteger(Number(v)) && Number(v) > 0 ? Number(v) : null);
 

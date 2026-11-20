@@ -51,7 +51,7 @@ export default function Interviews({ params = {} }) {
   return (
     <div className="space-y-6">
       <ListHeader
-        module="Talent"
+        module="Hiring"
         title="Interviews"
         description={hr ? 'Every interview set with a candidate, coming up first, and whose feedback is still owed.' : 'The interviews you are asked to sit on, coming up first, and the feedback you still owe.'}
         primary={canSchedule ? { label: 'Schedule interview', icon: CalendarClock, onClick: () => setScheduling(true) } : null}
@@ -96,7 +96,7 @@ function ScheduleInterview({ onClose, onSaved }) {
       {/* Choosing the candidate opens the form at once; there is nothing else to say before it. */}
       <div className="grid gap-4">
         {req.loading ? <p className="ui-muted text-sm" aria-busy="true">Loading candidates…</p>
-          : !rows.length ? <p className="ui-muted text-sm" role="status">Nobody is in the running. Add a candidate under Talent › Candidates first.</p>
+          : !rows.length ? <p className="ui-muted text-sm" role="status">Nobody is in the running. Add a candidate under Hiring › Candidates first.</p>
             : <PopupSelect label="Candidate" alwaysSearch value={picked} onChange={(v) => setPicked(v || '')} placeholder="Choose a candidate"
                 options={rows.map((c) => ({ value: c.id, label: c.name, subtext: [c.openingTitle, word(STAGES, c.stage)].filter(Boolean).join(' · ') }))} />}
       </div>

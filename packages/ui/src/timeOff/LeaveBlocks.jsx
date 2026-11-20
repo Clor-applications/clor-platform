@@ -14,6 +14,7 @@ import { listStructure } from '@ui/personnel/api';
 
 import { can, istDay } from './shared';
 import { createLeaveBlock, deleteLeaveBlock, listLeaveBlocks, listLeaveTypes, listPeople, updateLeaveBlock } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Settings → Leave block dates (owner, 29 Oct 2026, from ERPNext's Leave
@@ -49,7 +50,7 @@ export default function LeaveBlocks() {
       notify.success('Block removed.');
       req.reload();
     } catch (err) {
-      notify.error(String(err?.message || 'Not removed.'));
+      notify.error(errorWords(err, 'remove the block'));
     }
   };
 
@@ -117,7 +118,7 @@ function BlockDrawer({ block, refs, onClose, onDone }) {
       notify.success(editing ? 'Block changed.' : `Leave blocked, ${span(body)}.`);
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the block'));
     } finally {
       setSaving(false);
     }

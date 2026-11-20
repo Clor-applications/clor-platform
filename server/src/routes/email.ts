@@ -8,6 +8,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { EMAIL_TEMPLATES, NOTIFICATION_EVENTS } from '../constants/emailTemplates.js';
 import { encryptSecret, retryFailed, sendTemplate, verifyTransport } from '../services/mailer.js';
+import { SIGNED_OUT_TEXT, otherCompany } from '../utils/companyWords.js';
 
 /**
  * Email configuration, notification preferences, and the delivery log.
@@ -20,7 +21,7 @@ const SETTINGS_EDIT = requirePermission('SETTINGS', PermissionAction.EDIT, 'Comp
 
 const orgOk = (req: any, res: any) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;
@@ -154,7 +155,7 @@ emailRouter.post('/orgs/:orgId/email/send-test', SETTINGS_EDIT, async (req, res)
     where: { id: req.auth!.userId },
     select: { email: true, fullName: true },
   });
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!user) return res.status(401).json({ error: SIGNED_OUT_TEXT });
 
   const row = await sendTemplate({
     templateKey: 'auth.verify_email',

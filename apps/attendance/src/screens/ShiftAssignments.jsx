@@ -11,6 +11,8 @@ import { notify } from '@ui/components/ui/notify';
 import { assignShift, listAssignments, listEmployees, listShifts, removeAssignment, todayIst } from '../api/attendance';
 import { confirmScheduleChange } from '../components/scheduleCheck';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const COLUMNS = {
   employee: (r) => r.employeeName,
@@ -44,7 +46,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
-    listAssignments().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load assignments.')));
+    listAssignments().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load assignments')));
   }, []);
   useEffect(() => {
     load();
@@ -91,7 +93,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
       setPicked(new Set());
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not assigned.'));
+      notify.error(errorWords(e, 'assign it'));
     } finally {
       setSaving(false);
     }
@@ -102,7 +104,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
       await removeAssignment(id);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not removed.'));
+      notify.error(errorWords(e, 'remove it'));
     }
   };
 
@@ -119,14 +121,13 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
       description="A person’s own shift from a date (and until a date, if it ends). It beats their rotation and department schedule; a temporary schedule beats it."
       compact
       tight
-      denseCards
       search={{ value: list.query, onChange: list.setQuery, placeholder: 'Search schedules…', label: 'Search employee schedules' }}
-      cards={[
+      countLine={countItems([
         { label: 'Schedules', value: figures.total, count: true, tone: 'all', Icon: CalendarRange },
         { label: 'People', value: figures.people, count: true, tone: 'sent', Icon: Users },
         { label: 'Shifts in use', value: figures.shifts, count: true, tone: 'paid', Icon: Clock3 },
         { label: 'With an end date', value: figures.ending, count: true, tone: 'outstanding', Icon: CalendarClock },
-      ]}
+      ])}
       above={
         <section className="ui-card space-y-3 p-4" aria-labelledby="assign-h">
           <h2 id="assign-h" className="ui-t-sec">Assign</h2>

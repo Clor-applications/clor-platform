@@ -30,6 +30,7 @@ import { entityExists } from '../services/integrity/crossStore.js';
 import { postApprovedPurchaseDoc } from './purchaseDocs.js';
 import { assertPeriodUnlocked, periodLockModuleForSource } from '../services/periodLock.js';
 import { getApprovalPolicy } from '../services/approvalPolicy.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 /**
  * Administration surfaces layered on top of roles: role profiles, approval
@@ -45,7 +46,7 @@ const USERS_EDIT = requirePermission('SETTINGS', PermissionAction.EDIT, 'Users')
 
 const orgOk = (req: any, res: any) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;
@@ -129,7 +130,7 @@ governanceRouter.post('/orgs/:orgId/role-profiles', ROLES_EDIT, async (req, res)
     select: { id: true },
   });
   if (owned.length !== body.roleIds.length) {
-    return res.status(400).json({ error: 'One or more roles do not belong to this organisation' });
+    return res.status(400).json({ error: 'One of the roles is not in this company.' });
   }
 
   const refusedCreate = await profileRolesRefusal(req, owned.map((r) => r.id));
@@ -157,14 +158,14 @@ governanceRouter.put('/orgs/:orgId/role-profiles/:profileId', ROLES_EDIT, async 
   const body = profileSchema.parse(req.body);
 
   const existing = await platformPrisma.roleProfile.findFirst({ where: { id: profileId, accountId, orgId } });
-  if (!existing) return res.status(404).json({ error: 'Role profile not found' });
+  if (!existing) return res.status(404).json({ error: 'No such role profile.' });
 
   const owned = await platformPrisma.role.findMany({
     where: { id: { in: body.roleIds }, accountId, orgId },
     select: { id: true },
   });
   if (owned.length !== body.roleIds.length) {
-    return res.status(400).json({ error: 'One or more roles do not belong to this organisation' });
+    return res.status(400).json({ error: 'One of the roles is not in this company.' });
   }
 
   const current = await platformPrisma.roleProfileRole.findMany({ where: { profileId }, select: { roleId: true } });
@@ -198,7 +199,7 @@ governanceRouter.delete('/orgs/:orgId/role-profiles/:profileId', ROLES_EDIT, asy
   const existing = await platformPrisma.roleProfile.findFirst({
     where: { id: String(req.params.profileId), accountId, orgId },
   });
-  if (!existing) return res.status(404).json({ error: 'Role profile not found' });
+  if (!existing) return res.status(404).json({ error: 'No such role profile.' });
 
   try {
     await platformPrisma.$transaction(async (tx) => {
@@ -221,14 +222,14 @@ governanceRouter.post('/orgs/:orgId/users/:userId/role-profiles', USERS_EDIT, as
   const body = assignProfileSchema.parse(req.body);
 
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
-  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  if (!member) return res.status(404).json({ error: 'This person is not in this company.' });
 
   const owned = await platformPrisma.roleProfile.findMany({
     where: { id: { in: body.profileIds }, accountId, orgId },
     select: { id: true },
   });
   if (owned.length !== body.profileIds.length) {
-    return res.status(400).json({ error: 'One or more profiles do not belong to this organisation' });
+    return res.status(400).json({ error: 'One of the profiles is not in this company.' });
   }
 
   // Profiles are assigned company-wide: bounded by what the caller holds company-wide (A-19).
@@ -357,13 +358,13 @@ governanceRouter.post('/orgs/:orgId/approval-rules', ROLES_EDIT, async (req, res
   if (await hasPending(accountId, orgId, body.docType)) return res.status(409).json({ error: PENDING_BLOCKS_CHANGE });
 
   if (body.maxAmount !== null && body.maxAmount !== undefined && body.maxAmount <= body.minAmount) {
-    return res.status(400).json({ error: 'Maximum must be greater than minimum' });
+    return res.status(400).json({ error: 'The maximum must be more than the minimum.' });
   }
 
   const role = await platformPrisma.role.findFirst({ where: { id: body.approverRoleId, accountId, orgId }, select: { id: true } });
-  if (!role) return res.status(400).json({ error: 'Approver role does not belong to this organisation' });
+  if (!role) return res.status(400).json({ error: 'The approver role is not in this company.' });
   if (body.branchId && !(await platformPrisma.branch.findFirst({ where: { id: body.branchId, accountId, orgId }, select: { id: true } }))) {
-    return res.status(400).json({ error: 'Branch does not belong to this organisation' });
+    return res.status(400).json({ error: 'Branch does not belong to this company' });
   }
 
   const rule = await prisma.approvalRule.create({
@@ -394,18 +395,18 @@ governanceRouter.put('/orgs/:orgId/approval-rules/:ruleId', ROLES_EDIT, async (r
   const { accountId, orgId } = req.tenant!;
   const body = ruleSchema.parse(req.body);
   const old = await prisma.approvalRule.findFirst({ where: { id: String(req.params.ruleId), accountId, orgId } });
-  if (!old) return res.status(404).json({ error: 'Rule not found' });
+  if (!old) return res.status(404).json({ error: 'No such rule.' });
   if ((await hasPending(accountId, orgId, old.docType)) || (body.docType !== old.docType && (await hasPending(accountId, orgId, body.docType)))) {
     return res.status(409).json({ error: PENDING_BLOCKS_CHANGE });
   }
   if (body.maxAmount != null && body.maxAmount <= body.minAmount) {
-    return res.status(400).json({ error: 'Maximum must be greater than minimum' });
+    return res.status(400).json({ error: 'The maximum must be more than the minimum.' });
   }
   if (!(await platformPrisma.role.findFirst({ where: { id: body.approverRoleId, accountId, orgId }, select: { id: true } }))) {
-    return res.status(400).json({ error: 'Approver role does not belong to this organisation' });
+    return res.status(400).json({ error: 'The approver role is not in this company.' });
   }
   if (body.branchId && !(await platformPrisma.branch.findFirst({ where: { id: body.branchId, accountId, orgId }, select: { id: true } }))) {
-    return res.status(400).json({ error: 'Branch does not belong to this organisation' });
+    return res.status(400).json({ error: 'Branch does not belong to this company' });
   }
   // A rule that has decided something keeps its terms: what was approved was
   // approved under them. It may still be switched off.
@@ -444,7 +445,7 @@ governanceRouter.delete('/orgs/:orgId/approval-rules/:ruleId', ROLES_EDIT, async
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const rule = await prisma.approvalRule.findFirst({ where: { id: String(req.params.ruleId), accountId, orgId } });
-  if (!rule) return res.status(404).json({ error: 'Rule not found' });
+  if (!rule) return res.status(404).json({ error: 'No such rule.' });
   if (await hasPending(accountId, orgId, rule.docType)) return res.status(409).json({ error: PENDING_BLOCKS_CHANGE });
   if (await prisma.approvalRequest.count({ where: { accountId, orgId, ruleId: rule.id } })) {
     return res.status(409).json({ error: 'This rule has approval history. Deactivate it instead of deleting it.' });
@@ -465,7 +466,7 @@ governanceRouter.get('/orgs/:orgId/approvals', async (req, res) => {
   const userId = req.auth!.userId;
 
   const scope = String(req.query.scope || 'inbox');
-  if (!['inbox', 'mine', 'requested', 'all'].includes(scope)) return res.status(400).json({ error: 'Invalid approval scope' });
+  if (!['inbox', 'mine', 'requested', 'all'].includes(scope)) return res.status(400).json({ error: 'Choose which approvals to show.' });
 
   /*
    * An inbox, not a register.
@@ -477,7 +478,7 @@ governanceRouter.get('/orgs/:orgId/approvals', async (req, res) => {
    */
   const access = await accessForRequest(req, branchId);
   if (scope === 'all' && !access.isAdmin && !access.permissions.has(permKey('SETTINGS', 'Roles', 'VIEW'))) {
-    return res.status(403).json({ error: 'Company-wide approvals require governance access' });
+    return res.status(403).json({ error: 'Only those who look after approvals for the whole company see these. Ask an administrator.' });
   }
   const allBranches = (scope === 'all' || scope === 'inbox') && String(req.query.allBranches || '') === 'true';
   const inbox =
@@ -602,7 +603,7 @@ async function approvalDocumentDate(accountId: string, orgId: string, docType: s
   return undefined;
 }
 
-const ACCOUNTING_NOT_OWNED = { error: "The accounting app is not on this account's subscription.", app: 'accounting', code: 'APP_NOT_SUBSCRIBED' };
+const ACCOUNTING_NOT_OWNED = { error: 'Books is not on this account’s subscription. An owner can add it under Workspace → Billing.', app: 'accounting', code: 'APP_NOT_SUBSCRIBED' };
 
 governanceRouter.post('/orgs/:orgId/approvals/:requestId/decide', async (req, res) => {
   if (!orgOk(req, res)) return;
@@ -713,13 +714,13 @@ governanceRouter.post('/orgs/:orgId/approvals/:requestId/retry-post', async (req
     where: { id: String(req.params.requestId), accountId, orgId, branchId, status: 'APPROVED' },
     include: { rule: { select: { approverRoleId: true } } },
   });
-  if (!row) return res.status(404).json({ error: 'Approved request not found' });
+  if (!row) return res.status(404).json({ error: 'No such approved request.' });
   const later = await prisma.approvalRequest.count({
     where: { accountId, orgId, branchId, docType: row.docType, docId: row.docId, sequence: { gt: row.sequence } },
   });
-  if (later) return res.status(409).json({ error: 'A later approval level must finish first' });
+  if (later) return res.status(409).json({ error: 'A later approval level has started on this, so it cannot be undone here. Reload it.' });
   const access = await accessForRequest(req, branchId);
-  if (!access.roleIds.includes(row.rule.approverRoleId)) return res.status(403).json({ error: 'Approver role required' });
+  if (!access.roleIds.includes(row.rule.approverRoleId)) return res.status(403).json({ error: 'Only someone with the approver role can decide this.' });
   try {
     const posted = await releaseApprovedDocument({ accountId, orgId, branchId, userId: req.auth!.userId, docType: row.docType, docId: row.docId });
     res.json({ posted });
@@ -737,7 +738,7 @@ governanceRouter.get('/orgs/:orgId/approvals/:requestId/history', async (req, re
     where: { id: String(req.params.requestId), accountId, orgId, branchId },
     include: { rule: { select: { approverRoleId: true } } },
   });
-  if (!row) return res.status(404).json({ error: 'Approval request not found' });
+  if (!row) return res.status(404).json({ error: 'No such approval request.' });
   const access = await accessForRequest(req, branchId);
   if (
     row.requestedByUserId !== req.auth!.userId &&
@@ -745,7 +746,7 @@ governanceRouter.get('/orgs/:orgId/approvals/:requestId/history', async (req, re
     !access.isAdmin &&
     !access.permissions.has(permKey('SETTINGS', 'Roles', 'VIEW'))
   ) {
-    return res.status(403).json({ error: 'You cannot view this approval' });
+    return res.status(403).json({ error: 'This approval is not yours to see.' });
   }
   const events = await platformPrisma.auditLog.findMany({
     where: { accountId, orgId, entity: 'APPROVAL_REQUEST', entityId: row.id },
@@ -808,7 +809,7 @@ governanceRouter.post('/orgs/:orgId/users/:userId/permissions', USERS_EDIT, asyn
   const body = userPermissionSchema.parse(req.body);
 
   const member = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
-  if (!member) return res.status(404).json({ error: 'User not found in org' });
+  if (!member) return res.status(404).json({ error: 'This person is not in this company.' });
 
   const refused = await restrictionRefusal(req, userId);
   if (refused) return res.status(refused.status).json(refused.body);
@@ -832,7 +833,7 @@ governanceRouter.post('/orgs/:orgId/users/:userId/permissions', USERS_EDIT, asyn
     res.status(201).json({ permission: row });
   } catch (err: any) {
     if (String(err?.code || '') === 'P2002') {
-      return res.status(409).json({ error: 'That restriction already exists' });
+      return res.status(409).json({ error: 'That restriction already exists.' });
     }
     throw err;
   }
@@ -844,7 +845,7 @@ governanceRouter.delete('/orgs/:orgId/users/:userId/permissions/:id', USERS_EDIT
   const row = await platformPrisma.userPermission.findFirst({
     where: { id: String(req.params.id), accountId, orgId, userId: String(req.params.userId) },
   });
-  if (!row) return res.status(404).json({ error: 'Restriction not found' });
+  if (!row) return res.status(404).json({ error: 'No such restriction.' });
   const refused = await restrictionRefusal(req, row.userId);
   if (refused) return res.status(refused.status).json(refused.body);
   await platformPrisma.userPermission.delete({ where: { id: row.id } });

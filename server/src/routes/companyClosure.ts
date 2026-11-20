@@ -6,6 +6,8 @@ import { recordAudit } from '../services/auditTrail.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { ClosureError, cancelClosure, closureStatus, lastFullExport, mayClose, noticeDays, scheduleClosure } from '../services/companyClosure.js';
 import { stepUpRefusal } from '../services/stepUp.js';
+import { otherCompany } from '../utils/companyWords.js';
+import { dateWords } from '../utils/istDate.js';
 
 /**
  * Closing a company (LX-07 part 2): status, ask, cancel. A company-wide
@@ -18,7 +20,7 @@ companyClosureRouter.use('/orgs/:orgId/closure', requireAuth, requireTenantConte
 
 const sameOrg = (req: any, res: any) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;
@@ -53,7 +55,7 @@ companyClosureRouter.post('/orgs/:orgId/closure', async (req, res) => {
   if (refused) return res.status(refused.status).json(refused.body);
   try {
     const closure = await scheduleClosure({ accountId, orgId, userId: req.auth!.userId, confirmName: req.body?.confirmName, reason: req.body?.reason });
-    await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'CLOSURE_SCHEDULED', message: `Closure scheduled; data deleted after ${closure.deleteAfter.toISOString().slice(0, 10)}`, metadata: { reason: closure.reason } });
+    await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'CLOSURE_SCHEDULED', message: `Closure scheduled; data deleted after ${dateWords(closure.deleteAfter)}`, metadata: { reason: closure.reason } });
     res.status(201).json({ closure });
   } catch (e) {
     fail(res, e);

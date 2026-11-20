@@ -6,6 +6,7 @@ import { notify } from '@ui/components/ui/notify';
 import { exportCompanyData } from '@platform/admin/dataExport';
 import { ICON, PageHead, Panel } from './wsKit';
 import './workspace.css';
+import { dayTimeText, errorWords } from '@ui/utils/errorWords';
 
 /**
  * Workspace → Data → Data export (redesign W-R9): taking a copy of this company's books, and of how it is set up.
@@ -64,7 +65,7 @@ const ExportPanel = ({ icon: Icon, title, blurb, action, primary, scope, busy, l
         <div>
           <h3 className="ws-item-title">Last taken</h3>
           <dl className="mt-1">
-            <Row label="When" value={last.at.toLocaleString()} />
+            <Row label="When" value={dayTimeText(last.at)} />
             <Row label="Records" value={last.rows.toLocaleString('en-IN')} />
             <Row label="File size" value={kb(last.size)} />
             {highlights.map(([label, key]) => (
@@ -124,7 +125,7 @@ export default function DataBackup({ currentCompany }) {
           : `${rows.toLocaleString('en-IN')} records downloaded.`,
       );
     } catch (e) {
-      notify.error(`Could not take the backup: ${String(e?.message || e)}`);
+      notify.error(errorWords(e, 'download the export'));
     } finally {
       setBusy(false);
     }
@@ -184,7 +185,7 @@ export default function DataBackup({ currentCompany }) {
             </Panel>
             <Panel title="Restoring">
               <p className="ws-card-blurb">
-                Not available yet.
+                Restoring from an export is not available yet. If you need records put back, ask CLOR support under Help and support.
               </p>
             </Panel>
           </aside>

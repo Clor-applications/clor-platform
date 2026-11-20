@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
-import { APP_NAMES, Err, Loading, Tabs, appsText, day, may, when } from './kit';
+import { APP_NAMES, Err, Loading, Tabs, appsText, day, may, when, errorWords, countLine } from './kit';
 import { opsAccount, opsInvoices, opsTicket, opsTicketChange, opsTicketReply, opsTickets } from './api';
 import { StatusPill, customerStatus, unpaidOf } from './Customers';
 import { inr } from './money';
@@ -33,7 +33,7 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
     const params = status === 'mine' ? { status: 'active', mine: '1' } : { status };
     opsTickets({ ...params, q: q.trim() || undefined })
       .then(setD)
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the tickets')));
   }, [status, q]);
   useEffect(() => {
     const t = setTimeout(load, q ? 250 : 0);
@@ -44,10 +44,10 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Customers and sales', 'Tickets']}
+          crumbs={['Customers and sales']}
           title="Tickets"
           description="Questions and problems customers sent from their Workspace. The one waiting longest is at the top."
-          meta={d ? `${d.counts.open} need an answer · ${d.counts.waiting} waiting on customers` : null}
+          meta={d ? countLine([[d.counts.open, (k) => `${k} ${k === 1 ? 'needs' : 'need'} an answer`], [d.counts.waiting, 'waiting on customers']], 'No open tickets') : null}
         />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Tabs
@@ -68,7 +68,7 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
           <Loading />
         ) : d && d.tickets.length === 0 ? (
           <div className="ws-empty">
-            <p>{status === 'active' ? 'No customer is waiting on CLOR. Nice.' : status === 'mine' ? 'You have no active tickets.' : 'Nothing here.'}</p>
+            <p>{status === 'active' ? 'No customer is waiting on CLOR.' : status === 'mine' ? 'You have no active tickets.' : status === 'SOLVED' ? 'No solved tickets yet.' : 'No closed tickets yet.'}</p>
           </div>
         ) : d ? (
           <div className="ws-table-wrap">
@@ -80,7 +80,7 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
                   <th>Customer</th>
                   <th>Status</th>
                   <th>Priority</th>
-                  <th>Owner</th>
+                  <th>Looked after by</th>
                   <th className="num">Last change</th>
                 </tr>
               </thead>
@@ -143,7 +143,7 @@ export function TicketPage({ id, back, openCustomer, openTicket, lookUp, me }) {
   const canAct = may(me?.role, 'SUPPORT');
 
   useEffect(() => {
-    opsTicket(id).then(setT).catch((e) => setError(String(e?.message || e)));
+    opsTicket(id).then(setT).catch((e) => setError(errorWords(e, 'load the ticket')));
   }, [id]);
   const about = useCustomerContext(t?.account?.id, id);
 
@@ -156,7 +156,7 @@ export function TicketPage({ id, back, openCustomer, openTicket, lookUp, me }) {
       setT(r.ticket || r);
       if (said) setNotice(typeof said === 'function' ? said(r) : said);
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'save the change'));
     } finally {
       setBusy(false);
     }
@@ -239,11 +239,11 @@ export function TicketPage({ id, back, openCustomer, openTicket, lookUp, me }) {
               <dl className="ws-rows">
                 <div><dt>Status</dt><dd><span className={`ws-pill ${STATUS[t.status]?.[1] || ''}`}>{STATUS[t.status]?.[0]}</span></dd></div>
                 <div><dt>Priority</dt><dd><span className={`ws-pill ${PRIORITY[t.priority]?.[1] || ''}`}>{PRIORITY[t.priority]?.[0]}</span></dd></div>
-                <div><dt>Owner</dt><dd>{t.assignedTo ? (mineNow ? 'You' : t.assignedTo.name) : 'Nobody yet'}</dd></div>
-                {t.requestId ? <div><dt>Error code</dt><dd className="ui-num">{t.requestId}</dd></div> : null}
+                <div><dt>Looked after by</dt><dd>{t.assignedTo ? (mineNow ? 'You' : t.assignedTo.name) : 'Nobody yet'}</dd></div>
+                {t.requestId ? <div><dt>Request ID</dt><dd className="ui-num">{t.requestId}</dd></div> : null}
               </dl>
               {t.requestId ? (
-                <button type="button" className="ws-link" onClick={() => lookUp(t.requestId)}>Look up this error code</button>
+                <button type="button" className="ws-link" onClick={() => lookUp(t.requestId)}>Look up this request ID</button>
               ) : null}
               {canAct ? (
                 <div className="grid gap-3" style={{ marginTop: 8 }}>

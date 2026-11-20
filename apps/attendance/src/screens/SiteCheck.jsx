@@ -108,7 +108,7 @@ export default function SiteCheck() {
                     {!sites.length ? (
                       <tr>
                         <td colSpan={4}>
-                          <EmptyState icon={MapPin} title="No punch areas yet" description="Add one under Settings → Punch Areas; then come back here to test its radius." />
+                          <EmptyState icon={MapPin} title="No punch areas yet" description="Add one under Settings → Punch areas; then come back here to test its radius." />
                         </td>
                       </tr>
                     ) : (position ? rows : sites.map((site) => ({ site }))).map((r) => (

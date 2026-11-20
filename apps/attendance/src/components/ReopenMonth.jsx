@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Modal from '@ui/components/ui/Modal';
 import { notify } from '@ui/components/ui/notify';
 import { reopenMonth } from '../api/attendance';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Reopening a closed month says why: the reason goes in the audit log beside
@@ -21,7 +22,7 @@ export default function ReopenMonth({ month, label, onClose, onDone }) {
       notify.success(`${label || month} reopened.`);
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not reopened.'));
+      notify.error(errorWords(err, 'reopen the month'));
     } finally {
       setBusy(false);
     }
@@ -38,7 +39,7 @@ export default function ReopenMonth({ month, label, onClose, onDone }) {
       </>}
     >
       <form id="reopen-month" onSubmit={save} className="space-y-3">
-        <p className="text-sm">Its days can change again. Payroll already run from it is not changed; closing again keeps a new snapshot.</p>
+        <p className="text-sm">Its days can change again. Payroll already run from it is not changed; closing again keeps a new copy of the figures.</p>
         <label className="block">
           <span className="ui-label">Why *</span>
           <textarea className="ui-input w-full" rows={3} maxLength={300} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) save(e); }} />

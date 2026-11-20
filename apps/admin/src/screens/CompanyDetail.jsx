@@ -5,6 +5,7 @@ import { memberDirectory } from '@platform/admin/account';
 import { getArchiveReasons } from '@platform/admin/admin';
 import { formatMoney } from '@ui/utils/money';
 import { ICON, Loading, WsDrawer, productIcon } from './wsKit';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * A company at a glance (redesign W-R5): opened from its name in Companies.
@@ -37,7 +38,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
       const r = await getArchiveReasons();
       setArchiving((a) => (a ? { ...a, reasons: r.reasons || [] } : a));
     } catch (e) {
-      setArchiveError(String(e?.message || 'Could not load the reasons.'));
+      setArchiveError(errorWords(e, 'load the reasons'));
     }
   };
   const runArchive = async (fn) => {
@@ -47,7 +48,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
       await fn();
       setArchiving(null);
     } catch (e) {
-      setArchiveError(String(e?.message || 'Not done.'));
+      setArchiveError(errorWords(e, 'make the change'));
     } finally {
       setArchiveBusy(false);
     }
@@ -59,7 +60,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
     if (!company) return;
     memberDirectory()
       .then(setDirectory)
-      .catch((e) => setError(String(e?.message || 'Could not load the people.')));
+      .catch((e) => setError(errorWords(e, 'load the people')));
   }, [company]);
 
   const people = useMemo(() => peopleOf(directory, company?.orgId), [directory, company]);
@@ -127,7 +128,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
               <section className="grid gap-2" aria-labelledby="cd-access">
                 <h3 id="cd-access" className="ws-subhead">Access</h3>
                 {directory === null && !error ? (
-                  <Loading shape="rows" rows={3} label="Loading…" />
+                  <Loading shape="rows" rows={3} label="Loading who has access…" />
                 ) : (
                   <ul className="ws-list">
                     <li>
@@ -182,7 +183,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
                         </select>
                       </label>
                       <label className="grid gap-1">
-                        <span className="text-sm font-medium">Note <span className="ui-caption">· optional</span></span>
+                        <span className="text-sm font-medium">Note <span className="ui-caption">(optional)</span></span>
                         <textarea className="ui-input w-full" rows={2} maxLength={1000} value={archiving.note} onChange={(e) => setArchiving((a) => ({ ...a, note: e.target.value }))} />
                       </label>
                       <div className="flex gap-2">
@@ -203,7 +204,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
 
           {tab === 'people' ? (
             directory === null && !error ? (
-              <Loading shape="rows" rows={3} label="Loading…" />
+              <Loading shape="rows" rows={3} label="Loading the people…" />
             ) : people.length ? (
               <div className="ws-table-wrap">
                 <table className="ws-table">

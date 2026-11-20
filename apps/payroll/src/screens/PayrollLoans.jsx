@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Ban, CalendarClock, Check, Clock, HandCoins, Plus, RotateCcw, SkipForward, Wallet, X } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Ban, Check, HandCoins, Plus, RotateCcw, SkipForward, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -21,6 +21,8 @@ import {
 } from '../api/payrollLoans';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { rupees as money } from '@ui/utils/money';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Money lent to somebody, and taken back out of their pay.
@@ -45,7 +47,7 @@ const STATUS = {
 
 const INSTALLMENT = {
   PENDING: { label: 'Due', tone: 'ui-pill-neutral' },
-  RECOVERED: { label: 'Taken', tone: 'ui-pill-pos' },
+  RECOVERED: { label: 'Recovered', tone: 'ui-pill-pos' },
   SETTLED: { label: 'Settled at exit', tone: 'ui-pill-pos' },
   SKIPPED: { label: 'Skipped', tone: 'ui-pill-warn' },
   WAIVED: { label: 'Written off', tone: 'ui-pill-warn' },
@@ -64,6 +66,13 @@ const TABS = [
   { value: 'COMPLETED', label: 'Repaid', tone: 'paid' },
   { value: 'CANCELLED', label: 'Cancelled', tone: 'cancelled' },
 ];
+/* One written title per tab: a title built from the tab label read "No to approve loans". */
+const EMPTY_TITLES = {
+  DRAFT: 'No loans waiting for approval',
+  ACTIVE: 'No loans being recovered',
+  COMPLETED: 'No repaid loans yet',
+  CANCELLED: 'No cancelled loans',
+};
 const COLUMNS = {
   employee: (l) => l.employeeName,
   kind: (l) => TYPES.find((t) => t.id === l.type)?.label || l.type,
@@ -72,9 +81,9 @@ const EXPORT_COLUMNS = [
   { key: 'number', label: 'Loan' },
   { key: 'employeeName', label: 'Employee' },
   { key: 'employeeCode', label: 'Code' },
-  { key: 'type', label: 'Kind', value: (l) => TYPES.find((t) => t.id === l.type)?.label || l.type },
+  { key: 'type', label: 'Type', value: (l) => TYPES.find((t) => t.id === l.type)?.label || l.type },
   { key: 'principal', label: 'Lent', value: (l) => Number(l.principal || 0) },
-  { key: 'installmentAmount', label: 'A month', value: (l) => Number(l.installmentAmount || 0) },
+  { key: 'installmentAmount', label: 'Instalment a month', value: (l) => Number(l.installmentAmount || 0) },
   { key: 'outstandingBalance', label: 'Still owed', value: (l) => Number(l.outstandingBalance || 0) },
   { key: 'status', label: 'Status', value: (l) => STATUS[l.status]?.label || l.status },
 ];
@@ -100,7 +109,7 @@ export default function PayrollLoans() {
         setPeriods(periodRows);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load loans.')));
+      .catch((e) => setError(errorWords(e, 'load loans')));
   }, []);
 
   useEffect(() => {
@@ -150,7 +159,6 @@ export default function PayrollLoans() {
       description="Money lent to staff, and the schedule it comes back out of their pay on."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search loans…', label: 'Search loans' }}
       moreItems={loans?.length ? [exportMenuItem('Export loans')] : null}
       onMoreSelect={(k) => {
@@ -163,12 +171,12 @@ export default function PayrollLoans() {
           <Plus size={16} aria-hidden="true" /> New loan
         </button>
       }
-      cards={[
-        { label: 'To approve', value: counts.DRAFT, count: true, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('DRAFT') },
-        { label: 'Lent', value: figures.lent, tone: 'sent', Icon: HandCoins, onSelect: () => setStatus('ACTIVE') },
-        { label: 'Still owed', value: figures.owed, tone: 'overdue', Icon: Wallet },
-        { label: 'Monthly EMI', value: figures.monthly, tone: 'partial', Icon: CalendarClock },
-      ]}
+      countLine={countItems([
+        { label: 'To approve', value: counts.DRAFT, count: true, tone: 'outstanding', onSelect: () => setStatus('DRAFT') },
+        { label: 'Lent', value: figures.lent, tone: 'sent', onSelect: () => setStatus('ACTIVE') },
+        { label: 'Still owed', value: figures.owed, tone: 'overdue' },
+        { label: 'In instalments a month', value: figures.monthly, tone: 'partial' },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -199,9 +207,9 @@ export default function PayrollLoans() {
               <tr>
                 <th scope="col">Loan</th>
                 <ColumnHeader label="Employee" col="employee" state={filters} />
-                <ColumnHeader label="Kind" col="kind" state={filters} />
+                <ColumnHeader label="Type" col="kind" state={filters} />
                 <th scope="col" className="ui-num">Lent</th>
-                <th scope="col" className="ui-num">A month</th>
+                <th scope="col" className="ui-num">Instalment a month</th>
                 <th scope="col" className="ui-num">Still owed</th>
                 <th scope="col" className="ui-col-h-center">Status</th>
               </tr>
@@ -221,7 +229,7 @@ export default function PayrollLoans() {
                     ) : (
                       <EmptyState
                         icon={HandCoins}
-                        title={status ? `No ${TABS.find((t) => t.value === status)?.label.toLowerCase()} loans` : 'No loans yet'}
+                        title={EMPTY_TITLES[status] || 'No loans yet'}
                         description="Lend somebody money and payroll takes it back a month at a time, capped at what they actually earn."
                         routes={canStart && !status ? [{ label: 'New loan', description: 'The schedule shows before anything is approved.', onSelect: start }] : undefined}
                       />
@@ -319,7 +327,7 @@ const LoanForm = ({ people, components, periods, onCancel, onCreated }) => {
         })
       );
     } catch (err) {
-      notify.error(String(err?.message || 'Could not create that loan.'));
+      notify.error(errorWords(err, 'create that loan'));
     } finally {
       setSaving(false);
     }
@@ -331,7 +339,7 @@ const LoanForm = ({ people, components, periods, onCancel, onCreated }) => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
-          <label className="ui-label" htmlFor="loan-employee">Who</label>
+          <label className="ui-label" htmlFor="loan-employee">Employee</label>
           <select id="loan-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
             {people.map((p) => (
               <option key={p.id} value={p.id}>
@@ -341,7 +349,7 @@ const LoanForm = ({ people, components, periods, onCancel, onCreated }) => {
           </select>
         </div>
         <div>
-          <label className="ui-label" htmlFor="loan-type">Kind</label>
+          <label className="ui-label" htmlFor="loan-type">Type</label>
           <select id="loan-type" className="ui-select w-full" value={form.type} onChange={(e) => set({ type: e.target.value })}>
             {TYPES.map((t) => (
               <option key={t.id} value={t.id}>{t.label}</option>
@@ -454,7 +462,7 @@ const LoanDetail = ({ loanId, onBack }) => {
     try {
       setLoan(await getPayrollLoan(loanId));
     } catch (e) {
-      notify.error(String(e?.message || 'Could not load that loan.'));
+      notify.error(errorWords(e, 'load that loan'));
     } finally {
       setLoading(false);
     }
@@ -471,7 +479,7 @@ const LoanDetail = ({ loanId, onBack }) => {
       notify.success(done);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not do that.'));
+      notify.error(errorWords(e, 'update this loan'));
     } finally {
       setBusy('');
     }
@@ -481,7 +489,7 @@ const LoanDetail = ({ loanId, onBack }) => {
     const ok = await confirmDialog({
       title: 'Approve this loan?',
       message: `${money(loan.principal)} over ${loan.installmentCount} instalments. From the month recovery starts, this comes out of their pay every month until it is repaid.`,
-      confirmLabel: 'Yes, approve',
+      confirmLabel: 'Approve loan',
       tone: 'default',
     });
     if (!ok) return;
@@ -492,7 +500,7 @@ const LoanDetail = ({ loanId, onBack }) => {
     const ok = await confirmDialog({
       title: 'Write this instalment off?',
       message: `${money(installment.dueAmount)} is forgiven and comes off what is owed. To move it rather than forgive it, skip it instead.`,
-      confirmLabel: 'Yes, write it off',
+      confirmLabel: 'Write off instalment',
     });
     if (!ok) return;
     act(() => setInstallmentAction(loanId, installment.id, 'WAIVE'), 'Written off.', installment.id);
@@ -502,7 +510,8 @@ const LoanDetail = ({ loanId, onBack }) => {
     const ok = await confirmDialog({
       title: 'Cancel this loan?',
       message: 'The schedule is removed and nothing will be recovered.',
-      confirmLabel: 'Yes, cancel it',
+      confirmLabel: 'Cancel loan',
+      cancelLabel: 'Keep it',
     });
     if (!ok) return;
     act(() => cancelPayrollLoan(loanId), 'Cancelled.', 'cancel');
@@ -529,7 +538,7 @@ const LoanDetail = ({ loanId, onBack }) => {
             {loan.status === 'DRAFT' ? (
               <>
                 <button type="button" className="ui-btn ui-btn-secondary" onClick={cancel} disabled={busy === 'cancel'}>
-                  <Ban size={16} aria-hidden="true" /> Cancel
+                  <Ban size={16} aria-hidden="true" /> Cancel loan
                 </button>
                 <button type="button" className="ui-btn ui-btn-primary" onClick={approve} disabled={busy === 'approve'}>
                   {busy === 'approve' ? 'Approving…' : 'Approve'}
@@ -543,7 +552,7 @@ const LoanDetail = ({ loanId, onBack }) => {
       <div className="px-5 lg:px-7 pb-8 space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Figure label="Lent" value={money(loan.principal)} />
-        <Figure label="Taken back" value={money(loan.recovered ?? 0)} />
+        <Figure label="Recovered" value={money(loan.recovered ?? 0)} />
         <Figure label="Written off" value={money(loan.waived ?? 0)} />
         <Figure label="Still owed" value={money(loan.outstanding ?? loan.outstandingBalance)} />
       </div>
@@ -596,7 +605,7 @@ const LoanDetail = ({ loanId, onBack }) => {
                               <button
                                 type="button"
                                 className="ui-icon-btn"
-                                aria-label={`Agree to skip instalment ${i.sequence} — still owed`}
+                                aria-label={`Agree to skip instalment ${i.sequence}, still owed`}
                                 disabled={busy === i.id}
                                 onClick={() => act(() => setInstallmentAction(loanId, i.id, 'SKIP'), 'Skipped. It is still owed.', i.id)}
                               >
@@ -617,7 +626,7 @@ const LoanDetail = ({ loanId, onBack }) => {
                               <button
                                 type="button"
                                 className="ui-icon-btn"
-                                aria-label={`Skip instalment ${i.sequence} — still owed`}
+                                aria-label={`Skip instalment ${i.sequence}, still owed`}
                                 disabled={busy === i.id}
                                 onClick={() => act(() => setInstallmentAction(loanId, i.id, 'SKIP'), 'Skipped. It is still owed.', i.id)}
                               >

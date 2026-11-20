@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X } from '@ui/components/ui/lineIcons';
 
@@ -57,7 +58,7 @@ export default function Policies({ openScreen, params }) {
     { key: 'kind', label: 'Kind', render: (p) => <span>{p.categoryLabel}{p.purposeLabel ? <span className="ui-caption block">{p.purposeLabel}</span> : null}</span> },
     { key: 'owner', label: 'Owner', render: (p) => p.ownerName || '—' },
     { key: 'force', label: 'In force', render: (p) => (p.current ? <span className="tabular-nums whitespace-nowrap">v{p.current.version} from {day(p.current.effectiveFrom)}</span> : '—') },
-    { key: 'latest', label: 'Latest', render: (p) => (p.latest ? <span className={`ui-pill ${STATUS[p.latest.status]?.[1] || ''}`}>v{p.latest.version} · {STATUS[p.latest.status]?.[0] || p.latest.status}</span> : <span className="ui-muted">No version</span>) },
+    { key: 'latest', label: 'Latest', render: (p) => (p.latest ? <span className={`ui-pill ${STATUS[p.latest.status]?.[1] || ''}`}>v{p.latest.version} · {STATUS[p.latest.status]?.[0] || enumWords(p.latest.status)}</span> : <span className="ui-muted">No version</span>) },
   ];
 
   return (
@@ -99,7 +100,7 @@ export default function Policies({ openScreen, params }) {
           )}
           empty={q || category !== 'all'
             ? <EmptyState kind="filtered" title="No policies match" description="Nothing here matches the search." />
-            : <EmptyState title="No policies yet" description="Start with the ones people ask about: leave, working hours, conduct." />}
+            : <EmptyState title="No policies yet" description="Start with the ones people ask about: leave, working hours, conduct." action={allowed('PEOPLE::Policies::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setCreating(true)}>New policy</button> : null} />}
           toolbar={<>
             <SearchField value={q} onSearch={setQ} placeholder="Search policies" label="Search policies" className="w-full sm:w-80" />
             <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={category} onChange={(v) => setCategory(v || 'all')} options={[{ value: 'all', label: 'All kinds' }, ...(data?.categories || []).map((c) => ({ value: c.key, label: c.label }))]} /></div>
@@ -168,7 +169,7 @@ function PolicyDetail({ id, categories, purposes = [], languages = [], allowed, 
       req.reload();
       onChanged();
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'finish that'));
     }
   };
   const showReport = async (v) => {
@@ -177,7 +178,7 @@ function PolicyDetail({ id, categories, purposes = [], languages = [], allowed, 
       const rep = await policyAcknowledgements(id, v.version);
       setReport((r) => ({ ...r, [v.id]: rep }));
     } catch (err) {
-      notify.error(String(err?.message || 'Could not load.'));
+      notify.error(errorWords(err, 'load this'));
     }
   };
   return (
@@ -185,7 +186,7 @@ function PolicyDetail({ id, categories, purposes = [], languages = [], allowed, 
       footer={canEdit && policy ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing(true)}>Edit</button><button type="button" className="ui-btn ui-btn-primary" onClick={() => setNewVersion({})}>New version</button></> : null}>
       {req.error ? <ErrorState error={req.error} compact onRetry={req.reload} /> : !policy ? <SkeletonCard lines={5} /> : (
         <div className="space-y-4">
-          <p className="ui-caption">{[policy.categoryLabel, `owner ${policy.ownerName}`, policy.currentVersion ? `v${policy.currentVersion} in force` : 'nothing in force yet'].join(' · ')}</p>
+          <p className="ui-caption">{[policy.categoryLabel, `owner ${policy.ownerName}`, policy.currentVersion ? `version ${policy.currentVersion} in force` : 'nothing in force yet'].join(' · ')}</p>
           {policy.description ? <p className="text-sm">{policy.description}</p> : null}
           {!policy.versions.length ? <EmptyState title="No version yet" description="A version says what the policy is, from when, and for whom." /> : (
             <ul className="ui-history-list" aria-label="Versions">
@@ -193,7 +194,7 @@ function PolicyDetail({ id, categories, purposes = [], languages = [], allowed, 
                 <li key={v.id} className="ui-history-row space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-sm">Version {v.version}</span>
-                    <span className={`ui-pill ${STATUS[v.status]?.[1] || ''}`}>{STATUS[v.status]?.[0] || v.status}</span>
+                    <span className={`ui-pill ${STATUS[v.status]?.[1] || ''}`}>{STATUS[v.status]?.[0] || enumWords(v.status)}</span>
                     {v.inForce ? <span className="ui-pill ui-pill-info">In force today</span> : null}
                     <span className="ml-auto flex gap-3">
                       {v.status === 'DRAFT' && canEdit ? <button type="button" className="ui-link text-sm" onClick={() => setNewVersion(v)}>Edit draft</button> : null}

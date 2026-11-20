@@ -7,6 +7,7 @@ import { clock, dayLabel, explainMyDay, getMe, hm, phonePunch, REASON_CODES, req
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import DayExplain from '../components/DayExplain';
 import PhonePunch from '../components/PhonePunch';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 
 /**
  * Clock in, clock out, and one's own month — Horilla's check-in/out widget.
@@ -31,7 +32,7 @@ export default function MyAttendance() {
         setMe(d);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load your attendance.')));
+      .catch((e) => setError(errorWords(e, 'load your attendance')));
   }, []);
   useEffect(() => {
     load();
@@ -41,10 +42,10 @@ export default function MyAttendance() {
     setBusy(true);
     try {
       const r = await clock(me?.webClock?.outOnly ? 'OUT' : undefined);
-      notify.success(r.kind === 'IN' ? `Clocked in at ${r.record.checkInTime}.` : `Clocked out at ${r.record.checkOutTime}.`);
+      notify.success(r.kind === 'IN' ? `Punched in at ${r.record.checkInTime}.` : `Punched out at ${r.record.checkOutTime}.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not clock.'));
+      notify.error(e?.network || /^Could not/.test(errorWords(e, 'record your punch')) ? 'Your punch was not recorded. Check your connection and try again.' : errorWords(e, 'record your punch'));
     } finally {
       setBusy(false);
     }
@@ -58,7 +59,7 @@ export default function MyAttendance() {
       setForm({ date: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' });
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not sent.'));
+      notify.error(errorWords(err, 'send it'));
     }
   };
 
@@ -90,7 +91,7 @@ export default function MyAttendance() {
       <section className="ui-card flex flex-wrap items-center gap-4 p-4">
         {showClock ? <button type="button" className="ui-btn ui-btn-primary !h-12 !px-6 text-base" onClick={punch} disabled={busy}>
           {me.clockedIn || outOnly ? <LogOut size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
-          {busy ? 'Saving…' : me.clockedIn || outOnly ? 'Clock out' : 'Clock in'}
+          {busy ? 'Saving…' : me.clockedIn || outOnly ? 'Punch out' : 'Punch in'}
         </button> : null}
         {/* The company's punch policy says this browser may not clock in (audit #6): say why, instead of a button the server refuses. */}
         {outOnly || (!me.phone?.allowed && me.webClock?.allowed === false) ? <p className="ui-caption basis-full" role="note">{me.webClock.why}</p> : null}
@@ -126,7 +127,7 @@ export default function MyAttendance() {
                   <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
                   <td className="ui-num">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
                   <td className="ui-num">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
-                  <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
+                  <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span></td>
                   <td className="ui-col-meta">
                     <button type="button" className="ui-icon-btn" title="Why does this day say this?" aria-label={`Why is ${dayLabel(r.date)} ${STATUS[r.status]?.label?.toLowerCase() || r.status}?`} onClick={() => setExplaining(r.date)}>
                       <HelpCircle size={16} aria-hidden="true" />

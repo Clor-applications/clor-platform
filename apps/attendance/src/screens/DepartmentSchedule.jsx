@@ -10,6 +10,8 @@ import { listStructure } from '@ui/personnel/api';
 import { addDepartmentSchedule, listDepartmentSchedules, listShifts, removeDepartmentSchedule, todayIst } from '../api/attendance';
 import { confirmScheduleChange } from '../components/scheduleCheck';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const COLUMNS = {
   department: (r) => r.departmentName,
@@ -29,7 +31,7 @@ export default function DepartmentSchedule() {
   const [shifts, setShifts] = useState([]);
   const [form, setForm] = useState({ departmentId: '', shiftId: '', effectiveFrom: todayIst(), effectiveTo: '' });
   const load = useCallback(() => {
-    listDepartmentSchedules().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load.')));
+    listDepartmentSchedules().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load this')));
   }, []);
   useEffect(() => {
     load();
@@ -58,7 +60,7 @@ export default function DepartmentSchedule() {
       setForm((f) => ({ ...f, departmentId: '', effectiveTo: '' }));
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     }
   };
 
@@ -69,13 +71,12 @@ export default function DepartmentSchedule() {
       description="The shift a department works from a date. People with their own schedule or a rotation keep theirs."
       compact
       tight
-      denseCards
       search={{ value: list.query, onChange: list.setQuery, placeholder: 'Search department schedules…', label: 'Search department schedules' }}
-      cards={[
+      countLine={countItems([
         { label: 'Schedules', value: figures.total, count: true, tone: 'all', Icon: CalendarRange },
         { label: 'Departments', value: figures.departments, count: true, tone: 'paid', Icon: Building2 },
         { label: 'With an end date', value: figures.ending, count: true, tone: 'outstanding', Icon: CalendarClock },
-      ]}
+      ])}
       above={
         <form onSubmit={add} className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Give a department its shift">
           <label className="block">
@@ -137,7 +138,7 @@ export default function DepartmentSchedule() {
                     <td className="ui-col-date whitespace-nowrap">{r.effectiveTo || 'until changed'}</td>
                     <td className="ui-col-meta">
                       <span className="flex justify-end">
-                        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.departmentName} from ${r.effectiveFrom}`} onClick={async () => { try { await removeDepartmentSchedule(r.id); load(); } catch (err) { notify.error(String(err?.message || 'Not removed.')); } }}>
+                        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.departmentName} from ${r.effectiveFrom}`} onClick={async () => { try { await removeDepartmentSchedule(r.id); load(); } catch (err) { notify.error(errorWords(err, 'remove it')); } }}>
                           <Trash2 size={14} aria-hidden="true" /> Remove
                         </button>
                       </span>

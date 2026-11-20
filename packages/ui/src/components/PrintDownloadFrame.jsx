@@ -91,7 +91,7 @@ export const PrintDownloadFrame = ({ title, fileBase, children, page = {}, onBac
 
       doc.save(`${filenameBase}.pdf`);
     } catch {
-      notify.error('Unable to generate PDF. Please try again.');
+      notify.error('The PDF could not be made. Try again.');
     } finally {
       document.title = prevTitle;
       mounted?.host.remove();
@@ -117,7 +117,7 @@ export const PrintDownloadFrame = ({ title, fileBase, children, page = {}, onBac
             disabled={downloading}
             className="px-3 py-2 rounded-lg ui-btn ui-btn-primary flex items-center gap-2"
           >
-            <Download size={16} /> {downloading ? 'Preparing...' : downloadLabel}
+            <Download size={16} /> {downloading ? 'Preparing…' : downloadLabel}
           </button>
         </div>
       </div>

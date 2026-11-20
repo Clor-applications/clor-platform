@@ -95,7 +95,7 @@ export const payrollApp = {
   nav: [
     { key: 'overview', label: 'Overview', icon: I.overview, permission: 'PAYROLL::Payroll Runs::VIEW' },
     { key: 'runs', label: 'Pay runs', icon: I.runs, permission: 'PAYROLL::Payroll Runs::VIEW' },
-    { key: 'slips', label: 'Salary slips', icon: I.slips, permission: 'PAYROLL::Salary Slips::VIEW' },
+    { key: 'slips', label: 'Payslips', icon: I.slips, permission: 'PAYROLL::Salary Slips::VIEW' },
     { key: 'payments', label: 'Payments', icon: I.payments, permission: 'PAYROLL::Payroll Payments::VIEW' },
     /* Round 66: workers paid by the day, every week or fortnight. */
     { key: 'weeklyWages', label: 'Weekly wages', icon: I.weekly, permission: 'PAYROLL::Payroll Runs::VIEW' },

@@ -37,7 +37,7 @@ describe('accepting an invitation', () => {
     expect(await screen.findByText('Rohit invited priya@x.in to join Anand Group (Anand Traders) as a member.')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Priya' } });
     fireEvent.change(screen.getByLabelText('Choose a password'), { target: { value: 'Passw0rd!23' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create my login and join' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create my account and join' }));
     await waitFor(() => expect(api.acceptInvitationNew).toHaveBeenCalledWith('t1', 'Priya', 'Passw0rd!23'));
     expect(session.signIn).toHaveBeenCalledWith({ email: 'priya@x.in', password: 'Passw0rd!23' });
     expect(window.location.replace).toHaveBeenCalledWith('/');

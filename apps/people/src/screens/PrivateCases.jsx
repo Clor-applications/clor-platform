@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import { Lock, Plus, X } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -52,7 +53,7 @@ export default function PrivateCases() {
     { key: 'received', label: 'Received', render: (c) => <span className="tabular-nums whitespace-nowrap">{day(c.receivedOn)}</span> },
     { key: 'next', label: 'Next date', render: (c) => <span className={`tabular-nums whitespace-nowrap ${c.overdue ? 'ui-text-neg font-medium' : ''}`}>{nextDate(c) || '—'}</span> },
     { key: 'role', label: 'Your role', render: (c) => roleWord(c.myRole).replace(/^./, (x) => x.toUpperCase()) },
-    { key: 'status', label: 'Status', render: (c) => <span className={`ui-pill ${STATUS[c.status]?.[1] || ''}`}>{STATUS[c.status]?.[0] || c.status}</span> },
+    { key: 'status', label: 'Status', render: (c) => <span className={`ui-pill ${STATUS[c.status]?.[1] || ''}`}>{STATUS[c.status]?.[0] || enumWords(c.status)}</span> },
   ];
   return (
     <div className="space-y-6">
@@ -63,9 +64,9 @@ export default function PrivateCases() {
           {allowed('PEOPLE::Private Cases::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setIntake(true)}><Plus size={16} aria-hidden="true" /> Take in a case</button> : null}
         </>} />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
-        <DataTable label="Private cases" columns={columns} rows={cases} loading={req.loading} refreshing={req.refreshing}
+        <DataTable label="Confidential cases" columns={columns} rows={cases} loading={req.loading} refreshing={req.refreshing}
           total={cases.length} pageSize={Math.max(25, cases.length)} noun="cases" onRowClick={(c) => setOpen(c.id)}
-          card={(c) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium tabular-nums">{c.reference}</span><span className={`ui-pill ${STATUS[c.status]?.[1] || ''}`}>{STATUS[c.status]?.[0] || c.status}</span></span><span className={`block truncate ui-caption ${c.overdue ? 'ui-text-neg' : ''}`}>{[c.kind === 'POSH' ? 'POSH' : 'Grievance', nextDate(c)].filter(Boolean).join(' · ')}</span></span>}
+          card={(c) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium tabular-nums">{c.reference}</span><span className={`ui-pill ${STATUS[c.status]?.[1] || ''}`}>{STATUS[c.status]?.[0] || enumWords(c.status)}</span></span><span className={`block truncate ui-caption ${c.overdue ? 'ui-text-neg' : ''}`}>{[c.kind === 'POSH' ? 'POSH' : 'Grievance', nextDate(c)].filter(Boolean).join(' · ')}</span></span>}
           empty={<EmptyState icon={Lock} title="No cases for you" description="Cases you are named on appear here, and only those." />} />
       )}
       {open ? <CaseDrawer id={open} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
@@ -124,7 +125,7 @@ function CaseDrawer({ id, onClose, onChanged }) {
       onChanged();
       setAsk(null);
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'finish that'));
     } finally {
       stepping.current = false;
       setMoving(false);
@@ -139,24 +140,24 @@ function CaseDrawer({ id, onClose, onChanged }) {
       a.click();
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not open.'));
+      notify.error(errorWords(e, 'open it'));
     }
   };
   const addEvidence = async (file, title) => {
     try {
       const data = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read the file.')); r.readAsDataURL(file); });
       await apiFetch(`${base()}/${encodeURIComponent(id)}/evidence`, { ...opts, method: 'POST', body: { title, data, mime: file.type } });
-      notify.success('Added, sealed.');
+      notify.success('Evidence added. Only the committee can open it.');
       setAsk(null);
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not added.'));
+      notify.error(errorWords(e, 'add it'));
     }
   };
   const next = c ? NEXT[c.status] : null;
   const canMove = c ? c.myRole === 'PRESIDING' || c.myRole === 'OFFICER' : false;
   return (
-    <Drawer open onClose={onClose} title={c ? `${c.reference} · ${c.kind === 'POSH' ? 'POSH complaint' : 'Grievance'}` : 'Private case'} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet"
+    <Drawer open onClose={onClose} title={c ? `${c.reference} · ${c.kind === 'POSH' ? 'POSH complaint' : 'Grievance'}` : 'Confidential case'} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet"
       footer={c && canMove && next ? (
         <button type="button" className="ui-btn ui-btn-primary" disabled={moving} onClick={() => (next[0] === 'CLOSE' ? setAsk({ kind: 'close' }) : step(next[0]))}>{next[1]}</button>
       ) : null}>
@@ -169,7 +170,7 @@ function CaseDrawer({ id, onClose, onChanged }) {
           </dl>
           <section className="space-y-1"><h3 className="ui-label">Account</h3><p className="whitespace-pre-wrap">{c.summary}</p></section>
           <section className="space-y-1">
-            <h3 className="ui-label">Clock</h3>
+            <h3 className="ui-label">Deadlines</h3>
             <ul className="space-y-0.5 tabular-nums">
               <li>Happened {day(c.clock.incidentOn)}; received {day(c.clock.receivedOn)}; filing window to {day(c.clock.extendedTo || c.clock.filingDeadline)}{c.clock.lateFiling ? <span className="ui-text-neg"> · received after the window</span> : ''}{c.clock.extensionReason ? <span className="ui-caption"> · extended: {c.clock.extensionReason}</span> : ''}</li>
               <li>Inquiry by {day(c.clock.inquiryDue)}{c.clock.inquiryClosedOn ? ` · closed ${day(c.clock.inquiryClosedOn)}` : ''}</li>
@@ -187,7 +188,7 @@ function CaseDrawer({ id, onClose, onChanged }) {
           <section className="space-y-1">
             <div className="flex items-center justify-between">
               <h3 className="ui-label">Evidence</h3>
-              <button type="button" className="ui-link" onClick={() => fileRef.current?.click()}>Add</button>
+              <button type="button" className="ui-link" onClick={() => fileRef.current?.click()}>Add evidence</button>
               <input ref={fileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.txt,.doc,.docx" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setAsk({ kind: 'evidence', file: f }); }} />
             </div>
             {c.evidence.length ? <ul className="divide-y border-t">{c.evidence.map((e) => <li key={e.id} className="py-2 flex items-center justify-between gap-2"><span>{e.title}</span><button type="button" className="ui-link" onClick={() => openEvidence(e)}>Open</button></li>)}</ul> : <p className="ui-muted">None yet.</p>}
@@ -304,7 +305,7 @@ function CommitteeDrawer({ onClose }) {
             ) : <p className="ui-muted">No members yet.</p>}
             {/* Rows are keyed by member, so a person sits on the committee once:
                 each picker offers only people not already on it. */}
-            {list.length ? (list.some((u) => !members.some((m) => m.userId === u.id)) ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setMembers((x) => [...x, { userId: list.find((u) => !x.some((m) => m.userId === u.id)).id, role: 'MEMBER', gender: '' }])}><Plus size={16} aria-hidden="true" /> Add a member</button> : null) : <p className="ui-muted">Listing users needs the Users grant.</p>}
+            {list.length ? (list.some((u) => !members.some((m) => m.userId === u.id)) ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setMembers((x) => [...x, { userId: list.find((u) => !x.some((m) => m.userId === u.id)).id, role: 'MEMBER', gender: '' }])}><Plus size={16} aria-hidden="true" /> Add a member</button> : null) : <p className="ui-muted">Only someone who can see the user list can add members. Ask an admin.</p>}
           </>
         )}
       </div>

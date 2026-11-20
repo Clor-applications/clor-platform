@@ -405,7 +405,7 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
     }
     allowList = { ipAllowList: r.list };
   }
-  if (agentId && !(await peoplePrisma.siteAgent.findFirst({ where: { id: agentId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That connector is not in this organisation.' });
+  if (agentId && !(await peoplePrisma.siteAgent.findFirst({ where: { id: agentId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That connector is not in this company.' });
   const viaAgent = agentId !== undefined && (PULL_VENDORS as readonly string[]).includes(existing.vendor) ? { agentId } : {};
   const pullFields = (PULL_VENDORS as readonly string[]).includes(existing.vendor)
     ? {
@@ -431,7 +431,7 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
       ? { sourceTimezone }
       : {};
   if (areaId && !(await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } }))) {
-    return res.status(400).json({ error: 'That area is not in this organisation.' });
+    return res.status(400).json({ error: 'That area is not in this company.' });
   }
   const vendorFields =
     existing.vendor !== 'ETIMEOFFICE'
@@ -751,7 +751,7 @@ devicesRouter.put('/orgs/:orgId/attendance/employees/:id/reader-ids', can(Permis
     wanted.set(s.areaId, s.pin);
   }
   const areas = await peoplePrisma.area.findMany({ where: { orgId, id: { in: [...wanted.keys()] } }, select: { id: true, name: true } });
-  if (areas.length !== wanted.size) return res.status(400).json({ error: 'A site is not in this organisation.' });
+  if (areas.length !== wanted.size) return res.status(400).json({ error: 'A site is not in this company.' });
   const company = String(e.devicePin || e.code || '').trim();
   for (const [areaId, pin] of wanted) {
     if (pin === company) wanted.delete(areaId); // the same as everywhere: no site ID needed
@@ -788,7 +788,7 @@ devicesRouter.post('/orgs/:orgId/attendance/punches/match', can(PermissionAction
     if (areaId) {
       /* Only at this site: the ID becomes their site ID there, and only that site's punches move. */
       const area = await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } });
-      if (!area) return res.status(400).json({ error: 'That site is not in this organisation.' });
+      if (!area) return res.status(400).json({ error: 'That site is not in this company.' });
       const own = await peoplePrisma.readerIdAtSite.findFirst({ where: { orgId, areaId, employeeId: employee.id } });
       if (own && own.pin !== pin) return res.status(409).json({ error: `${employee.name} already has ID ${own.pin} at this site. Change it under their reader IDs first.` });
       const clash = await siteIdClash(orgId, areaId, pin, employee.id);

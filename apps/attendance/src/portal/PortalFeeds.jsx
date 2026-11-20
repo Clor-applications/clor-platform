@@ -3,8 +3,9 @@ import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, getHolidays, getUpdates, pickRestrictedHoliday, todayIst } from './portalApi';
+import { errorWords } from '@ui/utils/errorWords';
 
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 
 // ---------------------------------------------------------------------------
 // What's new: decisions on my requests, for staff with no other notice
@@ -60,7 +61,7 @@ export function WhatsNew({ guard }) {
   const load = useCallback(() => {
     guard(getUpdates())
       .then((d) => { setItems(d?.decided || []); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not load what is new.')));
+      .catch((e) => setFailed(errText(e, 'load what is new')));
   }, [guard]);
   useEffect(() => {
     load();
@@ -118,7 +119,7 @@ export function HolidaysYear({ guard }) {
     const n = ++latest.current;
     guard(getHolidays(year))
       .then((d) => { if (n === latest.current) { setData(d); setFailed(''); } })
-      .catch((e) => n === latest.current && setFailed(errText(e, 'Could not load your holidays.')));
+      .catch((e) => n === latest.current && setFailed(errText(e, 'load your holidays')));
   }, [guard, year]);
   useEffect(() => { load(); }, [load]);
   const pick = async (h) => {
@@ -128,7 +129,7 @@ export function HolidaysYear({ guard }) {
       await guard(pickRestrictedHoliday(h.id, !h.picked));
       load();
     } catch (err) {
-      setNote(errText(err, 'Not changed.'));
+      setNote(errText(err, 'make the change'));
     } finally {
       setBusy('');
     }
@@ -145,7 +146,7 @@ export function HolidaysYear({ guard }) {
         </span>
       </div>
       <LoadFailed message={failed} onRetry={load} />
-      {!shown && !failed ? <p className="ui-caption">Loading…</p> : null}
+      {!shown && !failed ? <p className="ui-caption">Loading what is new…</p> : null}
       {shown ? (
         <>
           {restricted.length ? (

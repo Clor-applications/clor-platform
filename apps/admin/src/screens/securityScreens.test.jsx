@@ -38,8 +38,8 @@ describe('sign-in and sessions', () => {
     expect(save).toBeDisabled();
     expect(await screen.findByText('Okta')).toBeInTheDocument();
     expect(await screen.findByText('Firefox on Mac')).toBeInTheDocument();
-    expect(await screen.findByText('Login failed')).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText(/Owners and admins need two-step sign-in/));
+    expect(await screen.findByText('Wrong password')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/Owners and administrators must use an authenticator app/));
     expect(save).not.toBeDisabled();
     fireEvent.click(save);
     await waitFor(() => expect(api.savePolicy).toHaveBeenCalledWith(expect.objectContaining({ requireAdminTwoFactor: true })));

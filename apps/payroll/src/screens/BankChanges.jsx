@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Clock, Landmark, UserRound, X } from '@ui/components/ui/lineIcons';
+import { Check, Landmark, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -10,11 +10,13 @@ import { formatDateIn } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { approveBankChange, listBankChanges, rejectBankChange } from '../api/payrollPeople';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { dayText, errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const STATUS = {
   PENDING: { label: 'Waiting', pill: 'ui-pill-warn' },
   APPROVED: { label: 'Approved', pill: 'ui-pill-pos' },
-  REJECTED: { label: 'Not approved', pill: 'ui-pill-neg' },
+  REJECTED: { label: 'Rejected', pill: 'ui-pill-neg' },
   CANCELLED: { label: 'Replaced', pill: 'ui-pill-neutral' },
 };
 
@@ -28,7 +30,7 @@ const account = (num, ifsc, bank) => [num, ifsc, bank].filter(Boolean).join(' ·
 const TABS = [
   { value: 'PENDING', label: 'Waiting', tone: 'outstanding' },
   { value: 'APPROVED', label: 'Approved', tone: 'paid' },
-  { value: 'REJECTED', label: 'Not approved', tone: 'overdue' },
+  { value: 'REJECTED', label: 'Rejected', tone: 'overdue' },
   { value: '', label: 'All', tone: 'all' },
 ];
 const COLUMNS = {
@@ -39,7 +41,7 @@ const EXPORT_COLUMNS = [
   { key: 'employeeCode', label: 'Code' },
   { key: 'from', label: 'From', value: (r) => account(r.oldAccount, r.oldIfsc, r.oldBankName) },
   { key: 'to', label: 'To', value: (r) => account(r.newAccount, r.newIfsc, r.newBankName) },
-  { key: 'requestedAt', label: 'Asked', value: (r) => String(r.requestedAt || '').slice(0, 10) },
+  { key: 'requestedAt', label: 'Asked on', value: (r) => dayText(r.requestedAt) },
   { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
 ];
 
@@ -55,7 +57,7 @@ export default function BankChanges() {
         setAll(r);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load bank changes.')));
+      .catch((e) => setError(errorWords(e, 'load bank changes')));
   }, []);
   useEffect(() => {
     load();
@@ -66,7 +68,7 @@ export default function BankChanges() {
       const ok = await confirmDialog({
         title: `Pay ${row.employeeName || 'this person'} into ${row.newAccount}?`,
         message: 'Confirm the new account with them by phone or in person first, not by replying to an e-mail. Salary goes to the new account from the next payment.',
-        confirmLabel: 'Approve',
+        confirmLabel: 'Approve new account',
         tone: 'default',
       });
       if (!ok) return;
@@ -77,7 +79,7 @@ export default function BankChanges() {
       notify.success(approve ? 'Approved. The new account is used from the next payment.' : 'Rejected. Pay stays with the account on file.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'update this bank change'));
     } finally {
       setBusy('');
     }
@@ -101,7 +103,6 @@ export default function BankChanges() {
       description="Changes to where people are paid wait for a second person's approval."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search bank changes…', label: 'Search bank changes' }}
       moreItems={all?.length ? [exportMenuItem('Export bank changes')] : null}
       onMoreSelect={(k) => {
@@ -109,12 +110,12 @@ export default function BankChanges() {
         if (!format) return;
         runListExport({ format, title: 'Bank changes', fileName: 'Bank changes', label: 'change/changes', columns: EXPORT_COLUMNS, rows });
       }}
-      cards={[
-        { label: 'Waiting', value: counts.PENDING, count: true, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('PENDING') },
-        { label: 'Entered by you', value: mineWaiting, count: true, tone: 'partial', Icon: UserRound },
-        { label: 'Approved', value: counts.APPROVED, count: true, tone: 'paid', Icon: Check, onSelect: () => setStatus('APPROVED') },
-        { label: 'Not approved', value: counts.REJECTED, count: true, tone: 'overdue', Icon: X, onSelect: () => setStatus('REJECTED') },
-      ]}
+      countLine={countItems([
+        { label: 'Waiting', value: counts.PENDING, count: true, tone: 'outstanding', onSelect: () => setStatus('PENDING') },
+        { label: 'Entered by you', value: mineWaiting, count: true, tone: 'partial' },
+        { label: 'Approved', value: counts.APPROVED, count: true, tone: 'paid', onSelect: () => setStatus('APPROVED') },
+        { label: 'Rejected', value: counts.REJECTED, count: true, tone: 'overdue', onSelect: () => setStatus('REJECTED') },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -146,7 +147,7 @@ export default function BankChanges() {
                     ) : (
                       <EmptyState
                         icon={Landmark}
-                        title={status === 'PENDING' ? 'Nothing waiting' : status ? `No ${STATUS[status]?.label.toLowerCase()} changes` : 'No bank changes yet'}
+                        title={status === 'PENDING' ? 'No bank changes waiting' : status === 'APPROVED' ? 'No approved bank changes yet' : status === 'REJECTED' ? 'No rejected bank changes' : 'No bank changes yet'}
                         description="When someone's bank details change on their payroll profile, the change waits here for a second person's approval."
                       />
                     )}

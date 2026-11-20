@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsPostStatus, opsRemoveStatus, opsStatusPosts, opsUpdateStatus } from './api';
-import { Empty, Err, Loading, Tabs, may, when } from './kit';
+import { Empty, Err, Loading, Tabs, errorWords, may, when } from './kit';
 
 /**
  * Status page (server: routes/opsStatus.ts). clor.in/status checks CLOR's
@@ -59,7 +59,7 @@ function NewPost({ onClose, onSaved }) {
       await opsPostStatus({ kind, title: title.trim(), body: body.trim(), parts, impact, startsAt: toIso(startsAt), endsAt: toIso(endsAt) || null });
       onSaved();
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'post on the status page'));
     } finally {
       setBusy(false);
     }
@@ -73,7 +73,7 @@ function NewPost({ onClose, onSaved }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy || !ready} onClick={save}>{busy ? 'Posting…' : 'Post'}</button>
+          <button type="button" className="ws-btn ws-btn--primary" disabled={busy || !ready} onClick={save}>{busy ? 'Posting…' : 'Post notice'}</button>
         </>
       }
     >
@@ -140,7 +140,7 @@ function AddUpdate({ post, onClose, onSaved }) {
       await opsUpdateStatus(post.id, { state, body: body.trim() });
       onSaved(state);
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'post the update'));
     } finally {
       setBusy(false);
     }
@@ -216,18 +216,18 @@ export function StatusPage({ me }) {
   const [updating, setUpdating] = useState(null);
   const canWrite = may(me?.role, 'SUPPORT');
   const load = useCallback(() => {
-    opsStatusPosts().then((r) => (setD(r), setError(''))).catch((e) => setError(String(e?.message || e)));
+    opsStatusPosts().then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'load the status page posts')));
   }, []);
   useEffect(load, [load]);
 
   const remove = async (p) => {
-    if (!window.confirm(`Remove “${p.title}” from the status page? Use this only for a post made by mistake.`)) return;
+    if (!(await confirmDialog({ title: 'Remove this post from clor.in/status?', message: `“${p.title}” stops showing to customers at once. Use this only for a post made by mistake.`, confirmLabel: 'Remove post', cancelLabel: 'Keep post', tone: 'danger' }))) return;
     try {
       await opsRemoveStatus(p.id);
       notify.success('Removed from the status page.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not removed.'));
+      notify.error(errorWords(e, 'remove the post'));
     }
   };
 
@@ -236,7 +236,7 @@ export function StatusPage({ me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Platform', 'Status page']}
+          crumbs={['Platform']}
           title="Status page"
           description="Posts on clor.in/status, next to the automatic checks: problems CLOR is fixing, and planned maintenance."
           actions={

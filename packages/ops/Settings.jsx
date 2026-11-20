@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
+import { Loading, errorWords } from './kit';
 import { notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
@@ -10,7 +11,7 @@ import { opsSaveTax, opsTax } from './api';
  * own GST registration as a seller. Off, no quote or invoice carries a tax
  * line. On, it needs the GSTIN, the legal name and the SAC code first; the
  * state comes from the GSTIN. A change asks for an authenticator code and
- * goes on the operator log.
+ * goes in the Staff audit log.
  */
 const STATES = Object.entries(GST_STATE_BY_CODE)
   .filter(([, n]) => !/\(Old\)/.test(n))
@@ -31,12 +32,12 @@ export function Settings({ role }) {
         setRates(r.rates || rates);
         setF({ registered: r.tax.registered, gstin: r.tax.gstin || '', legalName: r.tax.legalName || '', state: r.tax.stateCode || '', sac: r.tax.sac || '', ratePercent: r.tax.ratePercent });
       })
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the tax settings')));
   useEffect(() => {
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!f) return error ? <p role="alert">{error}</p> : <p className="ws-card-blurb">Loading…</p>;
+  if (!f) return error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error} If it keeps failing, tell engineering.</p> : <Loading />;
   const mayChange = may(role, 'BILLING');
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   /* The state follows the GSTIN's first two digits as it is typed. */
@@ -53,7 +54,7 @@ export function Settings({ role }) {
       notify.success(f.registered ? `Saved. Quotes now add GST at ${f.ratePercent}%.` : 'Saved. No GST is charged.');
       load();
     } catch (err) {
-      setProblems(err?.data?.problems || [String(err?.message || err)]);
+      setProblems(err?.data?.problems || [errorWords(err, 'save the tax settings')]);
     } finally {
       setBusy(false);
     }
@@ -68,7 +69,7 @@ export function Settings({ role }) {
         actions={
           mayChange ? (
             <button type="submit" form="ops-tax" className="ws-btn ws-btn--primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? 'Saving…' : 'Save tax settings'}
             </button>
           ) : null
         }
@@ -142,7 +143,7 @@ export function Settings({ role }) {
               ))}
             </ul>
           ) : null}
-          {!mayChange ? <p className="ws-card-blurb">Only billing operators can change this.</p> : <p className="ws-card-blurb">Saving asks for a code from your authenticator app.</p>}
+          {!mayChange ? <p className="ws-card-blurb">Only Finance can change this.</p> : <p className="ws-card-blurb">Saving asks for a code from your authenticator app.</p>}
         </form>
       </Panel>
     </>

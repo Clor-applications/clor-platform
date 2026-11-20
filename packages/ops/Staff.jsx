@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, ROLE, ROLE_CAN, ROLE_ORDER, ReasonDrawer, day } from './kit';
+import { Err, Loading, ROLE, ROLE_CAN, ROLE_ORDER, ReasonDrawer, day, errorWords } from './kit';
 import { opsAddOperator, opsChangeOperator, opsOperators, opsRemoveOperator, opsWithdrawInvite } from './api';
 
 /**
@@ -19,7 +19,7 @@ export function Staff({ me }) {
   const load = useCallback(() => {
     opsOperators()
       .then((r) => (setD(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the staff list')));
   }, []);
   useEffect(load, [load]);
 

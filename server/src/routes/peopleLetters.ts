@@ -14,6 +14,7 @@ import { EVENT_OF, LETTER_KINDS, LETTER_LABEL, LetterError, MERGE_FIELDS, issueL
 import { recordAudit } from '../services/auditTrail.js';
 import { z } from 'zod';
 import { check, id, idParams, jsonObject, list, num, q, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Letters (docs/people/02-PRD.md DOC-04, DOC-07): templates under Settings
@@ -32,7 +33,7 @@ const actorOf = (req: Request, source: ChangeSource = 'FORM', reason: string | n
 const sendError = (res: any, e: unknown) => {
   if (e instanceof LetterError) return res.status(e.status).json({ error: e.message });
   console.error('[people-letters]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 
 /*

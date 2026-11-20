@@ -46,7 +46,7 @@ describe('Customers', () => {
     expect(screen.getByText('Never')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'overdue' } });
     await waitFor(() => expect(api.opsAccounts).toHaveBeenLastCalledWith({ q: '', status: 'overdue', page: 0 }));
-    fireEvent.change(screen.getByPlaceholderText('Name, company ID or owner email'), { target: { value: 'asha@' } });
+    fireEvent.change(screen.getByPlaceholderText('Name, account ID or owner email'), { target: { value: 'asha@' } });
     await waitFor(() => expect(api.opsAccounts).toHaveBeenLastCalledWith({ q: 'asha@', status: 'overdue', page: 0 }));
     fireEvent.click(screen.getByRole('button', { name: 'Rao Textiles' }));
     expect(open).toHaveBeenCalledWith('a1');
@@ -83,12 +83,12 @@ describe('a customer’s page', () => {
     });
     const openDenials = vi.fn();
     render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} openDenials={openDenials} />);
-    expect(await screen.findByText('Entitlement: explicit subscription')).toBeInTheDocument();
+    expect(await screen.findByText('Access: follows their subscription')).toBeInTheDocument();
     const seats = screen.getByRole('table', { name: 'Apps, seats and standing' });
     expect(within(seats).getAllByRole('row')[1]).toHaveTextContent('9 / 10');
     expect(within(seats).getAllByRole('row')[1]).toHaveTextContent('Near seats');
-    expect(within(seats).getAllByRole('row')[2]).toHaveTextContent('402 if called');
-    expect(screen.getByText('APP_NOT_SUBSCRIBED')).toBeInTheDocument();
+    expect(within(seats).getAllByRole('row')[2]).toHaveTextContent('Not on their plan');
+    expect(screen.getByText('App not on their plan')).toBeInTheDocument();
     expect(screen.getByText('c-7f2b04')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /See every refusal/ }));
     expect(openDenials).toHaveBeenCalledWith('a1');
@@ -128,7 +128,7 @@ describe('a customer’s page', () => {
     expect(attendance).toBeChecked();
     expect(attendance).toBeDisabled();
     expect(screen.getByText('Included with People')).toBeInTheDocument();
-    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Bought People' } });
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: 'Bought People' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Change apps' }).at(-1));
     await waitFor(() => expect(api.opsChangeApps).toHaveBeenCalledWith('a1', expect.arrayContaining(['accounting', 'people', 'attendance']), 'Bought People'));
   });
@@ -141,7 +141,7 @@ describe('a customer’s page', () => {
     fireEvent.click(screen.getByLabelText('Payroll'));
     const submit = () => screen.getAllByRole('button', { name: 'Change apps' }).at(-1);
     expect(submit()).toBeDisabled();
-    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Bought Payroll' } });
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: 'Bought Payroll' } });
     fireEvent.click(submit());
     await waitFor(() => expect(api.opsChangeApps).toHaveBeenCalledWith('a1', ['accounting', 'payroll'], 'Bought Payroll'));
     expect(notify.success).toHaveBeenCalledWith('Apps changed.');
@@ -158,7 +158,7 @@ describe('a customer’s page', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Change apps' }));
     expect(screen.getByText(/waits in Approvals until a colleague approves it/)).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Payroll'));
-    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Trying Payroll' } });
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: 'Trying Payroll' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Change apps' }).at(-1));
     await waitFor(() => expect(notify.success).toHaveBeenCalledWith('Sent for approval. Nothing changes for Rao Textiles until a colleague approves it in Approvals.'));
     unmount();
@@ -177,7 +177,7 @@ describe('a customer’s page', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Suspend' }));
     expect(screen.getByText(/Suspending Rao Textiles stops everyone in it from opening any of its companies, to read or to change anything, until you resume/)).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Suspend' })[0]).toHaveClass('ws-btn--danger-quiet');
-    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Unpaid' } });
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: 'Unpaid' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Suspend' }).at(-1));
     await waitFor(() => expect(api.opsSuspend).toHaveBeenCalledWith('a1', 'Unpaid'));
     expect(await screen.findByText(/Suspended on .*: Unpaid/)).toBeInTheDocument();
@@ -197,7 +197,7 @@ describe('a customer’s page', () => {
     expect(screen.getByText('₹865.33')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Take back' })).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Take back' }));
-    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Added by mistake' } });
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: 'Added by mistake' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Take back' }).at(-1));
     await waitFor(() => expect(api.opsTakeBackSeats).toHaveBeenCalledWith('c1', 'Added by mistake'));
   });
@@ -224,7 +224,7 @@ describe('a customer’s page', () => {
     expect(screen.getAllByRole('button', { name: 'Take back' })).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Take off' }));
     expect(await screen.findByText(/People comes off .* plan now and stops renewing/)).toBeInTheDocument();
-    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Moved to a bundle' } });
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: 'Moved to a bundle' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Take off' }).at(-1));
     await waitFor(() => expect(api.opsEndAddOn).toHaveBeenCalledWith('a1', 'Moved to a bundle'));
   });
@@ -273,7 +273,7 @@ describe('a customer’s page', () => {
     /* The same fetch feeds the line under the name. */
     expect(screen.getByText('₹3,540 unpaid')).toBeInTheDocument();
     /* The events come from their own request: waited for, not assumed to be in already. */
-    expect(within(await screen.findByRole('table', { name: 'Payment events' })).getByText('payment captured')).toBeInTheDocument();
+    expect(within(await screen.findByRole('table', { name: 'Payment events' })).getByText('Payment received')).toBeInTheDocument();
     fireEvent.click(within(table).getByRole('button', { name: 'CLOR/26-27/0043' }));
     expect(openLink).toHaveBeenCalledWith({ page: 'invoices', id: 'i2' });
   });
@@ -315,7 +315,7 @@ describe('a customer’s page', () => {
     api.opsSignOutEverywhere.mockResolvedValue({ sessionsEnded: 2 });
     api.opsResendInvitation.mockResolvedValue({});
     render(<CustomerPage id="a1" tab="users" role="SUPPORT" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
-    const reason = (text) => fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: text } });
+    const reason = (text) => fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: text } });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Send reset link' }));
     reason('Locked out');
@@ -343,7 +343,7 @@ describe('a customer’s page', () => {
     });
     api.opsUnlockUser.mockResolvedValue({ unlocked: true });
     api.opsResetAuthenticator.mockResolvedValue({ reset: true, sessionsEnded: 1, told: true });
-    const reason = (text) => fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: text } });
+    const reason = (text) => fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: text } });
 
     const { unmount } = render(<CustomerPage id="a1" tab="users" role="SUPPORT" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
     expect(await screen.findByText('Locked out', { selector: '.ws-pill' })).toBeInTheDocument();
@@ -384,7 +384,7 @@ describe('a customer’s page', () => {
     expect(screen.getByText(/invalid_client/)).toBeInTheDocument();
     expect(screen.getByText('API keys')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Send failed emails again' }));
-    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Their server was down' } });
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: 'Their server was down' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
     await waitFor(() => expect(api.opsRetryEmails).toHaveBeenCalledWith('a1', 'Their server was down'));
     expect(notify.success).toHaveBeenCalledWith('2 of 3 went. 1 still failing; see Platform, Email log.');
