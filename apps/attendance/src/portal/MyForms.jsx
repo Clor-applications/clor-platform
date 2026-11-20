@@ -6,6 +6,7 @@ import { missingIn, openFile } from '@ui/requests/formFiles';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { SignedOut, askFormRequest, getFormFile, getForms, replyFormRequest, withdrawFormRequest } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
+import { RowState, kindOfPill } from './portalUi';
 
 /**
  * Requests HR set up, in the employee app (People, FEATURE-UI-AUDIT gap 25),
@@ -45,7 +46,7 @@ export default function MyForms({ guard }) {
   if (failed) return <LoadFailed message={failed} onRetry={load} />;
   if (!data || (!data.forms.length && !data.requests.length)) return null;
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="my-forms-h">
+    <section className="portal-sec space-y-3" aria-labelledby="my-forms-h">
       <h2 id="my-forms-h" className="ui-t-sec">Requests to HR</h2>
       {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'} style={note.ok ? undefined : { color: 'rgb(var(--neg))' }}>{note.text}</p> : null}
       {asking ? (
@@ -128,7 +129,7 @@ function Row({ r, open, onToggle, guard, onDone }) {
           <span className="block font-medium">{r.formName}</span>
           <span className="ui-caption">{when(r.askedAt)}</span>
         </span>
-        <span className={`ui-pill shrink-0 ${pill}`}>{words}</span>
+        <RowState label={words} pill={pill} kind={kindOfPill(pill)} />
       </button>
       {open ? (
         <div className="mt-2 space-y-2">

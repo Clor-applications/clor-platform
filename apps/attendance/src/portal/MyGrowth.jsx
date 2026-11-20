@@ -37,7 +37,7 @@ export default function MyGrowth({ guard }) {
   const fail = (e) => { const text = errText(e, 'save the changes'); if (text) setSaid({ ok: false, text }); };
   const active = data.goals.filter((g) => g.status === 'ACTIVE');
   return (
-    <section className="ui-card space-y-4 p-5" aria-labelledby="growth-h">
+    <section className="portal-sec space-y-4" aria-labelledby="growth-h">
       <h2 id="growth-h" className="ui-t-sec">My goals and reviews</h2>
       {said ? <p className="text-sm" role={said.ok ? 'status' : 'alert'}>{said.text}</p> : null}
 
@@ -150,7 +150,7 @@ function Goal({ goal: g, guard, onDone, onFail }) {
         <span className="tabular-nums text-sm">{g.progress || 0}%</span>
       </div>
       <span className="block h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgb(var(--border))' }} aria-hidden="true">
-        <span className="block h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, g.progress || 0))}%`, backgroundColor: 'rgb(var(--accent))' }} />
+        <span className="block h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, g.progress || 0))}%`, backgroundColor: 'rgb(var(--fg-muted))' }} />
       </span>
       {g.status === 'ACTIVE' && !open ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setOpen(true)}>Check in</button> : null}
       {open ? (

@@ -8,7 +8,8 @@ import { SignedOut, applyWithin, getReferrals, referFriend, referralLink } from 
  * open to me for referrals, refer a friend or share my link on WhatsApp, apply myself where HR
  * allows it, and where my referrals are. Shown only while the company has Hiring on.
  */
-const Card = ({ children }) => <div className="ui-card p-5">{children}</div>;
+/* A section on the page, not a card (calm register). */
+const Card = ({ children }) => <div className="portal-sec">{children}</div>;
 
 export default function MyJobs({ guard }) {
   const api = useMemo(() => ({ load: getReferrals, refer: referFriend, link: referralLink, apply: applyWithin }), []);

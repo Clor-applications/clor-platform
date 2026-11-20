@@ -11,6 +11,7 @@ import { SPLIT_NOTE, SPLIT_TITLE, countWords, splitLines } from '@ui/picks/payLi
 import { useBackClose } from '@ui/picks/round58';
 import { PayslipAsk, PayslipBundle } from './round58';
 import { errorWords } from '@ui/utils/errorWords';
+import { PortalLoading, RowState } from './portalUi';
 
 /**
  * The Me tab's pay and leaving pieces (EMPLOYEE-VIEW gaps 1, 3, 7, 8):
@@ -64,18 +65,19 @@ export function Payslips({ guard, onAsk = null }) {
   if (!data?.available) return null;
   if (open) {
     return (
-      <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="slip-h">
+      <section className="portal-sec space-y-3 ui-touch-44" aria-labelledby="slip-h">
         <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={closeSlip}>
           <ChevronLeft size={16} aria-hidden="true" /> All payslips
         </button>
         <LoadFailed message={slipFailed} onRetry={loadSlip} />
-        {!slip && !slipFailed ? <p className="ui-caption">Loading the payslip…</p> : null}
-        {slip ? <PayslipView slip={slip} onAsk={onAsk} /> : null}
+        {!slip && !slipFailed ? <PortalLoading label="Loading the payslip…" lines={6} /> : null}
+        {/* The payslip is a document: the one thing on the page in a hairline box (DESIGN.md "Elevation"). */}
+        {slip ? <div className="portal-doc space-y-3"><PayslipView slip={slip} onAsk={onAsk} /></div> : null}
       </section>
     );
   }
   return (
-    <section className="ui-card p-5 ui-touch-44" aria-labelledby="slips-h">
+    <section className="portal-sec ui-touch-44" aria-labelledby="slips-h">
       <h2 id="slips-h" className="ui-t-sec mb-1">Payslips</h2>
       {data.pfSaved ? <PfSaved pf={data.pfSaved} /> : null}
       {data.slips.length ? (
@@ -85,7 +87,8 @@ export function Payslips({ guard, onAsk = null }) {
               <button type="button" className="flex w-full items-center justify-between gap-3 py-3 text-left text-sm" onClick={() => { setSlip(null); setSlipFailed(''); setOpen(s.id); }} aria-label={`Open payslip for ${s.period}${s.extraPayRun ? ' · Extra pay run' : ''}`}>
                 <span className="min-w-0">
                   <span className="block font-medium">{s.period}{s.extraPayRun ? ' · Extra pay run' : ''}</span>
-                  <span className={`ui-pill ${s.paid ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{s.paid ? 'Paid' : 'Not paid yet'}</span>
+                  {/* Paid is expected and shows no tag; not paid yet is the exception. */}
+                  <RowState kind={s.paid ? 'normal' : 'exception'} pill="ui-pill-neutral" label={s.paid ? 'Paid' : 'Not paid yet'} />
                 </span>
                 <span className="shrink-0 text-right tabular-nums">{money(s.net)}<span className="ui-caption block">net pay</span></span>
               </button>
@@ -125,11 +128,11 @@ function PayslipView({ slip: s, onAsk = null }) {
           <h2 id="slip-h" className="ui-t-sec">Payslip · {s.period}</h2>
           <p className="ui-caption">{[s.company, s.number, s.extraPayRun ? 'Extra pay run' : ''].filter(Boolean).join(' · ')}</p>
         </div>
-        <span className={`ui-pill shrink-0 ${s.paid ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{s.paid ? 'Paid' : 'Not paid yet'}</span>
+        <RowState kind={s.paid ? 'normal' : 'exception'} pill="ui-pill-neutral" label={s.paid ? 'Paid' : 'Not paid yet'} />
       </div>
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-sm">Net pay</span>
-        <span className="text-2xl font-semibold tabular-nums">{money(s.net)}</span>
+        <span className="portal-figure">{money(s.net)}</span>
       </div>
       {s.days && !(s.extraPayRun && !s.days.working) ? <p className="ui-caption tabular-nums">{s.days.payable} of {s.days.working} days paid{s.days.lossOfPay ? ` · ${s.days.lossOfPay} without pay` : ''}</p> : null}
       {splitLines(s.split).length ? (
@@ -194,7 +197,7 @@ export function CompanyPf({ pf }) {
 /** This financial year so far, up to and including this payslip. */
 export function SinceApril({ year }) {
   return (
-    <div className="rounded-xl border p-3" style={{ borderColor: 'rgb(var(--border))' }}>
+    <div>
       <h3 className="ui-label">Since {longDate(year.from)}</h3>
       <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
         <Row label="Pay" amount={year.gross} />
@@ -213,10 +216,10 @@ export function SinceApril({ year }) {
  */
 export function PfSaved({ pf }) {
   return (
-    <div className="mb-3 rounded-xl border p-3" style={{ borderColor: 'rgb(var(--border))' }}>
+    <div className="mb-3">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="ui-label">PF saved so far</h3>
-        <span className="text-lg font-semibold tabular-nums">{money(pf.fund)}</span>
+        <span className="portal-figure">{money(pf.fund)}</span>
       </div>
       <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
         <Row label="From your pay" amount={pf.employee} />
@@ -341,7 +344,7 @@ function PayslipPrint({ slip: s }) {
 
 export function PayCard({ onAsk }) {
   return (
-    <section className="ui-card space-y-2 p-5" aria-labelledby="pay-h">
+    <section className="portal-sec space-y-2" aria-labelledby="pay-h">
       <h2 id="pay-h" className="ui-t-sec">Pay</h2>
       <p className="text-sm">To change your salary account, ask HR. They check the new account before your next salary goes to it.</p>
       <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={onAsk}>Ask HR to change my account</button>
@@ -426,7 +429,7 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
     ? 'You asked to stay. Your manager will answer.'
     : leaving.staying?.status === 'REJECTED' ? 'You asked to stay; your manager kept your last day.' : null;
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="leaving-h">
+    <section className="portal-sec space-y-3" aria-labelledby="leaving-h">
       <h2 id="leaving-h" className="ui-t-sec">Leaving the company</h2>
       {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
       {leaving.waiting ? (
@@ -519,7 +522,7 @@ export function MySteps({ guard, refreshKey }) {
     </li>
   );
   return (
-    <section className="ui-card space-y-2 p-5" aria-labelledby="steps-h">
+    <section className="portal-sec space-y-2" aria-labelledby="steps-h">
       <h2 id="steps-h" className="ui-t-sec">{data.leaving.length ? 'Before your last day' : 'Your joining steps'}</h2>
       {said ? <p className="text-sm" role={said.ok ? 'status' : 'alert'}>{said.text}</p> : null}
       {mine.length ? <ul className="divide-y" aria-label="Your steps">{mine.map((t) => row(t, true))}</ul> : null}
@@ -571,7 +574,7 @@ export function PrivateComplaint({ guard }) {
   };
   if (done) {
     return (
-      <section className="ui-card space-y-2 p-5" aria-labelledby="pc-done-h" role="status">
+      <section className="portal-sec space-y-2" aria-labelledby="pc-done-h" role="status">
         <h2 id="pc-done-h" className="ui-t-sec">Complaint received</h2>
         <p className="text-sm">Your reference is <span className="ui-mono font-medium">{done.reference}</span>.{done.inquiryDue ? ` The committee should finish its inquiry by ${longDate(done.inquiryDue)}.` : ''}</p>
         <p className="ui-caption">Note the reference down. It is not listed in the app. The committee will contact you.</p>
@@ -579,9 +582,9 @@ export function PrivateComplaint({ guard }) {
       </section>
     );
   }
-  if (!open) return <button type="button" className="ui-link px-1 text-sm" onClick={() => setOpen(true)}>Raise a private complaint</button>;
+  if (!open) return <button type="button" className="ui-link text-sm" onClick={() => setOpen(true)}>Raise a private complaint</button>;
   return (
-    <form onSubmit={send} className="ui-card space-y-3 p-5" aria-labelledby="pc-h">
+    <form onSubmit={send} className="portal-sec space-y-3" aria-labelledby="pc-h">
       <h2 id="pc-h" className="ui-t-sec">Private complaint</h2>
       <p className="ui-caption">It goes to the committee your company named for this, not through your manager. You get a reference; nothing about it is shown in the app afterwards.</p>
       <fieldset className="space-y-2 text-sm">

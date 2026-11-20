@@ -5,6 +5,7 @@ import SuggestInput from '@ui/components/ui/SuggestInput';
 import { SignedOut, answerSwap, askSwap, getSwaps, swapColleagues, todayIst, withdrawSwap } from './portalApi';
 import { addDaysIso as plusDays } from '@ui/utils/dates';
 import { errorWords } from '@ui/utils/errorWords';
+import { RowState, kindOfPill } from './portalUi';
 
 /**
  * Shift swaps in the employee app (People, FEATURE-UI-AUDIT gap 24), on the
@@ -29,7 +30,8 @@ const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what))
 
 function Pill({ status }) {
   const [words, cls] = STATUS[status] || [status, 'ui-pill-neutral'];
-  return <span className={`ui-pill ${cls}`}>{words}</span>;
+  /* Tags only on exceptions: waiting and not approved; approved shows none; declined, withdrawn and cancelled are plain words. */
+  return <RowState label={words} pill={cls} kind={kindOfPill(cls)} />;
 }
 
 export default function ShiftSwaps({ guard, onChanged }) {
@@ -75,11 +77,9 @@ function AskedOfMe({ swap, guard, onDone }) {
     }
   };
   return (
-    <section className="ui-card space-y-3 p-5" aria-label={`Swap asked by ${swap.requester.name}`}>
-      <div className="flex items-start justify-between gap-2">
-        <h2 className="ui-t-sec">{swap.requester.name} asks to swap</h2>
-        <span className="ui-pill ui-pill-warn">For you</span>
-      </div>
+    /* Every swap here waits on me, so it carries no "for you" tag: the heading says it. */
+    <section className="portal-sec space-y-3" aria-label={`Swap asked by ${swap.requester.name}`}>
+      <h2 className="ui-t-sec">{swap.requester.name} asks to swap</h2>
       <ul className="space-y-1 text-sm">
         {swap.days.map((d) => (
           <li key={d.date}>
@@ -152,7 +152,7 @@ function AskSwap({ guard, rules, onDone, reasons = [] }) {
   };
 
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="swap-ask-h">
+    <section className="portal-sec space-y-3" aria-labelledby="swap-ask-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="swap-ask-h" className="ui-t-sec">Swap a shift</h2>
         {!open ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setOpen(true)}>Ask a colleague</button> : null}
@@ -209,7 +209,7 @@ function MySwaps({ swaps, guard, onDone }) {
     }
   };
   return (
-    <section className="ui-card p-5" aria-labelledby="swap-mine-h">
+    <section className="portal-sec" aria-labelledby="swap-mine-h">
       <h2 id="swap-mine-h" className="ui-t-sec mb-1">My swaps</h2>
       <ul className="divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
         {swaps.map((s) => {

@@ -36,7 +36,7 @@ export function TodayPosts({ guard }) {
   /* A greeting that did not load is not worth an error card on Today. */
   if (failed || !data?.posts?.length) return null;
   return (
-    <section className="ui-card space-y-2 p-5" aria-labelledby="today-posts-h">
+    <section className="portal-sec space-y-2" aria-labelledby="today-posts-h">
       <h2 id="today-posts-h" className="ui-t-sec">Today</h2>
       <ul className="space-y-2">
         {data.posts.map((p) => (
@@ -81,7 +81,7 @@ export function ExitInterview({ guard, refreshKey }) {
     }
   };
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="exit-h">
+    <section className="portal-sec space-y-3" aria-labelledby="exit-h">
       <h2 id="exit-h" className="ui-t-sec">Exit interview</h2>
       {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
       {iv.status === 'SUBMITTED' ? (
@@ -130,7 +130,7 @@ export function Celebrations({ guard }) {
     }
   };
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="celebrate-h">
+    <section className="portal-sec space-y-3" aria-labelledby="celebrate-h">
       <h2 id="celebrate-h" className="ui-t-sec">Birthdays and anniversaries</h2>
       <label className="flex items-start justify-between gap-3 text-sm">
         <span>Tell my team on my birthday and work anniversary<span className="ui-caption block">Only the day is shown, never the year.</span></span>

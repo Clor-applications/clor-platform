@@ -56,7 +56,7 @@ export function AddToHome() {
         <strong>Add CLOR to your home screen</strong>
         <span className="ui-caption block">{ios ? 'Tap the Share button, then “Add to Home Screen”.' : 'Open it in one tap, like any app.'}</span>
       </p>
-      {prompt ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={add}>Add</button> : null}
+      {prompt ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={add}>Add</button> : null}
       <button type="button" className="ui-icon-btn" aria-label="Not now" onClick={close}><X size={16} aria-hidden="true" /></button>
     </section>
   );

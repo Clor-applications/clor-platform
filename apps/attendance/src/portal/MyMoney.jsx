@@ -14,6 +14,7 @@ import PfWithdrawSteps from './PfWithdrawSteps';
 import { SKIP_ASK_HINT } from '@ui/picks/payLines';
 import { RUPEE_HINT, billTooOld, oldestBillDay, tooOldText } from './round51';
 import { errorWords } from '@ui/utils/errorWords';
+import { RowState, kindOfPill } from './portalUi';
 
 /**
  * Money in the employee app's Me tab (WORKFLOW-GAP-RESEARCH 4.1, 4.2):
@@ -29,8 +30,16 @@ const day = (iso) => {
   return y && m && d ? `${Number(d)} ${MONTHS[Number(m) - 1]}${y !== todayIst().slice(0, 4) ? ` ${y}` : ''}` : '';
 };
 const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
-const TONE = { WITH_SALARY: 'warn', DRAFT: 'neutral', SUBMITTED: 'warn', WAITING: 'warn', APPROVED: 'pos', PAYING: 'warn', PAID: 'pos', SETTLED: 'neutral', CLOSED: 'neutral', REJECTED: 'neg', WITHDRAWN: 'neutral' };
-const Pill = ({ row }) => <span className={`ui-pill ui-pill-${row.canReply ? 'warn' : TONE[row.status] || 'neutral'} shrink-0`}>{row.statusLabel}</span>;
+/*
+ * Tags only on exceptions (DESIGN.md "Status tags"): waiting on an approver, a question for me, not approved.
+ * Approved and paid are expected and show no tag; going with salary, being recovered, settled, closed and
+ * withdrawn are plain words.
+ */
+const TONE = { WITH_SALARY: 'neutral', DRAFT: 'neutral', SUBMITTED: 'warn', WAITING: 'warn', APPROVED: 'pos', PAYING: 'neutral', PAID: 'pos', SETTLED: 'neutral', CLOSED: 'neutral', REJECTED: 'neg', WITHDRAWN: 'neutral' };
+const Pill = ({ row }) => {
+  const pill = `ui-pill-${row.canReply ? 'warn' : TONE[row.status] || 'neutral'}`;
+  return <RowState label={row.statusLabel} pill={pill} kind={kindOfPill(pill)} />;
+};
 
 export default function MyMoney({ guard }) {
   const [data, setData] = useState(null);
@@ -95,10 +104,10 @@ function SpentForWork({ data, guard, reload }) {
   };
 
   return (
-    <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="spent-h">
+    <section className="portal-sec space-y-3 ui-touch-44" aria-labelledby="spent-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="spent-h" className="ui-t-sec">Spent for work</h2>
-        {!adding ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={() => setAdding(true)}><Camera size={16} aria-hidden="true" /> Add a bill</button> : null}
+        {!adding ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAdding(true)}><Camera size={16} aria-hidden="true" /> Add a bill</button> : null}
       </div>
       {adding ? <BillForm data={data} guard={guard} onDone={() => { setAdding(false); reload(); }} onCancel={() => setAdding(false)} /> : null}
 
@@ -390,7 +399,7 @@ function Advances({ data, guard, reload }) {
   };
   const shown = data.advances.filter((a) => !['WITHDRAWN'].includes(a.status)).slice(0, 8);
   return (
-    <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="adv-h">
+    <section className="portal-sec space-y-3 ui-touch-44" aria-labelledby="adv-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="adv-h" className="ui-t-sec">Advances</h2>
         {!asking ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking(true)}>Ask for an advance</button> : null}
@@ -482,7 +491,7 @@ function SalaryAdvance({ info, guard, reload }) {
   };
   const waiting = info.asks.some((a) => a.status === 'WAITING');
   return (
-    <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="saladv-h">
+    <section className="portal-sec space-y-3 ui-touch-44" aria-labelledby="saladv-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="saladv-h" className="ui-t-sec">Salary advance</h2>
         {!asking && !waiting ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking(true)}>Ask for one</button> : null}
@@ -490,7 +499,7 @@ function SalaryAdvance({ info, guard, reload }) {
       {info.cap?.known ? (
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-sm">Can come off your pay each month</span>
-          <span className="text-lg font-semibold tabular-nums">{money(info.cap.monthlyRoom)}</span>
+          <span className="portal-figure">{money(info.cap.monthlyRoom)}</span>
         </div>
       ) : null}
       <p className="ui-caption">{info.cap?.explain}</p>

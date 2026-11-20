@@ -4,6 +4,8 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { SignedOut, askOvertime, cancelOvertime, confirmMonth, disputeMonth, getMonthReview, getOvertime, hm, todayIst } from './portalApi';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
+import { PortalLoading, RowState } from './portalUi';
+import { dateWords } from '@ui/utils/dates';
 
 /*
  * The month's review and overtime in the web employee app (time depth, gap 18):
@@ -19,7 +21,8 @@ const lastMonth = () => {
 const monthWords = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const dayWords = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const PILL = { PENDING: ['ui-pill-warn', 'Waiting'], APPROVED: ['ui-pill-pos', 'Approved'], REJECTED: ['ui-pill-neg', 'Not approved'], CANCELLED: ['ui-pill-neutral', 'Cancelled'] };
-const Pill = ({ status }) => <span className={`ui-pill ${PILL[status]?.[0] || 'ui-pill-neutral'}`}>{PILL[status]?.[1] || enumWords(status)}</span>;
+/* A tag only while it waits or when it was not approved; approved and cancelled stay as plain words (the line reads "Overtime · Approved"). */
+const Pill = ({ status }) => <RowState label={PILL[status]?.[1] || enumWords(status)} pill={PILL[status]?.[0]} kind={status === 'PENDING' || status === 'REJECTED' || !PILL[status] ? 'exception' : 'quiet'} />;
 
 /** Load once per key; only the latest answer fills the card. */
 function useLoad(fn, key, guard) {
@@ -64,19 +67,20 @@ export function MonthReview({ guard }) {
   const s = data?.summary;
   const c = data?.confirmation;
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="month-review-h">
+    <section className="portal-sec space-y-3" aria-labelledby="month-review-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="month-review-h" className="ui-t-sec">Check my month</h2>
         <input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => { setMonth(e.target.value || lastMonth()); setMessage(null); setDisputing(false); setAllShown(false); }} aria-label="Month to check" />
       </div>
       <LoadFailed message={error} onRetry={load} />
-      {!data ? (error ? null : <p className="ui-caption">Loading your month…</p>) : !s ? <p className="ui-caption">Nothing recorded for this month yet.</p> : (
+      {!data ? (error ? null : <PortalLoading label="Loading your month…" />) : !s ? <p className="ui-caption">Nothing recorded for this month yet.</p> : (
         <>
-          <dl className="grid grid-cols-3 gap-2 text-center">
+          {/* The month as label-and-figure rows, not six tiles. */}
+          <dl className="grid grid-cols-2 gap-x-6">
             {[['Payable days', s.payableDays], ['Unpaid days', s.lossOfPayDays], ['Present', s.present], ['Leave', s.leave], ['Absent', s.absent], ['Overtime', hm(s.approvedOvertimeMinutes)]].map(([k, v]) => (
-              <div key={k} className="rounded-xl p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-                <dt className="ui-caption">{k}</dt>
-                <dd className="text-base font-semibold tabular-nums">{v}</dd>
+              <div key={k} className="flex items-baseline justify-between gap-2 border-b py-2 text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
+                <dt className="ui-muted">{k}</dt>
+                <dd className="font-semibold tabular-nums">{v}</dd>
               </div>
             ))}
           </dl>
@@ -98,7 +102,7 @@ export function MonthReview({ guard }) {
           {data.pendingOvertime ? <p className="ui-caption">{data.pendingOvertime} overtime request{data.pendingOvertime === 1 ? '' : 's'} still waiting for a decision.</p> : null}
           {c ? (
             <p className="text-sm" role="status">
-              <span className={`ui-pill ${c.status === 'CONFIRMED' ? 'ui-pill-pos' : 'ui-pill-warn'}`}>{c.status === 'CONFIRMED' ? 'Confirmed' : 'Sent to HR as wrong'}</span>
+              <RowState kind={c.status === 'CONFIRMED' ? 'quiet' : 'exception'} pill="ui-pill-warn" label={c.status === 'CONFIRMED' ? 'Confirmed' : 'Sent to HR as wrong'} />
               {c.note ? <span className="ui-caption block mt-1">“{c.note}”</span> : null}
             </p>
           ) : null}
@@ -106,7 +110,7 @@ export function MonthReview({ guard }) {
             <div className="border-l-2 pl-3" style={{ borderColor: 'rgb(var(--border))' }}>
               <h3 className="ui-t-label">HR’s reply</h3>
               <p className="text-sm whitespace-pre-line">{c.reply.text}</p>
-              <p className="ui-caption tabular-nums">{new Date(c.reply.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+              <p className="ui-caption tabular-nums">{dateWords(c.reply.at)}</p>
             </div>
           ) : c?.status === 'DISPUTED' ? <p className="ui-caption">HR has not answered yet.</p> : null}
           {data.canConfirm ? (
@@ -174,13 +178,13 @@ export function MyOvertime({ guard }) {
   };
 
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="my-overtime-h">
+    <section className="portal-sec space-y-3" aria-labelledby="my-overtime-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="my-overtime-h" className="ui-t-sec">My overtime</h2>
         <input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => { setMonth(e.target.value || todayIst().slice(0, 7)); setAsking(null); setMessage(null); }} aria-label="Overtime month" />
       </div>
       <LoadFailed message={error} onRetry={load} />
-      {!data ? (error ? null : <p className="ui-caption">Loading your overtime…</p>) : !data.days.length ? (
+      {!data ? (error ? null : <PortalLoading label="Loading your overtime…" />) : !data.days.length ? (
         <p className="ui-caption">No overtime or work on a day off recorded in {monthWords(month)}.</p>
       ) : (
         <>

@@ -4,6 +4,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { SignedOut, askLetter, getMyLetters, withdrawMyRequest } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
+import { RowState, kindOfPill } from './portalUi';
 
 /**
  * Ask HR for a letter, or a copy of a document on my file, from the employee
@@ -75,7 +76,7 @@ export default function AskLetter({ guard, onIssued }) {
   if (failed) return <LoadFailed message={failed} onRetry={load} />;
   if (!data) return null;
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="ask-letter-h">
+    <section className="portal-sec space-y-3" aria-labelledby="ask-letter-h">
       <h2 id="ask-letter-h" className="ui-t-sec">Letters</h2>
       {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'} style={note.ok ? undefined : { color: 'rgb(var(--neg))' }}>{note.text}</p> : null}
       <form onSubmit={send} className="space-y-3" aria-label="Ask for a letter">
@@ -105,7 +106,7 @@ export default function AskLetter({ guard, onIssued }) {
                   <span className="ui-caption">Asked {when(r.createdAt)}{r.issued ? ' · in My documents' : r.status === 'APPROVED' ? ' · HR is preparing it' : ''}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
-                  <span className={`ui-pill ${pill}`}>{label}</span>
+                  <RowState label={label} pill={pill} kind={kindOfPill(pill)} />
                   {open ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => withdraw(r)}>Withdraw</button> : null}
                 </span>
               </li>

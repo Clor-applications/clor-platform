@@ -90,6 +90,12 @@ import { sentWords, useBackClose } from '@ui/picks/round58';
 import { LeaveRules } from './LeaveRules';
 import { LANGUAGES, LANGUAGE_CHOICE_ON, isLanguage, rememberLanguage, savedLanguage, usePageLanguage } from '@ui/i18n';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
+import { dateWords } from '@ui/utils/dates';
+import { PageHeader } from '@ui/components/ui/Primitives';
+import ApproveActions from '@ui/components/ui/ApproveActions';
+import ExceptionTag from '@ui/components/ui/ExceptionTag';
+import { PortalLoading, RowState, kindOfPill } from './portalUi';
+import './portal.css';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -192,8 +198,13 @@ export default function EmployeePortal() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-md space-y-4 px-4 py-4">
-        {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
+      {/* Calm register (design audit, 20 Nov 2026): one 24px title per tab, sections on the white page apart by a hairline, every control 44px on a phone. */}
+      <main className="ui-touch-44 mx-auto max-w-md space-y-6 px-4 py-4">
+        {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+        {tab === 'today' ? <PageHeader title="Today" counts={me?.today ? longDay(me.today) : null} /> : null}
+        {tab === 'schedule' ? <PageHeader title="Schedule" /> : null}
+        {tab === 'leave' ? <PageHeader title="Leave" /> : null}
+        {tab === 'me' ? <PageHeader title="Me" /> : null}
         {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><AddToHome /><Today me={me} reload={loadMe} guard={guard} onAskInstead={(f) => { setFix(f); setTab('days'); }} /><NextHoliday guard={guard} today={todayIst()} />{me?.people !== false ? <TrainingsDue guard={guard} /> : null}<TodayPosts guard={guard} /><CompanyUpdates guard={guard} /></> : null}
         {tab === 'days' ? <><MyDays guard={guard} fix={fix} onFixUsed={() => setFix(null)} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
@@ -201,7 +212,7 @@ export default function EmployeePortal() {
         {tab === 'leave' ? <MyLeave guard={guard} /> : null}
         {tab === 'me' ? (
           /* Every control on Me is a 44px target on a phone (QA, 1 Nov 2026: Add a bill, Change details and Sign out were 28px). */
-          <div className="ui-touch-44 space-y-4">
+          <div className="ui-touch-44 space-y-6">
             {/* Steps that are mine while I join or leave come first: they have dates. */}
             <MySteps guard={guard} refreshKey={leavingSent} />
             <ExitInterview guard={guard} refreshKey={leavingSent} />
@@ -231,7 +242,7 @@ export default function EmployeePortal() {
               <li key={t.key}>
                 <button
                   type="button"
-                  className="flex w-full flex-col items-center gap-0.5 py-2 text-[11px]"
+                  className="flex w-full flex-col items-center gap-0.5 py-2 text-xs"
                   /* The open tab's words in the brand's ink: the neon itself (amber, orange) is too light for text on white. */
                   style={{ color: on ? 'rgb(var(--brand-ink))' : 'rgb(var(--fg-muted))', fontWeight: on ? 600 : 400 }}
                   aria-current={on ? 'page' : undefined}
@@ -307,10 +318,10 @@ export function PortalSignIn({ onDone }) {
 
   return (
     <div className="grid min-h-dvh place-items-center px-4 py-8" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-      <div className="w-full max-w-sm space-y-5">
+      <div className="ui-touch-44 w-full max-w-sm space-y-5">
         <div className="space-y-1 text-center">
           <Fingerprint size={36} aria-hidden="true" className="mx-auto" style={{ color: 'rgb(var(--brand-ink))' }} />
-          <h1 className="ui-display text-xl">Employee portal</h1>
+          <h1 className="ui-t-page">Employee portal</h1>
           <p className="ui-caption">Your attendance, schedule and leave.</p>
         </div>
         {/*
@@ -335,7 +346,7 @@ export function PortalSignIn({ onDone }) {
             </button>
           ))}
         </div>
-        <form onSubmit={submit} className="ui-card space-y-4 p-5" id="portal-signin-panel" role="tabpanel" aria-labelledby={`portal-tab-${mode}`}>
+        <form onSubmit={submit} className="space-y-4" id="portal-signin-panel" role="tabpanel" aria-labelledby={`portal-tab-${mode}`}>
           <label className="block">
             <span className="ui-label">Company code</span>
             <input className="ui-input ui-num w-full" required inputMode="numeric" autoComplete="organization" value={form.company} onChange={set('company')} placeholder="e.g. 4831920657" />
@@ -377,26 +388,26 @@ export function PortalSignIn({ onDone }) {
 // ---------------------------------------------------------------------------
 
 function Today({ me, reload, guard, onAskInstead }) {
-  if (!me) return <div className="ui-card p-6 ui-caption">Loading your day…</div>;
+  if (!me) return <PortalLoading label="Loading your day…" />;
   const r = me.record;
   const s = me.shift;
 
   return (
     <>
       {me.privacy && !me.privacy.read ? <PrivacyNoticeCard guard={guard} onRead={reload} /> : null}
-      <section className="ui-card space-y-3 p-5">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="ui-t-sec">{new Date(`${me.today}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}</h2>
-          {r ? <span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span> : null}
+      {/* The date is the count line under the title; the day's state shows only when it needs attention. */}
+      <section className="portal-sec space-y-3" aria-label="Today’s shift">
+        <div className="flex items-start justify-between gap-2">
+          <p className="min-w-0">
+            <span className="ui-label block">Today’s shift</span>
+            <b className="font-semibold">{s.holiday ? `Holiday — ${s.holiday}` : s.off ? 'Weekly off' : s.label ? `${s.name} · ${s.label}` : `${s.name} · ${s.startTime}–${s.endTime}`}</b>
+          </p>
+          {r ? <DayState status={r.status} /> : null}
         </div>
-        <p className="ui-shift-card">
-          <span className="ui-shift-card-k">Today’s shift</span>
-          <b>{s.holiday ? `Holiday — ${s.holiday}` : s.off ? 'Weekly off' : s.label ? `${s.name} · ${s.label}` : `${s.name} · ${s.startTime}–${s.endTime}`}</b>
-        </p>
-        <dl className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">In</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkInTime || '—'}</dd></div>
-          <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Out</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOutTime || '—'}</dd></div>
-          <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Worked</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOut ? hm(r.workedMinutes) : '—'}</dd></div>
+        <dl className="grid grid-cols-3 gap-2">
+          <div><dt className="ui-label">In</dt><dd className="portal-figure">{r?.checkInTime || '—'}</dd></div>
+          <div><dt className="ui-label">Out</dt><dd className="portal-figure">{r?.checkOutTime || '—'}</dd></div>
+          <div><dt className="ui-label">Worked</dt><dd className="portal-figure">{r?.checkOut ? hm(r.workedMinutes) : '—'}</dd></div>
         </dl>
         {r?.lateMinutes || r?.earlyOutMinutes ? <p className="flex flex-wrap gap-1.5">{r.lateMinutes ? <span className="ui-late-tag">Late {r.lateMinutes} min</span> : null}<EarlyGoTag minutes={r.earlyOutMinutes} /></p> : null}
       </section>
@@ -415,19 +426,19 @@ function Today({ me, reload, guard, onAskInstead }) {
           }}
         />
       ) : (
-        <p className="ui-caption px-1">{me.phone.why || 'Punch at the reader at work. Punching from your phone is not switched on for you.'}</p>
+        <p className="ui-caption">{me.phone.why || 'Punch at the reader at work. Punching from your phone is not switched on for you.'}</p>
       )}
 
-      <section className="ui-card p-5" aria-labelledby="punches-h">
+      <section className="portal-sec" aria-labelledby="punches-h">
         <h2 id="punches-h" className="ui-t-sec mb-2">Punches today</h2>
         {me.punches.length ? (
           <ul className="divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
             {me.punches.map((p, i) => (
-              <li key={i} className="flex items-center justify-between py-2">
-                <span className="tabular-nums font-medium">{p.time}</span>
-                <span className="ui-caption">{p.phone ? `Phone${p.site ? ` · ${p.site}` : ''}` : 'Reader'}</span>
-                {/* A reader that does not say in or out gets no badge: an empty one reads as an error. */}
-                {p.kind ? <span className={`ui-pill ${p.kind === 'IN' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{p.kind === 'IN' ? 'In' : 'Out'}</span> : <span />}
+              <li key={i} className="flex min-h-11 items-center justify-between gap-3 py-2">
+                <span className="tabular-nums font-semibold">{p.time}</span>
+                <span className="ui-caption flex-1">{p.phone ? `Phone${p.site ? ` · ${p.site}` : ''}` : 'Reader'}</span>
+                {/* In or out is what the punch is, not a state to flag: plain words, no tag. A reader that does not say gets nothing. */}
+                {p.kind ? <span className="ui-muted">{p.kind === 'IN' ? 'In' : 'Out'}</span> : <span />}
               </li>
             ))}
           </ul>
@@ -444,6 +455,21 @@ function Today({ me, reload, guard, onAskInstead }) {
 // ---------------------------------------------------------------------------
 
 const dayLabel = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+/** "Thursday, 19 November": the count line under Today's title. */
+const longDay = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+
+/*
+ * A day's state, tagged only when it needs attention (DESIGN.md "Status tags"): absent or a half day. Present is
+ * the expected state and shows no tag (a screen reader still hears it); leave, a holiday and a weekly off are what
+ * the day is, said in plain words.
+ */
+const DAY_EXCEPTIONS = new Set(['ABSENT', 'HALF_DAY']);
+function DayState({ status }) {
+  const label = STATUS[status]?.label || enumWords(status);
+  if (DAY_EXCEPTIONS.has(status)) return <ExceptionTag label={label} pill={STATUS[status]?.pill} />;
+  if (status === 'PRESENT') return <ExceptionTag normal={label} />;
+  return <span className="ui-muted">{label}</span>;
+}
 
 function MyDays({ guard, fix = null, onFixUsed }) {
   const [month, setMonth] = useState(() => (fix ? fix.date.slice(0, 7) : todayIst().slice(0, 7)));
@@ -467,28 +493,25 @@ function MyDays({ guard, fix = null, onFixUsed }) {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="ui-t-sec">My days</h2>
-        <input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
-      </div>
+      {/* The month's totals are the count line under the title, not five tiles; a total at zero drops out. */}
+      <PageHeader
+        title="My days"
+        actions={<input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
+        counts={data ? [
+          { key: 'present', label: 'Present', value: data.totals.present },
+          { key: 'half', label: 'Half day', value: data.totals.halfDay, tone: 'warn' },
+          { key: 'absent', label: 'Absent', value: data.totals.absent, tone: 'neg' },
+          { key: 'leave', label: 'On leave', value: data.totals.leave },
+          { key: 'late', label: 'Late', value: data.totals.late, tone: 'warn' },
+        ] : null}
+      />
       <LoadFailed message={error} onRetry={load} />
       {!data ? (
-        error ? null : <div className="ui-card p-6 ui-caption">Loading your days…</div>
+        error ? null : <PortalLoading label="Loading your days…" lines={5} />
       ) : (
         <>
-          <div className="grid grid-cols-5 gap-1 text-center text-xs">
-            {[
-              ['Present', data.totals.present],
-              ['Half', data.totals.halfDay],
-              ['Absent', data.totals.absent],
-              ['Leave', data.totals.leave],
-              ['Late', data.totals.late],
-            ].map(([k, v]) => (
-              <div key={k} className="ui-card p-2"><div className="text-base font-semibold tabular-nums">{v}</div><div className="ui-caption">{k}</div></div>
-            ))}
-          </div>
           {month === todayIst().slice(0, 7) ? <WeekBars days={data.days} today={todayIst()} /> : null}
-          <section className="ui-card overflow-hidden">
+          <section>
             {data.days.length ? (
               <div className="overflow-x-auto ui-table-scroll ui-table-fit">
               <table className="ui-table w-full text-sm">
@@ -508,11 +531,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
                       <tr key={d.date}>
                         <td className="whitespace-nowrap">{dayLabel(d.date)}{d.shiftLabel ? <span className="ui-caption block">{d.shiftLabel}</span> : null}</td>
                         <td>
-                          {open ? (
-                            <span className="ui-pill ui-pill-warn">No punch out</span>
-                          ) : (
-                            <span className={`ui-pill ${STATUS[d.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[d.status]?.label || enumWords(d.status)}</span>
-                          )}
+                          {open ? <ExceptionTag label="No punch out" /> : <DayState status={d.status} />}
                           {d.lateMinutes ? <span className="block"><span className="ui-late-tag">Late {d.lateMinutes} min</span></span> : null}
                           <EarlyGoTag minutes={d.earlyOutMinutes} block />
                         </td>
@@ -531,7 +550,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
               </table>
               </div>
             ) : (
-              <p className="ui-caption p-4">Nothing recorded this month yet.</p>
+              <p className="ui-caption py-4">Nothing recorded this month yet.</p>
             )}
           </section>
         </>
@@ -546,7 +565,8 @@ function MyDays({ guard, fix = null, onFixUsed }) {
 
 const REQUEST_PILL = { PENDING: 'ui-pill-warn', APPROVED: 'ui-pill-pos', REJECTED: 'ui-pill-neg', CANCELLED: 'ui-pill-neutral' };
 const REQUEST_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', CANCELLED: 'Cancelled' };
-const RequestPill = ({ status }) => <span className={`ui-pill ${REQUEST_PILL[status] || 'ui-pill-neutral'}`}>{REQUEST_LABEL[status] || enumWords(status)}</span>;
+/* Tags only on exceptions: waiting and not approved. Approved is expected (read out, not shown); cancelled is a plain word. */
+const RequestPill = ({ status }) => <RowState label={REQUEST_LABEL[status] || enumWords(status)} pill={REQUEST_PILL[status]} kind={kindOfPill(REQUEST_PILL[status] || 'ui-pill-warn')} />;
 /* Approved leave I asked to cancel (round 47): still approved, waiting on the approver. */
 const LeavePill = ({ r }) => (r.status === 'APPROVED' && r.cancelAsked ? <span className="ui-pill ui-pill-warn">Approved · cancellation asked</span> : <RequestPill status={r.status} />);
 
@@ -661,7 +681,7 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
   const mine = (list?.requests || []).filter((r) => r.kind === 'correction' || r.kind === 'request');
   return (
     <>
-      <form ref={formRef} onSubmit={send} className="ui-card space-y-3 p-5" aria-labelledby="ask-h">
+      <form ref={formRef} onSubmit={send} className="portal-sec space-y-3" aria-labelledby="ask-h">
         <h2 id="ask-h" className="ui-t-sec">{editing ? `Change: ${editing.kindName}` : 'Ask'}</h2>
         <LoadFailed message={error} onRetry={load} />
         {!editing && kinds.length > 1 ? (
@@ -723,11 +743,11 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
       </form>
 
       {mine.length ? (
-        <section className="ui-card p-5" aria-labelledby="mine-h">
+        <section className="portal-sec" aria-labelledby="mine-h">
           <h2 id="mine-h" className="ui-t-sec mb-2">My requests</h2>
-          <ul className="space-y-3 text-sm">
+          <ul className="divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
             {mine.map((r) => (
-              <li key={r.id} className="space-y-1">
+              <li key={r.id} className="space-y-1 py-3">
                 <div className="flex items-start justify-between gap-2">
                   <span><span className="font-medium">{r.kindName}</span><span className="block tabular-nums">{requestWords(r)}</span><span className="ui-caption block">{r.reason}{r.note ? ` — ${r.note}` : ''}</span></span>
                   <RequestPill status={r.status} />
@@ -770,10 +790,10 @@ function MySchedule({ guard }) {
   }, [month, guard, attempt]);
   const t = todayIst();
   return (
-    <>
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="ui-t-sec">My schedule</h2>
-        <div className="flex items-center gap-2">
+    <section className="portal-sec space-y-3" aria-labelledby="sched-h">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="sched-h" className="ui-t-sec">My schedule</h2>
+        <div className="flex flex-wrap items-center gap-2">
           <div className="ui-sched-view" role="group" aria-label="Show">
             <button type="button" className="ui-sched-view-btn" aria-pressed={view === 'next'} onClick={() => setView('next')}>Next 14 days</button>
             <button type="button" className="ui-sched-view-btn" aria-pressed={view === 'month'} onClick={() => setView('month')}>Whole month</button>
@@ -783,15 +803,16 @@ function MySchedule({ guard }) {
       </div>
       <LoadFailed message={view === 'next' ? next.error : error} onRetry={() => setAttempt((n) => n + 1)} />
       {!(view === 'next' ? next.days : data) ? (
-        (view === 'next' ? next.error : error) ? null : <div className="ui-card p-6 ui-caption">Loading your schedule…</div>
+        (view === 'next' ? next.error : error) ? null : <PortalLoading label="Loading your schedule…" lines={5} />
       ) : (
-        <ul className="ui-card divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
+        <ul className="divide-y border-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
           {(view === 'next' ? next.days : data.days).map((d) => (
-            <li key={d.date} className="flex items-center gap-3 px-4 py-2" style={d.date === t ? { backgroundColor: 'rgb(var(--accent-soft))' } : undefined}>
+            /* Today is marked in weight, not a tinted band (white grounds only). */
+            <li key={d.date} className={`flex min-h-11 items-center gap-3 py-2${d.date === t ? ' font-semibold' : ''}`} aria-current={d.date === t ? 'date' : undefined}>
               <span className="w-24 shrink-0 whitespace-nowrap">{dayLabel(d.date)}</span>
               {d.kind === 'WORK' ? (
                 <span className="flex items-center gap-2">
-                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.color || '#64748b' }} aria-hidden="true" />
+                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.color || 'rgb(var(--fg-muted))' }} aria-hidden="true" />
                   {d.shift} <span className="ui-caption tabular-nums">{d.startTime}–{d.endTime}</span>
                 </span>
               ) : (
@@ -801,7 +822,7 @@ function MySchedule({ guard }) {
           ))}
         </ul>
       )}
-    </>
+    </section>
   );
 }
 
@@ -1057,41 +1078,48 @@ function MyLeave({ guard }) {
   const sentRow = note?.sentId ? (data?.requests || []).find((x) => x.id === note.sentId) : null;
   const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && !r.fromTime && r.fromDate <= data?.today && r.toDate > data?.today;
   const dayBefore = (iso) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
-  if (!data) return error ? <LoadFailed message={error} onRetry={load} /> : <div className="ui-card p-6 ui-caption">Loading your leave…</div>;
+  if (!data) return error ? <LoadFailed message={error} onRetry={load} /> : <PortalLoading label="Loading your leave…" lines={4} />;
   return (
     <>
-      <h2 className="ui-t-sec">My leave {data.year}</h2>
+      {/* Balances as rows on the page, the number on the right (no tiles, no cards). */}
+      <section className="portal-sec space-y-2" aria-labelledby="bal-h">
+      <h2 id="bal-h" className="ui-t-sec">My leave {data.year}</h2>
       {data.types.length ? (
-        <div className="grid grid-cols-2 gap-2">
+        <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
           {data.types.map((t) => (
-            <div key={t.id} className="ui-card p-3">
-              <div className="text-sm font-medium">{t.name}</div>
+            <li key={t.id} className="space-y-1 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm font-semibold">{t.name}</span>
+                {t.isPaid ? (
+                  /* Round 58 "balancewhy" A: the number itself opens how it is worked out. */
+                  <button type="button" className="ui-bal-why portal-figure text-right" onClick={() => setExplaining(t.id)} aria-label={`${amountFigure(t.available, t)} ${isHourly(t) ? 'hours' : 'days'} of ${t.name} left: how is this worked out?`}>{amountFigure(t.available, t)}</button>
+                ) : (
+                  <span className="ui-caption">Unpaid · {t.used} taken</span>
+                )}
+              </div>
               {t.isPaid ? (
                 <>
-                  {/* Round 58 "balancewhy" A: the number itself opens how it is worked out. */}
-                  <button type="button" className="ui-bal-why text-2xl font-semibold tabular-nums" onClick={() => setExplaining(t.id)} aria-label={`${amountFigure(t.available, t)} ${isHourly(t) ? 'hours' : 'days'} of ${t.name} left: how is this worked out?`}>{amountFigure(t.available, t)}</button>
                   {/* An hourly type's balance is in hours (gap 23). */}
                   <div className="ui-caption">{isHourly(t) ? 'hours ' : ''}left of {amountFigure(t.allocated, t)}{t.pending ? ` · ${amountFigure(t.pending, t)} waiting` : ''}</div>
                   {/* Owner's pick (17 Nov 2026, round 7): the number with a bar of what is left. */}
                   {t.allocated > 0 ? <span className="ui-bal-bar" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, (t.available / t.allocated) * 100))}%` }} /></span> : null}
                   {/* Comp-off under a validity: the days that go first, and when. */}
                   {t.expiring?.length ? <div className="ui-caption tabular-nums">{expiringWords(t.expiring, fmtDayYear)}</div> : null}
-                  <button type="button" className="ui-link text-xs mt-1" onClick={() => setExplaining(t.id)}>How is this worked out?</button>
+                  <button type="button" className="ui-link text-xs" onClick={() => setExplaining(t.id)}>How is this worked out?</button>
                 </>
-              ) : (
-                <div className="ui-caption">Unpaid · {t.used} taken</div>
-              )}
-            </div>
+              ) : null}
+            </li>
           ))}
-        </div>
+        </ul>
       ) : (
         <p className="ui-caption">No leave types are set up yet.</p>
       )}
+      </section>
       {/* Round 59 leavepolicyread A: each type's rule in one line, so the answer is here, not with HR. */}
       <LeaveRules types={data.types} />
 
       {data.types.length ? (
-        <form ref={formRef} onSubmit={editing ? change : ask} className="ui-card space-y-3 p-5" aria-labelledby="ask-leave-h">
+        <form ref={formRef} onSubmit={editing ? change : ask} className="portal-sec space-y-3" aria-labelledby="ask-leave-h">
           {/* Round 58 "stickysubmit" C: Send sits top right and stays in reach while the form scrolls. */}
           <div className="ui-form-top">
             <h2 id="ask-leave-h" className="ui-t-sec">{editing ? 'Change leave' : 'Ask for leave'}</h2>
@@ -1132,11 +1160,11 @@ function MyLeave({ guard }) {
       ) : null}
 
       {data.requests.length ? (
-        <section className="ui-card p-5" aria-labelledby="leave-list-h">
+        <section className="portal-sec" aria-labelledby="leave-list-h">
           <h2 id="leave-list-h" className="ui-t-sec mb-2">My requests</h2>
-          <ul className="space-y-3 text-sm">
+          <ul className="divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
             {data.requests.map((r) => (
-              <li key={r.id} id={`leave-req-${r.id}`} className="flex items-start justify-between gap-2" data-just-sent={r.id === note?.sentId || undefined}>
+              <li key={r.id} id={`leave-req-${r.id}`} className="flex items-start justify-between gap-2 py-3" data-just-sent={r.id === note?.sentId || undefined}>
                 <span>
                   {r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : r.days === 0.5 ? 'half a day' : `${r.days} day${r.days === 1 ? '' : 's'}`}
                   <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}{leaveHours(r) ? `, ${leaveHours(r)}` : halfWords(r.halfDay) ? `, ${halfWords(r.halfDay)}` : ''}{!leaveHours(r) && r.overflowOfId ? ', over the balance: loss of pay' : ''}</span>
@@ -1223,8 +1251,8 @@ function Account({ me, guard, onSignOut, language = 'en', onLanguage }) {
   return (
     <>
       {me ? (
-        <section className="ui-card space-y-1 p-5">
-          <div className="text-base font-semibold">{me.employee.name}</div>
+        <section className="portal-sec space-y-1" aria-label="You">
+          <div className="font-semibold">{me.employee.name}</div>
           <div className="ui-caption">{[me.employee.code, me.employee.designation, me.employee.department].filter(Boolean).join(' · ')}</div>
           <div className="ui-caption">{me.company.name}{me.company.code ? ` · ${me.company.code}` : ''}</div>
         </section>
@@ -1235,7 +1263,7 @@ function Account({ me, guard, onSignOut, language = 'en', onLanguage }) {
       <AskLetter guard={guard} onIssued={() => setDocsAt(Date.now())} />
       <MyData guard={guard} />
       <Devices guard={guard} />
-      <form onSubmit={save} className="ui-card space-y-3 p-5" aria-labelledby="pw-h">
+      <form onSubmit={save} className="portal-sec space-y-3" aria-labelledby="pw-h">
         <h2 id="pw-h" className="ui-t-sec">Change password</h2>
         <label className="block"><span className="ui-label">Current password</span><PasswordInput className="ui-input w-full" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} /></label>
         <label className="block"><span className="ui-label">New password</span><PasswordInput className="ui-input w-full" required strength autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} /></label>
@@ -1257,7 +1285,7 @@ function Account({ me, guard, onSignOut, language = 'en', onLanguage }) {
  */
 function LanguageChoice({ language, onLanguage }) {
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="lang-h">
+    <section className="portal-sec space-y-3" aria-labelledby="lang-h">
       <div>
         <h2 id="lang-h" className="ui-t-sec">Language</h2>
         <p className="ui-caption">The app's words, on this phone and any other you sign in on.</p>
@@ -1314,20 +1342,20 @@ function Devices({ guard }) {
     await guard(endOtherSessions()).catch((e) => !(e instanceof SignedOut) && setFailed(errorWords(e, 'do that')));
     load();
   };
-  const when = (v) => new Date(v).toLocaleDateString('en-IN', { dateStyle: 'medium' });
+  const when = (v) => dateWords(v);
   const others = (d?.sessions || []).filter((s) => !s.current);
   return (
-    <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="dev-h">
+    <section className="portal-sec space-y-3" aria-labelledby="dev-h">
       <h2 id="dev-h" className="ui-t-sec">Signed-in devices</h2>
       {failed ? <p className="text-sm" role="alert">{failed}</p> : null}
-      {!d && !failed ? <p className="ui-caption">Loading your devices…</p> : null}
+      {!d && !failed ? <PortalLoading label="Loading your devices…" lines={2} /> : null}
       {d ? (
         <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
           {d.sessions.map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-2 py-2 text-sm">
               <span className="min-w-0">
                 <span className="font-medium">{s.deviceLabel}</span>
-                {s.current ? <span className="ui-pill ui-pill-pos ml-2">This device</span> : null}
+                {s.current ? <span className="ui-caption ml-2">This device</span> : null}
                 <span className="ui-caption block">Signed in {when(s.createdAt)} · last used {when(s.lastSeenAt)}</span>
               </span>
               {s.current ? null : <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => endOne(s)}>Sign out</button>}
@@ -1408,7 +1436,7 @@ function MyTax({ guard }) {
   };
 
   return (
-    <form onSubmit={send} className="ui-card space-y-3 p-5" aria-labelledby="tax-h">
+    <form onSubmit={send} className="portal-sec space-y-3" aria-labelledby="tax-h">
       <h2 id="tax-h" className="ui-t-sec">Income tax · {fyLabel(d.financialYear)}</h2>
       <p className="ui-caption">
         {locked ? 'HR has checked your proofs. Ask HR if something needs changing.' : d.status === 'SUBMITTED' ? 'Sent to HR. You can still change it until your proofs are checked.' : 'Choose your regime. Under the old one, tell us what you will invest so less tax is taken each month.'}
@@ -1518,63 +1546,77 @@ function Approvals({ guard }) {
     }
   };
 
-  if (error && !data) return <LoadFailed message={error} onRetry={load} />;
-  if (!data) return <div className="ui-card p-6 ui-caption">Loading what is waiting for you…</div>;
+  const title = <PageHeader title="Approvals" />;
+  if (error && !data) return <>{title}<LoadFailed message={error} onRetry={load} /></>;
+  if (!data) return <>{title}<PortalLoading label="Loading what is waiting for you…" /></>;
   /* Field punches and overtime wait here too (time depth, gap 18): the phone app always showed them. */
   const items = [...data.leaves, ...(data.cancellations || []), ...data.corrections, ...(data.requests || []), ...(data.punches || []), ...(data.overtime || [])].sort((a, b) => String(a.askedAt).localeCompare(String(b.askedAt)));
   const fmt = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  /* What each item is, in words: every item here waits on me, so none carries a "waiting" tag. */
+  const kindWord = (item) => (item.type === 'overtime' && item.kind === 'COMP_OFF' ? 'Comp-off' : item.type === 'leave' ? item.leaveTypeName || APPROVAL_PILL.leave : APPROVAL_PILL[item.type] || item.kindName || 'Correction');
 
   return (
     <>
-      <section className="ui-card p-5">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="ui-t-sec">Waiting for you</h2>
-          <span className="ui-caption">{data.team} report{data.team === 1 ? 's' : ''} to you</span>
-        </div>
+      {/* The count line says how many wait; who reports to me is the line under it. */}
+      <PageHeader title="Approvals" counts={[{ key: 'waiting', label: 'Waiting', value: items.length }]} description={<span>{data.team} report{data.team === 1 ? 's' : ''} to you</span>} />
+      <section className="portal-sec" aria-labelledby="approvals-h">
+        <h2 id="approvals-h" className="ui-t-sec">Waiting for you</h2>
         {error ? <p className="mt-2 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
         {!items.length ? <p className="ui-caption mt-2">Nothing waiting. Leave, corrections, field punches and overtime from your team appear here.</p> : null}
+        {items.length ? (
+          <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+            {items.map((item) => {
+              const key = `${item.type}:${item.id}`;
+              const cancelAsk = item.type === 'leave-cancel';
+              return (
+                <li key={key} className="space-y-2 py-4" aria-label={`${item.type} request from ${item.employeeName}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold">{item.employeeName}{item.employeeCode ? <span className="ui-caption font-normal"> · {item.employeeCode}</span> : null}</div>
+                      {/* The kind, in words, where the line below does not already say it (a field punch). */}
+                      {item.type === 'punch' ? <div className="ui-caption">{APPROVAL_PILL.punch}</div> : null}
+                      <div className="text-sm">
+                        {item.type === 'leave' || item.type === 'leave-cancel'
+                          ? <>{item.type === 'leave-cancel' ? 'Asks to cancel ' : ''}{item.leaveTypeName} · {fmt(item.fromDate)}{item.toDate !== item.fromDate ? ` – ${fmt(item.toDate)}` : ''} · {item.days} day{item.days === 1 ? '' : 's'}</>
+                          : item.type === 'request'
+                            ? <span className="tabular-nums">{item.kindName} · {requestWords(item)}</span>
+                            : item.type === 'punch'
+                              ? <span className="tabular-nums">{item.kind === 'OUT' ? 'Out' : 'In'} at {item.checkIn} · {fmt(item.date)}{item.accuracy != null ? ` · within ${item.accuracy}\u00a0m` : ''}</span>
+                              : item.type === 'overtime'
+                                ? <span className="tabular-nums">{fmt(item.date)} · {item.kind === 'COMP_OFF' ? `${item.days} day${item.days === 1 ? '' : 's'} comp-off` : `${hm(item.minutes)} overtime`}</span>
+                                : <>Correction · {fmt(item.date)} · in {item.checkIn || '—'}{item.checkOut ? `, out ${item.checkOut}` : ''}</>}
+                      </div>
+                    </div>
+                    {/* Tick and cross (DESIGN.md "Approvals"); the cross opens the reason the person will see. */}
+                    {rejecting === key ? null : (
+                      <ApproveActions
+                        what={`${kindWord(item)} for ${item.employeeName}`}
+                        busy={busy === key}
+                        approveTitle={cancelAsk ? 'Approve cancellation' : 'Approve'}
+                        rejectTitle={cancelAsk ? 'Keep leave' : 'Reject'}
+                        onApprove={() => decide(item, 'approve')}
+                        onReject={() => { setRejecting(key); setNote(''); }}
+                      />
+                    )}
+                  </div>
+                  {/* Private leave comes masked ("Private leave", no reason): a manager plans cover from the dates. */}
+                  {item.type === 'punch' ? <p className="text-sm ui-muted">Made outside the work sites{item.reason && item.reason !== 'Outside the work sites' ? `, near ${item.reason}` : ''}. Approved, it counts; refused, it does not.</p> : item.reason && !item.reasonHidden ? <p className="text-sm ui-muted">“{item.reason}”</p> : null}
+                  {rejecting === key ? (
+                    <div className="space-y-2">
+                      {/* A rejected leave or request needs a reason; the person sees it. */}
+                      <textarea className="ui-input w-full" rows={2} aria-label="Why not" placeholder={cancelAsk ? 'Why keep it? The person sees this.' : 'Why not? The person sees this.'} value={note} onChange={(e) => setNote(e.target.value)} />
+                      <div className="flex gap-2">
+                        <button type="button" className="ui-btn ui-btn-danger flex-1" disabled={busy === key || ((item.type === 'leave' || item.type === 'request') && !note.trim())} onClick={() => decide(item, 'reject')}>{cancelAsk ? 'Keep leave' : 'Reject'}</button>
+                        <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setRejecting(null); setNote(''); }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
       </section>
-      {items.map((item) => {
-        const key = `${item.type}:${item.id}`;
-        return (
-          <section key={key} className="ui-card space-y-3 p-5" aria-label={`${item.type} request from ${item.employeeName}`}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="font-semibold">{item.employeeName}{item.employeeCode ? <span className="ui-caption font-normal"> · {item.employeeCode}</span> : null}</div>
-                <div className="text-sm">
-                  {item.type === 'leave' || item.type === 'leave-cancel'
-                    ? <>{item.type === 'leave-cancel' ? 'Asks to cancel ' : ''}{item.leaveTypeName} · {fmt(item.fromDate)}{item.toDate !== item.fromDate ? ` – ${fmt(item.toDate)}` : ''} · {item.days} day{item.days === 1 ? '' : 's'}</>
-                    : item.type === 'request'
-                      ? <span className="tabular-nums">{item.kindName} · {requestWords(item)}</span>
-                      : item.type === 'punch'
-                        ? <span className="tabular-nums">{item.kind === 'OUT' ? 'Out' : 'In'} at {item.checkIn} · {fmt(item.date)}{item.accuracy != null ? ` · within ${item.accuracy}\u00a0m` : ''}</span>
-                        : item.type === 'overtime'
-                          ? <span className="tabular-nums">{fmt(item.date)} · {item.kind === 'COMP_OFF' ? `${item.days} day${item.days === 1 ? '' : 's'} comp-off` : `${hm(item.minutes)} overtime`}</span>
-                          : <>Correction · {fmt(item.date)} · in {item.checkIn || '—'}{item.checkOut ? `, out ${item.checkOut}` : ''}</>}
-                </div>
-              </div>
-              <span className={`ui-pill ${item.type === 'leave' ? 'ui-pill-neutral' : 'ui-pill-warn'}`}>{item.type === 'overtime' && item.kind === 'COMP_OFF' ? 'Comp-off' : APPROVAL_PILL[item.type] || item.kindName || 'Correction'}</span>
-            </div>
-            {/* Private leave comes masked ("Private leave", no reason): a manager plans cover from the dates. */}
-            {item.type === 'punch' ? <p className="text-sm ui-muted">Made outside the work sites{item.reason && item.reason !== 'Outside the work sites' ? `, near ${item.reason}` : ''}. Approved, it counts; refused, it does not.</p> : item.reason && !item.reasonHidden ? <p className="text-sm ui-muted">“{item.reason}”</p> : null}
-            {rejecting === key ? (
-              <div className="space-y-2">
-                {/* A rejected leave or request needs a reason; the person sees it. */}
-                <textarea className="ui-input w-full" rows={2} aria-label="Why not" placeholder={item.type === 'leave-cancel' ? 'Why keep it? The person sees this.' : 'Why not? The person sees this.'} value={note} onChange={(e) => setNote(e.target.value)} />
-                <div className="flex gap-2">
-                  <button type="button" className="ui-btn ui-btn-danger flex-1" disabled={busy === key || ((item.type === 'leave' || item.type === 'request') && !note.trim())} onClick={() => decide(item, 'reject')}>{item.type === 'leave-cancel' ? 'Keep leave' : 'Reject'}</button>
-                  <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setRejecting(null); setNote(''); }}>Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy === key} onClick={() => decide(item, 'approve')}>{busy === key ? 'Saving…' : item.type === 'leave-cancel' ? 'Approve cancellation' : 'Approve'}</button>
-                <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === key} onClick={() => { setRejecting(key); setNote(''); }}>{item.type === 'leave-cancel' ? 'Keep leave' : 'Reject'}</button>
-              </div>
-            )}
-          </section>
-        );
-      })}
     </>
   );
 }
@@ -1632,14 +1674,14 @@ function MyDocuments({ guard }) {
   const hidden = asks.filter((a) => !(docs || []).some((d) => d.id === a.targetId));
   if ((!docs || !docs.length) && !hidden.length) return null;
   return (
-    <section className="ui-card space-y-2 p-5" aria-labelledby="docs-h">
+    <section className="portal-sec space-y-2" aria-labelledby="docs-h">
       <h2 id="docs-h" className="ui-t-sec">My documents</h2>
       {asks.length ? <p className="ui-caption">HR asked you to read {asks.length === 1 ? 'one document' : `${asks.length} documents`}. Read it, then accept.</p> : null}
       {failed ? <p className="text-sm" role="alert">{failed}</p> : null}
       <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
         {(docs || []).map((d) => (
           <li key={d.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-            <span className="min-w-0"><span className="block truncate font-medium">{d.title}</span><span className="ui-caption">{sizeOf(d.size)}{d.expiresOn ? ` · valid until ${d.expiresOn}` : ''}</span></span>
+            <span className="min-w-0"><span className="block truncate font-medium">{d.title}</span><span className="ui-caption">{sizeOf(d.size)}{d.expiresOn ? ` · valid until ${dateWords(d.expiresOn)}` : ''}</span></span>
             <span className="flex shrink-0 gap-2">
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => open(d)}>Download</button>
               {askOf.has(d.id) ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => accept(askOf.get(d.id))}>Accept</button> : null}
@@ -1692,9 +1734,10 @@ function PrivacyNoticeCard({ guard, onRead, always = false }) {
   };
   if (always && !open) return <button type="button" className="ui-link text-sm" onClick={() => setOpen(true)}>Read the privacy notice</button>;
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="notice-h" style={always ? undefined : { borderColor: 'rgb(var(--accent))' }}>
+    /* Inside My data it is a part of that section, not a box in a box; on Today it is a section of its own. */
+    <section className={always ? 'space-y-3' : 'portal-sec space-y-3'} aria-labelledby="notice-h">
       <h2 id="notice-h" className="ui-t-sec">{always ? 'Privacy notice' : `How ${n?.notice.company || 'your employer'} uses your attendance data`}</h2>
-      {!n ? <p className="ui-caption">Loading the privacy notice…</p> : (
+      {!n ? <PortalLoading label="Loading the privacy notice…" lines={4} /> : (
         <>
           {n.notice.sections.map((x) => (
             <div key={x.id} className="text-sm">
@@ -1760,7 +1803,7 @@ function MyData({ guard }) {
     }
   };
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="data-h">
+    <section className="portal-sec space-y-3" aria-labelledby="data-h">
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="data-h" className="ui-t-sec">My data</h2>
         {!open ? <button type="button" className="ui-link text-sm" onClick={() => setOpen(true)}>Ask about my data</button> : null}
@@ -1798,7 +1841,8 @@ function MyData({ guard }) {
             <li key={r.id} className="py-2 text-sm space-y-0.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium">{DATA_TYPES.find(([k]) => k === r.type)?.[1] || r.type}</span>
-                <span className={`ui-pill ${r.status === 'RESOLVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status === 'PENDING' ? `With HR${r.dueAt ? ` · answer by ${new Date(r.dueAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}` : ''}` : r.status === 'RESOLVED' ? 'Done' : 'Declined'}</span>
+                {/* Done is the expected end and shows no tag; with HR and declined are tagged. */}
+                <RowState kind={r.status === 'RESOLVED' ? 'normal' : 'exception'} pill={r.status === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-warn'} label={r.status === 'PENDING' ? `With HR${r.dueAt ? ` · answer by ${dateWords(r.dueAt)}` : ''}` : r.status === 'RESOLVED' ? 'Done' : 'Declined'} />
               </div>
               <p className="ui-caption">{r.details}</p>
               {r.resolution ? <p className="text-sm">HR: {r.resolution}</p> : null}
@@ -1820,7 +1864,7 @@ function CompanyUpdates({ guard }) {
   useEffect(() => { load(); }, [load]);
   if (error) return <LoadFailed message={error} onRetry={load} />;
   if (!data || (!data.announcements.length && !data.events.length)) return null;
-  return <section className="ui-card p-4" aria-labelledby="company-updates-heading"><h2 id="company-updates-heading" className="ui-t-sec mb-3">Company updates</h2>
-    <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>{data.announcements.map((a) => <li className="py-3" key={a.id}><h3 className="font-semibold text-sm">{a.title}</h3><p className="mt-1 whitespace-pre-wrap text-sm ui-muted">{a.body}</p></li>)}{data.events.map((e) => <li className="py-3" key={e.id}><h3 className="font-semibold text-sm">{e.title}</h3><p className="text-sm ui-muted">{e.startDate}{e.endDate && e.endDate !== e.startDate ? ` – ${e.endDate}` : ''}{e.location ? ` · ${e.location}` : ''}</p>{e.description && <p className="mt-1 text-sm">{e.description}</p>}</li>)}</ul>
+  return <section className="portal-sec" aria-labelledby="company-updates-heading"><h2 id="company-updates-heading" className="ui-t-sec mb-3">Company updates</h2>
+    <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>{data.announcements.map((a) => <li className="py-3" key={a.id}><h3 className="font-semibold text-sm">{a.title}</h3><p className="mt-1 whitespace-pre-wrap text-sm ui-muted">{a.body}</p></li>)}{data.events.map((e) => <li className="py-3" key={e.id}><h3 className="font-semibold text-sm">{e.title}</h3><p className="text-sm ui-muted">{dateWords(e.startDate)}{e.endDate && e.endDate !== e.startDate ? ` – ${dateWords(e.endDate)}` : ''}{e.location ? ` · ${e.location}` : ''}</p>{e.description && <p className="mt-1 text-sm">{e.description}</p>}</li>)}</ul>
   </section>;
 }

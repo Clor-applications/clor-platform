@@ -51,9 +51,10 @@ export function NextHoliday({ guard, today }) {
   }, [guard, today]);
   if (!next) return null;
   return (
-    <p className="ui-next-holiday">
-      <span className="ui-next-holiday-k">Next holiday</span>
-      <b>{next.name}, {holidayDay(next.date)}</b>
+    /* A line on the page under a hairline, not a box (calm register). */
+    <p className="portal-sec flex flex-wrap items-baseline justify-between gap-2 text-sm">
+      <span className="ui-label">Next holiday</span>
+      <b className="font-semibold">{next.name}, {holidayDay(next.date)}</b>
     </p>
   );
 }
