@@ -16,7 +16,7 @@ import {
   suspendCredential,
 } from '@platform/admin/credentials';
 import { KIND, STATUS, actionsFor } from './credentialsModel';
-import { Empty, FilterSelect, Loading, PageHead, WsDrawer } from './wsKit';
+import { Empty, FilterSelect, LoadError, Loading, PageHead, WsDrawer, askDiscard } from './wsKit';
 import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
@@ -61,9 +61,14 @@ const DRAWER_WS = { padding: 0, background: 'none', minHeight: 0 };
 
 const ACTION_LABEL = { review: 'Mark reviewed', resume: 'Resume', suspend: 'Pause', extend: 'Extend', rotate: 'Rotate', revoke: 'Revoke' };
 
+const NEW_KEY = { name: '', scopes: ['attendance:read'], allowedIps: '', expiry: '365' };
+
 function NewKey({ scopes, onDone, onClose }) {
-  const [form, setForm] = useState({ name: '', scopes: ['attendance:read'], allowedIps: '', expiry: '365' });
+  const [form, setForm] = useState(NEW_KEY);
   const [busy, setBusy] = useState(false);
+  /* Anything typed or ticked: closing asks before it is lost. */
+  const dirty = !busy && JSON.stringify(form) !== JSON.stringify(NEW_KEY);
+  const noScope = !form.scopes.length;
   const toggle = (k) => setForm((f) => ({ ...f, scopes: f.scopes.includes(k) ? f.scopes.filter((x) => x !== k) : [...f.scopes, k] }));
   const submit = async (e) => {
     e.preventDefault();
@@ -78,17 +83,18 @@ function NewKey({ scopes, onDone, onClose }) {
     }
   };
   return (
-    <WsDrawer open onClose={onClose} title="New API key" description="Shown once, when made.">
+    <WsDrawer open onClose={onClose} dirty={dirty} title="New API key" description="Shown once, when made.">
       <div className="ws" style={DRAWER_WS}>
         <form onSubmit={submit} className="grid gap-4">
           <label className="grid gap-1"><span className="text-sm font-semibold">Name <span className="ui-required" aria-hidden="true">*</span></span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="What uses it, e.g. greytHR sync" /></label>
-          <fieldset className="grid gap-1">
+          <fieldset className="grid gap-1" aria-describedby={noScope ? 'ws-newkey-rule' : undefined}>
             <legend className="text-sm font-semibold mb-1">It may</legend>
             {(scopes || Object.keys(SCOPE_LABEL)).map((k) => (
               <label key={k} className="flex items-center gap-2 py-0.5 text-sm">
                 <input type="checkbox" className="ui-checkbox" checked={form.scopes.includes(k)} onChange={() => toggle(k)} /> {SCOPE_LABEL[k] || k}
               </label>
             ))}
+            {noScope ? <span id="ws-newkey-rule" className="ui-caption">Tick at least one thing the key may do to make it.</span> : null}
           </fieldset>
           <label className="grid gap-1"><span className="text-sm font-semibold">Only from these addresses</span><input className="ui-input w-full" value={form.allowedIps} onChange={(e) => setForm({ ...form, allowedIps: e.target.value })} placeholder="203.0.113.10" /><span className="ui-caption">Leave it empty to allow any address.</span></label>
           <label className="grid gap-1"><span className="text-sm font-semibold">Expires</span>
@@ -101,8 +107,8 @@ function NewKey({ scopes, onDone, onClose }) {
           </label>
           <p className="ui-caption">You can extend it later.</p>
           <div className="flex gap-2">
-            <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || !form.scopes.length}>{busy ? 'Making…' : 'Make the key'}</button>
-            <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
+            <button type="button" className="ws-btn ws-btn--quiet" onClick={async () => { if (await askDiscard(dirty)) onClose(); }}>Cancel</button>
+            <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || noScope} aria-describedby={noScope ? 'ws-newkey-rule' : undefined}>{busy ? 'Making…' : 'Make the key'}</button>
           </div>
         </form>
       </div>
@@ -116,6 +122,8 @@ function Change({ action, credential, onDone, onClose }) {
   const [note, setNote] = useState('');
   const [months, setMonths] = useState('12');
   const [busy, setBusy] = useState(false);
+  /* A note typed or a reason changed: closing asks first. */
+  const dirty = !busy && (Boolean(note.trim()) || reason !== REASONS[0] || months !== '12');
   const words = {
     suspend: credential.kind === 'SCIM'
       ? 'It stops at once. You can resume it.'
@@ -145,7 +153,7 @@ function Change({ action, credential, onDone, onClose }) {
     }
   };
   return (
-    <WsDrawer open onClose={onClose} title={`${ACTION_LABEL[action]} ${KIND[credential.kind].toLowerCase()} ${credential.tokenPrefix}…`} description={credential.label || credential.owner?.name || ''}>
+    <WsDrawer open onClose={onClose} dirty={dirty} title={`${ACTION_LABEL[action]} ${KIND[credential.kind].toLowerCase()} ${credential.tokenPrefix}…`} description={credential.label || credential.owner?.name || ''}>
       <div className="ws" style={DRAWER_WS}>
         <form onSubmit={submit} className="grid gap-4">
           <p className="text-sm">{words}</p>
@@ -168,8 +176,8 @@ function Change({ action, credential, onDone, onClose }) {
             </>
           )}
           <div className="flex gap-2">
+            <button type="button" className="ws-btn ws-btn--quiet" onClick={async () => { if (await askDiscard(dirty)) onClose(); }}>Cancel</button>
             <button type="submit" className={`ws-btn ${action === 'revoke' ? 'ws-btn--danger' : 'ws-btn--primary'}`} disabled={busy}>{busy ? 'Working…' : ACTION_LABEL[action]}</button>
-            <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
           </div>
         </form>
       </div>
@@ -188,6 +196,8 @@ export default function Credentials() {
   const [shown, setShown] = useState(null);
   /* When the list was read: "expires within 30 days" counts from then, not from each render. */
   const [readAt, setReadAt] = useState(0);
+  /* A one-click row action that is out, as `${id}:review` or `${id}:resume`: that row waits, nothing is sent twice. */
+  const [rowBusy, setRowBusy] = useState('');
 
   const load = useCallback(() => {
     listCredentials({ revoked: showRevoked })
@@ -209,12 +219,15 @@ export default function Credentials() {
   );
 
   const act = async (c, action) => {
-    if (action === 'review') {
-      await markCredentialReviewed(c.id).then(() => notify.success('Marked reviewed.')).catch((e) => notify.error(errorWords(e, 'mark it reviewed')));
-      return load();
-    }
-    if (action === 'resume') {
-      await resumeCredential(c.id).then(() => notify.success('Resumed.')).catch((e) => notify.error(errorWords(e, 'resume it')));
+    if (action === 'review' || action === 'resume') {
+      if (rowBusy) return undefined;
+      setRowBusy(`${c.id}:${action}`);
+      try {
+        if (action === 'review') await markCredentialReviewed(c.id).then(() => notify.success('Marked reviewed.')).catch((e) => notify.error(errorWords(e, 'mark it reviewed')));
+        else await resumeCredential(c.id).then(() => notify.success('Resumed.')).catch((e) => notify.error(errorWords(e, 'resume it')));
+      } finally {
+        setRowBusy('');
+      }
       return load();
     }
     if (action === 'rotate' && (c.kind === 'AGENT' || c.kind === 'DEVICE_PUSH')) {
@@ -271,7 +284,7 @@ export default function Credentials() {
         </div>
 
         {failed ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm" role="alert"><span>{failed}</span> <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={load}>Try again</button></div>
+          <LoadError onRetry={load}>{failed}</LoadError>
         ) : !data ? (
           <Loading shape="rows" rows={3} label="Loading credentials…" />
         ) : rows.length ? (
@@ -313,9 +326,13 @@ export default function Credentials() {
                       <td>{c.createdBy || '—'}</td>
                       <td className="num">
                         <span className="inline-flex justify-end gap-1">
-                          {actionsFor(c).map((a) => (
-                            <button key={a} type="button" className="ws-btn ws-btn--quiet ws-btn--small" aria-label={`${ACTION_LABEL[a]} ${c.label || KIND[c.kind]}`} onClick={() => act(c, a)}>{ACTION_LABEL[a]}</button>
-                          ))}
+                          {actionsFor(c).map((a) => {
+                            const out = rowBusy === `${c.id}:${a}`;
+                            const word = out ? (a === 'review' ? 'Marking…' : 'Resuming…') : ACTION_LABEL[a];
+                            return (
+                              <button key={a} type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={rowBusy.startsWith(`${c.id}:`)} aria-busy={out || undefined} aria-label={`${word} ${c.label || KIND[c.kind]}`} onClick={() => act(c, a)}>{word}</button>
+                            );
+                          })}
                         </span>
                       </td>
                     </tr>

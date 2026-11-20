@@ -8,6 +8,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
  */
 const api = vi.hoisted(() => ({ listSupportGrants: vi.fn(), approveSupportGrant: vi.fn(), endSupportGrant: vi.fn() }));
 vi.mock('@platform/admin/supportGrants', () => api);
+const ask = vi.hoisted(() => ({ confirmDialog: vi.fn(async () => true) }));
+vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: (...a) => ask.confirmDialog(...a), notify: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 const { default: SupportAccess } = await import('./SupportAccess');
 
@@ -20,7 +22,10 @@ const show = (grants) => {
   render(<SupportAccess />);
 };
 
-beforeEach(() => Object.values(api).forEach((f) => f.mockReset()));
+beforeEach(() => {
+  Object.values(api).forEach((f) => f.mockReset());
+  ask.confirmDialog.mockReset().mockResolvedValue(true);
+});
 
 describe('CLOR support access', () => {
   it('shows a request with its reason and lets the customer in for a day by default', async () => {
@@ -29,7 +34,7 @@ describe('CLOR support access', () => {
     expect(await screen.findByText('Invoices from 12 Nov will not save')).toBeInTheDocument();
     expect(screen.getByText(/ticket T-1042/)).toBeInTheDocument();
     expect(screen.getByText('To read only')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Let them in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve support access for Divya' }));
     await waitFor(() => expect(api.approveSupportGrant).toHaveBeenCalledWith('g1', { hours: 24, scope: 'READ_ONLY' }));
   });
 
@@ -38,14 +43,14 @@ describe('CLOR support access', () => {
     show([g({ scope: 'READ_WRITE' })]);
     fireEvent.click(await screen.findByLabelText('Read only'));
     fireEvent.change(screen.getByLabelText('How long Divya may look'), { target: { value: '4' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Let them in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve support access for Divya' }));
     await waitFor(() => expect(api.approveSupportGrant).toHaveBeenCalledWith('g1', { hours: 4, scope: 'READ_ONLY' }));
   });
 
   it('refuses a request', async () => {
     api.endSupportGrant.mockResolvedValue({ ok: true });
     show([g()]);
-    fireEvent.click(await screen.findByRole('button', { name: 'Refuse' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Reject support access for Divya' }));
     await waitFor(() => expect(api.endSupportGrant).toHaveBeenCalledWith('g1', null));
   });
 
@@ -62,5 +67,22 @@ describe('CLOR support access', () => {
   it('says plainly when CLOR has never asked', async () => {
     show([]);
     expect(await screen.findByText(/CLOR support has never asked to look/)).toBeInTheDocument();
+  });
+
+  /* Audit 21 Nov 2026: End now went through on one click, with no word of what it does. */
+  it('asks before ending an open grant, says the consequence, and leaves it on No', async () => {
+    ask.confirmDialog.mockResolvedValueOnce(false);
+    show([g({ id: 'g2', state: 'ACTIVE', expiresAt: '2026-11-15T04:00:00Z' })]);
+    fireEvent.click(await screen.findByRole('button', { name: 'End access for Divya' }));
+    await waitFor(() => expect(ask.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'End Divya’s access now?', tone: 'danger', message: expect.stringMatching(/stopped on their next request/) })));
+    expect(api.endSupportGrant).not.toHaveBeenCalled();
+  });
+
+  it('holds End now while the end is out', async () => {
+    api.endSupportGrant.mockImplementation(() => new Promise(() => {}));
+    show([g({ id: 'g2', state: 'ACTIVE', expiresAt: '2026-11-15T04:00:00Z' })]);
+    fireEvent.click(await screen.findByRole('button', { name: 'End access for Divya' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'End access for Divya' })).toBeDisabled());
+    expect(screen.getByRole('button', { name: 'End access for Divya' })).toHaveTextContent('Ending…');
   });
 });

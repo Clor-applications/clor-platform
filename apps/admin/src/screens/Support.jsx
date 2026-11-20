@@ -6,7 +6,7 @@ import { getTicket, listTickets, openTicket, replyTicket, ticketSolved } from '@
 import { lastErrorRef } from '@platform/http';
 import { hasApp, requestOpenHelp } from '@platform/context';
 import { INCLUDED_IN } from '@platform/includedApps';
-import { Avatar, ICON, PageHead, WsDrawer, ago } from './wsKit';
+import { Avatar, ICON, LoadError, Loading, PageHead, WsDrawer, ago, askDiscard } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
@@ -74,6 +74,7 @@ export default function Support() {
       .then((r) => {
         setRows(r?.tickets || []);
         setWhole(Boolean(r?.wholeAccount));
+        setError('');
       })
       .catch((e) => setError(errorWords(e, 'load your tickets')));
   }, []);
@@ -106,18 +107,17 @@ export default function Support() {
             CLOR replied to {waiting === 1 ? 'one ticket' : `${waiting} tickets`} and is waiting for you.
           </p>
         ) : null}
-        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
-
-        {rows === null && !error ? (
-          <div className="grid gap-3" aria-hidden="true">
-            {[0, 1, 2].map((i) => <span key={i} className="ui-skel" style={{ height: 56, borderRadius: 12 }} />)}
-          </div>
+        {rows === null && error ? (
+          <LoadError onRetry={() => { setError(''); load(); }}>{error}</LoadError>
+        ) : rows === null ? (
+          <Loading shape="rows" rows={3} label="Loading your tickets…" />
         ) : rows ? (
           <div className="ws-activity-layout">
             <div className="ws-activity-main">
-              <div className="ws-tabs ws-tone-tabs" role="tablist" aria-label="Tickets">
+              {/* Filter chips that say which is on (aria-pressed): they filter one list, they are not tabs with panels. */}
+              <div className="ws-tabs ws-tone-tabs" role="group" aria-label="Show tickets">
                 {SHOW.map((s) => (
-                  <button key={s.key} type="button" role="tab" aria-selected={show === s.key} className="ws-tab" style={{ '--tab': `var(${s.tone})` }} onClick={() => setShow(s.key)}>
+                  <button key={s.key} type="button" aria-pressed={show === s.key} className="ws-tab" style={{ '--tab': `var(${s.tone})` }} onClick={() => setShow(s.key)}>
                     {s.label}
                     <span className="ws-tone-count">{n(s.key)}</span>
                   </button>
@@ -225,6 +225,10 @@ function NewTicket({ open, onClose, onOpened }) {
   const lastCode = open ? lastErrorRef() : null;
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const valid = form.subject.trim().length >= 4 && form.body.trim().length >= 10;
+  /* Why Send is off, said beside it. */
+  const sendRule = form.subject.trim().length < 4 ? 'Write a subject of at least 4 characters.' : form.body.trim().length < 10 ? 'Say what happened in at least 10 characters.' : '';
+  /* Typed into the form: closing it asks before the words are lost. */
+  const dirty = !busy && Boolean(form.subject.trim() || form.body.trim() || form.requestId.trim() || form.urgent || form.app || form.category !== 'QUESTION');
 
   const send = async (e) => {
     e.preventDefault();
@@ -246,12 +250,13 @@ function NewTicket({ open, onClose, onOpened }) {
     <WsDrawer
       open={open}
       onClose={onClose}
+      dirty={dirty}
       title="New ticket"
       description="CLOR support answers by email, usually within one working day."
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="submit" form="ws-ticket" className="ws-btn ws-btn--primary" disabled={!valid || busy}>
+          <button type="button" className="ws-btn ws-btn--quiet" onClick={async () => { if (await askDiscard(dirty)) onClose(); }}>Cancel</button>
+          <button type="submit" form="ws-ticket" className="ws-btn ws-btn--primary" disabled={!valid || busy} aria-describedby={sendRule ? 'ws-ticket-rule' : undefined}>
             <Send size={16} aria-hidden="true" /> {busy ? 'Sending…' : 'Send to CLOR'}
           </button>
         </>
@@ -300,6 +305,7 @@ function NewTicket({ open, onClose, onOpened }) {
           <input type="checkbox" checked={form.urgent} onChange={set('urgent')} />
           <span>Urgent: work has stopped</span>
         </label>
+        {sendRule ? <p id="ws-ticket-rule" className="ui-caption">{sendRule}</p> : null}
       </form>
     </WsDrawer>
   );
@@ -309,22 +315,29 @@ function TicketView({ id, onBack }) {
   const [t, setT] = useState(null);
   const [error, setError] = useState('');
   const [reply, setReply] = useState('');
-  const [busy, setBusy] = useState(false);
+  /* What is out: 'reply' or 'solved', so each button says its own verb while it waits. */
+  const [busy, setBusy] = useState('');
+  /* A ticket that did not load: kept apart from an action's error, which leaves the ticket on screen. */
+  const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
-    getTicket(id).then(setT).catch((e) => setError(e.status === 404 ? 'This ticket is not yours to see, or no longer exists.' : errorWords(e, 'load the ticket')));
+  const loadTicket = useCallback(() => {
+    setLoadError('');
+    getTicket(id).then(setT).catch((e) => setLoadError(e.status === 404 ? 'This ticket is not yours to see, or no longer exists.' : errorWords(e, 'load the ticket')));
   }, [id]);
+  useEffect(loadTicket, [loadTicket]);
 
-  const act = async (fn) => {
-    setBusy(true);
+  /* `what` is the action in words, for the error: marking a ticket solved is not sending a reply. */
+  const act = async (key, fn, what) => {
+    if (busy) return;
+    setBusy(key);
     setError('');
     try {
       setT(await fn());
-      setReply('');
+      if (key === 'reply') setReply('');
     } catch (e) {
-      setError(errorWords(e, 'send the reply'));
+      setError(errorWords(e, what));
     } finally {
-      setBusy(false);
+      setBusy('');
     }
   };
 
@@ -353,14 +366,15 @@ function TicketView({ id, onBack }) {
             ) : null}
           </div>
           {t && (t.status === 'OPEN' || t.status === 'WAITING') ? (
-            <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={() => act(() => ticketSolved(t.id))}>
-              It is solved
+            <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(busy)} aria-busy={busy === 'solved' || undefined} onClick={() => act('solved', () => ticketSolved(t.id), 'mark the ticket solved')}>
+              {busy === 'solved' ? 'Marking solved…' : 'It is solved'}
             </button>
           ) : null}
         </header>
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
-        {!t && !error ? <span className="ui-skel" style={{ height: 120, borderRadius: 12 }} aria-hidden="true" /> : null}
+        {!t && loadError ? <LoadError onRetry={loadTicket}>{loadError}</LoadError> : null}
+        {!t && !loadError ? <Loading shape="card" label="Loading the ticket…" /> : null}
 
         {t ? (
           <>
@@ -381,7 +395,7 @@ function TicketView({ id, onBack }) {
                 className="grid gap-3"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (reply.trim()) act(() => replyTicket(t.id, reply.trim()));
+                  if (reply.trim()) act('reply', () => replyTicket(t.id, reply.trim()), 'send the reply');
                 }}
               >
                 <label className="grid">
@@ -389,8 +403,8 @@ function TicketView({ id, onBack }) {
                   <textarea className="ui-input" rows={4} value={reply} onChange={(e) => setReply(e.target.value)} maxLength={8000} />
                 </label>
                 <div>
-                  <button type="submit" className="ws-btn ws-btn--primary" disabled={!reply.trim() || busy}>
-                    <Send size={16} aria-hidden="true" /> {busy ? 'Sending…' : 'Send reply'}
+                  <button type="submit" className="ws-btn ws-btn--primary" disabled={!reply.trim() || Boolean(busy)}>
+                    <Send size={16} aria-hidden="true" /> {busy === 'reply' ? 'Sending…' : 'Send reply'}
                   </button>
                 </div>
               </form>
