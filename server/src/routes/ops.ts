@@ -1,3 +1,4 @@
+import { accountHealth, healthCounts, healthRank } from '../services/opsAccountHealth.js';
 import { Router } from 'express';
 import type { Request } from 'express';
 import { z } from 'zod';
@@ -271,7 +272,8 @@ const listQuery = z.object({
   /* Only customers carrying this staff tag (routes/opsNotes.ts). */
   tag: z.string().trim().max(40).optional(),
   /* Trials works its list by the date each trial ends, soonest first; every other caller keeps newest first. */
-  sort: z.enum(['created', 'trialEnd']).optional(),
+  /* 'health': the customers doing worst first (services/opsAccountHealth.ts). */
+  sort: z.enum(['created', 'trialEnd', 'health']).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   /* Only trials that end in the next so many days: where Overview's "See all" lands. */
   endingWithin: z.coerce.number().int().min(1).max(90).optional(),
@@ -326,6 +328,7 @@ opsRouter.get('/ops/accounts', (req, res) =>
     for (const o of owners) if (!ownerBy.has(o.accountId) && userById.get(o.userId)) ownerBy.set(o.accountId, { email: userById.get(o.userId)!.email, name: userById.get(o.userId)!.fullName });
     const subBy = new Map(subs.map((s) => [s.accountId, s]));
     const lastBy = new Map(last.map((l) => [l.accountId, l._max.lastLoginAt]));
+    const counts = await healthCounts(ids);
 
     let rows = accountsAll.map((a) => {
       const s = subBy.get(a.id);
@@ -350,6 +353,17 @@ opsRouter.get('/ops/accounts', (req, res) =>
         lastActiveAt: lastBy.get(a.id) || null,
         suspended: Boolean(a.suspendedAt),
         tags: tagsBy.get(a.id) || [],
+        /* How the customer is doing, with the reasons; null for an account nobody is expected to be using. */
+        health: accountHealth({
+          plan,
+          trialEndsAt: s?.trialEndsAt || null,
+          createdAt: a.createdAt,
+          lastActiveAt: lastBy.get(a.id) || null,
+          overdueInvoices: counts.overdue.get(a.id) || 0,
+          failedPayments: counts.failed.get(a.id) || 0,
+          openTickets: counts.open.get(a.id) || 0,
+          urgentTickets: counts.urgent.get(a.id) || 0,
+        }),
       };
     });
     if (status === 'active') rows = rows.filter((r) => r.plan === 'active' || r.plan === 'legacy');
@@ -372,6 +386,8 @@ opsRouter.get('/ops/accounts', (req, res) =>
       const ends = (r: (typeof rows)[number]) => (r.trialEndsAt ? new Date(r.trialEndsAt).getTime() : Number.POSITIVE_INFINITY);
       rows = [...rows].sort((a, b) => ends(a) - ends(b));
     }
+    /* Worst first; among equals the list's own order (newest first) stays. */
+    if (sort === 'health') rows = [...rows].sort((a, b) => healthRank(b.health) - healthRank(a.health));
     res.json({ total: rows.length, page, pageSize: limit, trialsEndingIn7d, accounts: rows.slice(page * limit, page * limit + limit) });
   }),
 );
@@ -424,7 +440,19 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
     const firstOwner = members.find((m) => m.role === 'OWNER');
     const ownerUser = firstOwner ? userBy.get(firstOwner.userId) : undefined;
     const asker = waiting ? await platformPrisma.user.findUnique({ where: { id: waiting.requestedBy }, select: { fullName: true, email: true } }) : null;
+    const lastActiveAt = users.reduce<Date | null>((m, u) => (u.lastLoginAt && (!m || u.lastLoginAt > m) ? u.lastLoginAt : m), null);
+    const counts = await healthCounts([id]);
     res.json({
+      health: accountHealth({
+        plan: account.suspendedAt ? 'suspended' : sub ? sub.status : account.legacyUnrestrictedAt ? 'legacy' : 'no-plan',
+        trialEndsAt: sub?.trialEndsAt || null,
+        createdAt: account.createdAt,
+        lastActiveAt,
+        overdueInvoices: counts.overdue.get(id) || 0,
+        failedPayments: counts.failed.get(id) || 0,
+        openTickets: counts.open.get(id) || 0,
+        urgentTickets: counts.urgent.get(id) || 0,
+      }),
       account: { ...account, title: customerTitle(account.name, ownerUser?.fullName, orgs[0]?.name), ownerName: ownerUser?.fullName || null },
       waitingApproval: waiting
         ? { id: waiting.id, kind: waiting.kind, summary: waiting.summary, askedBy: asker?.fullName || asker?.email || 'A colleague', mine: waiting.requestedBy === req.auth!.userId, createdAt: waiting.createdAt, expiresAt: waiting.expiresAt }
@@ -434,7 +462,7 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
         return { userId: m.userId, role: m.role, status: m.status, since: m.createdAt, name: u?.fullName || null, email: u?.email || null, active: u?.isActive ?? false, lastLoginAt: u?.lastLoginAt || null, authenticator: Boolean(u?.totpEnabledAt || u?.smsTwoFactorEnabledAt) };
       }),
       companies: orgs.map((o) => ({ id: o.id, name: o.name, code: o.code, createdAt: o.createdAt, people: peopleBy.get(o.id) || 0, branches: o.branches.map((b) => ({ id: b.id, name: b.branchName, code: b.branchCode, state: b.state })) })),
-      lastActiveAt: users.reduce<Date | null>((m, u) => (u.lastLoginAt && (!m || u.lastLoginAt > m) ? u.lastLoginAt : m), null),
+      lastActiveAt,
       subscription: sub
         ? {
             status: sub.status,
