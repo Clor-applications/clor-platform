@@ -5,6 +5,7 @@ import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from './HalfDayCho
 import { HoursChoice, PreviewNotes } from './LeaveShape';
 import { hoursBody, hoursReady, hoursText, isHourly } from './partOfDay';
 import { AlertTriangle, Check, Download, Plus, X } from '@ui/components/ui/lineIcons';
+import ApproveActions from '@ui/components/ui/ApproveActions';
 import { LeavePill, Notice, CountLine, TILE_ICON } from './Figures';
 import { clashDays } from './clashes';
 
@@ -126,10 +127,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
     { key: 'status', label: 'Status', render: (r) => <StatusPill row={r} /> },
     /* Waiting rows decide in place with a tick and a cross (owner's style pick, 17 Nov 2026). The cross opens the request for the reason it needs. */
     ...(waitingTab ? [{ key: 'decide', label: <span className="sr-only">Decide</span>, align: 'right', always: true, render: (r) => (
-      <span className="ui-decide">
-        <button type="button" className="ui-decide-btn is-yes" disabled={deciding} aria-label={`Approve leave for ${r.employeeName}`} title="Approve" onClick={() => approveOne(r)}><Check size={16} aria-hidden="true" /></button>
-        <button type="button" className="ui-decide-btn is-no" aria-label={`Reject leave for ${r.employeeName}`} title="Reject (asks for a reason)" onClick={() => setOpenId(r.id)}><X size={16} aria-hidden="true" /></button>
-      </span>
+      <ApproveActions what={`leave for ${r.employeeName}`} busy={deciding} onApprove={() => approveOne(r)} onReject={() => setOpenId(r.id)} rejectTitle="Reject (asks for a reason)" />
     ) }] : []),
   ];
   /* People: a tab that already names the one status every row shares drops the column that would only repeat it; a manager's step still shows it. */

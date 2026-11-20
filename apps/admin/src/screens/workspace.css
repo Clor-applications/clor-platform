@@ -560,6 +560,8 @@
   font-size: 0.8125rem;
   color: rgb(var(--ws-muted));
 }
+/* The count line under a page title (PageHead `counts`; DESIGN.md "Page header"). */
+.ws-head .ws-head-count { margin: 4px 0 0; font-size: 0.8125rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); }
 /* Main column and a side column; the side column drops under on narrower screens. */
 .ws-layout {
   display: grid;
@@ -3442,40 +3444,11 @@ button.ws-stat:hover {
   justify-content: center;
 }
 
-/* Filter chips (wsKit FilterSelect, 19 Nov 2026): 32px, sunken ground, "Label: value ⌄"; a chosen filter
-   turns soft blue so it reads as on. Their menu opens right under them. */
+/* Filter inputs in a Workspace filter row are 32px, the chip height (the chips are the shared FilterSelect). */
 .ws .ws-filters :is(input, select) {
   height: 32px;
   min-height: 32px;
 }
-.ws-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 0 10px 0 12px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: rgb(var(--surface-sunken, 244 245 242));
-  background: rgb(var(--rail-bg, 243 243 240));
-  font: inherit;
-  font-size: 0.8125rem;
-  color: rgb(var(--fg, 28 27 24));
-  white-space: nowrap;
-  cursor: pointer;
-}
-.ws-chip:hover { border-color: rgb(var(--border-field, 212 212 212)); }
-.ws-chip[data-popup-open] { border-color: rgb(var(--cat-1, 42 120 214) / 0.6); background: rgb(255 255 255); }
-.ws-chip:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; }
-.ws-chip-k { color: rgb(var(--fg-muted, 68 66 61)); }
-.ws-chip-v { font-weight: 600; }
-.ws-chip-caret { margin-left: 2px; color: rgb(var(--fg-subtle, 92 90 84)); }
-.ws-chip[data-set] {
-  background: rgb(var(--cat-1, 42 120 214) / 0.1);
-  color: rgb(28 84 160);
-}
-.ws-chip[data-set] .ws-chip-k { color: rgb(28 84 160 / 0.8); }
-.ws-chip-item { gap: 8px; font-size: 0.8125rem; }
 
 /* ---- Users & access pass (owner, 19 Nov 2026: "colour accent, alignment, filters, cards width") ----
    The three-id prefix outranks picks.css (two), which paints every pill as a solid block. */

@@ -755,6 +755,4 @@
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-tone-count { color: color-mix(in srgb, rgb(var(--tab)) 70%, black); }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-tone-tabs .ws-tab:is([aria-selected='true'], [aria-pressed='true']) .ws-tone-count { background: color-mix(in srgb, rgb(var(--tab)) 70%, black); color: rgb(255 255 255); }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-tagbtn[style] { color: color-mix(in srgb, rgb(var(--tag)) 75%, black); }
-:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-chip-k { color: rgb(74 72 66); }
-:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-chip[data-set] .ws-chip-k { color: rgb(28 84 160); }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-inbox-link { color: rgb(29 100 196); }

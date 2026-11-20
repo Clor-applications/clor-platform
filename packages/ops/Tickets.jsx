@@ -47,7 +47,7 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
           crumbs={['Customers and sales']}
           title="Tickets"
           description="Questions and problems customers sent from their Workspace. The one waiting longest is at the top."
-          meta={d ? countLine([[d.counts.open, (k) => `${k} ${k === 1 ? 'needs' : 'need'} an answer`], [d.counts.waiting, 'waiting on customers']], 'No open tickets') : null}
+          counts={d ? countLine([[d.counts.open, (k) => `${k} ${k === 1 ? 'needs' : 'need'} an answer`], [d.counts.waiting, 'waiting on customers']], 'No open tickets') : null}
         />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Tabs

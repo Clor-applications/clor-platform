@@ -90,7 +90,7 @@ export function Trials({ role, openAccount, openSubscription = openAccount, endi
 
   return (
     <>
-      <PageHead crumbs={['Customers and sales']} title="Trials" meta={meta} />
+      <PageHead crumbs={['Customers and sales']} title="Trials" counts={meta} />
       <Err>{error}</Err>
       {offer ? (
         <p className="ws-card-blurb">

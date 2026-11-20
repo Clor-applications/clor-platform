@@ -1,7 +1,8 @@
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import RangePresets from '@ui/components/ui/RangePresets';
-import { Ban, Camera, Check, ExternalLink, MapPin, Navigation, Smartphone, Users } from '@ui/components/ui/lineIcons';
+import { Ban, Camera, ExternalLink, MapPin, Navigation, Smartphone, Users } from '@ui/components/ui/lineIcons';
+import ApproveActions from '@ui/components/ui/ApproveActions';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -229,10 +230,7 @@ export default function PhonePunches({ menuLabel } = {}) {
                     <span className="flex items-center justify-end gap-1">
                       {tools(p)}
                       {p.review === 'PENDING' ? (
-                        <>
-                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => review(p, true)}><Check size={14} aria-hidden="true" /> Approve</button>
-                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => review(p, false)}>Refuse</button>
-                        </>
+                        <ApproveActions what={`${p.name}'s punch`} onApprove={() => review(p, true)} onReject={() => review(p, false)} approveTitle="Count this punch" rejectTitle="Refuse (it stays on record)" />
                       ) : null}
                     </span>
                   </td>

@@ -562,7 +562,7 @@ html[data-portal='ops'] .ops-main .ws-lede {
 }
 html[data-portal='ops'] .ops-main .ws-head-meta {
   font-size: 0.8125rem;
-  color: rgb(var(--fg-subtle));
+  color: rgb(var(--fg-muted));
 }
 .ops-back {
   display: inline-flex;

@@ -72,7 +72,7 @@ export function Approvals({ openCustomer }) {
           crumbs={['Trust']}
           title="Approvals"
           description={d ? `Deals over ${d.limit}% off, and apps given free or cheaper by hand, wait here until someone other than the person who asked approves them.` : 'Deals over the limit, and apps given free by hand, wait here for a second person.'}
-          meta={d ? `${d.waiting ? `${d.waiting} waiting · ` : ''}requests expire after ${d.expiresHours} hours` : null}
+          counts={d ? `${d.waiting ? `${d.waiting} waiting · ` : ''}requests expire after ${d.expiresHours} hours` : null}
           actions={
             d?.canChangeLimit ? (
               <button

@@ -161,7 +161,7 @@ export function EmailTemplates({ role }) {
   const list = (d?.templates || []).filter((t) => !q || `${t.label} ${t.description}`.toLowerCase().includes(q.toLowerCase()));
   return (
     <>
-      <PageHead crumbs={['Platform']} title="Email templates" meta={d ? countLine([[d.templates.length, 'emails'], [d.templates.filter((t) => t.changed).length, 'reworded']]) : null} />
+      <PageHead crumbs={['Platform']} title="Email templates" counts={d ? countLine([[d.templates.length, 'emails'], [d.templates.filter((t) => t.changed).length, 'reworded']]) : null} />
       <label className="relative" style={{ maxWidth: 460 }}>
         <span className="sr-only">Search emails</span>
         <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
@@ -337,7 +337,7 @@ export function EmailLog({ role, initialStatus = 'all', openCustomer }) {
 
   return (
     <>
-      <PageHead crumbs={['Platform']} title="Email log" meta={d ? `${d.total} ${d.total === 1 ? 'message' : 'messages'}${d.failedThisWeek ? ` · ${d.failedThisWeek} failed this week` : ''}` : null} />
+      <PageHead crumbs={['Platform']} title="Email log" counts={d ? `${d.total} ${d.total === 1 ? 'message' : 'messages'}${d.failedThisWeek ? ` · ${d.failedThisWeek} failed this week` : ''}` : null} />
       <div className="flex flex-wrap gap-2 items-center" role="search">
         <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 460 }}>
           <span className="sr-only">Search the log</span>

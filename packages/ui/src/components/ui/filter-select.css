@@ -1,0 +1,58 @@
+/* Filter chips (DESIGN.md "Filter chips"; design audit G7): 32px, 8px corners, white with a field border,
+   "Label: value ⌄". A chosen filter takes the app colour for its border and word. The menu opens under the chip. */
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 10px 0 12px;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 8px;
+  background: rgb(var(--surface));
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg));
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ui-chip:hover { background: rgb(var(--hover, 247 247 247)); }
+.ui-chip[data-popup-open] { border-color: rgb(var(--fg-muted)); }
+.ui-chip-k { color: rgb(var(--fg-muted)); }
+.ui-chip-v { font-weight: 600; }
+.ui-chip-caret { margin-left: 2px; color: rgb(var(--fg-muted)); }
+.ui-chip[data-set] { border-color: rgb(var(--act)); color: rgb(var(--act-ink, var(--act))); }
+.ui-chip[data-set] .ui-chip-k,
+.ui-chip[data-set] .ui-chip-caret { color: inherit; }
+.ui-chip-item { gap: 8px; font-size: 0.8125rem; }
+
+.ui-chip-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  padding: 0 8px;
+  height: 32px;
+  border-bottom: 1px solid rgb(var(--border));
+  color: rgb(var(--fg-muted));
+}
+/* The shared field class, drawn as a search line inside the menu rather than a box on a form. */
+.ui-chip-search .ui-chip-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  border: 0 !important;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: rgb(var(--fg));
+  outline: none;
+  box-shadow: none !important;
+}
+.ui-chip-none { margin: 0; padding: 8px 10px; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+
+@media (max-width: 767px) {
+  .ui-chip { height: 44px; }
+}

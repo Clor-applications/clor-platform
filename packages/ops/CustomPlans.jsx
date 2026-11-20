@@ -231,7 +231,7 @@ export function CustomPlans({ role, openCustomer = () => {} }) {
           crumbs={['Billing and setup']}
           title="Custom plans"
           description="Plans made for a deal: their own apps and prices, never shown on clor.in. For one customer, or for staff to use with any."
-          meta={d ? (open ? `${open} in use or ready` : 'None ready') : null}
+          counts={d ? (open ? `${open} in use or ready` : 'None ready') : null}
           actions={
             mayChange ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setEditing({})}>

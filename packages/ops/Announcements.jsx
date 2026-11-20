@@ -183,7 +183,7 @@ export function Announcements({ me }) {
           crumbs={['Platform']}
           title="Announcements"
           description="Notices from CLOR at the top of customers’ apps: news, planned maintenance, or a problem being fixed."
-          meta={d ? countLine([[c.live, 'showing now'], [c.scheduled, 'starting later'], [c.draft, (k) => `${k} ${k === 1 ? 'draft' : 'drafts'}`]], 'No announcements') : null}
+          counts={d ? countLine([[c.live, 'showing now'], [c.scheduled, 'starting later'], [c.draft, (k) => `${k} ${k === 1 ? 'draft' : 'drafts'}`]], 'No announcements') : null}
           actions={
             canWrite ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setEditing('new')}>

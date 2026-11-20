@@ -44,7 +44,7 @@ export function Health({ go, request = '' }) {
       <PageHead
         title="Background jobs"
         description="Work CLOR does in the background: postings, e-invoices, reader punches, messages and renewals. If a job has stopped, tell engineering."
-        meta={d ? <>Checked {when(d.at)}</> : null}
+        counts={d ? <>Checked {when(d.at)}</> : null}
         actions={
           <button type="button" className="ws-btn ws-btn--quiet" onClick={() => { setD(null); setError(''); load(); }}>
             Check again

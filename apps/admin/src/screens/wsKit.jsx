@@ -1,8 +1,7 @@
 import React from 'react';
 import { emoji } from '@ui/components/ui/emoji';
 import { PageIconContext } from './pageIcon';
-import { ArrowLeft, Check, ChevronDown, ChevronRight, ArrowUpRight, Globe, Smartphone } from '@ui/components/ui/lineIcons';
-import { Menu as UiMenu, MenuPanel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from '@ui/components/ui/Menu';
+import { ArrowLeft, ChevronRight, ArrowUpRight, Globe, Smartphone } from '@ui/components/ui/lineIcons';
 import {
   Bell, BookOpen, Briefcase, Building, Building2, CalendarDays, Clock, CreditCard, Database, FileText, Flag, History, House, Inbox, LayoutGrid, Library, Lightbulb, Mail, MessageCircle, Receipt, Settings, Shield, ShieldCheck, Timer, TriangleAlert, UserPlus, UserRound, Users, UsersRound, Wallet, Zap,
 } from 'lucide-react';
@@ -117,7 +116,7 @@ export function goBack(fallback = 'home') {
  * (Companies, Members, Plan…); every other Workspace page acts on the company
  * chosen in the bar, which the bar names.
  */
-export function PageHead({ crumbs = [], title, description, meta, actions, scope, icon: ownIcon = null, tools = null }) {
+export function PageHead({ crumbs = [], title, description, meta, counts = null, actions, scope, icon: ownIcon = null, tools = null }) {
   const menuIcon = React.useContext(PageIconContext);
   const titleIcon = ownIcon || menuIcon;
   const section = crumbs[0];
@@ -161,6 +160,10 @@ export function PageHead({ crumbs = [], title, description, meta, actions, scope
             standing rule since 26 Oct: no page descriptions). Callers may still pass `description`; it is
             kept for screen readers, where a page's one-line purpose helps and costs no space. */}
         {description ? <p className="sr-only">{description}</p> : null}
+        {/* The count line sits under the title (DESIGN.md "Page header", 19 Nov 2026; design audit G6). It is
+            not a caption: it is the page's totals, so it stays when descriptions are hidden. `meta` stays at the
+            side for a page's state ("Unsaved changes"). */}
+        {counts ? <p className="ui-count-line ws-head-count">{counts}</p> : null}
       </div>
       {meta || actions || tools ? (
         <div className="ws-head-side">
@@ -446,31 +449,5 @@ export function SeatRow({ app, used, limit, unit = 'users', note }) {
   );
 }
 
-/**
- * A filter chip ("App: All ⌄") that opens the app's own menu right under it (owner, 19 Nov 2026: the
- * browser's own select list opened in the middle of the page, in its own large type). `options` are
- * `[value, label]` pairs; the chip shows `label` and the chosen option's label.
- */
-export function FilterSelect({ label, value, options, onChange, ariaLabel, width = '14rem' }) {
-  const [open, setOpen] = React.useState(false);
-  const chosen = options.find(([v]) => v === value) || options[0];
-  return (
-    <UiMenu open={open} onOpenChange={setOpen}>
-      <MenuTrigger className="ws-chip" aria-label={`${ariaLabel || label}: ${chosen?.[1] || ''}`} data-set={value ? '' : undefined}>
-        <span className="ws-chip-k">{label}:</span>
-        <span className="ws-chip-v">{chosen?.[1]}</span>
-        <ChevronDown size={14} aria-hidden="true" className="ws-chip-caret" />
-      </MenuTrigger>
-      <MenuPanel aria-label={ariaLabel || label} minWidth="10rem" width={width} sideOffset={4}>
-        <MenuRadioGroup value={value} onValueChange={(v) => { onChange(v); setOpen(false); }}>
-          {options.map(([v, l]) => (
-            <MenuRadioItem key={v || '__all'} value={v} className="ws-chip-item">
-              <span className="min-w-0 flex-1 truncate">{l}</span>
-              {v === value ? <Check size={14} aria-hidden="true" /> : null}
-            </MenuRadioItem>
-          ))}
-        </MenuRadioGroup>
-      </MenuPanel>
-    </UiMenu>
-  );
-}
+/* The filter chip moved to the shared UI (design audit G7, 20 Nov 2026); Workspace screens keep importing it from here. */
+export { FilterSelect } from '@ui/components/ui/FilterSelect';

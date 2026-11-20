@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BulkOutcome from '@ui/components/list/BulkOutcome';
 import { bulkOutcome, waitingFirst } from '@ui/picks/round57';
 import { Check, X } from '@ui/components/ui/lineIcons';
+import ApproveActions from '@ui/components/ui/ApproveActions';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
@@ -252,14 +253,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     /* The header names the column for screen readers; sighted people read the buttons. */
     /* Tick and cross (owner's style pick, 17 Nov 2026): the tick approves in place; the cross opens the request, where a reason is asked for. */
     { key: 'act', label: <span className="sr-only">Actions</span>, align: 'right', always: true, render: (i) => (i.bulk || OWN_NOTE[i.own] ? (
-      <span className="ui-decide">
-        <button type="button" className="ui-decide-btn is-yes" disabled={rowBusy.has(i.key)} aria-label={`Approve ${whatOf(i)}${i.employeeName ? ` for ${i.employeeName}` : ''}`} title="Approve" onClick={(e) => { e.stopPropagation(); approveOne(i); }}>
-          {rowBusy.has(i.key) ? <span className="ui-spinner" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
-        </button>
-        <button type="button" className="ui-decide-btn is-no" disabled={rowBusy.has(i.key)} aria-label={`Reject ${whatOf(i)}${i.employeeName ? ` for ${i.employeeName}` : ''}`} title="Reject (asks for a reason)" onClick={(e) => { e.stopPropagation(); openItem(i); }}>
-          <X size={16} aria-hidden="true" />
-        </button>
-      </span>
+      <ApproveActions what={`${whatOf(i)}${i.employeeName ? ` for ${i.employeeName}` : ''}`} busy={rowBusy.has(i.key)} onApprove={() => approveOne(i)} onReject={() => openItem(i)} rejectTitle="Reject (asks for a reason)" />
     ) : null) },
   ];
   const taskColumns = [
