@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { fyLabel } from '@ui/picks/round34';
 import { Check, Download, Printer, Receipt, RotateCcw } from '@ui/components/ui/lineIcons';
@@ -8,8 +9,8 @@ import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import Drawer from '@ui/components/ui/Drawer';
-import { formatDateIn } from '@ui/utils/dates';
+import Drawer from '../components/EditDrawer';
+import { formatDateIn, dateWords } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { get24q, getForm16, getTaxDeclaration, listTaxDeclarations, reopenTaxDeclaration, saveTaxDeclaration, verifyTaxDeclaration } from '../api/payrollTaxDeclarations';
@@ -17,7 +18,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import OpeningYtdPanel from '../components/OpeningYtdPanel';
 import TdsDepositsPanel, { monthWords } from '../components/TdsDepositsPanel';
 import OpeningYtdSection from '../components/OpeningYtdSection';
-import { wholeRupees as money } from '@ui/utils/money';
+import { rupees as money } from '@ui/utils/money';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { escapeHtml } from '@ui/utils/html';
 import { dayTimeText, errorWords } from '@ui/utils/errorWords';
@@ -291,7 +292,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
       onClose={onClose}
       widthClass="w-[min(48rem,96vw)]"
       title={d ? `${d.employeeName} · ${fyLabel(fy)}` : 'Tax declaration'}
-      description={d ? `${STATUS[d.status]?.label || d.status}${d.submittedAt ? ` · declared ${formatDateIn(String(d.submittedAt).slice(0, 10))}` : ''}` : ''}
+      description={d ? `${STATUS[d.status]?.label || d.status}${d.submittedAt ? ` · declared ${dateWords(String(d.submittedAt).slice(0, 10))}` : ''}` : ''}
       actions={
         !form ? null : verified ? (
           <>
@@ -367,10 +368,10 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
                             <span className="ui-caption block">{meta.hint}{cap ? ` Up to ${money(cap)}.` : ''}</span>
                           </td>
                           <td className="ui-col-amount">
-                            <input type="number" min="0" step="1" className="ui-input ui-num w-28" aria-label={`${meta.label} declared`} value={i.declared} onChange={(e) => setItem(meta.code, { declared: e.target.value })} />
+                            <MoneyInput type="text" inputMode="decimal" min="0" step="1" className="ui-input ui-num w-28" aria-label={`${meta.label} declared`} value={i.declared} onChange={(e) => setItem(meta.code, { declared: e.target.value })} />
                           </td>
                           <td className="ui-col-amount">
-                            <input type="number" min="0" step="1" className="ui-input ui-num w-28" aria-label={`${meta.label} verified`} placeholder="—" value={i.verified} onChange={(e) => setItem(meta.code, { verified: e.target.value })} />
+                            <MoneyInput type="text" inputMode="decimal" min="0" step="1" className="ui-input ui-num w-28" aria-label={`${meta.label} verified`} placeholder="—" value={i.verified} onChange={(e) => setItem(meta.code, { verified: e.target.value })} />
                           </td>
                         </tr>
                       );
@@ -382,7 +383,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <label className="ui-label" htmlFor="tx-rent">Rent a month</label>
-                  <input id="tx-rent" type="number" min="0" className="ui-input ui-num w-full" value={form.monthlyRent} onChange={(e) => set({ monthlyRent: e.target.value })} />
+                  <MoneyInput id="tx-rent" type="text" inputMode="decimal" min="0" className="ui-input ui-num w-full" value={form.monthlyRent} onChange={(e) => set({ monthlyRent: e.target.value })} />
                 </div>
                 {Number(form.monthlyRent) * 12 > 100000 || form.landlordPan ? (
                   <div>
@@ -422,16 +423,16 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
               </div>
               <div>
                 <label className="ui-label" htmlFor="tx-prev-income">Taxable salary paid</label>
-                <input id="tx-prev-income" type="number" min="0" className="ui-input ui-num w-full" value={form.previousEmployer.income} onChange={(e) => setPrevious({ income: e.target.value })} />
+                <MoneyInput id="tx-prev-income" type="text" inputMode="decimal" min="0" className="ui-input ui-num w-full" value={form.previousEmployer.income} onChange={(e) => setPrevious({ income: e.target.value })} />
                 <span className="ui-caption">After that employer’s section 10 exemptions.</span>
               </div>
               <div>
                 <label className="ui-label" htmlFor="tx-prev-pt">Professional tax taken</label>
-                <input id="tx-prev-pt" type="number" min="0" max="2500" className="ui-input ui-num w-full" value={form.previousEmployer.professionalTax} onChange={(e) => setPrevious({ professionalTax: e.target.value })} />
+                <MoneyInput id="tx-prev-pt" type="text" inputMode="decimal" min="0" max="2500" className="ui-input ui-num w-full" value={form.previousEmployer.professionalTax} onChange={(e) => setPrevious({ professionalTax: e.target.value })} />
               </div>
               <div>
                 <label className="ui-label" htmlFor="tx-prev-tds">Income tax withheld</label>
-                <input id="tx-prev-tds" type="number" min="0" className="ui-input ui-num w-full" value={form.previousEmployer.tds} onChange={(e) => setPrevious({ tds: e.target.value })} />
+                <MoneyInput id="tx-prev-tds" type="text" inputMode="decimal" min="0" className="ui-input ui-num w-full" value={form.previousEmployer.tds} onChange={(e) => setPrevious({ tds: e.target.value })} />
               </div>
             </div>
           </div>

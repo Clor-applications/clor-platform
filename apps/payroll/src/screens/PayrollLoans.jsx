@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
+import { Figures } from '../components/Figure';
 import { FormPart } from '@ui/components/ui/FormPart';
 import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { ArrowLeft, Ban, Check, HandCoins, Plus, RotateCcw, SkipForward, X } from '@ui/components/ui/lineIcons';
@@ -368,9 +370,9 @@ const LoanForm = ({ people, components, periods, onCancel, onCreated }) => {
             </div>
             <div>
               <label className="ui-label" htmlFor="loan-principal">Amount lent</label>
-              <input
+              <MoneyInput
                 id="loan-principal"
-                type="number"
+                type="text" inputMode="decimal"
                 min="0"
                 step="0.01"
                 className="ui-input ui-num w-full"
@@ -388,7 +390,7 @@ const LoanForm = ({ people, components, periods, onCancel, onCreated }) => {
               <label className="ui-label" htmlFor="loan-count">Instalments</label>
               <input
                 id="loan-count"
-                type="number"
+                type="text" inputMode="decimal"
                 min="1"
                 max="600"
                 className="ui-input ui-num w-full"
@@ -401,7 +403,7 @@ const LoanForm = ({ people, components, periods, onCancel, onCreated }) => {
               <label className="ui-label" htmlFor="loan-rate">Interest (% a year)</label>
               <input
                 id="loan-rate"
-                type="number"
+                type="text" inputMode="decimal"
                 min="0"
                 max="100"
                 step="0.01"
@@ -562,12 +564,15 @@ const LoanDetail = ({ loanId, onBack }) => {
       />
 
       <div className="px-5 lg:px-7 pb-8 space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Figure label="Lent" value={money(loan.principal)} />
-        <Figure label="Recovered" value={money(loan.recovered ?? 0)} />
-        <Figure label="Written off" value={money(loan.waived ?? 0)} />
-        <Figure label="Still owed" value={money(loan.outstanding ?? loan.outstandingBalance)} />
-      </div>
+      <Figures
+        label="Loan totals"
+        items={[
+          { label: 'Lent', value: moneyCell(loan.principal, { zero: true }), raw: loan.principal },
+          { label: 'Recovered', value: moneyCell(loan.recovered ?? 0, { zero: true }), raw: loan.recovered ?? 0 },
+          { label: 'Written off', value: moneyCell(loan.waived ?? 0, { zero: true }), raw: loan.waived ?? 0 },
+          { label: 'Still owed', value: moneyCell(loan.outstanding ?? loan.outstandingBalance, { zero: true }), raw: loan.outstanding ?? loan.outstandingBalance },
+        ]}
+      />
 
       {loan.status === 'DRAFT' ? (
         <p className="ui-caption">
@@ -686,9 +691,3 @@ const LoanDetail = ({ loanId, onBack }) => {
   );
 };
 
-const Figure = ({ label, value }) => (
-  <div className="ui-card p-3">
-    <div className="ui-caption">{label}</div>
-    <div className="ui-amount mt-0.5">{value}</div>
-  </div>
-);

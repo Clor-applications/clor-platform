@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Notice from './Notice';
 import { AlertTriangle, Plus, Trash2, Upload } from '@ui/components/ui/lineIcons';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
-import { formatDateIn, todayIst } from '@ui/utils/dates';
+import { dateWords, todayIst } from '@ui/utils/dates';
 import { moneyCell } from '@ui/utils/money';
 import { requestOpenScreen } from '@platform/context';
 import { inForceIds, SKILL_LEVELS } from './minimumWageText';
@@ -81,7 +82,7 @@ export default function MinimumWagesSection() {
   const remove = async (r) => {
     const ok = await confirmDialog({
       title: 'Remove this rate?',
-      message: `${r.stateLabel}${r.zone ? ` (${r.zone})` : ''}, ${r.skillLabel}, from ${formatDateIn(r.effectiveFrom)}. Pay is no longer checked against it.`,
+      message: `${r.stateLabel}${r.zone ? ` (${r.zone})` : ''}, ${r.skillLabel}, from ${dateWords(r.effectiveFrom)}. Pay is no longer checked against it.`,
       confirmLabel: 'Remove rate',
       tone: 'danger',
     });
@@ -117,7 +118,7 @@ export default function MinimumWagesSection() {
       </div>
 
       {data?.reminder ? (
-        <div className="flex items-start gap-2 px-4 py-3" role="note" style={{ background: 'rgb(var(--warn-soft))', borderBottom: '1px solid rgb(var(--border))' }}>
+        <div className="flex items-start gap-2 px-4 py-3" role="note" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
           <AlertTriangle size={15} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
           <p className="ui-caption">{data.reminder.message}</p>
         </div>
@@ -171,12 +172,11 @@ export default function MinimumWagesSection() {
                   </td>
                   <td className="ui-col-meta">{r.zone || 'Whole state'}</td>
                   <td className="ui-col-meta" data-phone="sub">{r.skillLabel.charAt(0).toUpperCase() + r.skillLabel.slice(1)}</td>
-                  <td className="ui-col-date ui-col-h-center">{formatDateIn(r.effectiveFrom)}</td>
+                  <td className="ui-col-date ui-col-h-center">{dateWords(r.effectiveFrom)}</td>
                   <td className="ui-col-amount" data-phone="key">{moneyCell(r.monthlyRate)}</td>
                   <td className="text-center" data-phone="tag">
-                    <span className={`ui-pill ${live.has(r.id) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                      {live.has(r.id) ? 'In force' : r.effectiveFrom > today ? 'Upcoming' : 'Earlier'}
-                    </span>
+                    {/* A rate in force is what a rate should be: said in words for the others, never as a tag. */}
+                    {live.has(r.id) ? <span className="sr-only">In force</span> : <span className="ui-caption">{r.effectiveFrom > today ? 'Upcoming' : 'Earlier'}</span>}
                   </td>
                   <td className="text-center" data-phone="act">
                     <button type="button" className="ui-icon-btn" onClick={() => remove(r)} aria-label={`Remove the ${r.stateLabel} ${r.skillLabel} rate from ${r.effectiveFrom}`}>
@@ -254,17 +254,17 @@ export function MinimumWageReminder() {
   }, []);
   if (!reminder) return null;
   return (
-    <div className="ui-card p-4 flex flex-wrap items-center justify-between gap-3" role="note">
-      <div className="flex items-start gap-2 min-w-0">
-        <AlertTriangle size={15} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
-        <div className="min-w-0">
-          <div className="ui-sec-head">Update minimum wages</div>
-          <p className="ui-caption">{reminder.message}</p>
-        </div>
-      </div>
-      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => requestOpenScreen('compliance', { scheme: 'MINWAGE' })}>
-        Update rates
-      </button>
-    </div>
+    <Notice
+      tone="warn"
+      word="Update minimum wages"
+      role="note"
+      action={
+        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => requestOpenScreen('compliance', { scheme: 'MINWAGE' })}>
+          Update rates
+        </button>
+      }
+    >
+      {reminder.message}
+    </Notice>
   );
 }

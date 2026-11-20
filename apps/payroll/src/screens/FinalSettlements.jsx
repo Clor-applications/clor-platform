@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { Check, Handshake, PauseCircle, Plus, RotateCcw, Trash2 } from '@ui/components/ui/lineIcons';
 
@@ -8,8 +9,8 @@ import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import SuggestInput from '@ui/components/ui/SuggestInput';
-import Drawer from '@ui/components/ui/Drawer';
-import { formatDateIn } from '@ui/utils/dates';
+import Drawer from '../components/EditDrawer';
+import { dateWords } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
   approveSettlement,
@@ -26,7 +27,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { settlementClock } from './settlementClock';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
-import { moneyCell } from '@ui/utils/money';
+import { moneyCell, rupees } from '@ui/utils/money';
 
 const STATUS = {
   DRAFT: { label: 'Draft', pill: 'ui-pill-neutral' },
@@ -39,7 +40,7 @@ const KINDS = [
   { id: 'INFO', label: 'Note' },
 ];
 
-const money = (n) => `${Number(n) < 0 ? '− ' : ''}₹${Math.abs(Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const money = (n) => `${Number(n) <= -0.005 ? '− ' : ''}${rupees(Math.abs(Number(n) || 0))}`;
 /* Where a line comes from, in words: the record paying it closes. */
 const SOURCE_WORDS = { LOAN: 'Payroll loan', ADVANCE: 'Expense advance in People', CLAIM: 'Expense claim in People', CARRY: 'Waiting in Payroll' };
 const sourceWords = (s) => {
@@ -188,7 +189,7 @@ export default function FinalSettlements() {
                         {p.code ? <span className="ui-caption"> · {p.code}</span> : null}
                       </td>
                       <td className="ui-col-date whitespace-nowrap">
-                        {formatDateIn(p.dateOfLeaving)}
+                        {dateWords(p.dateOfLeaving)}
                         {p.status === 'ON_NOTICE' ? <span className="ui-caption block">on notice</span> : null}
                         {p.held ? <span className="ui-pill ui-pill-info ms-2">Held</span> : null}
                       </td>
@@ -247,9 +248,9 @@ export default function FinalSettlements() {
                       {x.employeeName || '—'}
                       {x.employeeCode ? <span className="ui-caption"> · {x.employeeCode}</span> : null}
                     </td>
-                    <td className="ui-col-date whitespace-nowrap" data-phone="sub">{formatDateIn(x.leavingDate)}</td>
+                    <td className="ui-col-date whitespace-nowrap" data-phone="sub">{dateWords(x.leavingDate)}</td>
                     <td className="ui-col-date whitespace-nowrap">
-                      {formatDateIn(x.dueDate)}
+                      {dateWords(x.dueDate)}
                       {x.overdue && x.status !== 'PAID' ? <span className="ui-pill ui-pill-neg ms-2">Overdue</span> : null}
                       {settlementClock(x) ? <span className="block ui-caption r52-fnf-clock">{settlementClock(x)}</span> : null}
                     </td>
@@ -323,9 +324,10 @@ function Settlement({ settlement, you, onClose, onChanged }) {
     <Drawer
       open
       onClose={onClose}
+      dirty={Boolean(dirty) && !busy}
       widthClass="w-[min(48rem,96vw)] ui-touch-44"
       title={`Full & final · ${settlement.employeeName || ''}`}
-      description={`Last day ${formatDateIn(settlement.leavingDate)} · due ${formatDateIn(settlement.dueDate)}${settlement.overdue ? ' · overdue' : ''}`}
+      description={`Last day ${dateWords(settlement.leavingDate)} · due ${dateWords(settlement.dueDate)}${settlement.overdue ? ' · overdue' : ''}`}
       actions={
         own ? null : draft ? (
           <>
@@ -413,8 +415,8 @@ function Settlement({ settlement, you, onClose, onChanged }) {
                   </td>
                   <td className="ui-col-amount">
                     {draft && l.kind !== 'INFO' ? (
-                      <input
-                        type="number"
+                      <MoneyInput
+                        type="text" inputMode="decimal"
                         min="0"
                         step="0.01"
                         className="ui-input ui-num w-32"
@@ -475,7 +477,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
         ) : null}
         {settlement.status === 'PAID' ? (
           <p className="ui-caption">
-            Paid {formatDateIn(indiaDay(settlement.paidAt))}
+            Paid {dateWords(indiaDay(settlement.paidAt))}
             {settlement.paidReference ? ` · ${settlement.paidReference}` : ''}
           </p>
         ) : null}
@@ -580,7 +582,7 @@ function HoldPanel({ settlement, busy, run, canLift = true, whyNot, stepUp = fal
         <PauseCircle size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--info))' }} />
         <div className="min-w-0">
           <h3 id="ff-hold-h" className="text-sm font-semibold">
-            Held{settlement.hold.since ? ` since ${formatDateIn(indiaDay(settlement.hold.since))}` : ''}
+            Held{settlement.hold.since ? ` since ${dateWords(indiaDay(settlement.hold.since))}` : ''}
           </h3>
           {settlement.hold.reason ? <p className="ui-caption">{settlement.hold.reason}</p> : null}
         </div>

@@ -85,7 +85,7 @@ export function ProvisionalDaysSetting() {
       <label className="block max-w-[12rem]">
         <span className="ui-label">Cut-off day of the month</span>
         <input
-          type="number"
+          type="text"
           inputMode="numeric"
           min={1}
           max={30}
@@ -106,7 +106,7 @@ export function ProvisionalDaysSetting() {
   );
 }
 
-const infoStyle = { background: "rgb(var(--info-soft))", color: "rgb(var(--info))" };
+const infoStyle = { background: "rgb(var(--surface))", border: "1px solid rgb(var(--border))", color: "rgb(var(--fg))" };
 
 /**
  * The run screen's line: "Days after the 25th counted as present: 3 people,
@@ -118,7 +118,7 @@ export function ProvisionalDaysNotice({ run }) {
   if (!text) return null;
   return (
     <div className="ui-card p-3 text-sm flex items-start gap-2" role="status" style={infoStyle}>
-      <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+      <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: "rgb(var(--fg-muted))" }} />
       <span>{text}</span>
     </div>
   );

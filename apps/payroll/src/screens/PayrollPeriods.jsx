@@ -19,6 +19,10 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { CLOSED_MONTH_NOTE } from '@ui/picks/round54';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { listPayrollRuns } from '../api/payrollRuns';
+import { rupees, sumMoney } from '@ui/utils/money';
+import { dateWords } from '@ui/utils/dates';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 
 /**
  * The pay cycles a run is filed against.
@@ -44,17 +48,27 @@ const untakenWords = (untaken, name) => {
   const list = Array.isArray(untaken) ? untaken : [];
   const n = list.length;
   const total = list.reduce((t, u) => t + (Number(u.amount) || 0), 0);
-  const what = n ? `${n} ${n === 1 ? 'deduction' : 'deductions'} due in ${name}, ₹${total.toLocaleString('en-IN')} in all, ${n === 1 ? 'was' : 'were'} not taken by any payslip.` : `Some deductions due in ${name} were not taken by any payslip.`;
+  const what = n ? `${n} ${n === 1 ? 'deduction' : 'deductions'} due in ${name}, ${rupees(total)} in all, ${n === 1 ? 'was' : 'were'} not taken by any payslip.` : `Some deductions due in ${name} were not taken by any payslip.`;
   return `${what} Once the month is closed they are never taken, unless you move them to an open month first.`;
 };
 
-/** Read the way this country writes a date; the ISO value stays underneath. */
-const shown = (iso) => {
-  const s = String(iso || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—';
-  const [y, m, d] = s.split('-');
-  return `${d}/${m}/${y}`;
+/** The question before a period is closed: its name, how many pay runs, and what they paid. `runs` null: not known. */
+export const closeWords = (row, runs) => {
+  const n = runs ? runs.length : Number(row?.usage?.runs || 0);
+  const net = runs ? sumMoney(runs.map((r) => r.netTotal)) : null;
+  const what = n
+    ? `${n} pay ${n === 1 ? 'run' : 'runs'}${net != null ? `, ${rupees(net)} net pay in all` : ''}`
+    : 'No pay run';
+  return {
+    title: `Close ${row.name}?`,
+    message: `${what}. Once closed, nothing more can be paid or changed in ${row.name}; a mistake found later is put right in an open month.`,
+    confirmLabel: 'Close period',
+    tone: 'danger',
+  };
 };
+
+/** Dates in words (DESIGN.md: "9 Dec 2026"), never DD/MM/YYYY. */
+const shown = (iso) => dateWords(iso);
 
 /** The month after the last period, which is what somebody is about to add. */
 const nextMonthFrom = (rows) => {
@@ -100,6 +114,7 @@ export default function PayrollPeriods({ menuLabel } = {}) {
   const [all, setAll] = useState(null);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null);
+  const [formDirty, setFormDirty] = useState(false);
   const [busy, setBusy] = useState('');
   const [status, setStatus] = useState('');
 
@@ -126,6 +141,19 @@ export default function PayrollPeriods({ menuLabel } = {}) {
           'A closed period has usually been paid and reported. Reopening it allows new payroll for a month that has already been filed.',
         confirmLabel: 'Reopen period',
       });
+      if (!ok) return;
+    } else {
+      /* Closing is final (round 54: a closed month is never reopened), so it asks first and names what it closes. */
+      if (busy) return;
+      setBusy(row.id);
+      let runs = null;
+      try {
+        runs = (await listPayrollRuns()).filter((r) => (r.periodId || r.period?.id) === row.id && r.status !== 'CANCELLED');
+      } catch {
+        runs = null;
+      }
+      setBusy('');
+      const ok = await confirmDialog(closeWords(row, runs));
       if (!ok) return;
     }
     setBusy(row.id);
@@ -261,7 +289,8 @@ export default function PayrollPeriods({ menuLabel } = {}) {
                     <td className="ui-col-date ui-col-h-center" data-phone="key">{shown(p.paymentDate)}</td>
                     <td className="ui-col-meta">{describeUsage(p.usage)}</td>
                     <td className="ui-col-h-center" data-phone="tag">
-                      <span className={`ui-pill ${p.isLocked ? 'ui-pill-neutral' : 'ui-pill-pos'}`}>{p.isLocked ? 'Closed' : 'Open'}</span>
+                      {/* Open and closed are both expected states, so neither carries a tag (DESIGN.md "Status tags"). */}
+                      <ExceptionTag label="" normal={p.isLocked ? 'Closed' : 'Open'} />
                     </td>
                     <td data-phone="act" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
@@ -298,12 +327,15 @@ export default function PayrollPeriods({ menuLabel } = {}) {
         onClose={() => setEditing(null)}
         title={editing?.id ? 'Edit period' : 'New period'}
         description="The days this payroll covers, and when it is paid."
+        dirty={formDirty}
       >
         {editing ? (
           <PeriodForm
             initial={editing}
             onClose={() => setEditing(null)}
+            onDirty={setFormDirty}
             onSaved={() => {
+              setFormDirty(false);
               setEditing(null);
               load();
             }}
@@ -314,9 +346,14 @@ export default function PayrollPeriods({ menuLabel } = {}) {
   );
 }
 
-const PeriodForm = ({ initial, onClose, onSaved }) => {
+const PeriodForm = ({ initial, onClose, onSaved, onDirty }) => {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const dirty = ['name', 'startDate', 'endDate', 'paymentDate', 'frequency'].some((k) => String(form[k] ?? '') !== String(initial[k] ?? ''));
+  useEffect(() => {
+    onDirty?.(dirty);
+  }, [dirty, onDirty]);
+  useEffect(() => () => onDirty?.(false), [onDirty]);
   const set = (patch) => setForm((p) => ({ ...p, ...patch }));
 
   /* Once payroll has been calculated, the dates are part of what it computed —
@@ -326,6 +363,7 @@ const PeriodForm = ({ initial, onClose, onSaved }) => {
 
   const save = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     try {
       const payload = {

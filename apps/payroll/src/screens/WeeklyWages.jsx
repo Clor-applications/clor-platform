@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
+import { Figure } from '../components/Figure';
 import { ArrowLeft, CalendarRange, Check, Download, FileText, HardHat, Plus, Printer, RefreshCw, Trash2, Undo2, Wallet } from '@ui/components/ui/lineIcons';
 
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { EmptyState, PageHeader, SkeletonCard, StatusPill } from '@ui/components/ui/Primitives';
-import Drawer from '@ui/components/ui/Drawer';
+import Drawer from '../components/EditDrawer';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { rupees as money, moneyCell } from '@ui/utils/money';
@@ -375,7 +377,7 @@ function RateForm({ initial, groups, onClose, onSaved }) {
   const num = (key, label, hint, step = '0.01') => (
     <div>
       <label className="ui-label" htmlFor={`ww-${key}`}>{label}</label>
-      <input id={`ww-${key}`} type="number" min="0" step={step} className="ui-input ui-num w-full" value={form[key]} onChange={(e) => set({ [key]: e.target.value })} />
+      <input id={`ww-${key}`} type="text" inputMode="decimal" min="0" step={step} className="ui-input ui-num w-full" value={form[key]} onChange={(e) => set({ [key]: e.target.value })} />
       {hint ? <span className="ui-caption block mt-1">{hint}</span> : null}
     </div>
   );
@@ -404,7 +406,7 @@ function RateForm({ initial, groups, onClose, onSaved }) {
         </div>
         <div>
           <label className="ui-label" htmlFor="ww-dailyRate">Daily rate</label>
-          <input id="ww-dailyRate" type="number" min="1" step="0.01" className="ui-input ui-num w-full" value={form.dailyRate} onChange={(e) => set({ dailyRate: e.target.value })} required />
+          <MoneyInput id="ww-dailyRate" type="text" inputMode="decimal" min="1" step="0.01" className="ui-input ui-num w-full" value={form.dailyRate} onChange={(e) => set({ dailyRate: e.target.value })} required />
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -514,9 +516,12 @@ function SheetPage({ sheetId, onBack }) {
       <div className="px-5 lg:px-7 pb-8 space-y-4">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <StatusPill status={sheet.status} />
-          <Figure label="Gross" value={money(sheet.gross)} />
-          <Figure label="Deductions" value={money(sheet.deductions)} />
-          <Figure label="Net pay" value={money(sheet.net)} />
+          {/* The shared figure (22/28 at 600), hidden at zero; was body-size text here. */}
+          <dl className="flex flex-wrap gap-x-6 gap-y-2" aria-label="Sheet totals">
+            <Figure label="Gross" value={moneyCell(sheet.gross, { zero: true })} raw={sheet.gross} />
+            <Figure label="Deductions" value={moneyCell(sheet.deductions, { zero: true })} raw={sheet.deductions} />
+            <Figure label="Net pay" value={moneyCell(sheet.net, { zero: true })} raw={sheet.net} />
+          </dl>
           {sheet.paidOn ? <span className="ui-caption">Paid on {dayWords(sheet.paidOn)} {sheet.paidOn.slice(0, 4)}{sheet.paymentReference ? <> · <span className="ui-mono">{sheet.paymentReference}</span></> : null}</span> : null}
         </div>
 
@@ -623,12 +628,6 @@ function SheetPage({ sheetId, onBack }) {
   );
 }
 
-const Figure = ({ label, value }) => (
-  <div>
-    <span className="ui-caption block">{label}</span>
-    <span className="ui-num text-base">{value}</span>
-  </div>
-);
 
 /** A number typed in a row, saved when the field is left. */
 function LineNumber({ label, value, step, onSave }) {
@@ -640,7 +639,7 @@ function LineNumber({ label, value, step, onSave }) {
   };
   return (
     <input
-      type="number"
+      type="text" inputMode="decimal"
       min="0"
       step={step}
       aria-label={label}

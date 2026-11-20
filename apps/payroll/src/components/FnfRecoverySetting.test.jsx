@@ -16,7 +16,7 @@ it('explains what counts as final wages, refuses more than half, and saves for t
   vi.mocked(saveFnfRecoveryCap).mockResolvedValue({ percent: 40, canEdit: true });
   const user = userEvent.setup();
   render(<FnfRecoverySetting />);
-  const share = await screen.findByRole('spinbutton', { name: /Share of final wages/ });
+  const share = await screen.findByRole('textbox', { name: /Share of final wages/ });
   expect(screen.getByText(/never gratuity or reimbursements/)).toBeInTheDocument();
   expect(screen.getByText(/The rest stays owed by the person/)).toBeInTheDocument();
   expect(screen.getByText(/s\.18\(3\)/)).toBeInTheDocument();
@@ -37,7 +37,7 @@ it('shows the share read-only to anyone who is not the owner or an admin', async
   vi.mocked(getFnfRecoveryCap).mockResolvedValue({ percent: 50, canEdit: false });
   render(<FnfRecoverySetting />);
   expect(await screen.findByText(/Only the owner or an admin changes this/)).toBeInTheDocument();
-  expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
 });
 

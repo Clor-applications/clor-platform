@@ -58,7 +58,7 @@ export function FnfRecoverySetting() {
           <label className="block max-w-[12rem]">
             <span className="ui-label">Share of final wages, in %</span>
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
               min={0}
               max={50}

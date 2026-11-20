@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Notice from './Notice';
 import { fyLabel } from '@ui/picks/round34';
 import { History, Upload } from '@ui/components/ui/lineIcons';
-import Drawer from '@ui/components/ui/Drawer';
+import Drawer from './EditDrawer';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
-import { wholeRupees as money } from '@ui/utils/money';
+import { rupees as money } from '@ui/utils/money';
 import { importOpeningYtd, listOpeningYtd, setFirstPayrollYear } from '../api/payrollTaxDeclarations';
 import { errorWords } from '@ui/utils/errorWords';
 
@@ -131,14 +132,14 @@ function Panel({ fy, onClose, onOpenPerson }) {
       ) : (
         <div className="space-y-5">
           {problems.length ? (
-            <div role="alert" className="ui-card p-3 text-sm" style={{ background: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))' }}>
-              <p>Nothing was saved. Correct these rows and import again:</p>
+            <Notice tone="neg" word="Nothing was saved" role="alert">
+              <p>Correct these rows and import again:</p>
               <ul className="mt-1 list-disc pl-5">
                 {problems.map((p) => (
                   <li key={`${p.line}-${p.message}`}>Row {p.line}: {p.message}</li>
                 ))}
               </ul>
-            </div>
+            </Notice>
           ) : null}
 
           <section className="space-y-2" aria-labelledby="first-year-h">

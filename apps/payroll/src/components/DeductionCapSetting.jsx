@@ -66,7 +66,7 @@ export function DeductionCapSetting() {
       <label className="block max-w-[12rem]">
         <span className="ui-label">Share of wages, in %</span>
         <input
-          type="number"
+          type="text"
           inputMode="numeric"
           min={10}
           max={50}
@@ -104,7 +104,7 @@ export function DeductionCapSetting() {
   );
 }
 
-const infoStyle = { background: "rgb(var(--info-soft))", color: "rgb(var(--info))" };
+const infoStyle = { background: "rgb(var(--surface))", border: "1px solid rgb(var(--border))", color: "rgb(var(--fg))" };
 
 /** The run screen's line, in the server's words. Nothing when no deduction was held back. */
 export function DeductionCapNotice({ run }) {
@@ -112,13 +112,14 @@ export function DeductionCapNotice({ run }) {
   if (!text) return null;
   return (
     <div className="ui-card p-3 text-sm flex items-start gap-2" role="status" style={infoStyle}>
-      <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+      <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: "rgb(var(--fg-muted))" }} />
       <span>{text}</span>
     </div>
   );
 }
 
-const warnStyle = { background: "rgb(var(--warn-soft))", color: "rgb(var(--warn-ink))" };
+/* A note on the page's white ground with a hairline; the icon carries the status ink (DESIGN.md: never a tinted panel). */
+const warnStyle = { background: "rgb(var(--surface))", border: "1px solid rgb(var(--border))", color: "rgb(var(--fg))" };
 
 /**
  * Entered deductions past the share of wages, from the last calculation.
@@ -149,7 +150,7 @@ export function OverLimitPanel({ run, onSaved }) {
   return (
     <section className="ui-card p-3 space-y-2 text-sm" aria-labelledby="over-limit-h" style={over.reason ? infoStyle : warnStyle}>
       <div className="flex items-start gap-2">
-        <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+        <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: "rgb(var(--warn-ink))" }} />
         <div className="min-w-0 space-y-1">
           <h3 id="over-limit-h" className="font-semibold">
             Deductions pass {percent}% of wages for {over.people.length} {over.people.length === 1 ? "person" : "people"}

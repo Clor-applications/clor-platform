@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check } from "@ui/components/ui/lineIcons";
-import { wholeRupees as money } from "@ui/utils/money";
+import { rupees as money } from "@ui/utils/money";
 import { getSalaryStructure, previewSalaryStructure } from "../api/payrollStructures";
 import { errorWords } from "@ui/utils/errorWords";
 
@@ -25,10 +25,13 @@ export function nextMonthName(endDate) {
 export function lockWords(run) {
   const name = run?.period?.name || "this month";
   const next = nextMonthName(run?.period?.endDate);
+  const people = Number(run?.employeeCount || 0);
+  /* The amount and the head count being made final, named in the question (design audit, Batch 1). */
+  const what = run?.netTotal != null ? `${money(run.netTotal)} net pay to ${people} ${people === 1 ? "person" : "people"}. ` : "";
   return {
     title: `Lock ${name}?`,
     message:
-      `After locking, nobody can change this pay run and its payslips are final. ` +
+      `${what}After locking, nobody can change this pay run and its payslips are final. ` +
       `A mistake found later is put right in ${next ? `${next}'s` : "next month's"} payroll as an adjustment.`,
     confirmLabel: "Lock pay run",
   };
