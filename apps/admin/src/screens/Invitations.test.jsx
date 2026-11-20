@@ -12,6 +12,9 @@ vi.mock('@platform/admin/account', () => ({
 const roles = { listRoles: vi.fn() };
 vi.mock('@platform/admin/admin', () => ({ listRoles: (...a) => roles.listRoles(...a) }));
 
+const ask = vi.hoisted(() => ({ confirmDialog: vi.fn(async () => true) }));
+vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: (...a) => ask.confirmDialog(...a), notify: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
+
 import Invitations, { accessPreview } from './Invitations';
 
 const tenant = { id: 'c1', name: 'Anand Traders', accountId: 'A' };
@@ -21,6 +24,7 @@ beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   api.listInvitations.mockResolvedValue({ invitations: [] });
   api.createInvitation.mockResolvedValue({ invitation: { id: 'i1' }, seatWarning: null });
+  ask.confirmDialog.mockReset().mockResolvedValue(true);
   roles.listRoles.mockReset();
   roles.listRoles.mockResolvedValue({ roles: [{ id: 'r1', name: 'Accountant' }, { id: 'r2', name: 'Store keeper' }] });
 });
@@ -105,5 +109,43 @@ describe('Workspace → Invitations', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
     expect(screen.getByText('kiran@x.in')).toBeInTheDocument();
   });
-});
 
+  /* Audit 21 Nov 2026: Withdraw went through on one click. */
+  it('asks before withdrawing, and leaves the invitation alone on No', async () => {
+    api.listInvitations.mockResolvedValue({ invitations: [{ id: 'a', email: 'open@x.in', accountRole: 'MEMBER', status: 'PENDING', expiresAt: '2026-11-01', lastSentAt: '2026-10-25' }] });
+    ask.confirmDialog.mockResolvedValueOnce(false);
+    render(<Invitations tenant={tenant} companies={companies} />);
+    await screen.findByText('open@x.in');
+    fireEvent.click(screen.getByRole('button', { name: /Withdraw/ }));
+    await waitFor(() => expect(ask.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Withdraw the invitation to open@x.in?', message: 'Their link stops working; you can invite them again.', tone: 'danger' })));
+    expect(api.revokeInvitation).not.toHaveBeenCalled();
+  });
+
+  it('holds a row while its resend is out', async () => {
+    api.listInvitations.mockResolvedValue({ invitations: [{ id: 'a', email: 'open@x.in', accountRole: 'MEMBER', status: 'PENDING', expiresAt: '2026-11-01', lastSentAt: '2026-10-25' }] });
+    api.resendInvitation.mockImplementation(() => new Promise(() => {}));
+    render(<Invitations tenant={tenant} companies={companies} />);
+    await screen.findByText('open@x.in');
+    fireEvent.click(screen.getByRole('button', { name: /^Resend$/ }));
+    expect(await screen.findByRole('button', { name: /Sending…/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Withdraw/ })).toBeDisabled();
+  });
+
+  it('a failed load offers a retry instead of "No invitations yet"', async () => {
+    api.listInvitations.mockRejectedValueOnce(new Error('down'));
+    render(<Invitations tenant={tenant} companies={companies} />);
+    const retry = await screen.findByRole('button', { name: 'Try again' });
+    expect(screen.queryByText(/No invitations yet/)).toBeNull();
+    fireEvent.click(retry);
+    expect(await screen.findByText(/No invitations yet/)).toBeInTheDocument();
+  });
+
+  it('says why Send is off', async () => {
+    render(<Invitations tenant={tenant} companies={companies} />);
+    await screen.findByText(/No invitations yet/);
+    fireEvent.click(screen.getByRole('button', { name: /Invite people/ }));
+    const send = screen.getByRole('button', { name: /Send invitation/ });
+    expect(send).toBeDisabled();
+    expect(send).toHaveAccessibleDescription('Enter their email address to send the invitation.');
+  });
+});

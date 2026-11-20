@@ -1,5 +1,6 @@
 import { emoji } from '@ui/components/ui/emoji';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { Save } from 'lucide-react';
 
 import { getEmailSwitches, saveEmailSwitches } from '@ui/api/notifications';
@@ -8,7 +9,7 @@ import { emailGroups, switchesBody, toggleEmail } from '@ui/notifications/emailA
 import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { readOnlyFor } from '@ui/permissions/WriteGuard';
-import { AppMark, Empty, Loading, PageHead } from './wsKit';
+import { AppMark, Empty, LoadError, Loading, PageHead } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
@@ -35,23 +36,30 @@ export default function NotificationSettings({ tenant }) {
   const [saving, setSaving] = useState(false);
   const readOnly = readOnlyFor(PERMISSION, usePermissions() || {});
 
+  const live = useRef(true);
   useEffect(() => {
-    let off = false;
+    live.current = true;
+    return () => { live.current = false; };
+  }, []);
+  const load = useCallback(() => {
+    setError('');
     getEmailSwitches()
       .then((r) => {
-        if (off) return;
+        if (!live.current) return;
         setEvents(r?.events || []);
         setSaved(r?.events || []);
       })
-      .catch((e) => !off && setError(errorWords(e, 'load the email settings')));
-    return () => {
-      off = true;
-    };
+      .catch((e) => live.current && setError(errorWords(e, 'load the email settings')));
   }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const subscriptions = Array.isArray(tenant?.subscriptions) ? tenant.subscriptions : null;
   const groups = useMemo(() => emailGroups(events || [], subscriptions), [events, subscriptions]);
   const dirty = Boolean(events && saved) && JSON.stringify(switchesBody(events)) !== JSON.stringify(switchesBody(saved));
+  /* Switches changed and not saved: leaving the page or closing the tab asks first. */
+  useUnsavedChanges(dirty && !saving);
   /* Counted over what is shown: an email of an app the company does not have is not one it switched off here. */
   const offCount = groups.reduce((n, g) => n + g.events.filter((e) => !e.enabled).length, 0);
 
@@ -86,12 +94,12 @@ export default function NotificationSettings({ tenant }) {
           }
         />
 
-        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+        {error && events ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         <div className="ws-activity-layout">
           <div className="ws-activity-main ws-mail">
             {!events ? (
-              error ? null : <Loading shape="rows" label="Loading email notifications…" />
+              error ? <LoadError onRetry={load}>{error}</LoadError> : <Loading shape="rows" label="Loading email notifications…" />
             ) : groups.length === 0 ? (
               <Empty icon={PAGE_ICON} compact>This company has no apps that send emails you can switch off.</Empty>
             ) : (

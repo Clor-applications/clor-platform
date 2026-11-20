@@ -15,6 +15,7 @@ vi.mock('@platform/http', async (original) => ({
     throw new Error('not mocked');
   },
 }));
+vi.mock('@ui/components/ui/notify', async (original) => ({ ...(await original()), confirmDialog: vi.fn(async () => true) }));
 vi.mock('@platform/admin/security', () => ({
   getProviders: vi.fn(async () => ({
     redirectUri: 'https://app.clor.in/api/auth/sso/callback',
@@ -28,6 +29,7 @@ vi.mock('@platform/admin/security', () => ({
 import AccountOverview from './AccountOverview';
 import BillingPreview from './BillingPreview';
 import SsoSettings from './SsoSettings';
+import { getProviders, updateProvider } from '@platform/admin/security';
 
 const COMPANY = { id: 1, name: 'Neev Steels' };
 
@@ -156,5 +158,28 @@ describe('single sign-on', () => {
     render(<SsoSettings />);
     fireEvent.click(await screen.findByRole('button', { name: 'Add a provider' }));
     expect(screen.getByText(/Added switched off until its domains are verified/)).toBeInTheDocument();
+  });
+
+  /* Audit 21 Nov 2026: a failed read left a skeleton forever. */
+  it('says the sign-in methods did not load and offers a retry', async () => {
+    getProviders.mockRejectedValueOnce(new Error('down'));
+    render(<SsoSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Okta')).toBeInTheDocument();
+  });
+
+  it('asks before switching a provider off, and holds the button while it switches', async () => {
+    const { confirmDialog } = await import('@ui/components/ui/notify');
+    getProviders.mockResolvedValueOnce({
+      redirectUri: 'https://app.clor.in/api/auth/sso/callback',
+      local: { name: 'Email and password' },
+      providers: [{ id: 'p1', name: 'Okta', kind: 'OIDC', status: 'ACTIVE', enabled: true, emailDomains: 'okta.example.in' }],
+    });
+    vi.mocked(confirmDialog).mockResolvedValueOnce(true);
+    updateProvider.mockImplementationOnce(() => new Promise(() => {}));
+    render(<SsoSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch off' }));
+    await waitFor(() => expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Switch off Okta single sign-on?', tone: 'danger' })));
+    expect(await screen.findByRole('button', { name: 'Switching off…' })).toBeDisabled();
   });
 });

@@ -4,7 +4,7 @@ import { ArrowRightLeft, Pencil } from '@ui/components/ui/lineIcons';
 import { memberDirectory } from '@platform/admin/account';
 import { getArchiveReasons } from '@platform/admin/admin';
 import { formatMoney } from '@ui/utils/money';
-import { ICON, Loading, WsDrawer, productIcon } from './wsKit';
+import { ICON, Loading, WsDrawer, productIcon, tabKeys } from './wsKit';
 import { errorWords } from '@ui/utils/errorWords';
 
 /**
@@ -101,9 +101,9 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
     >
       {company ? (
         <>
-          <div className="ws-tabs" role="tablist" aria-label={`${company.name} details`}>
+          <div className="ws-tabs" role="tablist" aria-label={`${company.name} details`} onKeyDown={tabKeys(tabs.map(([k]) => k), tab, setTab, (k) => `cd-tab-${k}`)}>
             {tabs.map(([k, label]) => (
-              <button key={k} type="button" role="tab" aria-selected={tab === k} className="ws-tab" onClick={() => setTab(k)}>
+              <button key={k} id={`cd-tab-${k}`} type="button" role="tab" aria-selected={tab === k} aria-controls="cd-tabpanel" tabIndex={tab === k ? 0 : -1} className="ws-tab" onClick={() => setTab(k)}>
                 {label}
               </button>
             ))}
@@ -111,6 +111,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
 
           {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
 
+          <div id="cd-tabpanel" role="tabpanel" aria-labelledby={`cd-tab-${tab}`} tabIndex={0} className="ws-tabpanel">
           {tab === 'overview' ? (
             <div className="grid gap-5">
               <dl className="ws-facts">
@@ -270,6 +271,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
               })}
             </ul>
           ) : null}
+          </div>
         </>
       ) : null}
     </WsDrawer>

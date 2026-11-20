@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { apiFetch } from '@platform/http';
-import { Panel, WsDrawer } from './wsKit';
+import { LoadError, Panel, WsDrawer } from './wsKit';
 import { errorWords } from '@ui/utils/errorWords';
 
 /**
@@ -57,10 +57,15 @@ export default function PlanChange({ asButton = false, onInvoice }) {
   const [menu, setMenu] = useState(false);
   const [asking, setAsking] = useState(null);
   const [stopping, setStopping] = useState(false);
+  /* The plan could not be read: said in a line with a retry, where the choices would be (it used to vanish). */
+  const [failed, setFailed] = useState(false);
+  /* "Keep the plan" is out: the link waits, so renewal is not switched on twice. */
+  const [resuming, setResuming] = useState(false);
 
   const load = () =>
     apiFetch('/billing/subscription')
       .then((r) => {
+        setFailed(false);
         setState(r && Array.isArray(r.ownedApps) ? r : false);
         /* Seats are only for whoever may change the plan; anyone else is never asked. */
         if (r?.mayChangePlan) {
@@ -72,11 +77,18 @@ export default function PlanChange({ asButton = false, onInvoice }) {
             .catch(() => setApps(null));
         }
       })
-      .catch(() => setState(false));
+      .catch(() => {
+        setState(false);
+        setFailed(true);
+      });
   useEffect(() => {
     load();
   }, []);
 
+  if (failed) {
+    const note = <LoadError onRetry={() => { setFailed(false); load(); }}>The plan choices could not be loaded.</LoadError>;
+    return asButton ? note : <Panel title="Change the plan">{note}</Panel>;
+  }
   if (!state || (!state.mayChangePlan && !state.mayStopPlan)) return null;
   const owned = state.ownedApps || [];
   const sub = state.subscription;
@@ -85,12 +97,16 @@ export default function PlanChange({ asButton = false, onInvoice }) {
   const endsOn = day(sub?.status === 'trialing' ? sub?.trialEndsAt : sub?.currentPeriodEnd);
 
   const resume = async () => {
+    if (resuming) return;
+    setResuming(true);
     try {
       await apiFetch('/billing/resume', { method: 'POST', body: {} });
       notify.success('Renewal is back on.');
       load();
     } catch (e) {
       notify.error(errorWords(e, 'switch renewal back on'));
+    } finally {
+      setResuming(false);
     }
   };
 
@@ -185,8 +201,8 @@ export default function PlanChange({ asButton = false, onInvoice }) {
         sub.cancelAtPeriodEnd ? (
           <p className="ws-card-blurb">
             This plan will not renew{endsOn ? `; it stops on ${endsOn}` : ''}.{' '}
-            <button type="button" className="ws-link" onClick={keep}>
-              Keep the plan
+            <button type="button" className="ws-link" disabled={resuming} aria-busy={resuming || undefined} onClick={keep}>
+              {resuming ? 'Keeping the plan…' : 'Keep the plan'}
             </button>
           </p>
         ) : (

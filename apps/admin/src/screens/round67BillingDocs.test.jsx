@@ -67,4 +67,17 @@ describe('billing documents for companies', () => {
     expect(screen.getByText('PO/4471')).toBeTruthy();
     expect(screen.getByText(/TDS deducted/)).toBeTruthy();
   });
+
+  it('a part that did not load keeps its heading and offers a retry', async () => {
+    fetches.call.mockReset();
+    fetches.call.mockImplementation(async (path) => {
+      if (path === '/billing/purchase-orders') throw new Error('down');
+      if (path === '/billing/proformas') return { proformas: [] };
+      return { documents: [] };
+    });
+    render(<BillingDocs />);
+    await screen.findByText('The purchase orders could not be loaded.');
+    const po = screen.getByRole('region', { name: 'Purchase orders' });
+    expect(within(po).getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
 });

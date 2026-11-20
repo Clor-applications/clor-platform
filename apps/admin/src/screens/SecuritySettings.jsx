@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronRight, KeyRound, LogOut, Save } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
 
@@ -13,7 +13,8 @@ import {
 } from '@platform/admin/security';
 import AuthenticatorCard from '@ui/profile/AuthenticatorCard';
 import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
-import { Avatar, DeviceMark, Empty, FilterSelect, ICON, Loading, PageHead, Panel, StatusPill, ago, device, ipText } from './wsKit';
+import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
+import { Avatar, DeviceMark, Empty, FilterSelect, ICON, LoadError, Loading, PageHead, Panel, StatusPill, ago, device, ipText } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 import { enumWords, errorWords } from '@ui/utils/errorWords';
@@ -102,25 +103,42 @@ export const SecuritySettings = ({ openScreen }) => {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-
+  /* The rules did not load: said where they would be, with a retry. */
+  const [loadError, setLoadError] = useState('');
+  /* The two new passwords differ: said under the confirm field, which takes the focus. */
+  const [pwMismatch, setPwMismatch] = useState(false);
+  const confirmRef = useRef(null);
+  const live = useRef(true);
   useEffect(() => {
-    let cancelled = false;
+    live.current = true;
+    return () => { live.current = false; };
+  }, []);
+
+  const loadPolicy = useCallback(() => {
+    setLoadError('');
     getPolicy()
       .then((p) => {
-        if (cancelled) return;
+        if (!live.current) return;
         setPolicy(p?.policy || null);
         setBaseline(p?.policy || null);
       })
-      .catch((e) => !cancelled && setError(errorWords(e, 'load the sign-in rules')));
+      .catch((e) => live.current && setLoadError(errorWords(e, 'load the sign-in rules')));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPolicy();
     getProviders().then((d) => !cancelled && setMethods(d)).catch(() => !cancelled && setMethods({ providers: [] }));
     getMySessions().then((d) => !cancelled && setSessions(d?.sessions || [])).catch(() => !cancelled && setSessions([]));
     getAuthEvents().then((d) => !cancelled && setEvents(d?.events || [])).catch(() => !cancelled && setEvents([]));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadPolicy]);
 
   const dirty = useMemo(() => JSON.stringify(policy) !== JSON.stringify(baseline), [policy, baseline]);
+  /* Unsaved rules: leaving by the menu, another app or closing the tab asks first. */
+  useUnsavedChanges(dirty);
   const setField = (patch) => setPolicy((p) => ({ ...p, ...patch }));
 
   const run = async (key, fn, note) => {
@@ -148,9 +166,11 @@ export const SecuritySettings = ({ openScreen }) => {
 
   const changePw = () => {
     if (pw.next !== pw.confirm) {
-      setError('The new passwords do not match');
+      setPwMismatch(true);
+      confirmRef.current?.focus();
       return;
     }
+    setPwMismatch(false);
     run('pw', async () => {
       await changePassword(pw.current, pw.next);
       setPw(EMPTY_PW);
@@ -288,8 +308,10 @@ export const SecuritySettings = ({ openScreen }) => {
         </section>
 
         <div className="ws-layout">
-          {!policy ? (
-            <p className="ws-card-blurb">{error ? '' : 'Loading the sign-in rules…'}</p>
+          {!policy && loadError ? (
+            <div className="ws-main"><LoadError onRetry={loadPolicy}>{loadError}</LoadError></div>
+          ) : !policy ? (
+            <p className="ws-card-blurb">Loading the sign-in rules…</p>
           ) : (
             <form id="security-policy" onSubmit={save} className="ws-main">
               <Section title="Lockout and sessions" id="ws-rules-lockout">
@@ -389,7 +411,19 @@ export const SecuritySettings = ({ openScreen }) => {
               <div className="grid gap-2">
                 <input type="password" className="ui-input" aria-label="Current password" placeholder="Current password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} autoComplete="current-password" />
                 <input type="password" className="ui-input" aria-label="New password" placeholder="New password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" />
-                <input type="password" className="ui-input" aria-label="Confirm new password" placeholder="Confirm new password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} autoComplete="new-password" />
+                <input
+                  ref={confirmRef}
+                  type="password"
+                  className="ui-input"
+                  aria-label="Confirm new password"
+                  placeholder="Confirm new password"
+                  value={pw.confirm}
+                  onChange={(e) => { setPw({ ...pw, confirm: e.target.value }); setPwMismatch(false); }}
+                  autoComplete="new-password"
+                  aria-invalid={pwMismatch || undefined}
+                  aria-describedby={pwMismatch ? 'ws-pw-mismatch' : undefined}
+                />
+                {pwMismatch ? <p id="ws-pw-mismatch" role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>The new passwords do not match.</p> : null}
               </div>
               <div>
                 <button type="button" className="ws-btn ws-btn--quiet" disabled={!pw.current || !pw.next || busy === 'pw'} onClick={changePw}>
