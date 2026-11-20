@@ -154,6 +154,49 @@ describe('the audit log and home', () => {
   }, 60_000);
 });
 
+describe('marks on the Home queue', () => {
+  it('"Mine" shows who is on a row to everybody; "Not today" puts it away for that person alone, until tomorrow', async () => {
+    const sales = await staff('SALES');
+    const support = await staff('SUPPORT');
+    const reader = await staff('READ_ONLY');
+    const key = `quiet:acct${Date.now()}`;
+    const url = '/api/ops/home/marks';
+    const marksOf = async (who: { h: Record<string, string> }) => (await request(app).get('/api/ops/home').set(who.h).expect(200)).body.marks;
+
+    await request(app).post(url).set(reader.h).send({ key, kind: 'MINE' }).expect(403);
+    await request(app).post(url).set(sales.h).send({ key: 'nothing:here', kind: 'MINE' }).expect(400);
+    await request(app).post(url).set(sales.h).send({ key, kind: 'SOMETHING' }).expect(400);
+
+    const taken = (await request(app).post(url).set(sales.h).send({ key, kind: 'MINE' }).expect(200)).body.marks;
+    expect(taken.mine[key]).toMatchObject({ me: true });
+    /* Everybody sees who has it, a read-only colleague included. */
+    expect((await marksOf(support)).mine[key].me).toBe(false);
+    expect((await marksOf(reader)).mine[key].name).toBeTruthy();
+    /* Somebody else cannot let it go for them, but can take it over; then there is one holder, not two. */
+    await request(app).delete(url).set(support.h).send({ key, kind: 'MINE' }).expect(200);
+    expect((await marksOf(sales)).mine[key].me).toBe(true);
+    await request(app).post(url).set(support.h).send({ key, kind: 'MINE' }).expect(200);
+    expect((await marksOf(sales)).mine[key].me).toBe(false);
+    expect(await platformPrisma.opsQueueMark.count({ where: { key, kind: 'MINE' } })).toBe(1);
+    await request(app).delete(url).set(support.h).send({ key, kind: 'MINE' }).expect(200);
+    expect((await marksOf(sales)).mine[key]).toBeUndefined();
+
+    /* Not today: only the person who said it, and only until the next morning in India. */
+    await request(app).post(url).set(sales.h).send({ key, kind: 'LATER' }).expect(200);
+    expect((await marksOf(sales)).later).toContain(key);
+    expect((await marksOf(support)).later).not.toContain(key);
+    const row = await platformPrisma.opsQueueMark.findFirstOrThrow({ where: { key, kind: 'LATER' } });
+    expect(row.until!.getTime()).toBeGreaterThan(Date.now());
+    expect(row.until!.getTime()).toBeLessThanOrEqual(Date.now() + 86_400_000);
+    /* Tomorrow it is back by itself; today it can be brought back by hand. */
+    await platformPrisma.opsQueueMark.update({ where: { id: row.id }, data: { until: new Date(Date.now() - 1000) } });
+    expect((await marksOf(sales)).later).not.toContain(key);
+    await request(app).post(url).set(sales.h).send({ key, kind: 'LATER' }).expect(200);
+    await request(app).delete(url).set(sales.h).send({ key, kind: 'LATER' }).expect(200);
+    expect((await marksOf(sales)).later).not.toContain(key);
+  }, 90_000);
+});
+
 describe('audit words', () => {
   it('shows only the reason as the why, and the rest as plain words', () => {
     const detail = { to: 'workspace.dev@clor.test', auto: false, kind: 'REMINDER', step: 'manual', number: 'CLOR/26-27/0042', invoiceId: 'inv_1', reason: 'Chased the unpaid invoice' };

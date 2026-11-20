@@ -108,6 +108,8 @@ export const opsSearch = (q) => apiFetch(`/ops/search?q=${encodeURIComponent(q)}
 export const opsRequestLookup = (id) => apiFetch(`/ops/request-lookup?id=${encodeURIComponent(id)}`, o);
 /* Home, the audit log and staff (server: routes/ops.ts). */
 export const opsHome = () => apiFetch('/ops/home', o);
+export const opsMarkQueue = (key, kind) => apiFetch('/ops/home/marks', { ...o, method: 'POST', body: { key, kind } });
+export const opsUnmarkQueue = (key, kind) => apiFetch('/ops/home/marks', { ...o, method: 'DELETE', body: { key, kind } });
 /* The handover note for the next shift (round 55). */
 export const opsHandover = () => apiFetch('/ops/handover', o);
 export const opsWriteHandover = (body) => apiFetch('/ops/handover', { ...o, method: 'POST', body: { body } });

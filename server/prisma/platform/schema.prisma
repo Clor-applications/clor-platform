@@ -2214,6 +2214,22 @@ model StatusIncident {
   @@index([resolvedAt, startsAt])
 }
 
+/// A staff member's mark on one row of the Ops Home queue ("Needs you today"): MINE says who is on it,
+/// for everybody to see; LATER puts the row away for that staff member until `until` ("Not today").
+/// `key` is the queue group and the row's id (`invoices:<id>`, `quiet:<accountId>`). Platform data.
+model OpsQueueMark {
+  id             String    @id @default(cuid())
+  key            String
+  /// MINE | LATER
+  kind           String
+  operatorUserId String
+  until          DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([key, kind, operatorUserId])
+  @@index([kind, key])
+}
+
 /// One posted update on an incident, shown newest first.
 model StatusIncidentUpdate {
   id           String         @id @default(cuid())

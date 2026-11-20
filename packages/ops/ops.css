@@ -1151,3 +1151,11 @@ html[data-portal='ops'] .ws-stat-value {
 .ops-pick { width: 100%; text-align: left; background: none; border: 0; cursor: pointer; }
 .ops-pick:hover { background: var(--ops-hover); }
 .ops-post-inside { display: block; margin-top: 4px; }
+
+/* Home queue: who is on a row, and the two marks ("Mine", "Not today") at its end. */
+.ops-need--marks { grid-template-columns: 112px minmax(0, 1fr) auto auto; }
+.ops-need-marks { display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; font-size: 0.8125rem; }
+@media (max-width: 600px) {
+  .ops-need--marks { grid-template-columns: minmax(0, 1fr) auto; }
+  .ops-need-marks { grid-column: 1 / -1; }
+}
