@@ -487,7 +487,8 @@ body:has(.fx-secnav) .nav {
   list-style: none;
   background: #fff;
   border: 1px solid var(--fx-edge);
-  border-radius: var(--r-panel);
+  /* Concentric with the 8px item inside its 8px inset and 1px edge: 8 + 8 + 1. */
+  border-radius: calc(var(--r-control) + var(--s-2) + 1px);
   box-shadow: var(--shadow-lift);
 }
 .fx-find-hits a {
@@ -566,7 +567,8 @@ body:has(.fx-secnav) .nav {
   flex-direction: column;
   background: #fff;
   border: 1px solid var(--fx-edge);
-  border-radius: var(--r-panel);
+  /* Concentric with the 8px item inside its 8px inset and 1px edge: 8 + 8 + 1. */
+  border-radius: calc(var(--r-control) + var(--s-2) + 1px);
   box-shadow: var(--fx-shadow);
   padding: var(--s-2);
 }
@@ -940,6 +942,8 @@ body:has(.fx-secnav) .nav {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: var(--s-2);
+  /* Concentric with the 8px item inside its 8px inset and 1px edge: 8 + 8 + 1. */
+  border-radius: calc(var(--r-control) + var(--s-2) + 1px);
 }
 .fx-next-copy {
   display: grid;
@@ -2419,7 +2423,8 @@ body:has(.fx-secnav) .nav {
   padding: var(--s-2);
   background: #fff;
   border: 1px solid var(--fx-edge);
-  border-radius: var(--r-panel);
+  /* Concentric with the 8px item inside its 8px inset and 1px edge: 8 + 8 + 1. */
+  border-radius: calc(var(--r-control) + var(--s-2) + 1px);
   box-shadow: var(--fx-shadow);
 }
 .fx .setup-art {
@@ -3351,4 +3356,23 @@ body:has(.fx-secnav) .nav {
 }
 @media (max-width: 520px) {
   .fx-proof-in { grid-template-columns: 1fr; gap: 18px; }
+}
+
+/* Content photos and screenshots: a 1px edge just inside the picture, pure black at 10%
+   on the light ground and pure white at 10% on the navy page heads, so a pale photo edge
+   never melts into the page. Cut-outs (the Books laptop) and logos keep no edge. */
+.sol-hero-photo img,
+img.demo-pic,
+.demo-pic img,
+.p-photo:not(.p-photo--cut) img,
+.app-sec-photo:not(.app-sec-photo--books) img,
+.fx-card-pic img,
+.fx-next-pic img,
+.fx-frame img {
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
+.pg > .hero .sol-hero-photo img,
+.pg > .hero .p-photo:not(.p-photo--cut) img {
+  outline-color: oklch(1 0 0 / 0.1);
 }

@@ -250,6 +250,10 @@ main:focus {
 .btn:active {
   transform: translateY(1px);
 }
+/* The button draws its own pressed state; the page-wide orange tap flash would double it. */
+.btn {
+  -webkit-tap-highlight-color: transparent;
+}
 /* No glow: the orange fill is the whole signal. Pressing darkens it and sets it down a pixel. */
 .btn--primary {
   background: var(--accent-fill);
@@ -523,6 +527,8 @@ main:focus {
 .mega--list {
   width: 320px;
   padding: var(--s-2);
+  /* Concentric with the 8px item inside its 8px inset and 1px edge: 8 + 8 + 1. */
+  border-radius: calc(var(--r-control) + var(--s-2) + 1px);
 }
 .nav-doors {
   position: relative;
