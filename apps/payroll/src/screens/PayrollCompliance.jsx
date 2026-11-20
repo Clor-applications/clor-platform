@@ -4,7 +4,7 @@ import { AlertTriangle, Check, PenLine, Plus, Trash2 } from '@ui/components/ui/l
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { todayIst } from '@ui/utils/dates';
+import { todayIst, dateWords } from '@ui/utils/dates';
 import {
   getStatutoryOverview,
   seedStatutoryRates,
@@ -42,12 +42,6 @@ import { errorWords } from '@ui/utils/errorWords';
 
 const money = (n) => (n == null ? '—' : `₹${Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`);
 
-const shownDate = (iso) => {
-  const s = String(iso || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—';
-  const [y, m, d] = s.split('-');
-  return `${d}/${m}/${y}`;
-};
 
 /** "WEST BENGAL" → "West Bengal". */
 const stateName = (s) =>
@@ -251,7 +245,7 @@ export default function PayrollCompliance({ params } = {}) {
   const adopt = async (offer) => {
     const ok = await confirmDialog({
       title: `Use CLOR’s ${offer.state} figures?`,
-      message: `They apply from ${shownDate(offer.effectiveFrom)}. Your own rate closes the day before and stays on record; payslips already produced keep the rate they used.`,
+      message: `They apply from ${dateWords(offer.effectiveFrom)}. Your own rate closes the day before and stays on record; payslips already produced keep the rate they used.`,
       confirmLabel: 'Use these figures',
       tone: 'primary',
     });
@@ -327,7 +321,7 @@ export default function PayrollCompliance({ params } = {}) {
               <li key={c.ruleId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderTop: i ? '1px solid rgb(var(--border))' : 'none' }}>
                 <div className="min-w-0 max-w-3xl">
                   <div className="text-sm font-medium">
-                    {c.state}: {c.scheme === 'LWF' ? 'Labour welfare fund' : 'Professional tax'}, from {shownDate(c.effectiveFrom)}
+                    {c.state}: {c.scheme === 'LWF' ? 'Labour welfare fund' : 'Professional tax'}, from {dateWords(c.effectiveFrom)}
                   </div>
                   <div className="ui-caption">
                     {c.people} {c.people === 1 ? 'person' : 'people'} in payroll there
@@ -362,9 +356,9 @@ export default function PayrollCompliance({ params } = {}) {
               <li key={o.ruleId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderTop: i ? '1px solid rgb(var(--border))' : 'none' }}>
                 <div className="min-w-0 max-w-3xl">
                   <div className="text-sm font-medium">
-                    {o.state}: {o.scheme === 'LWF' ? 'Labour welfare fund' : 'Professional tax'}, from {shownDate(o.effectiveFrom)}
+                    {o.state}: {o.scheme === 'LWF' ? 'Labour welfare fund' : 'Professional tax'}, from {dateWords(o.effectiveFrom)}
                   </div>
-                  {o.yours ? <div className="ui-caption">In force now: your rate from {shownDate(o.yours.effectiveFrom)}</div> : null}
+                  {o.yours ? <div className="ui-caption">In force now: your rate from {dateWords(o.yours.effectiveFrom)}</div> : null}
                   {o.note ? <p className="ui-caption mt-1">{o.note}</p> : null}
                 </div>
                 <div className="flex items-center gap-2">
@@ -485,8 +479,8 @@ export default function PayrollCompliance({ params } = {}) {
                       <tbody className="ui-rows">
                         {rules.map((rule) => (
                           <tr key={rule.id}>
-                            <td className="ui-col-date ui-col-h-center">{shownDate(rule.effectiveFrom)}</td>
-                            <td className="ui-col-date ui-col-h-center">{rule.effectiveTo ? shownDate(rule.effectiveTo) : '—'}</td>
+                            <td className="ui-col-date ui-col-h-center">{dateWords(rule.effectiveFrom)}</td>
+                            <td className="ui-col-date ui-col-h-center">{rule.effectiveTo ? dateWords(rule.effectiveTo) : '—'}</td>
                             <td className="ui-col-meta">
                               {rule.jurisdiction && rule.jurisdiction !== 'IN' ? (byState ? stateName(rule.jurisdiction) : rule.jurisdiction) : 'All of India'}
                               {rule.config?.localBody ? <span className="ui-caption block">{rule.config.localBody}</span> : null}
@@ -509,7 +503,7 @@ export default function PayrollCompliance({ params } = {}) {
                                 <button
                                   type="button"
                                   className="ui-icon-btn"
-                                  aria-label={`Correct the ${scheme.name} rate${rule.jurisdiction && rule.jurisdiction !== 'IN' ? ` for ${stateName(rule.jurisdiction)}` : ''} from ${shownDate(rule.effectiveFrom)}`}
+                                  aria-label={`Correct the ${scheme.name} rate${rule.jurisdiction && rule.jurisdiction !== 'IN' ? ` for ${stateName(rule.jurisdiction)}` : ''} from ${dateWords(rule.effectiveFrom)}`}
                                   title="Correct: a new version from a date"
                                   onClick={() => setAdding({ scheme, from: rule })}
                                 >
@@ -519,7 +513,7 @@ export default function PayrollCompliance({ params } = {}) {
                                   <button
                                     type="button"
                                     className="ui-icon-btn"
-                                    aria-label={`Remove the ${scheme.name} rate from ${shownDate(rule.effectiveFrom)}`}
+                                    aria-label={`Remove the ${scheme.name} rate from ${dateWords(rule.effectiveFrom)}`}
                                     onClick={() => removeRate(scheme, rule)}
                                   >
                                     <Trash2 size={16} aria-hidden="true" />
@@ -1003,7 +997,7 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
       )}
 
       <p className="ui-caption">
-        Saving this closes the rate before it the day before {shownDate(form.effectiveFrom)}. Payslips already produced keep
+        Saving this closes the rate before it the day before {dateWords(form.effectiveFrom)}. Payslips already produced keep
         the rate they were computed under. Rates you save count as checked.
       </p>
 

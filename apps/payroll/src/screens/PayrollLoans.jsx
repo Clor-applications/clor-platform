@@ -21,7 +21,7 @@ import {
   cancelPayrollLoan,
 } from '../api/payrollLoans';
 import LoadFailed from '@ui/components/ui/LoadFailed';
-import { rupees as money } from '@ui/utils/money';
+import { rupees as money, moneyCell } from '@ui/utils/money';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
 
@@ -246,9 +246,9 @@ export default function PayrollLoans() {
                       {l.employeeCode ? <span className="ui-caption"> · {l.employeeCode}</span> : null}
                     </td>
                     <td className="ui-col-meta">{TYPES.find((t) => t.id === l.type)?.label || l.type}</td>
-                    <td className="ui-num">{money(l.principal)}</td>
+                    <td className="ui-num">{moneyCell(l.principal)}</td>
                     <td className="ui-num">{l.installmentAmount ? money(l.installmentAmount) : '—'}</td>
-                    <td className="ui-num">{money(l.outstandingBalance)}</td>
+                    <td className="ui-num">{moneyCell(l.outstandingBalance, { zero: true })}</td>
                     <td className="ui-col-h-center">
                       <span className={`ui-pill ${STATUS[l.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[l.status]?.label || l.status}</span>
                       {/* The employee asked in the employee app to skip the next instalment (picks round 54). */}
@@ -591,7 +591,7 @@ const LoanDetail = ({ loanId, onBack }) => {
                   <tr key={i.id}>
                     <td className="ui-num">{i.sequence}</td>
                     <td className="ui-col-meta">{i.carriedFromId ? `Next payroll, carried from ${i.carriedFromPeriodName || 'an earlier month'}` : i.periodDone ? `Next payroll: ${i.periodName || 'its month'}'s payroll is done, so the next one takes it` : i.periodName || 'A month not on the calendar yet'}</td>
-                    <td className="ui-num">{money(i.dueAmount)}</td>
+                    <td className="ui-num">{moneyCell(i.dueAmount)}</td>
                     <td className="ui-num">{i.interestAmount ? money(i.interestAmount) : '—'}</td>
                     <td className="ui-col-h-center">
                       <ExceptionTag label={i.status === 'RECOVERED' ? '' : INSTALLMENT[i.status]?.label || i.status} normal={INSTALLMENT[i.status]?.label} pill={INSTALLMENT[i.status]?.tone || 'ui-pill-neutral'} />

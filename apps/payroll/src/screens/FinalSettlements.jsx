@@ -26,6 +26,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { settlementClock } from './settlementClock';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { moneyCell } from '@ui/utils/money';
 
 const STATUS = {
   DRAFT: { label: 'Draft', pill: 'ui-pill-neutral' },
@@ -252,7 +253,7 @@ export default function FinalSettlements() {
                       {x.overdue && x.status !== 'PAID' ? <span className="ui-pill ui-pill-neg ms-2">Overdue</span> : null}
                       {settlementClock(x) ? <span className="block ui-caption r52-fnf-clock">{settlementClock(x)}</span> : null}
                     </td>
-                    <td className="ui-num">{money(x.netPayable)}</td>
+                    <td className="ui-num">{moneyCell(x.netPayable)}</td>
                     <td className="ui-col-h-center">
                       {x.hold ? <span className="ui-pill ui-pill-info">Held</span> : <ExceptionTag label={x.status === 'PAID' ? '' : STATUS[x.status]?.label || x.status} normal={STATUS[x.status]?.label} pill={STATUS[x.status]?.pill || 'ui-pill-neutral'} />}
                     </td>
