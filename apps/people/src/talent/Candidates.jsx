@@ -139,7 +139,7 @@ function Board({ rows, openings, loading, canEdit, onOpen, onMove, onAdd }) {
           return (
             <section key={s} aria-label={word(STAGES, s)} className="pt-lane">
               <h3 className="pt-lane-head"><span>{word(STAGES, s)} <span className="tabular-nums">{here.length}</span></span>{onAdd && s === OPEN_STAGES[0] ? <button type="button" className="ui-icon-btn pt-lane-add" aria-label="Add a candidate to Applied" title="Add a candidate to Applied" onClick={onAdd}><Plus size={16} aria-hidden="true" /></button> : null}</h3>
-              {loading ? <div className="ui-skel h-16 w-full" aria-busy="true" aria-label="Loading" /> : !here.length ? <p className="text-sm ui-muted">Nobody</p> : here.map((r) => (
+              {loading ? <div className="ui-skel h-16 w-full" role="status" aria-busy="true" aria-label="Loading" /> : !here.length ? <p className="text-sm ui-muted">Nobody</p> : here.map((r) => (
                 <article key={r.id} className="pt-cand">
                   <button type="button" className="flex w-full min-w-0 items-center gap-2.5 text-left" onClick={() => onOpen(r)}>
                     <Avatar person={{ name: r.name }} size={28} />

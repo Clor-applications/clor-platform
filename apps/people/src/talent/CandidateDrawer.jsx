@@ -305,7 +305,7 @@ export function InterviewForm({ candidate, interview, onClose, onSaved }) {
         <label className="block"><span className="ui-label">{form.mode === 'VIDEO' ? 'Meeting link' : form.mode === 'PHONE' ? 'Who calls whom' : 'Where'}</span><SuggestInput maxLength={300} value={form.place} onChange={(v) => set({ place: v })} suggestions={places.data || []} /></label>
         <fieldset className="sm:col-span-2 space-y-1.5">
           <legend className="ui-label">Interviewers *</legend>
-          {users.loading ? <div className="space-y-2" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div> : !list.length ? <p className="text-sm ui-muted">No users to choose from.</p> : (
+          {users.loading ? <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div> : !list.length ? <p className="text-sm ui-muted">No users to choose from.</p> : (
             <div className="grid gap-1.5 sm:grid-cols-2">
               {list.map((u) => <label key={u.id} className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.ids.includes(u.id)} disabled={!form.ids.includes(u.id) && form.ids.length >= 10} onChange={() => toggle(u.id)} />{u.name}</label>)}
             </div>

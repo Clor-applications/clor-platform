@@ -149,7 +149,7 @@ function ConsentDrawer({ row, canEdit, onClose, onDone }) {
                 </li>
               ))}
             </ul>
-          ) : (history.loading ? <div className="space-y-2" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div> : <p className="ui-caption">Nothing recorded yet.</p>)}
+          ) : (history.loading ? <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div> : <p className="ui-caption">Nothing recorded yet.</p>)}
         </section> : null}
       </div>
     </Drawer>

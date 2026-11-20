@@ -621,7 +621,7 @@ export default function PeopleOverview({ openScreen }) {
                 ))}
               </ul>
             ) : failed.news ? <CardFailed what="announcements" onRetry={loadNews} /> : (
-              (news ? <p className="people-empty people-list">Nothing posted yet. Share news, a policy change or a welcome.</p> : <div className="space-y-2" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>)
+              (news ? <p className="people-empty people-list">Nothing posted yet. Share news, a policy change or a welcome.</p> : <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>)
             )}
           </Block>
 
@@ -645,7 +645,7 @@ export default function PeopleOverview({ openScreen }) {
                 })}
               </ul>
             ) : failed.events ? <CardFailed what="events" onRetry={loadEvents} /> : (
-              (events ? <p className="people-empty people-list">No events planned. A Fun Friday is a good start.</p> : <div className="space-y-2" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>)
+              (events ? <p className="people-empty people-list">No events planned. A Fun Friday is a good start.</p> : <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>)
             )}
           </Block>
         </aside>

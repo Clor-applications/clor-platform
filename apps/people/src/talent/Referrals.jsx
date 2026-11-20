@@ -132,7 +132,7 @@ export default function Referrals({ params = {}, openScreen }) {
 
 /** By employee: who refers, how many joined, and the bonus owed and paid; the totals above it. */
 function Report({ data, loading, money }) {
-  if (loading && !data) return <div className="space-y-2" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>;
+  if (loading && !data) return <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>;
   const t = data?.totals || {};
   const stats = [
     ['Referred', t.referred, false], ['In process', t.inProcess, false], ['Joined', t.joined, false],
