@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-9cfa52c - 2026-11-20
+
+API revision `clor-api-00150-ljg`. Previous release `rel-b88dcf3` (roll back there).
+
+- #376 Calm register step 5: two-line rows on phones for wide tables (Payroll lists first)
+- #375 e2e: follow the copy audit wording
+- #372 Copy audit: plainer words across the platform
+- #374 Calm register step 4, batch 5: no tag on a finished row in Workspace lists
+- #373 Calm register step 4, batch 4: no tag on a normal row in Attendance lists
+- #371 Calm register step 4, batch 3: no tag on a finished row in People lists
+- #370 Calm register step 4, batch 2: no tag on a finished row in Payroll lists
+- #369 Calm register step 4: status tags on exceptions only (Payroll lists first)
+- #368 QA report fixes: Ops denials, home and invoicing; People cut text; Payroll 402
+- #367 Money field labels drop the bracketed rupee sign
+- #366 Release record: rel-8c45cd2
+- #365 Calm register step 3: count line on Workspace lists and People registers
+- #364 Release record: rel-b88dcf3
+
 ## rel-b88dcf3 - 2026-11-19
 
 API revision `clor-api-00149-rnv`. Previous release `rel-8c45cd2` (roll back there).
