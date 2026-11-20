@@ -1495,7 +1495,7 @@ function ShellScreens() {
           ) : null}
           {!phone && !split ? (
             <nav
-              className="sticky top-14 w-56 shrink-0 self-start overflow-y-auto p-3 space-y-0.5"
+              className="ui-side-nav sticky top-14 w-56 shrink-0 self-start overflow-y-auto p-3 space-y-0.5"
               style={{ borderRight: '1px solid rgb(var(--border))', height: 'calc(100vh - 3.5rem)' }}
               aria-label={app ? `${app.name} navigation` : 'Navigation'}
             >

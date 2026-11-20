@@ -1,5 +1,8 @@
 import React from 'react';
-import { Check } from '@ui/components/ui/lineIcons';
+import { Check, X } from '@ui/components/ui/lineIcons';
+
+/* Books keeps its text cross on a filter chip; every other app draws the Lucide X. */
+const inBooks = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
 
 import Illustration from './Illustration';
 import { CountLine } from './CountLine';
@@ -303,7 +306,7 @@ export const EmptyState = ({
                   className="ui-subtle hover:ui-fg"
                   aria-label={`Remove the ${f.label} filter`}
                 >
-                  ×
+                  {inBooks() ? '×' : <X size={12} aria-hidden="true" />}
                 </button>
               ) : null}
             </span>

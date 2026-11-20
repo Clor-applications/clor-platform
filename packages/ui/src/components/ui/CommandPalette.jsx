@@ -150,7 +150,7 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
         type="button"
         aria-label="Close search"
         onClick={onClose}
-        className="absolute inset-0 cursor-default"
+        className="ui-cmdk-scrim absolute inset-0 cursor-default"
         style={{ backgroundColor: 'rgb(2 6 23 / 0.55)', backdropFilter: 'blur(2px)' }}
       />
 
@@ -158,7 +158,7 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
         /* No entrance. ⌘K is keyboard-initiated and used dozens of times a day —
             the tier where animation reads as lag, not polish. Raycast opens
             instantly and that is the bar. */
-        className="relative w-full max-w-xl overflow-hidden"
+        className="ui-cmdk-panel relative w-full max-w-xl overflow-hidden"
         style={{
           backgroundColor: 'rgb(var(--surface))',
           border: '1px solid rgb(var(--border))',

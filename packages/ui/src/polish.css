@@ -2,7 +2,7 @@
  * UI polish (owner, 21 Nov 2026: "upgrade complete platform exclude books").
  *
  * Small exact fixes from the better-ui pass: icon strokes that match the text beside them,
- * the icon side of a button set optically, photos with a faint edge, overlays that keep their
+ * one shadow and edge for every floating layer, photos with a faint edge, overlays that keep their
  * scroll to themselves, no grey flash on tap, and an edge for shadow-drawn outlines in
  * Windows high-contrast mode. Every rule is scoped away from Books ([data-palette='indigo']),
  * like picks.css. Hover-on-pointer lives in postcss.config.js and tailwind.config.js.
@@ -19,12 +19,6 @@
 :root:not([data-palette='indigo']) :is(.ui-btn, .ws-btn, .ui-page-btn, .ui-btn-choice[aria-pressed='true'], [aria-current='page'], [aria-selected='true'], .font-medium, .font-semibold, .font-bold) svg.lucide[stroke-width='2'] :is(path, line, polyline, polygon, circle, ellipse, rect) {
   stroke-width: 2px;
 }
-
-/* Optical alignment: an icon and a word in a button look off-centre with even padding, because the
-   icon's box carries empty space the word does not. The icon side gets 2px less. */
-/* Sizes come from rnd.css (1rem, small 0.75rem); the id steps out-rank its :not(#rnd). */
-:root:not(#po):not(#po2):not([data-palette='indigo']) .ui-btn:not(.ui-icon-btn):has(> svg:first-child) { padding-inline-start: calc(1rem - 2px); }
-:root:not(#po):not(#po2):not([data-palette='indigo']) .ui-btn-sm:not(.ui-icon-btn):has(> svg:first-child) { padding-inline-start: calc(0.75rem - 2px); }
 
 /* Photos get a 1px edge in pure black at 10%, inset, so a white or pale photo does not melt into
    the white page. Only photographs: emoji icons, logos and illustrations stay as drawn. */
@@ -51,3 +45,60 @@
     outline-offset: -1px;
   }
 }
+
+/* ---- Pass 2, shared components and the shell (21 Nov 2026) ---- */
+
+/* Floating layers: one shadow, the one DESIGN.md names ("Elevation & Depth"). It was drawn eight ways:
+   a navy-tinted 0 4px 12px on popovers and dialogs, 0 4px 14px on menus, 0 8px 24px at 12% black on
+   toasts and the date picker, three more on the tooltips, a slate one on the tablet screens panel.
+   The edge is a 1px shadow ring at the hairline's strength rather than a grey border (the popover's
+   was the stronger #C8C8C8, the menu's #E5E5E5), with the border kept but transparent, so
+   high-contrast mode, which drops every shadow, still paints an edge. */
+:root:not([data-palette='indigo']) {
+  --po-ring: 0 0 0 1px rgb(28 27 24 / 0.1);
+  --po-float: 0 8px 24px rgb(28 27 24 / 0.1), 0 1px 3px rgb(28 27 24 / 0.08);
+}
+:root:not(#po):not(#po2):not([data-palette='indigo']) :is(.ui-menu, .ui-popover, .ui-datepicker-pop, .ui-dialog, .ui-confirm, [data-sonner-toast].ui-sonner, .ui-tip, .ui-abbr-tip),
+:root:not(#po):not(#po2):not([data-palette='indigo']) .ui-colhelp:is(:hover, :focus)::after {
+  border-color: transparent;
+  box-shadow: var(--po-ring), var(--po-float);
+}
+/* The search palette draws its panel inline; the class lets the shared shadow reach it. */
+:root:not([data-palette='indigo']) .ui-cmdk-panel {
+  border-color: transparent !important;
+  box-shadow: var(--po-ring), var(--po-float) !important;
+}
+/* The tablet screens panel and the phone menu sheet float too; their divider edge stays. */
+:root:not(#po):not(#po2):not([data-palette='indigo']) :is(.ui-split[data-overlay] .ui-split-panel, .ui-nav-sheet-panel) {
+  box-shadow: var(--po-float);
+}
+/* One scrim: the search palette's was slate-tinted and blurred, every other dialog's is plain black at 55%. */
+:root:not([data-palette='indigo']) .ui-cmdk-scrim {
+  background-color: rgb(0 0 0 / 0.55) !important;
+  backdrop-filter: none !important;
+}
+
+/* Two radii (DESIGN.md "Shapes"): a popover holds content like the menu, the date picker and the
+   dialog do, so it takes 12px, not 8. A toast holds content too. */
+:root:not(#po):not(#po2):not([data-palette='indigo']) .ui-popover { border-radius: 12px; }
+:root:not(#po):not(#po2):not([data-palette='indigo']) [data-sonner-toast].ui-sonner { border-radius: 12px !important; }
+
+/* Side panels scroll on their own: at the end of the module list the page behind stayed put. */
+:root:not([data-palette='indigo']) :is(.ui-split-rail, .ui-split-panel, .ui-nav-sheet-panel, .ui-side-nav, .ui-suggest-list) {
+  overscroll-behavior: contain;
+}
+
+/* The select's drawn chevron: zinc #71717A at a 1.33px stroke beside Lucide chevrons in muted ink at 1.5px.
+   Now the same muted ink (#5C5A54) and the same 1.5px (2.25 on its 24px grid, drawn at 16px). */
+:root:not(#po):not(#po2):not([data-palette='indigo']) .ui-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235C5A54' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* More photographs that had no edge: the face in the account menu, the profile photo, a selfie, a
+   picture sent with a request, and the two-step sign-in QR codes (one had a grey #E5E5E5 border, the
+   other nothing). */
+:root:not([data-palette='indigo']) :is(.ui-me-head > img, .ui-inline-doc img, img.ui-qr) {
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
+:root:not([data-palette='indigo']) img.ui-qr { border-color: transparent !important; }

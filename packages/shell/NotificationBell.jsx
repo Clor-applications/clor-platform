@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlarmClock, Bell, BellOff, Check } from '@ui/components/ui/lineIcons';
+import { AlarmClock, Bell, BellOff, Check, X } from '@ui/components/ui/lineIcons';
 
 import { Popover } from '@base-ui/react/popover';
 import { getInbox, getMutes, markAllRead, markRead, setMute, snoozeNotice } from '@ui/api/notifications';
 
 import { kindLabel } from './notificationKinds';
+
+/* Books keeps its text cross; every other app draws the Lucide one the rest of the panel uses. */
+const inBooks = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
 
 /**
  * The bell every app shares. One inbox per person per company, read every
@@ -137,7 +140,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
               <div className="mt-1 flex flex-wrap gap-1">
                 {mutes.map((k) => (
                   <button key={k} type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => toggleMute(k, false)} title="Show again">
-                    {kindLabel(k)} ✕
+                    {inBooks() ? `${kindLabel(k)} ✕` : <><span>{kindLabel(k)}</span><X size={14} aria-hidden="true" /></>}
                   </button>
                 ))}
               </div>
