@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, getHolidays, getUpdates, pickRestrictedHoliday, todayIst } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
+import { PortalLoading, RowState } from './portalUi';
 
 const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 
@@ -73,7 +74,7 @@ export function WhatsNew({ guard }) {
   if (!fresh.length) return null;
   const put = (keys) => { markSeen(keys); setSeen(seenKeys()); };
   return (
-    <section className="ui-card space-y-2 p-5" aria-labelledby="new-h">
+    <section className="portal-sec space-y-2" aria-labelledby="new-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="new-h" className="ui-t-sec">What’s new</h2>
         {fresh.length > 1 ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => put(fresh.map((i) => i.key))}>Clear all</button> : null}
@@ -84,7 +85,8 @@ export function WhatsNew({ guard }) {
           return (
             <li key={i.key} className="flex items-start justify-between gap-2 py-2 text-sm">
               <span className="min-w-0 space-y-1">
-                <span className={`ui-pill ${pill}`}>{word}</span>
+                {/* What happened is the news, so it stays in words; only what needs me (not approved, needs you, use it or lose it) is a tag. */}
+                <RowState label={word} pill={pill} kind={/ui-pill-(warn|neg)/.test(pill) ? 'exception' : 'quiet'} />
                 <span className="block">{i.text}</span>
               </span>
               <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm shrink-0" onClick={() => put([i.key])} aria-label={`Got it: ${i.text}`}>Got it</button>
@@ -137,7 +139,7 @@ export function HolidaysYear({ guard }) {
   const shown = data && data.year === year ? data : null;
   const restricted = (shown?.holidays || []).filter((h) => h.restricted);
   return (
-    <section className="ui-card space-y-2 p-5" aria-labelledby="hol-h">
+    <section className="portal-sec space-y-2" aria-labelledby="hol-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="hol-h" className="ui-t-sec">Holidays {year}</h2>
         <span className="flex gap-1">
@@ -146,7 +148,7 @@ export function HolidaysYear({ guard }) {
         </span>
       </div>
       <LoadFailed message={failed} onRetry={load} />
-      {!shown && !failed ? <p className="ui-caption">Loading what is new…</p> : null}
+      {!shown && !failed ? <PortalLoading label="Loading what is new…" lines={4} /> : null}
       {shown ? (
         <>
           {restricted.length ? (

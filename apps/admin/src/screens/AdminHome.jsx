@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronRight, Plus } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
-import { ClorMark } from '@ui/components/brand';
 
 import { accountAudit, getAccountMe, listAccountMembers, listInvitations, listTickets, memberDirectory } from '@platform/admin/account';
 import { getAccountOverview } from '@platform/admin/admin';
@@ -189,52 +188,6 @@ export function renewalNotice(renewal, planBad = false) {
   if (renewal.warn === 'ending') return { tone: 'warn', title: `Your plan stops ${inDays(renewal.daysLeft)}`, sub: `It is set to end on ${dateWords(renewal.endsAt)} and not renew.` };
   if (renewal.warn === 'lapsed' && !planBad) return { tone: 'danger', title: 'Your plan has lapsed', sub: 'Your data is safe; renew to keep working in your apps.' };
   return null;
-}
-
-/**
- * The hero's picture: CLOR at the centre with this account's apps around it, joined to it. Not a
- * stock drawing: every app CLOR has or plans, up to six, wears its own colour (owner, 17 Nov: "add
- * color to icons", "add 6 apps"); one that is switched on sends moving dashes down its line to
- * the hub, one that is not sits on a still, quiet line, so the picture is this workspace and
- * changes as apps are added. Decoration all the same
- * (the Your apps row says it in words): hidden from screen readers, shown only where the hero has
- * room beside the words and Next for you.
- */
-/* CLOR's six apps, always all six: the picture is the whole platform, with this company's own apps live in it.
-   (The catalog drops Attendance once People is on, since People carries it; the picture still shows it, live.) */
-const ART_APPS = ['accounting', 'payroll', 'people', 'attendance', 'projects', 'timesheet'];
-const HUB = { x: 130, y: 105 };
-/* Six places round the hub, a flattened hexagon: top and bottom on the centre line, two each side. */
-const SPOTS = [{ x: 43, y: 62 }, { x: 130, y: 25 }, { x: 217, y: 62 }, { x: 217, y: 148 }, { x: 130, y: 185 }, { x: 43, y: 148 }];
-function AppsArt({ apps = [] }) {
-  const placed = apps.slice(0, SPOTS.length).map((a, i) => ({ ...a, ...SPOTS[i] }));
-  return (
-    <span className="wsh-hub-art">
-      <svg viewBox="0 0 260 210" width="260" height="210" focusable="false">
-        {/* Each app's line to CLOR, drawn from the app inward so its dashes run toward the hub. One that is
-            switched on carries its colour and moves; one that is not is a still, quiet dash. */}
-        {placed.map((a) => (
-          <line
-            key={a.id}
-            x1={a.x}
-            y1={a.y}
-            x2={HUB.x}
-            y2={HUB.y}
-            className="wsh-hub-link"
-            data-on={a.on || undefined}
-            style={{ stroke: `rgb(var(${appInfo(a.id)?.color || '--border-strong'}) / ${a.on ? 0.85 : 0.4})` }}
-          />
-        ))}
-        <circle cx={HUB.x} cy={HUB.y} r="40" className="wsh-hub-pulse" />
-      </svg>
-      <span className="wsh-hub" style={{ left: HUB.x, top: HUB.y }}><ClorMark size={34} title="" /></span>
-      {placed.map((a, i) => (
-        <span key={a.id} className="wsh-hub-app" data-on={a.on || undefined} style={{ left: a.x, top: a.y, animationDelay: `${-1.1 * i}s` }}>
-          <AppMark app={a.id} size={32} title="" />
-        </span>
-      ))}
-    </span>
-  );
 }
 
 export default function AdminHome({ user, tenant, catalog = [], navItems = [], openScreen, openApp, openMoreApps, accountName = '' }) {
@@ -539,7 +492,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               Home
             </h1>
             <p className="wsh-lede">
-              {name ? <span className="block">Hello, {name} <E.wave size={20} className="wsh-wave" aria-hidden="true" /></span> : null}
+              {name ? <span className="block">Hello, {name} <E.wave size={16} className="wsh-wave" aria-hidden="true" /></span> : null}
               {ROLE_LEDE[role] || DEFAULT_LEDE}
             </p>
             <p className="wsh-facts">
@@ -553,16 +506,12 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   <Plus size={16} aria-hidden="true" /> Invite people
                 </button>
                 {go('apps') ? (
-                  <button type="button" className="ws-btn wsh-btn-glass" onClick={go('apps')}>
+                  <button type="button" className="ws-btn ws-btn--quiet" onClick={go('apps')}>
                     Explore apps
                   </button>
                 ) : null}
               </div>
             ) : null}
-          </div>
-          {/* Decoration between the words and the card, only where the hero is wide enough for all three. */}
-          <div className="wsh-stage" aria-hidden="true">
-            <AppsArt apps={ART_APPS.map((id) => ({ id, on: (tenant?.subscriptions || []).includes(id) }))} />
           </div>
           {lines.length ? (
             <div className="wsh-today" role="group" aria-labelledby="wsh-today-title">
@@ -666,7 +615,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   <span className="wsh-co-name">{here.name}</span>
                   <span className="wsh-co-sub">{here.state || 'State not set'}{here.gstin ? <> · <span className="ui-mono">{here.gstin}</span></> : null}</span>
                 </span>
-                {here.archived ? <span className="ws-pill ws-pill--neutral">Archived</span> : here.gstin ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--warn">Needs GSTIN</span>}
+                {here.archived ? <span className="ws-pill ws-pill--neutral">Archived</span> : here.gstin ? <span className="sr-only">Active</span> : <span className="ws-pill ws-pill--warn">Needs GSTIN</span>}
               </div>
               {steps ? (
                 <div className="wsh-setup">
@@ -854,7 +803,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                               </span>
                             </td>
                             <td className="num">{c.people ?? 0}</td>
-                            <td>{c.archived ? <span className="ws-pill ws-pill--neutral">Archived</span> : c.gstin ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--warn">Needs GSTIN</span>}</td>
+                            <td>{c.archived ? <span className="ws-pill ws-pill--neutral">Archived</span> : c.gstin ? <span className="sr-only">Active</span> : <span className="ws-pill ws-pill--warn">Needs GSTIN</span>}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -881,7 +830,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 >
                   <div className="flex items-center gap-2">
                     <strong style={{ fontSize: '1.125rem' }}>{plan.name}</strong>
-                    <span className={plan.inGoodStanding ? 'ws-pill ws-pill--ok' : 'ws-pill ws-pill--danger'}>{plan.inGoodStanding ? (renewal?.status === 'trialing' ? 'Trial' : 'Active') : planWord(plan.status)}</span>
+                    {/* Tags only on exceptions (DESIGN.md "Status tags"): a plan in good standing says so to a screen reader only. */}
+                    {plan.inGoodStanding && renewal?.status !== 'trialing' ? <span className="sr-only">Active</span> : <span className={plan.inGoodStanding ? 'ws-pill ws-pill--warn' : 'ws-pill ws-pill--danger'}>{plan.inGoodStanding ? 'Trial' : planWord(plan.status)}</span>}
                   </div>
                   <dl className="ws-rows">
                     {runRate !== undefined ? (

@@ -84,7 +84,8 @@ describe('Employee app requests', () => {
     render(<EmployeePortal />);
     fireEvent.click(await screen.findByRole('button', { name: 'Approvals' }));
     expect(await screen.findByText(/On duty · 2 Nov · Client office/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    /* The cross of the shared tick-and-cross (design audit 20 Nov 2026) opens the reason; it names what it rejects. */
+    fireEvent.click(screen.getByRole('button', { name: 'Reject On duty for Ravi Kumar' }));
     const reject = await screen.findByRole('button', { name: 'Reject' });
     expect(reject).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Why not'), { target: { value: 'Nobody else in the office that day' } });

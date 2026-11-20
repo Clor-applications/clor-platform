@@ -1297,3 +1297,69 @@ button.wsh-attn-row:active {
 @media (prefers-reduced-motion: reduce) {
   .wsh-live::after { animation: none; }
 }
+
+/* ======================================================================================================
+ * Calm register (DESIGN.md, 19 Nov 2026; design audit step 3, 20 Nov 2026). It replaces the 16-19 Nov
+ * glass look above: one 24px title at 700, white ground, sections as a 17/24 heading over a hairline with
+ * no box or shadow, no washes or gradients, figures at 22/28 600, no moving decoration. The doubled .wsh
+ * outranks the rules above without !important; delete the rules above once this has settled.
+ * ====================================================================================================== */
+.wsh.wsh { --wsh-shadow: none; --wsh-hover: rgb(var(--hover, 247 247 247)); font-weight: 400; }
+.wsh.wsh .wsh-inner { gap: 32px; }
+
+/* The head: title, a secondary line, the facts; the primary at top right. No band, no art. */
+.wsh.wsh .wsh-hero {
+  margin: 0;
+  padding: 0 0 16px;
+  overflow: visible;
+  background: none;
+  border-bottom: 1px solid rgb(var(--border));
+  grid-template-columns: minmax(0, 1fr);
+}
+.wsh.wsh .wsh-stage { display: none; }
+.wsh.wsh .wsh-hello { font-family: inherit; font-size: 1.5rem; line-height: 2rem; font-weight: 700; letter-spacing: 0; }
+.wsh.wsh .wsh-lede { margin-top: 4px; font-size: 0.8125rem; line-height: 1.125rem; font-weight: 400; color: rgb(var(--fg-muted)); }
+.wsh.wsh .wsh-facts { font-size: 0.8125rem; line-height: 1.125rem; font-weight: 400; color: rgb(var(--fg-muted)); }
+:root:not(#ux1):not(#ux2):not(#ux3) .wsh.wsh .wsh-role { padding: 0; background: none; border: 0; color: rgb(var(--fg-muted)); font-size: 0.8125rem; font-weight: 400; }
+.wsh.wsh .wsh-live { display: none; }
+@container wsh (min-width: 760px) {
+  .wsh.wsh .wsh-hero { grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); align-items: start; }
+}
+
+/* Today: a short list beside the head, flat. */
+.wsh.wsh .wsh-today { padding: 0; border: 0; border-radius: 0; box-shadow: none; animation: none; justify-self: stretch; }
+
+/* Sections: a heading over a hairline; no card, no shadow (DESIGN.md "No card-in-card", "Elevation"). */
+.wsh.wsh .wsh-card,
+.wsh.wsh .ws-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.wsh.wsh .wsh-card-head { margin-bottom: 0; padding-bottom: 8px; border-bottom: 1px solid rgb(var(--border)); }
+.wsh.wsh .wsh-card-head .ws-h2,
+.wsh.wsh .ws-panel-title { font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; }
+.wsh.wsh .ws-head-ico { display: none; }
+.wsh.wsh .wsh-count { background: none; color: rgb(var(--fg-muted)); padding: 0; min-width: 0; font-weight: 600; }
+
+/* Figures: at most four, flat, 22/28 600; no tinted chip or wash. A state colours the figure only. */
+.wsh.wsh .wsh-tile { padding: 12px 0; border: 0; border-radius: 0; background: none; box-shadow: none; transform: none; }
+.wsh.wsh button.wsh-tile:hover { background: var(--wsh-hover); box-shadow: none; transform: none; }
+.wsh.wsh .wsh-tile-ico { display: none; }
+.wsh.wsh .wsh-tile-value { font-size: 1.375rem; line-height: 1.75rem; font-weight: 600; letter-spacing: 0; }
+.wsh.wsh .wsh-tiles > li[data-tone='warn'] .wsh-tile-value { color: rgb(var(--warn-ink)); }
+.wsh.wsh .wsh-tiles > li[data-tone='neg'] .wsh-tile-value { color: rgb(var(--neg)); }
+
+/* Apps and shortcuts: rows under a hairline, grey on hover; icons keep the app's own mark, no tinted chip. */
+.wsh.wsh .wsh-app { border: 0; border-bottom: 1px solid rgb(var(--border)); border-radius: 0; background: none; box-shadow: none; padding: 10px 0; }
+.wsh.wsh button.wsh-app:hover { background: var(--wsh-hover); box-shadow: none; }
+.wsh.wsh .wsh-quick-btn { border: 0; border-radius: 8px; background: none; box-shadow: none; }
+.wsh.wsh .wsh-quick-btn:hover { background: var(--wsh-hover); }
+.wsh.wsh .wsh-quick-ico { background: none; box-shadow: none; }
+.wsh.wsh .wsh-ico { background: none; }
+.wsh.wsh .wsh-co-ico { background: none; box-shadow: none; }
+
+/* Nothing on this page moves on its own (loading skeletons aside). */
+.wsh.wsh :is(.wsh-wave, .wsh-today, .wsh-live, .wsh-tile, .wsh-app) { animation: none; }

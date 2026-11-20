@@ -6,7 +6,8 @@ export const EPFO_MEMBER_PORTAL = 'https://unifiedportal-mem.epfindia.gov.in/mem
 /** Round 44 "pfclaim" A: how to take money out of PF, step by step, with the EPFO page. */
 export default function PfWithdrawSteps() {
   return (
-    <details className="ui-card ui-pf-steps p-5">
+    /* The shared disclosure (a clickable control at 8px), not a card. */
+    <details>
       <summary className="ui-t-sec cursor-pointer">Taking money out of your PF</summary>
       <ol className="ui-pf-steps-list">
         <li>Check that your UAN is active and that your Aadhaar, PAN and bank account are linked to it.</li>

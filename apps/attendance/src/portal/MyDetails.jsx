@@ -5,6 +5,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { maritalNextStep } from '@ui/personnel/round43';
 import { SignedOut, acceptItem, answerMyRequest, askDetailsChange, getLeaving, getMyDetails, getPolicies, getPolicy, shrinkPhoto, withdrawMyRequest } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
+import { RowState, kindOfPill } from './portalUi';
 
 /**
  * People self-service in the employee app (server: routes/peoplePortal.ts):
@@ -66,7 +67,7 @@ function MyJob({ terms: t, leaving }) {
   const waiting = leaving?.waiting;
   const type = [t.employmentType, t.hours].filter(Boolean).join(' · ');
   return (
-    <section className="ui-card p-5" aria-labelledby="job-h">
+    <section className="portal-sec" aria-labelledby="job-h">
       <h2 id="job-h" className="ui-t-sec mb-1">My job</h2>
       <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
         {t.designation ? <Row label="Job title">{t.designation}</Row> : null}
@@ -147,7 +148,7 @@ function PersonalDetails({ d, guard, reload }) {
     );
   };
   return (
-    <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="details-h">
+    <section className="portal-sec space-y-3 ui-touch-44" aria-labelledby="details-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="details-h" className="ui-t-sec">My details</h2>
         {!editing ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={open}>{atOnce.size ? 'Change details' : 'Ask HR to change'}</button> : null}
@@ -195,7 +196,7 @@ function MyRequests({ requests, guard, reload }) {
     try { await guard(withdrawMyRequest(r.id)); reload(); } catch (e) { setFailed(errText(e, 'withdraw it')); }
   };
   return (
-    <section className="ui-card p-5" aria-labelledby="my-asks-h">
+    <section className="portal-sec" aria-labelledby="my-asks-h">
       <h2 id="my-asks-h" className="ui-t-sec mb-1">My requests</h2>
       {failed ? <p className="text-sm" role="alert">{failed}</p> : null}
       <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
@@ -203,7 +204,7 @@ function MyRequests({ requests, guard, reload }) {
           <li key={r.id} className="space-y-2 py-3 text-sm">
             <div className="flex items-start justify-between gap-2">
               <span className="font-medium">{r.kind === 'LEAVING' ? 'Resignation' : 'Change to my details'}<span className="ui-caption block font-normal">Asked {shortDate(r.createdAt)}</span></span>
-              <span className={`ui-pill shrink-0 ${REQ_PILL[r.status] || 'ui-pill-neutral'}`}>{r.statusLabel}</span>
+              <RowState label={r.statusLabel} pill={REQ_PILL[r.status]} kind={kindOfPill(REQ_PILL[r.status])} />
             </div>
             <ul className="ui-caption">
               {r.asked.map((a) => <li key={a.field}>{a.label}: {a.field === 'photoUrl' ? 'new photo' : a.field === 'lastDay' || a.field === 'dateOfBirth' ? longDate(a.value) : shown(a.field, a.value)}</li>)}
@@ -251,7 +252,7 @@ export function Policies({ guard }) {
     try { await guard(acceptItem(p.acknowledgementId)); load(); } catch (e) { setFailed(errText(e, 'accept it')); }
   };
   return (
-    <section className="ui-card p-5" aria-labelledby="policies-h">
+    <section className="portal-sec" aria-labelledby="policies-h">
       <h2 id="policies-h" className="ui-t-sec mb-1">Company policies</h2>
       {failed ? <p className="text-sm" role="alert">{failed}</p> : null}
       <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>

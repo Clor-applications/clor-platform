@@ -5,6 +5,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import CaseRating from './CaseRating';
 import { SignedOut, getDesk, getDeskCase, raiseDesk, reopenDesk, replyDesk } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
+import { PortalLoading, RowState } from './portalUi';
 
 /**
  * Ask HR as a conversation (DESK-01..04, server: peoplePortal /desk): my
@@ -84,7 +85,7 @@ export default function AskHr({ guard, preset, onPresetUsed, onAvailability }) {
 
   if (openId) return <div ref={ref}><Thread id={openId} guard={guard} label={label} onBack={() => { setOpenId(null); load(); }} /></div>;
   return (
-    <section ref={ref} className="ui-card space-y-3 p-5" aria-labelledby="ask-hr-h">
+    <section ref={ref} className="portal-sec space-y-3" aria-labelledby="ask-hr-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="ask-hr-h" className="ui-t-sec">Ask HR</h2>
         {!asking ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={startAsk}>New question</button> : null}
@@ -118,7 +119,8 @@ export default function AskHr({ guard, preset, onPresetUsed, onAvailability }) {
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     {r.hrWroteLast ? <span className="ui-pill ui-pill-warn">HR replied</span> : null}
-                    <span className={`ui-pill ${pill}`}>{words}</span>
+                    {/* Waiting on HR or on me is the exception; answered is expected (no tag); moved is a plain word. */}
+                    <RowState label={words} pill={pill} kind={r.status === 'RESOLVED' ? 'normal' : r.status === 'MOVED' ? 'quiet' : 'exception'} />
                   </span>
                 </button>
               </li>
@@ -159,10 +161,10 @@ function Thread({ id, guard, label, onBack }) {
   const resolved = r?.status === 'RESOLVED';
   const canReopen = resolved && r.resolvedAt && Date.now() - new Date(r.resolvedAt).getTime() <= REOPEN_DAYS * 86_400_000;
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="thread-h">
+    <section className="portal-sec space-y-3" aria-labelledby="thread-h">
       <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={onBack}><ChevronLeft size={16} aria-hidden="true" /> All questions</button>
       <LoadFailed message={failed} onRetry={load} />
-      {!r && !failed ? <p className="ui-caption">Loading your question…</p> : null}
+      {!r && !failed ? <PortalLoading label="Loading your question…" /> : null}
       {r ? (
         <>
           <div>
@@ -172,13 +174,14 @@ function Thread({ id, guard, label, onBack }) {
           <ol className="space-y-3 text-sm" aria-label="Messages">
             <li className="space-y-0.5"><p className="ui-caption">You · {when(r.createdAt)}</p><p className="whitespace-pre-wrap">{r.description}</p></li>
             {r.messages.map((m) => (
-              <li key={m.id} className="space-y-0.5 rounded-xl p-3" style={m.from === 'HR' ? { backgroundColor: 'rgb(var(--app-bg))' } : undefined}>
+              /* HR's words are set off by a rule at the start, not a tinted bubble (white grounds only). */
+              <li key={m.id} className={m.from === 'HR' ? 'space-y-0.5 border-s-2 ps-3' : 'space-y-0.5'} style={m.from === 'HR' ? { borderColor: 'rgb(var(--border-strong))' } : undefined}>
                 <p className="ui-caption">{m.from === 'HR' ? m.authorName || 'HR' : 'You'} · {when(m.createdAt)}</p>
                 <p className="whitespace-pre-wrap">{m.body}</p>
               </li>
             ))}
             {resolved && r.resolution ? (
-              <li className="space-y-0.5 rounded-xl p-3" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
+              <li className="space-y-0.5 border-s-2 ps-3" style={{ borderColor: 'rgb(var(--border-strong))' }}>
                 <p className="ui-caption">HR’s answer · {when(r.resolvedAt)}</p>
                 <p className="whitespace-pre-wrap">{r.resolution}</p>
               </li>

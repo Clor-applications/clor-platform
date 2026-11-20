@@ -30,8 +30,8 @@ export default function TrainingsDue({ guard }) {
   }, [guard]);
   if (!list.length) return null;
   return (
-    <section className="ui-card ui-training-due space-y-2 p-4" aria-labelledby="training-due-h">
-      <h2 id="training-due-h" className="ui-label">{list.length === 1 ? 'A training to finish' : `${list.length} trainings to finish`}</h2>
+    <section className="portal-sec space-y-2" aria-labelledby="training-due-h">
+      <h2 id="training-due-h" className="ui-t-sec">{list.length === 1 ? 'A training to finish' : `${list.length} trainings to finish`}</h2>
       <ul className="divide-y" aria-label="Trainings to finish">
         {list.map((t) => (
           <li key={t.id} className="py-2 text-sm">

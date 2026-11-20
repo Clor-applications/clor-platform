@@ -1,0 +1,32 @@
+/*
+ * The employee portal on the calm register (DESIGN.md; design audit 20 Nov 2026).
+ *
+ * Lists and sections sit on the white page, not in cards. A section is a heading
+ * (.ui-t-sec) over its content, set apart from the one above by a hairline and
+ * spacing. Only a document (one payslip) earns a hairline box with 12px corners.
+ */
+.portal-sec {
+  border-top: 1px solid rgb(var(--border));
+  padding-top: 1.5rem;
+}
+/* The page header already ends in the one rule; the first section under it does not draw a second. */
+.ui-page-heading + .portal-sec,
+.ui-page-heading + div > .portal-sec:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.portal-doc {
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px;
+  padding: 1rem;
+  background: rgb(var(--surface));
+}
+
+/* A key amount or time (DESIGN.md "figure", 22/28 600, tabular). */
+.portal-figure {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

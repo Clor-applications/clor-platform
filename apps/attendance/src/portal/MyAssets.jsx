@@ -34,7 +34,7 @@ export default function MyAssets({ guard }) {
     guard(getMyAssets()).then((d) => { setData(d); setFailed(''); }).catch((e) => setFailed(errText(e, 'load the company things with you')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
-  if (failed) return <section className="ui-card p-5 text-sm" role="alert">{failed}</section>;
+  if (failed) return <p className="portal-sec text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{failed}</p>;
   if (!data?.available) return null;
 
   const run = async (key, fn, done) => {
@@ -58,7 +58,7 @@ export default function MyAssets({ guard }) {
   const writing = problemFor || asking;
 
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="assets-h">
+    <section className="portal-sec space-y-3" aria-labelledby="assets-h">
       <h2 id="assets-h" className="ui-t-sec">Company things with you</h2>
       {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
       {data.assets.length ? (

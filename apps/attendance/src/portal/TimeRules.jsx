@@ -39,7 +39,7 @@ export function FixNotices({ guard, onFix }) {
   const team = data?.team;
   if (!fixes.length && !notices.length && !team?.count) return null;
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="fix-h">
+    <section className="portal-sec space-y-3" aria-labelledby="fix-h">
       <h2 id="fix-h" className="ui-t-sec">To fix</h2>
       {notices.map((n) => (
         <p key={n.id} className="text-sm" role="alert">
@@ -54,7 +54,7 @@ export function FixNotices({ guard, onFix }) {
                 <span className="block font-medium">{f.what === 'NO_OUT' ? 'No punch-out' : 'No punch'}</span>
                 <span className="ui-caption block tabular-nums">{day(f.date)}{f.checkIn ? `, in at ${f.checkIn}` : ''}</span>
               </span>
-              <button type="button" className="ui-btn ui-btn-primary shrink-0" onClick={() => onFix?.(f)} aria-label={`Fix ${day(f.date)}`}>Fix</button>
+              <button type="button" className="ui-btn ui-btn-secondary shrink-0" onClick={() => onFix?.(f)} aria-label={`Fix ${day(f.date)}`}>Fix</button>
             </li>
           ))}
         </ul>
@@ -72,7 +72,7 @@ export function MyMarks({ guard, month }) {
   if (!data?.on) return null;
   const lines = [data.late?.line, data.early?.line].filter(Boolean);
   return (
-    <section className="ui-card space-y-2 p-5" aria-labelledby="marks-h">
+    <section className="portal-sec space-y-2" aria-labelledby="marks-h">
       <h2 id="marks-h" className="ui-t-sec">Late marks</h2>
       {lines.map((l) => <p key={l} className="text-sm tabular-nums">{l}</p>)}
       {data.days > 0 ? (
@@ -112,7 +112,7 @@ export function NightConsent({ guard }) {
     }
   };
   return (
-    <section className="ui-card space-y-3 p-5" aria-labelledby="night-h">
+    <section className="portal-sec space-y-3" aria-labelledby="night-h">
       <h2 id="night-h" className="ui-t-sec">Night work</h2>
       <p className="text-sm">
         {given ? `You agreed on ${day(data.consent.onDate)} to work from ${data.window}.` : data.consent ? `You withdrew on ${day(data.consent.onDate)}. You are not given shifts from ${data.window}.` : `You are not given shifts from ${data.window} unless you agree.`}
