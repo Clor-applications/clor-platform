@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsActivateProvider, opsPaymentAccounts, opsPaymentEvents, opsPayments, opsProviderMode, opsRecordPayment, opsRetryPaymentEvent, opsSaveProvider, opsTestProvider } from './api';
 import { inr, toPaise } from './money';
-import { Loading, errorWords, subWord } from './kit';
+import { Err, ErrorSummary, FieldMsg, HoldOpen, Loading, errorWords, fieldErr, subWord } from './kit';
 
 /**
  * Payments (server: routes/opsPayments.ts, billing/providers.ts). How
@@ -18,12 +18,6 @@ import { Loading, errorWords, subWord } from './kit';
 const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');
-const Err = ({ children }) =>
-  children ? (
-    <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>
-      {children}
-    </p>
-  ) : null;
 const Problems = ({ list }) =>
   list?.length ? (
     <ul role="alert" className="text-sm grid gap-1" style={{ color: 'rgb(var(--ws-danger))' }}>
@@ -42,6 +36,25 @@ function Field({ id, label, hint, children }) {
       {hint ? <span className="ws-card-blurb">{hint}</span> : null}
     </div>
   );
+}
+/**
+ * What making a provider active does, in words: which one it replaces, and whether money is real.
+ * Shared by the confirm and its test.
+ */
+export function activateWords(p, current) {
+  const mode = p.code === 'manual'
+    ? 'Customers pay by UPI or bank transfer, and each payment is recorded by hand.'
+    : p.mode === 'LIVE'
+      ? `${p.name} is on its Live keys: customers who pay an invoice online pay real money into CLOR’s account.`
+      : `${p.name} is on its Test keys: payments go to the provider’s sandbox and no real money moves. Customers trying to pay an invoice online cannot pay for real.`;
+  const replaced = current && current.code !== p.code
+    ? `${current.name}${current.code === 'manual' ? '' : current.mode === 'LIVE' ? ' (Live)' : ' (Test)'} stops taking payments.`
+    : 'No provider is active now.';
+  return {
+    title: `Make ${p.name}${p.code === 'manual' ? '' : p.mode === 'LIVE' ? ' (Live)' : ' (Test)'} the active provider?`,
+    message: `${replaced} ${mode}`,
+    confirmLabel: `Make ${p.name} active`,
+  };
 }
 const errorOf = (e) => ({ message: errorWords(e, 'change the payment provider'), problems: e?.data?.problems || [] });
 
@@ -105,7 +118,7 @@ export function Payments({ role, openCustomer }) {
   }, []);
   useEffect(load, [load]);
   const mayChange = may(role, 'BILLING');
-  if (!data) return error ? <Err>{error}</Err> : <Loading />;
+  if (!data) return error ? <Err onRetry={load}>{error}</Err> : <Loading />;
   const active = data.providers.find((p) => p.active);
   const open = data.providers.find((p) => p.code === editing);
 
@@ -180,7 +193,7 @@ export function Payments({ role, openCustomer }) {
       ) : (
         <PaymentsLog key={logKey} mayChange={mayChange} openCustomer={openCustomer} />
       )}
-      {open ? <ProviderDrawer key={open.code} p={open} mayChange={mayChange} onClose={() => setEditing(null)} onChanged={(r) => (r?.providers ? setData((d) => ({ ...d, providers: r.providers })) : load())} /> : null}
+      {open ? <ProviderDrawer key={open.code} p={open} current={active} mayChange={mayChange} onClose={() => setEditing(null)} onChanged={(r) => (r?.providers ? setData((d) => ({ ...d, providers: r.providers })) : load())} /> : null}
       {recording ? (
         <RecordPayment
           onClose={() => setRecording(false)}
@@ -242,7 +255,7 @@ function CopyField({ id, label, value, hint }) {
 const idField = (code) => (code === 'cashfree' ? 'appId' : 'keyId');
 const emptyKeys = (p, m) => ({ id: p[m]?.[idField(p.code)] || '', secrets: {} });
 
-function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
+function ProviderDrawer({ p, current = null, mayChange, onClose, onChanged }) {
   const keyed = p.code !== 'manual';
   const [enabled, setEnabled] = useState(p.enabled);
   const [keys, setKeys] = useState(() => (keyed ? { test: emptyKeys(p, 'test'), live: emptyKeys(p, 'live') } : null));
@@ -283,7 +296,12 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
       }
     });
   const test = () => run('test', () => opsTestProvider(p.code));
-  const activate = () => run('activate', () => opsActivateProvider(p.code), `Customers now pay through ${p.name}.`);
+  const activate = async () => {
+    if (busy) return;
+    const words = activateWords(p, current);
+    if (!(await confirmDialog({ ...words, tone: p.mode === 'LIVE' || p.code === 'manual' ? 'primary' : 'danger' }))) return;
+    run('activate', () => opsActivateProvider(p.code), `Customers now pay through ${p.name}.`);
+  };
   const toTest = () => run('mode', () => opsProviderMode(p.code, 'TEST'), `${p.name} is in Test mode.`);
 
   const onQr = (e) => {
@@ -318,12 +336,13 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
     <>
       <WsDrawer
         open
-        onClose={onClose}
+        onClose={() => !busy && onClose()}
+        dirty={dirty || Boolean(busy)}
         title={p.name}
         description={keyed ? 'Keys are saved encrypted. After saving, only their last four characters are shown.' : 'What customers paying by hand are shown. You record each payment when it reaches CLOR’s account.'}
         actions={
           <>
-            <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
+            <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(busy)} onClick={onClose}>
               Close
             </button>
             {mayChange ? (
@@ -340,6 +359,7 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
         }
       >
         <div className="grid gap-6">
+          <HoldOpen active={Boolean(busy)} />
           <section className="grid gap-2" aria-label="Status">
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill p={p} />
@@ -495,12 +515,13 @@ function LiveConfirm({ p, onClose, onDone }) {
   return (
     <WsDrawer
       open
-      onClose={onClose}
+      onClose={() => !busy && onClose()}
+      dirty={busy || Boolean(word.trim())}
       title={`Switch ${p.name} to Live mode?`}
       description="From now on, customers who pay an invoice online pay real money into CLOR’s account. Test the live keys straight after switching."
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={onClose}>
             Cancel
           </button>
           <button type="button" className="ws-btn ws-btn--primary" disabled={busy || word.trim().toUpperCase() !== 'LIVE'} onClick={go}>
@@ -510,6 +531,7 @@ function LiveConfirm({ p, onClose, onDone }) {
       }
     >
       <div className="grid gap-3">
+        <HoldOpen active={busy} />
         <Field id="pay-live-word" label="Type LIVE to confirm">
           <input id="pay-live-word" className="ui-input" autoComplete="off" value={word} onChange={(e) => setWord(e.target.value)} />
         </Field>
@@ -541,6 +563,8 @@ function PaymentsLog({ mayChange, openCustomer }) {
   const [next, setNext] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  const [again, setAgain] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const fetchPage = useCallback((before) => opsPaymentEvents({ status, before }), [status]);
   useEffect(() => {
     let live = true;
@@ -550,8 +574,14 @@ function PaymentsLog({ mayChange, openCustomer }) {
     return () => {
       live = false;
     };
-  }, [fetchPage]);
-  const more = () => fetchPage(next).then((r) => (setRows((x) => [...x, ...r.events]), setNext(r.next)));
+  }, [fetchPage, again]);
+  const more = () => {
+    setLoadingMore(true);
+    return fetchPage(next)
+      .then((r) => (setRows((x) => [...x, ...r.events]), setNext(r.next), setError('')))
+      .catch((e) => setError(errorWords(e, 'load older payments')))
+      .finally(() => setLoadingMore(false));
+  };
   const retry = async (ev) => {
     setBusy(ev.id);
     try {
@@ -579,9 +609,9 @@ function PaymentsLog({ mayChange, openCustomer }) {
           </select>
         </Field>
       </div>
-      <Err>{error}</Err>
+      <Err onRetry={() => (rows ? more() : (setError(''), setAgain((n) => n + 1)))}>{error}</Err>
       {!rows ? (
-        <Loading />
+        error ? null : <Loading />
       ) : !rows.length ? (
         <div className="ws-empty">
           <p>No payment events{status ? ' of this kind' : ''} yet. Provider webhooks and payments recorded by hand show here.</p>
@@ -647,8 +677,8 @@ function PaymentsLog({ mayChange, openCustomer }) {
       )}
       {next ? (
         <div>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={more}>
-            Show older
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={loadingMore} onClick={more}>
+            {loadingMore ? 'Loading…' : 'Show older'}
           </button>
         </div>
       ) : null}
@@ -662,29 +692,58 @@ const today = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0,
 function RecordPayment({ onClose, onDone }) {
   const [search, setSearch] = useState('');
   const [found, setFound] = useState([]);
+  const [lookedFor, setLookedFor] = useState(null);
+  const [lookError, setLookError] = useState('');
+  const [lookAgain, setLookAgain] = useState(0);
   const [account, setAccount] = useState(null);
-  const [f, setF] = useState({ amount: '', reference: '', paidOn: today(), months: '1', note: '' });
+  const [first] = useState(() => ({ amount: '', reference: '', paidOn: today(), months: '1', note: '' }));
+  const [f, setF] = useState(first);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [problems, setProblems] = useState({});
+  const dirty = Boolean(account || search.trim()) || JSON.stringify(f) !== JSON.stringify(first);
+  /* The account search: "No account matches." only once an answer for what is typed has come back. */
   useEffect(() => {
     if (account) return undefined;
     let live = true;
+    const asked = search.trim();
     const t = setTimeout(() => {
-      opsPaymentAccounts(search.trim())
-        .then((r) => live && setFound(r.accounts))
-        .catch(() => {});
+      opsPaymentAccounts(asked)
+        .then((r) => {
+          if (!live) return;
+          setLookError('');
+          setFound(r.accounts || []);
+          setLookedFor(asked);
+        })
+        .catch((e) => live && setLookError(errorWords(e, 'look up the accounts')));
     }, 250);
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [search, account]);
+  }, [search, account, lookAgain]);
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const amount = toPaise(f.amount);
   const save = async () => {
+    if (busy) return;
     setError('');
-    if (!account) return setError('Choose the customer account.');
-    if (!amount || amount <= 0) return setError('Enter the amount received, in rupees.');
+    const wrong = {};
+    if (!account) wrong.account = 'Choose the customer account.';
+    if (!amount || amount <= 0) wrong.amount = 'Enter the amount received, in rupees, like 11800 or 11800.50.';
+    if (!/^[A-Za-z0-9/-]{6,40}$/.test(f.reference.trim())) wrong.reference = 'Enter the UTR or bank reference: 6 to 40 letters and digits.';
+    if (!f.paidOn) wrong.paidOn = 'Enter the date the money arrived.';
+    setProblems(wrong);
+    if (Object.keys(wrong).length) return;
+    const months = Number(f.months);
+    const ok = await confirmDialog({
+      title: `Record ${inr(amount)} from ${account.name}?`,
+      message: account.subscription
+        ? `${account.name}’s subscription is paid for ${months === 1 ? '1 month' : `${months} months`} more and becomes active. The payment goes in the Payments log.`
+        : `${account.name} has no subscription yet, so the payment is recorded only. It goes in the Payments log.`,
+      confirmLabel: 'Record payment',
+      tone: 'primary',
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const r = await opsRecordPayment({ accountId: account.id, amount, reference: f.reference.trim(), paidOn: f.paidOn, months: Number(f.months), note: f.note.trim() || null });
@@ -699,12 +758,13 @@ function RecordPayment({ onClose, onDone }) {
   return (
     <WsDrawer
       open
-      onClose={onClose}
+      onClose={() => !busy && onClose()}
+      dirty={dirty || busy}
       title="Record a payment"
       description="A UPI or bank transfer that reached CLOR’s account. The account’s subscription becomes active for the months it pays for."
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={onClose}>
             Cancel
           </button>
           <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>
@@ -714,6 +774,8 @@ function RecordPayment({ onClose, onDone }) {
       }
     >
       <div className="grid gap-5">
+        <HoldOpen active={busy} />
+        <ErrorSummary errors={problems} />
         {account ? (
           <div className="grid gap-1">
             <span className="text-sm font-semibold">Customer account</span>
@@ -731,8 +793,13 @@ function RecordPayment({ onClose, onDone }) {
           </div>
         ) : (
           <Field id="pay-rec-search" label="Customer account" hint="Type the account’s name or account ID.">
-            <input id="pay-rec-search" className="ui-input" autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} />
-            {found.length ? (
+            <input id="pay-rec-search" className="ui-input" autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} {...fieldErr(problems, 'account', 'pay-rec')} />
+            <FieldMsg errors={problems} k="account" idBase="pay-rec" />
+            {lookError ? (
+              <Err onRetry={() => setLookAgain((n) => n + 1)}>{lookError}</Err>
+            ) : lookedFor !== search.trim() && !found.length ? (
+              search.trim() ? <span className="ws-item-sub" role="status">Looking…</span> : null
+            ) : found.length ? (
               <ul className="grid gap-1" aria-label="Matching accounts">
                 {found.map((a) => (
                   <li key={a.id}>
@@ -744,19 +811,22 @@ function RecordPayment({ onClose, onDone }) {
                 ))}
               </ul>
             ) : search.trim() ? (
-              <span className="ws-item-sub">No account matches.</span>
+              <span className="ws-item-sub" role="status">No account matches.</span>
             ) : null}
           </Field>
         )}
         <Field id="pay-rec-amount" label="Amount received, ₹" hint={amount ? inr(amount) : 'As it shows on the bank statement.'}>
-          <input id="pay-rec-amount" className="ui-input ui-num" inputMode="decimal" value={f.amount} onChange={set('amount')} />
+          <input id="pay-rec-amount" className="ui-input ui-num" inputMode="decimal" value={f.amount} onChange={set('amount')} {...fieldErr(problems, 'amount', 'pay-rec')} />
+          <FieldMsg errors={problems} k="amount" idBase="pay-rec" />
         </Field>
         <Field id="pay-rec-ref" label="UTR or bank reference" hint="The 12-digit UTR from the UPI app or the bank statement. The same reference cannot be recorded twice.">
-          <input id="pay-rec-ref" className="ui-input" autoComplete="off" spellCheck={false} value={f.reference} onChange={set('reference')} />
+          <input id="pay-rec-ref" className="ui-input" autoComplete="off" spellCheck={false} value={f.reference} onChange={set('reference')} {...fieldErr(problems, 'reference', 'pay-rec')} />
+          <FieldMsg errors={problems} k="reference" idBase="pay-rec" />
         </Field>
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))' }}>
           <Field id="pay-rec-date" label="Money arrived on">
-            <input id="pay-rec-date" className="ui-input" type="date" max={today()} value={f.paidOn} onChange={set('paidOn')} />
+            <input id="pay-rec-date" className="ui-input" type="date" max={today()} value={f.paidOn} onChange={set('paidOn')} {...fieldErr(problems, 'paidOn', 'pay-rec')} />
+            <FieldMsg errors={problems} k="paidOn" idBase="pay-rec" />
           </Field>
           <Field id="pay-rec-months" label="It pays for">
             <select id="pay-rec-months" className="ui-input" value={f.months} onChange={set('months')}>

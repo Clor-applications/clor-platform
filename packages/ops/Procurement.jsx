@@ -46,7 +46,7 @@ export function TdsCertificates({ role, openInvoice }) {
     <>
       <PageHead crumbs={['Billing and setup']} title="TDS certificates" counts={!rows ? null : rows.length ? `${rows.length} still to come · ${inr(owed)} of TDS` : 'None outstanding'} />
       <p className="ws-card-blurb r67-lede">A customer that paid an invoice less TDS owes CLOR the Form 16A for it. Each one stays here until it comes in. TDS is entered when an invoice is marked paid.</p>
-      <Err>{error}</Err>
+      <Err onRetry={() => setAgain((n) => n + 1)}>{error}</Err>
       {!rows ? (
         error ? null : <Loading />
       ) : !rows.length ? (
@@ -104,11 +104,12 @@ export function Proformas({ role, openInvoice }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  const [again, setAgain] = useState(0);
   useEffect(() => {
     opsProformas()
       .then((r) => (setRows(r.proformas || []), setError('')))
       .catch((e) => setError(msg(e, 'load the proformas')));
-  }, []);
+  }, [again]);
   const mayChange = may(role, 'BILLING');
   const toInvoice = async (p) => {
     setBusy(p.id);
@@ -125,7 +126,7 @@ export function Proformas({ role, openInvoice }) {
     <>
       <PageHead crumbs={['Billing and setup']} title="Proformas" counts={rows ? (rows.length ? `${rows.length} ${rows.length === 1 ? 'proforma' : 'proformas'}` : null) : null} />
       <p className="ws-card-blurb r67-lede">Customers make a proforma in the Admin center, Billing: the plan with GST, valid 15 days, for their accounts team to pay against. When the money comes, make the tax invoice from it here.</p>
-      <Err>{error}</Err>
+      <Err onRetry={() => setAgain((n) => n + 1)}>{error}</Err>
       {!rows ? (
         error ? null : <Loading />
       ) : !rows.length ? (
@@ -241,7 +242,7 @@ export function VendorDocuments({ role }) {
         }
       />
       <p className="ws-card-blurb r67-lede">CLOR’s own papers that a customer’s purchase team asks for before they can pay a new vendor. Every customer’s billing people can download these from the Admin center, Billing.</p>
-      <Err>{error}</Err>
+      <Err onRetry={() => setAgain((n) => n + 1)}>{error}</Err>
       {!rows ? (
         error ? null : <Loading />
       ) : !rows.length ? (
@@ -293,7 +294,10 @@ function AddDocument({ onClose, onSaved }) {
     reader.onerror = () => setError('That file could not be read. Choose it again.');
     reader.readAsDataURL(f);
   };
+  const dirty = Boolean(file) || Boolean(title.trim()) || Boolean(validUntil) || kind !== 'GST';
+  const close = () => { if (!busy) onClose(); };
   const save = async () => {
+    if (busy) return;
     if (!file) return setError('Choose the PDF or picture.');
     setBusy(true);
     setError('');
@@ -309,12 +313,13 @@ function AddDocument({ onClose, onSaved }) {
   return (
     <WsDrawer
       open
-      onClose={onClose}
+      onClose={close}
+      dirty={dirty || busy}
       title="Add a vendor document"
       description="A PDF, PNG or JPEG up to 2 MB. Every customer’s billing people can download it."
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>
             Cancel
           </button>
           <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>
@@ -353,9 +358,11 @@ function AddDocument({ onClose, onSaved }) {
           <label htmlFor="vd-file" className="text-sm font-semibold">
             File
           </label>
-          <input id="vd-file" type="file" accept="application/pdf,image/png,image/jpeg" onChange={pick} />
+          <input id="vd-file" type="file" accept="application/pdf,image/png,image/jpeg" onChange={pick} aria-invalid={error && !file ? true : undefined} aria-describedby={error && !file ? 'vd-file-err' : undefined} />
         </div>
-        <Err>{error}</Err>
+        <div id="vd-file-err">
+          <Err>{error}</Err>
+        </div>
       </div>
     </WsDrawer>
   );

@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loading, errorWords } from './kit';
+import { Err, ErrorSummary, FieldMsg, HoldOpen, Loading, errorWords, fieldErr } from './kit';
 import { ArrowLeft } from 'lucide-react';
 
+import Modal from '@ui/components/ui/Modal';
 import { notify } from '@ui/components/ui/notify';
+import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { PageHead, Panel, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsArchivePriceBook, opsNewPriceBook, opsPriceBook, opsPricePreview, opsPricing, opsPublishPriceBook, opsRollBackPriceBook, opsSamplePlans, opsSavePriceBook } from './api';
 import { inr, rupeesText, toPaise } from './money';
@@ -33,12 +35,6 @@ function taxRows(tax) {
 }
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
-const Err = ({ children }) =>
-  children ? (
-    <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>
-      {children}
-    </p>
-  ) : null;
 const priceOf = (plan, period) => plan.prices.find((p) => p.period === period);
 /* The yearly price the engine will work out, for a plan with a yearly discount (same rounding: half up, in paise). */
 const pct = (paise, keep) => Math.floor((paise * keep + 50) / 100);
@@ -57,14 +53,19 @@ export function StatusPill({ status }) {
   return <span className={status === 'PUBLISHED' ? 'ws-pill ws-pill--ok' : status === 'DRAFT' ? 'ws-pill ws-pill--warn' : 'ws-pill ws-pill--off'}>{STATUS[status] || status}</span>;
 }
 
-/** A confirm step for the acts that change clor.in. */
-function Confirm({ open, title, text, action, busyLabel, onClose, onConfirm }) {
+/**
+ * A confirm step for the acts that change clor.in: a dialog (DESIGN.md "Dialogs") that says what will
+ * happen, with anything worth checking first (`children`: the price changes). It cannot be closed while
+ * the request runs.
+ */
+function Confirm({ open, title, text, action, busyLabel, onClose, onConfirm, children = null, wide = false, tone = 'primary' }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
     if (open) setError('');
   }, [open]);
   const go = async () => {
+    if (busy) return;
     setBusy(true);
     setError('');
     try {
@@ -75,28 +76,36 @@ function Confirm({ open, title, text, action, busyLabel, onClose, onConfirm }) {
       setBusy(false);
     }
   };
+  const close = () => {
+    if (!busy) onClose();
+  };
+  if (!open) return null;
   return (
-    <WsDrawer
-      open={open}
-      onClose={onClose}
+    <Modal
       title={title}
-      description={text}
-      actions={
-        <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
+      onClose={close}
+      showCloseIcon={!busy}
+      dirty={busy}
+      maxWidthClass={wide ? 'max-w-[640px]' : 'max-w-[420px]'}
+      footer={
+        <div className="flex justify-end gap-2">
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>
             Cancel
           </button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={go}>
+          <button type="button" className={tone === 'danger' ? 'ws-btn ws-btn--danger' : 'ws-btn ws-btn--primary'} disabled={busy} onClick={go}>
             {busy ? busyLabel : action}
           </button>
-        </>
+        </div>
       }
     >
       <div className="grid gap-3">
+        <HoldOpen active={busy} />
+        {text ? <p className="ws-notice">{text}</p> : null}
+        {children}
         <p className="ws-card-blurb">You will be asked for a code from your authenticator app. It goes in the Staff audit log.</p>
         <Err>{error}</Err>
       </div>
-    </WsDrawer>
+    </Modal>
   );
 }
 
@@ -114,7 +123,7 @@ export function Pricing({ role }) {
   useEffect(load, [load]);
 
   if (bookId) return <PriceBook id={bookId} role={role} catalogue={data?.apps || []} back={() => (setBookId(''), load())} open={setBookId} live={data?.books?.find((b) => b.status === 'PUBLISHED') || null} />;
-  if (!data) return error ? <Err>{error}</Err> : <Loading />;
+  if (!data) return error ? <Err onRetry={load}>{error}</Err> : <Loading />;
   const live = data.books.find((b) => b.status === 'PUBLISHED');
   const draft = data.books.find((b) => b.status === 'DRAFT');
   const mayChange = may(role, 'BILLING');
@@ -248,7 +257,7 @@ function PriceBook({ id, role, catalogue, back, open, live }) {
       .catch((e) => setError(errorWords(e, 'load the price book')));
   }, [id]);
   useEffect(load, [load]);
-  if (!book) return error ? <Err>{error}</Err> : <Loading />;
+  if (!book) return error ? <Err onRetry={load}>{error}</Err> : <Loading />;
   const mayChange = may(role, 'BILLING');
   const backButton = (
     <div>
@@ -420,22 +429,102 @@ const blankPlan = (n) => ({
   ],
 });
 
+/* A price in words for the diff: "₹300 + ₹300 per extra user", or "not offered". */
+const priceWords = (plan, period) => {
+  const p = effective(plan, period);
+  if (!p) return 'not offered';
+  return p.extraUnitPrice ? `${inr(p.basePrice)} + ${inr(p.extraUnitPrice)} per extra ${UNIT[plan.unit]}` : inr(p.basePrice);
+};
+
+/**
+ * What publishing changes, plan by plan, against the version on clor.in now: added and removed plans,
+ * and each price, trial or app that differs ("Monthly: ₹300 → ₹349.50").
+ */
+function priceChanges(livePlans, draftPlans, catalogue = []) {
+  const out = [];
+  const byCode = new Map((livePlans || []).map((p) => [p.code, p]));
+  for (const d of draftPlans) {
+    const l = byCode.get(d.code);
+    byCode.delete(d.code);
+    if (!l) {
+      out.push({ code: d.code, name: d.name, kind: 'added', lines: [`Monthly ${priceWords(d, 'MONTHLY')}`, `Yearly ${priceWords(d, 'YEARLY')}`] });
+      continue;
+    }
+    const lines = [];
+    const pair = (label, a, b) => a !== b && lines.push(`${label}: ${a} → ${b}`);
+    pair('Name', l.name, d.name);
+    pair('Monthly', priceWords(l, 'MONTHLY'), priceWords(d, 'MONTHLY'));
+    pair('Yearly', priceWords(l, 'YEARLY'), priceWords(d, 'YEARLY'));
+    pair('Included', `${l.includedUnits} ${units(l.unit, l.includedUnits)}`, `${d.includedUnits} ${units(d.unit, d.includedUnits)}`);
+    pair('Free trial', l.trialDays ? `${l.trialDays} days` : 'none', d.trialDays ? `${d.trialDays} days` : 'none');
+    pair('Apps', appNames(l.apps, catalogue), appNames(d.apps, catalogue));
+    pair('On clor.in', l.showOnWebsite ? 'shown' : 'hidden', d.showOnWebsite ? 'shown' : 'hidden');
+    if (lines.length) out.push({ code: d.code, name: d.name, kind: 'changed', lines });
+  }
+  for (const l of byCode.values()) out.push({ code: l.code, name: l.name, kind: 'removed', lines: ['Comes off clor.in. Customers on it keep their prices.'] });
+  return out;
+}
+
+function PriceChanges({ live, plans, catalogue }) {
+  if (!live) return <p className="ws-card-blurb">Nothing is on clor.in now, so every plan here is new.</p>;
+  if (live.error) return <Err onRetry={live.retry}>{live.error}</Err>;
+  if (!live.plans) return <Loading label="Comparing with the prices on clor.in…" />;
+  const changes = priceChanges(live.plans, plans, catalogue);
+  if (!changes.length) return <p className="ws-card-blurb">No price changes against version {live.version}, on clor.in now.</p>;
+  const KIND = { added: 'New plan', removed: 'Removed', changed: 'Changed' };
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-semibold">
+        Changes against version {live.version}, on clor.in now ({changes.length} {changes.length === 1 ? 'plan' : 'plans'})
+      </p>
+      <ul className="ws-list" aria-label="Price changes">
+        {changes.map((c) => (
+          <li key={`${c.kind}-${c.code}`} style={{ padding: '8px 0' }}>
+            <span className="font-semibold">{c.name || c.code}</span> <span className="ws-item-sub">· {KIND[c.kind]}</span>
+            <ul className="text-sm ui-num" style={{ listStyle: 'disc', paddingInlineStart: 18 }}>
+              {c.lines.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, live }) {
   const [plans, setPlans] = useState(book.plans);
   const [note, setNote] = useState(book.note || '');
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [problems, setProblems] = useState([]);
+  const [problemsTitle, setProblemsTitle] = useState('Not saved. Fix these first:');
   const [confirm, setConfirm] = useState('');
   useEffect(() => {
     setPlans(book.plans);
     setNote(book.note || '');
   }, [book]);
   const dirty = JSON.stringify(plans) !== JSON.stringify(book.plans) || note.trim() !== (book.note || '');
+  /* Leaving the editor (another page, Back, closing the tab) with unsaved prices asks first. */
+  useUnsavedChanges(dirty);
+  /* The plans on clor.in now, read when Publish is pressed, so the confirm can list what changes. */
+  const [livePlans, setLivePlans] = useState(null);
+  const readLive = useCallback(() => {
+    if (!live) return;
+    setLivePlans({ version: live.version });
+    opsPriceBook(live.id)
+      .then((r) => setLivePlans({ version: live.version, plans: r.book.plans }))
+      .catch((e) => setLivePlans({ version: live.version, error: errorWords(e, 'read the prices on clor.in') }));
+  }, [live]);
+  useEffect(() => {
+    if (confirm === 'publish') readLive();
+  }, [confirm, readLive]);
 
   const save = async () => {
     setSaving(true);
     setProblems([]);
+    setProblemsTitle('Not saved. Fix these first:');
     try {
       await opsSavePriceBook(book.id, { plans, note: note.trim() || null });
       notify.success('Draft saved. Nothing changes on clor.in until you publish.');
@@ -446,11 +535,24 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
       setSaving(false);
     }
   };
+  const [sampling, setSampling] = useState(false);
   const loadSample = async () => {
-    const r = await opsSamplePlans();
-    setPlans(r.plans);
-    if (!note.trim()) setNote(r.note);
-    notify.success('Sample prices loaded into the draft. Change them, then save.');
+    if (sampling) return;
+    setSampling(true);
+    setProblems([]);
+    try {
+      const r = await opsSamplePlans();
+      setPlans(r.plans);
+      if (!note.trim()) setNote(r.note);
+      setConfirm('');
+      notify.success('Sample prices loaded into the draft. Change them, then save.');
+    } catch (e) {
+      setConfirm('');
+      setProblemsTitle('The sample prices did not load. The draft is as it was:');
+      setProblems([errorWords(e, 'load the sample prices')]);
+    } finally {
+      setSampling(false);
+    }
   };
 
   return (
@@ -479,7 +581,7 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
           {problems.length ? (
             <div role="alert" className="grid gap-1">
               <p className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>
-                Not saved. Fix these first:
+                {problemsTitle}
               </p>
               <ul className="text-sm" style={{ color: 'rgb(var(--ws-danger))', paddingLeft: 18, listStyle: 'disc' }}>
                 {problems.map((p) => (
@@ -493,8 +595,8 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
               <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setEditing(plans.length)}>
                 Add a plan
               </button>
-              <button type="button" className="ws-btn ws-btn--quiet" onClick={loadSample}>
-                {plans.length ? 'Replace with sample prices' : 'Load sample prices'}
+              <button type="button" className="ws-btn ws-btn--quiet" disabled={sampling} onClick={() => (plans.length ? setConfirm('sample') : loadSample())}>
+                {sampling ? 'Loading…' : plans.length ? 'Replace with sample prices' : 'Load sample prices'}
               </button>
               <button type="button" className="ws-btn ws-btn--quiet" disabled={!dirty || saving} onClick={save}>
                 {saving ? 'Saving…' : 'Save draft'}
@@ -531,9 +633,10 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
       <Confirm
         open={confirm === 'publish'}
         title={`Publish version ${book.version}?`}
-        text={`Its plans and prices go on clor.in and into every new quote straight away.${live ? ` Version ${live.version}, on clor.in now, is archived and kept, and can be brought back.` : ''} Customers already subscribed keep their prices.`}
+        text={`Its ${plans.length} ${plans.length === 1 ? 'plan goes' : 'plans go'} on clor.in and into every new quote straight away.${live ? ` Version ${live.version}, on clor.in now, is archived and kept, and can be brought back.` : ''} Customers already subscribed keep their prices.`}
         action="Publish"
         busyLabel="Publishing…"
+        wide
         onClose={() => setConfirm('')}
         onConfirm={async () => {
           await opsPublishPriceBook(book.id);
@@ -541,7 +644,12 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
           setConfirm('');
           reload();
         }}
-      />
+      >
+        <PriceChanges live={live ? { ...livePlans, version: live.version, retry: readLive } : null} plans={plans} catalogue={catalogue} />
+      </Confirm>
+      {confirm === 'sample' ? (
+        <SampleConfirm count={plans.length} busy={sampling} onClose={() => setConfirm('')} onConfirm={loadSample} />
+      ) : null}
       <Confirm
         open={confirm === 'discard'}
         title={`Discard version ${book.version}?`}
@@ -560,6 +668,37 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
   );
 }
 
+/** Replacing a draft's plans with the sample prices: says how many plans go, and that clor.in does not change. */
+function SampleConfirm({ count, busy, onClose, onConfirm }) {
+  const close = () => {
+    if (!busy) onClose();
+  };
+  return (
+    <Modal
+      title={`Replace ${count} ${count === 1 ? 'plan' : 'plans'} with the sample prices?`}
+      onClose={close}
+      showCloseIcon={!busy}
+      dirty={busy}
+      maxWidthClass="max-w-[420px]"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>
+            Cancel
+          </button>
+          <button type="button" className="ws-btn ws-btn--danger" disabled={busy} onClick={onConfirm}>
+            {busy ? 'Loading…' : 'Replace plans'}
+          </button>
+        </div>
+      }
+    >
+      <HoldOpen active={busy} />
+      <p className="ws-notice">
+        The {count} {count === 1 ? 'plan' : 'plans'} in this draft, with any changes not saved, are replaced by the sample plans. The saved draft is not changed until you press Save draft, and nothing goes on clor.in until you publish.
+      </p>
+    </Modal>
+  );
+}
+
 /* ------------------------------------------------------------- one plan */
 const slug = (s) =>
   String(s || '')
@@ -570,7 +709,7 @@ const slug = (s) =>
     .slice(0, 32);
 
 /** A labelled field with its help line. */
-function Field({ id, label, hint, children }) {
+function Field({ id, label, hint, errors, k, children }) {
   return (
     <div className="grid gap-1">
       <label htmlFor={id} className="text-sm font-semibold">
@@ -578,6 +717,7 @@ function Field({ id, label, hint, children }) {
       </label>
       {children}
       {hint ? <span className="ws-card-blurb">{hint}</span> : null}
+      {k ? <FieldMsg errors={errors} k={k} idBase="ops-plan" /> : null}
     </div>
   );
 }
@@ -598,7 +738,10 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
       discount: plan.yearlyDiscountPct != null ? String(plan.yearlyDiscountPct) : '',
     };
   });
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [start] = useState(() => JSON.stringify(f));
+  const dirty = JSON.stringify(f) !== start;
+  const fe = (k) => fieldErr(errors, k, 'ops-plan');
   const set = (k) => (e) => {
     const v = e?.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e;
     setF((x) => ({ ...x, [k]: v, ...(k === 'name' && !x.codeTouched ? { code: slug(v) } : {}), ...(k === 'code' ? { codeTouched: true } : {}) }));
@@ -616,14 +759,22 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
       yearly && f.yearlyMode === 'own' && ['yBase', 'yearly price'],
       yearly && f.yearlyMode === 'own' && ['yExtra', 'yearly price for each extra'],
     ].filter(Boolean);
-    for (const [k, label] of amounts) if (toPaise(f[k] || '0') == null) return setError(`The ${label} is an amount in rupees, like 499 or 499.50.`);
-    if (!f.name.trim()) return setError('Give the plan a name.');
-    if (!/^[a-z][a-z0-9-]{1,31}$/.test(f.code)) return setError('The code is small letters, numbers and dashes, like books-starter.');
-    if (takenCodes.includes(f.code)) return setError('Another plan in this book has that code.');
-    if (!f.apps.length) return setError('Choose at least one app.');
-    if (!f.periods.length) return setError('Offer it monthly, yearly or both.');
+    /* Every problem at once, each on its field, rather than one per press. */
+    const bad = {};
+    const whole = (v) => /^\d+$/.test(String(v ?? '').trim());
+    if (!f.name.trim()) bad.name = 'Give the plan a name.';
+    if (!/^[a-z][a-z0-9-]{1,31}$/.test(f.code)) bad.code = 'The code is small letters, numbers and dashes, like books-starter.';
+    else if (takenCodes.includes(f.code)) bad.code = 'Another plan in this book has that code.';
+    if (!f.apps.length) bad.apps = 'Choose at least one app.';
+    if (!whole(f.includedUnits) || Number(f.includedUnits) < 1) bad.includedUnits = 'Included is a whole number, 1 or more.';
+    if (!f.periods.length) bad.periods = 'Offer it monthly, yearly or both.';
+    for (const [k, label] of amounts) if (toPaise(f[k] || '0') == null) bad[k] = `The ${label} is an amount in rupees, like 499 or 499.50.`;
     const discount = yearly && f.yearlyMode === 'discount' ? Number(f.discount) : null;
-    if (discount != null && !(Number.isInteger(discount) && discount >= 0 && discount <= 90)) return setError('The yearly discount is a whole percent from 0 to 90.');
+    if (discount != null && !(whole(f.discount) && discount <= 90)) bad.discount = 'The yearly discount is a whole percent from 0 to 90.';
+    if (!whole(f.trialDays) || Number(f.trialDays) > 90) bad.trialDays = 'The free trial is a whole number of days from 0 to 90.';
+    if (!whole(f.displayOrder)) bad.displayOrder = 'The order is a whole number, 0 or more.';
+    setErrors(bad);
+    if (Object.keys(bad).length) return;
     const prices = [];
     if (monthly || discount != null) prices.push({ period: 'MONTHLY', basePrice: toPaise(f.mBase || '0'), extraUnitPrice: toPaise(f.mExtra || '0') });
     if (yearly && discount == null) prices.push({ period: 'YEARLY', basePrice: toPaise(f.yBase || '0'), extraUnitPrice: toPaise(f.yExtra || '0') });
@@ -645,12 +796,13 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
     });
   };
 
-  const money = (k, id) => <input id={id} className="ui-input ui-num" style={{ maxWidth: 160, textAlign: 'right' }} inputMode="decimal" value={f[k]} onChange={set(k)} placeholder="0" />;
+  const money = (k, id) => <input id={id} className="ui-input ui-num" style={{ maxWidth: 160, textAlign: 'right' }} inputMode="decimal" value={f[k]} onChange={set(k)} placeholder="0" {...fe(k)} />;
 
   return (
     <WsDrawer
       open={open}
       onClose={onClose}
+      dirty={dirty}
       title={isNew ? 'Add a plan' : `Change ${plan.name}`}
       description={`Amounts are in rupees, before GST. ${isNew ? 'Add to draft' : 'Keep changes'} puts this in the draft; press Save draft to keep it for good.`}
       actions={
@@ -665,20 +817,21 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
       }
     >
       <form id="ops-plan" className="grid gap-5" onSubmit={done}>
-        <Err>{error}</Err>
-        <Field id="ops-plan-name" label="Name" hint="As customers see it, like Books Starter.">
-          <input id="ops-plan-name" className="ui-input" value={f.name} maxLength={60} onChange={set('name')} />
+        <ErrorSummary errors={errors} label="Fix these before the plan goes in the draft" />
+        <Field id="ops-plan-name" label="Name" hint="As customers see it, like Books Starter." errors={errors} k="name">
+          <input id="ops-plan-name" className="ui-input" value={f.name} maxLength={60} onChange={set('name')} {...fe('name')} />
         </Field>
-        <Field id="ops-plan-code" label="Code" hint="Small letters and dashes. It goes in the free-trial link, so keep it once customers use it.">
-          <input id="ops-plan-code" className="ui-input ui-mono" value={f.code} maxLength={32} onChange={set('code')} />
+        <Field id="ops-plan-code" label="Code" hint="Small letters and dashes. It goes in the free-trial link, so keep it once customers use it." errors={errors} k="code">
+          <input id="ops-plan-code" className="ui-input ui-mono" value={f.code} maxLength={32} onChange={set('code')} {...fe('code')} />
         </Field>
         <Field id="ops-plan-desc" label="Description" hint="One line under the name on clor.in.">
           <textarea id="ops-plan-desc" className="ui-input" rows={2} maxLength={300} value={f.description} onChange={set('description')} />
         </Field>
-        <fieldset className="grid gap-2">
+        <fieldset className="grid gap-2" {...fe('apps')}>
           <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>
             Apps in this plan
           </legend>
+          <FieldMsg errors={errors} k="apps" idBase="ops-plan" />
           {catalogue.map((a) => (
             <label key={a.code} className="flex gap-2 items-start">
               <input type="checkbox" checked={f.apps.includes(a.code)} onChange={() => toggle('apps', a.code)} />
@@ -697,14 +850,15 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
               <option value="EMPLOYEE">Employee</option>
             </select>
           </Field>
-          <Field id="ops-plan-included" label={`${UNITS[f.unit][0].toUpperCase()}${UNITS[f.unit].slice(1)} included`} hint={`The base price covers this many ${UNITS[f.unit]}.`}>
-            <input id="ops-plan-included" className="ui-input ui-num" style={{ maxWidth: 120 }} type="number" min={1} value={f.includedUnits} onChange={set('includedUnits')} />
+          <Field id="ops-plan-included" label={`${UNITS[f.unit][0].toUpperCase()}${UNITS[f.unit].slice(1)} included`} hint={`The base price covers this many ${UNITS[f.unit]}.`} errors={errors} k="includedUnits">
+            <input id="ops-plan-included" className="ui-input ui-num" style={{ maxWidth: 120 }} type="text" inputMode="numeric" value={f.includedUnits} onChange={set('includedUnits')} {...fe('includedUnits')} />
           </Field>
         </div>
-        <fieldset className="grid gap-2">
+        <fieldset className="grid gap-2" {...fe('periods')}>
           <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>
             Offered
           </legend>
+          <FieldMsg errors={errors} k="periods" idBase="ops-plan" />
           <label className="flex gap-2">
             <input type="checkbox" checked={monthly} onChange={() => toggle('periods', 'MONTHLY')} /> Monthly
           </label>
@@ -714,10 +868,10 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
         </fieldset>
         {monthly || (yearly && f.yearlyMode === 'discount') ? (
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-            <Field id="ops-plan-mbase" label="Monthly price, ₹" hint={`For up to ${f.includedUnits} ${units(f.unit, f.includedUnits)}.`}>
+            <Field id="ops-plan-mbase" label="Monthly price, ₹" hint={`For up to ${f.includedUnits} ${units(f.unit, f.includedUnits)}.`} errors={errors} k="mBase">
               {money('mBase', 'ops-plan-mbase')}
             </Field>
-            <Field id="ops-plan-mextra" label={`Each extra ${unit} a month, ₹`} hint="0 if more cost nothing.">
+            <Field id="ops-plan-mextra" label={`Each extra ${unit} a month, ₹`} hint="0 if more cost nothing." errors={errors} k="mExtra">
               {money('mExtra', 'ops-plan-mextra')}
             </Field>
           </div>
@@ -733,24 +887,25 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
                 aria-label="Yearly discount, percent"
                 className="ui-input ui-num"
                 style={{ width: 72 }}
-                type="number"
-                min={0}
-                max={90}
+                type="text"
+                inputMode="numeric"
                 value={f.discount}
                 onChange={set('discount')}
                 disabled={f.yearlyMode !== 'discount'}
+                {...fe('discount')}
               />{' '}
               %
             </label>
+            <FieldMsg errors={errors} k="discount" idBase="ops-plan" />
             <label className="flex gap-2 items-center">
               <input type="radio" name="ops-plan-ymode" checked={f.yearlyMode === 'own'} onChange={() => set('yearlyMode')('own')} /> Its own price
             </label>
             {f.yearlyMode === 'own' ? (
               <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-                <Field id="ops-plan-ybase" label="Yearly price, ₹" hint={`For up to ${f.includedUnits} ${units(f.unit, f.includedUnits)}.`}>
+                <Field id="ops-plan-ybase" label="Yearly price, ₹" hint={`For up to ${f.includedUnits} ${units(f.unit, f.includedUnits)}.`} errors={errors} k="yBase">
                   {money('yBase', 'ops-plan-ybase')}
                 </Field>
-                <Field id="ops-plan-yextra" label={`Each extra ${unit} a year, ₹`}>
+                <Field id="ops-plan-yextra" label={`Each extra ${unit} a year, ₹`} errors={errors} k="yExtra">
                   {money('yExtra', 'ops-plan-yextra')}
                 </Field>
               </div>
@@ -758,11 +913,11 @@ function PlanDrawer({ open, plan, isNew, catalogue, takenCodes, onClose, onDone 
           </fieldset>
         ) : null}
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-          <Field id="ops-plan-trial" label="Free trial, days" hint="0 for no trial. Up to 90.">
-            <input id="ops-plan-trial" className="ui-input ui-num" style={{ maxWidth: 120 }} type="number" min={0} max={90} value={f.trialDays} onChange={set('trialDays')} />
+          <Field id="ops-plan-trial" label="Free trial, days" hint="0 for no trial. Up to 90." errors={errors} k="trialDays">
+            <input id="ops-plan-trial" className="ui-input ui-num" style={{ maxWidth: 120 }} type="text" inputMode="numeric" value={f.trialDays} onChange={set('trialDays')} {...fe('trialDays')} />
           </Field>
-          <Field id="ops-plan-order" label="Order on clor.in" hint="Smaller numbers come first.">
-            <input id="ops-plan-order" className="ui-input ui-num" style={{ maxWidth: 120 }} type="number" min={0} value={f.displayOrder} onChange={set('displayOrder')} />
+          <Field id="ops-plan-order" label="Order on clor.in" hint="Smaller numbers come first." errors={errors} k="displayOrder">
+            <input id="ops-plan-order" className="ui-input ui-num" style={{ maxWidth: 120 }} type="text" inputMode="numeric" value={f.displayOrder} onChange={set('displayOrder')} {...fe('displayOrder')} />
           </Field>
         </div>
         <div className="grid gap-2">
@@ -883,11 +1038,11 @@ function Preview({ plans, catalogue }) {
         <div className="flex gap-3">
           <label className="grid gap-1 text-sm">
             Users
-            <input className="ui-input ui-num" style={{ width: 88 }} type="number" min={0} value={users} onChange={(e) => setUsers(e.target.value)} />
+            <input className="ui-input ui-num" style={{ width: 88 }} type="text" inputMode="numeric" value={users} onChange={(e) => setUsers(e.target.value.replace(/\D/g, ''))} />
           </label>
           <label className="grid gap-1 text-sm">
             Employees
-            <input className="ui-input ui-num" style={{ width: 88 }} type="number" min={0} value={employees} onChange={(e) => setEmployees(e.target.value)} />
+            <input className="ui-input ui-num" style={{ width: 88 }} type="text" inputMode="numeric" value={employees} onChange={(e) => setEmployees(e.target.value.replace(/\D/g, ''))} />
           </label>
         </div>
         {r?.quoteError ? <p className="ws-card-blurb">{r.quoteError}</p> : null}

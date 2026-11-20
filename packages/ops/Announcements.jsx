@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { AnnouncementNotice, KIND_WORD } from '../shell/Announcements';
-import { APP_NAMES, Empty, Err, Loading, ReasonDrawer, Tabs, may, when, errorWords, countLine } from './kit';
+import { APP_NAMES, Empty, Err, HoldOpen, Loading, ReasonDrawer, Tabs, may, when, errorWords, countLine } from './kit';
 import { opsAnnouncementDelete, opsAnnouncementEnd, opsAnnouncementPublish, opsAnnouncementSave, opsAnnouncements } from './api';
 
 /**
@@ -49,7 +49,21 @@ function Editor({ editing, apps, onClose, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const live = editing?.status === 'live';
+  const now = JSON.stringify([title, body, kind, chosen, audience, startsAt, endsAt]);
+  const [start] = useState(now);
+  const dirty = now !== start;
   const save = async () => {
+    if (busy) return;
+    /* A live notice changes on customers' screens at once: say who sees the change, and ask first. */
+    if (live) {
+      const ok = await confirmDialog({
+        title: 'Update the live announcement?',
+        message: `It is showing now. ${AUDIENCE_WORD[audience][0].toUpperCase()}${AUDIENCE_WORD[audience].slice(1)} using ${appsWords(chosen)} see the new wording within ten minutes, on screens already open too.`,
+        confirmLabel: 'Update live announcement',
+        tone: 'primary',
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -70,6 +84,7 @@ function Editor({ editing, apps, onClose, onSaved }) {
     <WsDrawer
       open
       onClose={onClose}
+      dirty={dirty || busy}
       title={editing ? 'Change the announcement' : 'New announcement'}
       description={live ? 'It is showing now: changes reach customers the next time their app looks, within ten minutes.' : 'Saved as a draft. Nobody sees it until you publish it.'}
       actions={
@@ -78,12 +93,13 @@ function Editor({ editing, apps, onClose, onSaved }) {
             Cancel
           </button>
           <button type="button" className="ws-btn ws-btn--primary" disabled={busy || !ready} onClick={save}>
-            {busy ? 'Saving…' : editing ? 'Save changes' : 'Save draft'}
+            {busy ? (live ? 'Updating…' : 'Saving…') : live ? 'Update live announcement' : editing ? 'Save changes' : 'Save draft'}
           </button>
         </>
       }
     >
       <div className="grid gap-5">
+        <HoldOpen active={busy} />
         <Field id="ann-title" label="Title" hint="A few words, shown in bold.">
           <input id="ann-title" className="ui-input" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} />
         </Field>
@@ -159,7 +175,7 @@ export function Announcements({ me }) {
   const [asking, setAsking] = useState(null);
   const canWrite = may(me?.role, 'SUPPORT');
   const load = useCallback(() => {
-    opsAnnouncements().then(setD).catch((e) => setError(errorWords(e, 'load the announcements')));
+    opsAnnouncements().then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'load the announcements')));
   }, []);
   useEffect(load, [load]);
 
@@ -203,7 +219,7 @@ export function Announcements({ me }) {
             ['ended', 'Ended'],
           ]}
         />
-        <Err>{error}</Err>
+        <Err onRetry={load}>{error}</Err>
         {!d && !error ? (
           <Loading />
         ) : d && rows.length === 0 ? (

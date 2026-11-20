@@ -16,15 +16,16 @@ export function BrokenConnections({ openCustomer }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   const [kind, setKind] = useState('');
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
     opsBrokenConnections()
-      .then((r) => live && setD(r))
+      .then((r) => live && (setD(r), setError('')))
       .catch((e) => live && setError(errorWords(e, 'load the broken connections')));
     return () => {
       live = false;
     };
-  }, []);
+  }, [tick]);
 
   const kinds = Object.entries(d?.kinds || {}).sort((a, b) => b[1] - a[1]);
   const rows = (d?.items || []).filter((r) => !kind || r.kind === kind);
@@ -42,7 +43,7 @@ export function BrokenConnections({ openCustomer }) {
             ]}
           />
         ) : null}
-        <Err>{error}</Err>
+        <Err onRetry={() => setTick((n) => n + 1)}>{error}</Err>
         {!d ? (
           error ? null : <Loading />
         ) : !d.items.length ? (

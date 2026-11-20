@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsAskSupportGrant, opsEndSupportGrant, opsSupportGrants } from './api';
-import { Empty, Err, Loading, may, when, errorWords } from './kit';
+import { Empty, Err, Loading, countsChanged, may, useRowBusy, when, errorWords } from './kit';
 
 /**
  * Customer page → Support access (docs/workspace/SUPPORT_GRANTS.md).
@@ -58,14 +58,26 @@ export function SupportAccess({ id, companies, role }) {
       setBusy(false);
     }
   };
+  const rowBusy = useRowBusy();
   const end = async (g) => {
-    try {
-      await opsEndSupportGrant(g.id);
-      notify.success(g.state === 'PENDING' ? 'Withdrawn.' : 'Closed.');
-    } catch (err) {
-      notify.error(errorWords(err, 'close the request'));
-    }
-    load();
+    if (rowBusy.busy(g.id)) return;
+    const company = nameOf(g.orgId);
+    const ok = await confirmDialog(
+      g.state === 'PENDING'
+        ? { title: `Withdraw the request for ${company}?`, message: 'The customer is no longer asked. To look later you ask again, with a reason.', confirmLabel: 'Withdraw request', cancelLabel: 'Keep it' }
+        : { title: `Close access to ${company}?`, message: `CLOR staff lose access to ${company} now, before the time the customer chose. To look again you ask the customer again.`, confirmLabel: 'Close access', cancelLabel: 'Keep it open' }
+    );
+    if (!ok) return;
+    await rowBusy.run(g.id, async () => {
+      try {
+        await opsEndSupportGrant(g.id);
+        notify.success(g.state === 'PENDING' ? 'Withdrawn.' : `Closed. CLOR staff no longer see ${company}.`);
+        countsChanged();
+      } catch (err) {
+        notify.error(errorWords(err, 'close the request'));
+      }
+      load();
+    });
   };
 
   return (
@@ -110,7 +122,7 @@ export function SupportAccess({ id, companies, role }) {
 
       <Panel title="Requests and access">
         {error ? (
-          <Err>{error}</Err>
+          <Err onRetry={load}>{error}</Err>
         ) : !data ? (
           <Loading />
         ) : !data.length ? (
@@ -137,8 +149,8 @@ export function SupportAccess({ id, companies, role }) {
                           Open in the app
                         </a>
                       ) : null}
-                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => end(g)}>
-                        {g.state === 'PENDING' ? 'Withdraw' : 'Done, close it'}
+                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={rowBusy.busy(g.id)} onClick={() => end(g)}>
+                        {rowBusy.busy(g.id) ? 'Closing…' : g.state === 'PENDING' ? 'Withdraw' : 'Done, close it'}
                       </button>
                     </span>
                   ) : null}

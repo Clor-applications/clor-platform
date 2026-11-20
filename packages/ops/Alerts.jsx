@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, Tabs, when, errorWords, countLine } from './kit';
+import { Err, Loading, Tabs, when, errorWords, countLine, countsChanged } from './kit';
 import { opsAcknowledgeAlert, opsAlerts } from './api';
 
 /**
@@ -19,7 +19,7 @@ export function Alerts({ go, me }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const load = useCallback(() => {
-    opsAlerts().then(setD).catch((e) => setError(errorWords(e, 'load the alerts')));
+    opsAlerts().then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'load the alerts')));
   }, []);
   useEffect(load, [load]);
 
@@ -28,6 +28,7 @@ export function Alerts({ go, me }) {
     setError('');
     try {
       await opsAcknowledgeAlert(a.id);
+      countsChanged();
       load();
     } catch (e) {
       setError(errorWords(e, 'mark the alert'));
@@ -57,7 +58,7 @@ export function Alerts({ go, me }) {
             ['closed', 'Closed'],
           ]}
         />
-        <Err>{error}</Err>
+        <Err onRetry={d ? null : load}>{error}</Err>
         {!d && !error ? (
           <Loading />
         ) : d && rows.length === 0 ? (

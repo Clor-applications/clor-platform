@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { confirmDialog } from '@ui/components/ui/notify';
 import { Building2, CalendarClock, Receipt, TriangleAlert } from 'lucide-react';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, Tabs, day, may, errorWords } from './kit';
+import { Err, Loading, Tabs, day, may, useRowBusy, errorWords } from './kit';
 import { workerName } from './Health';
 import { daysLeft } from './Trials';
 import { inr } from './money';
@@ -29,6 +30,7 @@ const initials = (s) =>
 /** One part of the page: its data, or the reason it could not load. */
 function usePart(fetch) {
   const [state, setState] = useState({ d: null, error: '' });
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
     fetch()
@@ -37,8 +39,12 @@ function usePart(fetch) {
     return () => {
       live = false;
     };
-  }, [fetch]);
-  return state;
+  }, [fetch, tick]);
+  const reload = useCallback(() => {
+    setState({ d: null, error: '' });
+    setTick((t) => t + 1);
+  }, []);
+  return { ...state, reload };
 }
 const getOverview = () => opsOverview();
 const getHome = () => opsHome();
@@ -70,21 +76,21 @@ export function Home({ go, has, me }) {
           </>
         }
       />
-      <Kpis d={ov.d} error={ov.error} go={go} has={has} />
+      <Kpis d={ov.d} error={ov.error} onRetry={ov.reload} go={go} has={has} />
       <Handover canWrite={may(me?.role, 'SUPPORT', 'SALES', 'BILLING')} />
       {/* What needs somebody comes before how the machinery is doing: it was under the services table, below the fold (owner, 17 Nov 2026: "info should be available right away"). */}
       <div className="ops-split">
-        <NeedsAction d={today.d} error={today.error} go={go} has={has} canMark={may(me?.role, 'SUPPORT', 'SALES', 'BILLING')} />
-        <RecentActions d={audit.d} error={audit.error} go={go} has={has} />
+        <NeedsAction d={today.d} error={today.error} onRetry={today.reload} go={go} has={has} canMark={may(me?.role, 'SUPPORT', 'SALES', 'BILLING')} />
+        <RecentActions d={audit.d} error={audit.error} onRetry={audit.reload} go={go} has={has} />
       </div>
-      <Services d={health.d} error={health.error} go={go} has={has} />
+      <Services d={health.d} error={health.error} onRetry={health.reload} go={go} has={has} />
     </>
   );
 }
 
 /* ----------------------------------------------------------------- tiles */
-function Kpis({ d, error, go, has }) {
-  if (error) return <Err>{error}</Err>;
+function Kpis({ d, error, onRetry, go, has }) {
+  if (error) return <Err onRetry={onRetry}>{error}</Err>;
   if (!d) return <Loading />;
   const paying = d.paying ?? 0;
   const pct = d.accounts ? Math.round((paying / d.accounts) * 100) : 0;
@@ -135,7 +141,7 @@ function Kpis({ d, error, go, has }) {
 }
 
 /* -------------------------------------------------------------- services */
-function Services({ d, error, go, has }) {
+function Services({ d, error, onRetry, go, has }) {
   return (
     <section className="ops-section" aria-labelledby="ops-services">
       <div className="ops-section-head">
@@ -147,7 +153,7 @@ function Services({ d, error, go, has }) {
         ) : null}
       </div>
       {error ? (
-        <Err>{error}</Err>
+        <Err onRetry={onRetry}>{error}</Err>
       ) : !d ? (
         <Loading />
       ) : !d.workers.length ? (
@@ -392,7 +398,7 @@ const QUEUE_PART = {
 const partOf = (k) => QUEUE_PART[k] || 'customers';
 const QUEUE_FILTERS = [['all', 'All'], ['mine', 'Mine'], ['customers', 'Customers'], ['money', 'Money'], ['support', 'Support'], ['platform', 'Platform']];
 
-function NeedsAction({ d, error, go, has, canMark = false }) {
+function NeedsAction({ d, error, onRetry, go, has, canMark = false }) {
   /* The moment the page opened: days left and days overdue are counted from it, not from each render. */
   const [now] = useState(() => Date.now());
   /*
@@ -404,11 +410,26 @@ function NeedsAction({ d, error, go, has, canMark = false }) {
   const [markError, setMarkError] = useState('');
   const marks = changed || d?.marks || { mine: {}, later: [] };
   const later = new Set(marks.later || []);
+  const rowBusy = useRowBusy();
   const mark = (fn, key, kind) => {
     setMarkError('');
-    fn(key, kind)
-      .then((r) => setChanged(r?.marks || { mine: {}, later: [] }))
-      .catch((e) => setMarkError(errorWords(e, 'mark this row')));
+    return rowBusy.run(key, () =>
+      fn(key, kind)
+        .then((r) => setChanged(r?.marks || { mine: {}, later: [] }))
+        .catch((e) => setMarkError(errorWords(e, 'mark this row')))
+    );
+  };
+  /* Taking a row someone else is on asks first, by name: they stop being shown as on it. */
+  const takeOver = async (key, r, holder) => {
+    if (rowBusy.busy(key)) return;
+    const ok = await confirmDialog({
+      title: `Take over from ${holder.name}?`,
+      message: `${r.title}${r.sub ? ` (${r.sub})` : ''}. It shows as yours from now on, and ${holder.name} is no longer shown as on it.`,
+      confirmLabel: 'Take over',
+      cancelLabel: 'Leave it with them',
+      tone: 'primary',
+    });
+    if (ok) mark(opsMarkQueue, key, 'MINE');
   };
   const all = d ? workGroups(d, go, has, now) : [];
   const putAway = all.reduce((sum, g) => sum + g.rows.filter((r) => later.has(`${g.k}:${r.id}`)).length, 0);
@@ -432,7 +453,7 @@ function NeedsAction({ d, error, go, has, canMark = false }) {
     <section className="ops-section" aria-labelledby="ops-needs">
       <h2 id="ops-needs" className="ops-h2">Needs you today</h2>
       {error ? (
-        <Err>{error}</Err>
+        <Err onRetry={onRetry}>{error}</Err>
       ) : !d ? (
         <Loading />
       ) : !groups.length && !counts.length ? (
@@ -455,6 +476,7 @@ function NeedsAction({ d, error, go, has, canMark = false }) {
                   const key = `${g.k}:${r.id}`;
                   const holder = marks.mine?.[key];
                   const away = later.has(key);
+                  const pending = rowBusy.busy(key);
                   return (
                   <li key={r.id}>
                     <div className={`ops-need${canMark || holder ? ' ops-need--marks' : ''}`}>
@@ -476,14 +498,14 @@ function NeedsAction({ d, error, go, has, canMark = false }) {
                           {canMark ? (
                             <>
                               {holder?.me ? (
-                                <button type="button" className="ops-link" aria-label={`Let go: ${r.title}`} onClick={() => mark(opsUnmarkQueue, key, 'MINE')}>Let go</button>
+                                <button type="button" className="ops-link" disabled={pending} aria-label={`Let go: ${r.title}`} onClick={() => mark(opsUnmarkQueue, key, 'MINE')}>Let go</button>
                               ) : (
-                                <button type="button" className="ops-link" aria-label={`${holder ? 'Take over' : 'Mine'}: ${r.title}`} onClick={() => mark(opsMarkQueue, key, 'MINE')}>{holder ? 'Take over' : 'Mine'}</button>
+                                <button type="button" className="ops-link" disabled={pending} aria-label={`${holder ? 'Take over' : 'Mine'}: ${r.title}`} onClick={() => (holder ? takeOver(key, r, holder) : mark(opsMarkQueue, key, 'MINE'))}>{pending ? 'Saving…' : holder ? 'Take over' : 'Mine'}</button>
                               )}
                               {away ? (
-                                <button type="button" className="ops-link" aria-label={`Bring back: ${r.title}`} onClick={() => mark(opsUnmarkQueue, key, 'LATER')}>Bring back</button>
+                                <button type="button" className="ops-link" disabled={pending} aria-label={`Bring back: ${r.title}`} onClick={() => mark(opsUnmarkQueue, key, 'LATER')}>Bring back</button>
                               ) : (
-                                <button type="button" className="ops-link" aria-label={`Not today: ${r.title}`} onClick={() => mark(opsMarkQueue, key, 'LATER')}>Not today</button>
+                                <button type="button" className="ops-link" disabled={pending} aria-label={`Not today: ${r.title}`} onClick={() => mark(opsMarkQueue, key, 'LATER')}>Not today</button>
                               )}
                             </>
                           ) : null}
@@ -537,7 +559,7 @@ function NeedsAction({ d, error, go, has, canMark = false }) {
 }
 
 /* ------------------------------------------------------- recent actions */
-function RecentActions({ d, error, go, has }) {
+function RecentActions({ d, error, onRetry, go, has }) {
   const events = (d?.events || []).slice(0, 4);
   return (
     <section className="ops-section" aria-labelledby="ops-recent">
@@ -550,7 +572,7 @@ function RecentActions({ d, error, go, has }) {
         ) : null}
       </div>
       {error ? (
-        <Err>{error}</Err>
+        <Err onRetry={onRetry}>{error}</Err>
       ) : !d ? (
         <Loading />
       ) : !events.length ? (
@@ -592,6 +614,7 @@ function Handover({ canWrite }) {
   const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
     opsHandover()
@@ -600,7 +623,11 @@ function Handover({ canWrite }) {
     return () => {
       live = false;
     };
-  }, []);
+  }, [tick]);
+  const retry = () => {
+    setState({ note: undefined, error: '' });
+    setTick((t) => t + 1);
+  };
   const save = async () => {
     setBusy(true);
     setSaveError('');
@@ -626,7 +653,7 @@ function Handover({ canWrite }) {
         ) : null}
       </div>
       {error ? (
-        <Err>{error}</Err>
+        <Err onRetry={retry}>{error}</Err>
       ) : note === undefined ? (
         <Loading />
       ) : draft !== null ? (

@@ -69,6 +69,25 @@ describe('the operator console', () => {
     expect(await screen.findByText('This page is for CLOR staff')).toBeInTheDocument();
   });
 
+  it('says a server failure at the gate as that, with Try again, and opens once it answers', async () => {
+    /* A 503 is not "you are not staff". */
+    api.opsMe.mockRejectedValueOnce(Object.assign(new Error('The server is busy. Try again in a minute.'), { status: 503 }));
+    api.opsMe.mockResolvedValue({ role: 'SUPPORT', user: { fullName: 'Asha Rao' } });
+    render(<OpsConsole />);
+    expect(await screen.findByText('The staff console did not open')).toBeInTheDocument();
+    expect(screen.queryByText('This page is for CLOR staff')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Home screen')).toBeInTheDocument();
+    expect(api.opsMe).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps "not staff" for the server’s own refusal, with no Try again', async () => {
+    api.opsMe.mockRejectedValue(Object.assign(new Error('This is for CLOR staff only.'), { status: 403, code: 'OPERATOR_ONLY' }));
+    render(<OpsConsole />);
+    expect(await screen.findByText('This page is for CLOR staff')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
+
   it('lets an operator without an authenticator set one up right there, then opens the console', async () => {
     api.opsMe.mockRejectedValueOnce(Object.assign(new Error('Set one up'), { code: 'TWO_FACTOR_SETUP_REQUIRED' }));
     api.opsStartTwoFactor.mockResolvedValue({ secret: 'ABCDEF', uri: 'otpauth://totp/x' });

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsAccounts, opsAssignStatus, opsPostStatus, opsRemoveStatus, opsStatusPosts, opsUpdateStatus } from './api';
-import { Empty, Err, Loading, Tabs, errorWords, may, when } from './kit';
+import { Empty, Err, HoldOpen, Loading, Tabs, errorWords, may, when } from './kit';
 
 /**
  * Status page (server: routes/opsStatus.ts). clor.in/status checks CLOR's
@@ -123,6 +123,7 @@ function Assign({ post, staff, onClose, onSaved }) {
   const [error, setError] = useState('');
   /* Somebody who has left still shows as the handler until it is handed over. */
   const people = owner && !(staff || []).some((x) => x.userId === owner) ? [...(staff || []), { userId: owner, name: post.owner?.name || 'Somebody who has left' }] : staff;
+  const dirty = owner !== (post.owner?.userId || '') || accounts.map((a) => a.id).join() !== (post.accounts || []).map((a) => a.id).join();
   const save = async () => {
     setBusy(true);
     setError('');
@@ -139,6 +140,7 @@ function Assign({ post, staff, onClose, onSaved }) {
     <WsDrawer
       open
       onClose={onClose}
+      dirty={dirty || busy}
       title="Handler and customers"
       description={post.title}
       actions={
@@ -149,6 +151,7 @@ function Assign({ post, staff, onClose, onSaved }) {
       }
     >
       <div className="grid gap-5">
+        <HoldOpen active={busy} />
         <HandlerField id="st-as-owner" staff={people} value={owner} onChange={setOwner} firstLabel="Nobody yet" />
         <CustomersField id="st-as-accounts" value={accounts} onChange={setAccounts} />
         <Err>{error}</Err>
@@ -169,10 +172,14 @@ function NewPost({ staff, onClose, onSaved }) {
   const [accounts, setAccounts] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  /* Posting is public at once, so it goes in two steps: the notice as clor.in/status will show it, then Post. */
+  const [previewing, setPreviewing] = useState(false);
   const toggle = (p) => setParts((x) => (x.includes(p) ? x.filter((y) => y !== p) : [...x, p]));
   const maintenance = kind === 'MAINTENANCE';
   const ready = title.trim().length >= 4 && body.trim().length >= 10 && (!maintenance || (startsAt && endsAt));
+  const dirty = Boolean(title.trim() || body.trim() || parts.length || startsAt || endsAt || owner || accounts.length || kind !== 'INCIDENT' || impact !== 'MINOR');
   const save = async () => {
+    if (busy) return;
     setBusy(true);
     setError('');
     try {
@@ -188,15 +195,40 @@ function NewPost({ staff, onClose, onSaved }) {
     <WsDrawer
       open
       onClose={onClose}
-      title="Post on the status page"
-      description="It shows on clor.in/status as soon as you post it."
+      dirty={dirty || busy}
+      title={previewing ? 'Check the notice before it goes public' : 'Post on the status page'}
+      description={previewing ? 'This is what everyone on clor.in/status reads, the moment you post it.' : 'It shows on clor.in/status as soon as you post it. You see it before it goes.'}
       actions={
-        <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy || !ready} onClick={save}>{busy ? 'Posting…' : 'Post notice'}</button>
-        </>
+        previewing ? (
+          <>
+            <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={() => setPreviewing(false)}>Back to editing</button>
+            <button type="button" className="ws-btn ws-btn--primary" disabled={busy || !ready} onClick={save}>{busy ? 'Posting…' : 'Post notice'}</button>
+          </>
+        ) : (
+          <>
+            <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
+            <button type="button" className="ws-btn ws-btn--primary" disabled={!ready} title={ready ? undefined : 'A title of 4 characters, a first update of 10, and the times for maintenance'} onClick={() => setPreviewing(true)}>Preview notice</button>
+          </>
+        )
       }
     >
+      <HoldOpen active={busy} />
+      {previewing ? (
+        <div className="grid gap-4">
+          <section className="ws-notice grid gap-2" aria-label="Notice as clor.in/status shows it">
+            <p className="ws-item-title">
+              {title.trim()} <span className={IMPACT[impact]?.[1]}>{IMPACT[impact]?.[0]}</span>
+            </p>
+            <p className="ws-item-sub">
+              {STATE_WORD[maintenance ? 'SCHEDULED' : 'INVESTIGATING']} · {partsWords(parts)}
+              {maintenance ? ` · ${when(toIso(startsAt))} to ${when(toIso(endsAt))}` : ''}
+            </p>
+            <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>{body.trim()}</p>
+          </section>
+          <p className="ws-card-blurb">Who handles it and which customers it hits stay inside Ops; the public page never shows them.</p>
+          <Err>{error}</Err>
+        </div>
+      ) : (
       <div className="grid gap-5">
         <fieldset className="grid gap-2">
           <legend className="text-sm font-semibold">Kind</legend>
@@ -245,6 +277,7 @@ function NewPost({ staff, onClose, onSaved }) {
         <CustomersField id="st-accounts" value={accounts} onChange={setAccounts} />
         <Err>{error}</Err>
       </div>
+      )}
     </WsDrawer>
   );
 }
@@ -256,6 +289,7 @@ function AddUpdate({ post, onClose, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const save = async () => {
+    if (busy) return;
     setBusy(true);
     setError('');
     try {
@@ -271,6 +305,7 @@ function AddUpdate({ post, onClose, onSaved }) {
     <WsDrawer
       open
       onClose={onClose}
+      dirty={Boolean(body.trim()) || busy}
       title="Add an update"
       description={post.title}
       actions={
@@ -290,9 +325,18 @@ function AddUpdate({ post, onClose, onSaved }) {
             </label>
           ))}
         </fieldset>
-        <Field id="st-update" label="Update">
+        <Field id="st-update" label="Update" hint="Customers read it on clor.in/status as soon as you post it.">
           <textarea id="st-update" className="ui-input" rows={3} maxLength={1000} value={body} onChange={(e) => setBody(e.target.value)} />
         </Field>
+        <HoldOpen active={busy} />
+        {body.trim() ? (
+          <section className="ws-notice grid gap-1" aria-label="Update as clor.in/status shows it">
+            <p className="ws-item-sub">Customers will read</p>
+            <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>
+              <strong>{STATE_WORD[state]}</strong> — {body.trim()}
+            </p>
+          </section>
+        ) : null}
         <Err>{error}</Err>
       </div>
     </WsDrawer>
@@ -392,7 +436,7 @@ export function StatusPage({ me, openCustomer }) {
           }
         />
         <Tabs label="Which posts" value={tab} onChange={setTab} tabs={[['open', `Open${d ? ` (${d.open.length})` : ''}`], ['resolved', 'Closed']]} />
-        <Err>{error}</Err>
+        <Err onRetry={load}>{error}</Err>
         {!d ? (
           error ? null : <Loading />
         ) : !rows.length ? (

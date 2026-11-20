@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { AlertTriangle } from '@ui/components/ui/lineIcons';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
-import { Empty, Err, Loading, Tabs, when, errorWords } from './kit';
+import { Empty, Err, Loading, Tabs, countsChanged, useRowBusy, when, errorWords } from './kit';
 import { opsEndSupportGrant, opsMySupportGrants } from './api';
 
 /**
@@ -43,14 +43,26 @@ export function AccessRequests({ openCustomer }) {
   }, []);
   useEffect(load, [load]);
 
+  const rowBusy = useRowBusy();
   const end = async (g) => {
-    try {
-      await opsEndSupportGrant(g.id);
-      notify.success(g.state === 'PENDING' ? 'Withdrawn.' : 'Closed.');
-    } catch (err) {
-      notify.error(errorWords(err, 'close the request'));
-    }
-    load();
+    if (rowBusy.busy(g.id)) return;
+    const company = g.company || 'the company';
+    const ok = await confirmDialog(
+      g.state === 'PENDING'
+        ? { title: `Withdraw the request for ${company}?`, message: 'The customer is no longer asked. To look later you ask again, with a reason.', confirmLabel: 'Withdraw request', cancelLabel: 'Keep it' }
+        : { title: `Close access to ${company}?`, message: `CLOR staff lose access to ${company} now, before the time the customer chose. To look again you ask the customer again.`, confirmLabel: 'Close access', cancelLabel: 'Keep it open' }
+    );
+    if (!ok) return;
+    await rowBusy.run(g.id, async () => {
+      try {
+        await opsEndSupportGrant(g.id);
+        notify.success(g.state === 'PENDING' ? 'Withdrawn.' : `Closed. CLOR staff no longer see ${company}.`);
+        countsChanged();
+      } catch (err) {
+        notify.error(errorWords(err, 'close the request'));
+      }
+      load();
+    });
   };
 
   const count = (k) => (rows ? rows.filter((g) => TAB_STATES[k].includes(g.state)).length : 0);
@@ -71,7 +83,7 @@ export function AccessRequests({ openCustomer }) {
           ['ended', 'Ended'],
         ]}
       />
-      <Err>{error}</Err>
+      <Err onRetry={rows ? null : load}>{error}</Err>
       {!rows ? (
         error ? null : <Loading />
       ) : !shown.length ? (
@@ -103,8 +115,8 @@ export function AccessRequests({ openCustomer }) {
                   <span className="ws-item-actions inline-flex flex-wrap items-center gap-2">
                     <span className={cls}>{word}</span>
                     {g.state === 'PENDING' || g.state === 'ACTIVE' ? (
-                      <button type="button" className="ops-text-btn" onClick={() => end(g)} aria-label={`${g.state === 'PENDING' ? 'Withdraw' : 'Close'} the request for ${g.company}`}>
-                        {g.state === 'PENDING' ? 'Withdraw' : 'Done, close it'}
+                      <button type="button" className="ops-text-btn" disabled={rowBusy.busy(g.id)} onClick={() => end(g)} aria-label={`${g.state === 'PENDING' ? 'Withdraw' : 'Close'} the request for ${g.company}`}>
+                        {rowBusy.busy(g.id) ? 'Closing…' : g.state === 'PENDING' ? 'Withdraw' : 'Done, close it'}
                       </button>
                     ) : null}
                     {g.accountId ? (

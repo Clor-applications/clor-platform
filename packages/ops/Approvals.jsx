@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 
 import { PageHead } from '../../apps/admin/src/screens/wsKit';
-import { Empty, Err, Loading, ReasonDrawer, Tabs, when, errorWords } from './kit';
+import { Empty, Err, Loading, ReasonDrawer, Tabs, countsChanged, useRowBusy, when, errorWords } from './kit';
 import { opsApprovalLimit, opsApprovalStep, opsApprovals } from './api';
 
 /**
@@ -26,6 +26,7 @@ export function Approvals({ openCustomer }) {
   const [step, setStep] = useState(null);
   const [limitOpen, setLimitOpen] = useState(false);
   const [limit, setLimit] = useState('');
+  const rowBusy = useRowBusy();
 
   const load = useCallback(() => {
     opsApprovals(tab)
@@ -48,13 +49,24 @@ export function Approvals({ openCustomer }) {
     load();
   };
   const withdraw = async (a) => {
-    try {
-      await opsApprovalStep(a.id, 'withdraw');
-      notify.success('Withdrawn. Nothing changed for the customer.');
-      load();
-    } catch (e) {
-      notify.error(errorWords(e, 'withdraw the request'));
-    }
+    if (rowBusy.busy(a.id)) return;
+    const ok = await confirmDialog({
+      title: `Withdraw the request for ${a.customer}?`,
+      message: `${a.summary}. Nothing is set on the customer, and a colleague can no longer approve it. To set it later you ask again.`,
+      confirmLabel: 'Withdraw request',
+      cancelLabel: 'Keep it waiting',
+    });
+    if (!ok) return;
+    await rowBusy.run(a.id, async () => {
+      try {
+        await opsApprovalStep(a.id, 'withdraw');
+        notify.success('Withdrawn. Nothing changed for the customer.');
+        countsChanged();
+        load();
+      } catch (e) {
+        notify.error(errorWords(e, 'withdraw the request'));
+      }
+    });
   };
   const saveLimit = async (reason) => {
     await opsApprovalLimit(Number(limit), reason);
@@ -98,7 +110,7 @@ export function Approvals({ openCustomer }) {
             ['EXPIRED', 'Expired'],
           ]}
         />
-        <Err>{error}</Err>
+        <Err onRetry={d ? null : load}>{error}</Err>
         {!d && !error ? (
           <Loading />
         ) : d && !rows.length ? (
@@ -148,8 +160,8 @@ export function Approvals({ openCustomer }) {
                         </>
                       ) : null}
                       {a.canWithdraw ? (
-                        <button type="button" className="ws-btn ws-btn--quiet" onClick={() => withdraw(a)} aria-label={`Withdraw the request for ${a.customer}`}>
-                          Withdraw
+                        <button type="button" className="ws-btn ws-btn--quiet" disabled={rowBusy.busy(a.id)} onClick={() => withdraw(a)} aria-label={`Withdraw the request for ${a.customer}`}>
+                          {rowBusy.busy(a.id) ? 'Withdrawing…' : 'Withdraw'}
                         </button>
                       ) : null}
                     </span>
@@ -170,7 +182,7 @@ export function Approvals({ openCustomer }) {
         onClose={() => setStep(null)}
         onConfirm={doStep}
       />
-      <ReasonDrawer open={limitOpen} title="Discount that needs a second person" confirmLabel="Save limit" ready={limitOk} onClose={() => setLimitOpen(false)} onConfirm={saveLimit}>
+      <ReasonDrawer open={limitOpen} title="Discount that needs a second person" confirmLabel="Save limit" ready={limitOk} dirty={Boolean(d) && limit !== String(d.limit)} onClose={() => setLimitOpen(false)} onConfirm={saveLimit}>
         <div className="grid gap-1">
           <label htmlFor="approval-limit" className="text-sm font-semibold">
             Ask a second person when a subscription takes off more than, %

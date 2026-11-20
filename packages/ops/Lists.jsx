@@ -20,6 +20,7 @@ import './lists.css';
 function useList(load, view) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
     const t = setTimeout(() => {
@@ -31,8 +32,9 @@ function useList(load, view) {
       live = false;
       clearTimeout(t);
     };
-  }, [load, view]);
-  return { data, error };
+  }, [load, view, tick]);
+  const retry = () => setTick((n) => n + 1);
+  return { data, error, retry };
 }
 
 export function SearchBox({ label, value, onChange, placeholder }) {
@@ -98,7 +100,7 @@ const ORG_STATUS = { active: ['Active', 'ws-pill ws-pill--ok'], archived: ['Arch
 
 export function Organisations({ account = '', openAccount, clearAccount }) {
   const [view, setView] = useState({ q: '', status: 'all', account, page: 0 });
-  const { data, error } = useList(opsOrganisations, view);
+  const { data, error, retry } = useList(opsOrganisations, view);
   const set = (patch) => setView((v) => ({ ...v, ...patch, page: 0 }));
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const accountName = data?.organisations?.[0]?.account?.name;
@@ -133,7 +135,7 @@ export function Organisations({ account = '', openAccount, clearAccount }) {
           </Chip>
         ) : null}
       </div>
-      <Err>{error}</Err>
+      <Err onRetry={retry}>{error}</Err>
       {!data ? (
         error ? null : <Loading />
       ) : !data.organisations.length ? (
@@ -207,7 +209,7 @@ const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
 export function Users({ openAccount }) {
   const [view, setView] = useState({ q: '', signIn: 'all', status: 'all', page: 0 });
-  const { data, error } = useList(opsUsers, view);
+  const { data, error, retry } = useList(opsUsers, view);
   const [exporting, setExporting] = useState(false);
   const set = (patch) => setView((v) => ({ ...v, ...patch, page: 0 }));
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
@@ -279,7 +281,7 @@ export function Users({ openAccount }) {
           ]}
         />
       </div>
-      <Err>{error}</Err>
+      <Err onRetry={retry}>{error}</Err>
       {!data ? (
         error ? null : <Loading />
       ) : !data.users.length ? (
@@ -362,7 +364,7 @@ const clock = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', 
 
 export function Denials({ account = '', openAccount, clearAccount }) {
   const [view, setView] = useState({ q: '', code: '', app: '', since: account ? 'month' : 'day', account, page: 0 });
-  const { data, error } = useList(opsDenials, view);
+  const { data, error, retry } = useList(opsDenials, view);
   const set = (patch) => setView((v) => ({ ...v, ...patch, page: 0 }));
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const accountName = data?.denials?.find((d) => d.account)?.account?.name;
@@ -404,7 +406,7 @@ export function Denials({ account = '', openAccount, clearAccount }) {
           </Chip>
         ) : null}
       </div>
-      <Err>{error}</Err>
+      <Err onRetry={retry}>{error}</Err>
       {!data ? (
         error ? null : <Loading />
       ) : !data.denials.length ? (
@@ -488,7 +490,7 @@ function AccountLinks({ list, count, openAccount }) {
 
 export function FeatureSwitches({ openAccount }) {
   const [view, setView] = useState({ q: '', app: '', changed: 'all', page: 0 });
-  const { data, error } = useList(opsFeatureSwitches, view);
+  const { data, error, retry } = useList(opsFeatureSwitches, view);
   const set = (patch) => setView((v) => ({ ...v, ...patch, page: 0 }));
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   return (
@@ -511,7 +513,7 @@ export function FeatureSwitches({ openAccount }) {
           ]}
         />
       </div>
-      <Err>{error}</Err>
+      <Err onRetry={retry}>{error}</Err>
       {!data ? (
         error ? null : <Loading />
       ) : !data.switches.length ? (

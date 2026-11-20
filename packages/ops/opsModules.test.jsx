@@ -7,7 +7,8 @@ const api = vi.hoisted(() =>
   ),
 );
 vi.mock('./api', () => api);
-vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() } }));
+const ask = vi.hoisted(() => ({ confirm: vi.fn() }));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, confirmDialog: (o) => ask.confirm(o) }));
 
 import { CustomerNotes } from './CustomerNotes';
 import { StatusPage } from './StatusPage';
@@ -15,7 +16,11 @@ import { SavedReplyPicker } from './SavedReplies';
 import { Insights } from './Insights';
 import { Switches } from './Switches';
 
-beforeEach(() => Object.values(api).forEach((f) => f.mockReset()));
+beforeEach(() => {
+  Object.values(api).forEach((f) => f.mockReset());
+  ask.confirm.mockReset();
+  ask.confirm.mockResolvedValue(true);
+});
 
 describe('operator console: notes and tags', () => {
   it('shows pinned notes first, adds a note and a tag, and lets only the writer change one', async () => {
@@ -67,6 +72,14 @@ describe('operator console: status page', () => {
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Payroll is slow' } });
     fireEvent.change(screen.getByLabelText('First update'), { target: { value: 'Payslips take a minute to open.' } });
     fireEvent.click(screen.getByRole('checkbox', { name: 'Payroll' }));
+    /* Nothing goes public before the notice has been seen as customers will read it. */
+    expect(screen.queryByRole('button', { name: 'Post notice' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Preview notice' }));
+    const shown = screen.getByRole('region', { name: 'Notice as clor.in/status shows it' });
+    expect(shown).toHaveTextContent('Payroll is slow');
+    expect(shown).toHaveTextContent('Looking into it · Payroll');
+    expect(shown).toHaveTextContent('Payslips take a minute to open.');
+    expect(api.opsPostStatus).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Post notice' }));
     await waitFor(() => expect(api.opsPostStatus).toHaveBeenCalledWith(expect.objectContaining({ kind: 'INCIDENT', title: 'Payroll is slow', parts: ['payroll'], impact: 'MINOR' })));
   });
@@ -155,6 +168,11 @@ describe('operator console: forms on clor.in', () => {
     api.opsSetSwitch.mockResolvedValue({ switches: [{ ...open, open: false, message: 'Back Monday.' }] });
     const { unmount } = render(<Switches me={{ role: 'SUPER_ADMIN' }} />);
     fireEvent.change(await screen.findByLabelText(/Message while paused/), { target: { value: 'Back Monday.' } });
+    /* Cancelling the confirm leaves the form open. */
+    ask.confirm.mockResolvedValueOnce(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    await waitFor(() => expect(ask.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'Pause Free trials from clor.in?', message: expect.stringContaining('they read: “Back Monday.”') })));
+    expect(api.opsSetSwitch).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
     await waitFor(() => expect(api.opsSetSwitch).toHaveBeenCalledWith('signups', { open: false, message: 'Back Monday.' }));
     expect(await screen.findByText(/Visitors read: “Back Monday.”/)).toBeInTheDocument();

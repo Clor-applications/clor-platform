@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsAccounts, opsBreaches, opsNotifyBreach, opsRecordBreach } from './api';
-import { Empty, Err, Loading, day, may, when, errorWords } from './kit';
+import { Empty, Err, ErrorSummary, FieldMsg, HoldOpen, Loading, day, fieldErr, may, when, errorWords } from './kit';
 
 /**
  * Data breaches (round 67 "breachops"; server: routes/opsBreaches.ts): a
@@ -57,7 +57,7 @@ export function Breaches({ me, openCustomer }) {
         }
       />
       <p className="ws-card-blurb r67-lede">When customer data reaches someone it should not, record it here the day it is found, then tell the customers’ administrators. A company’s own breach of its staff data is recorded by that company in the Admin center, Privacy.</p>
-      <Err>{error}</Err>
+      <Err onRetry={rows ? null : () => (setError(''), setAgain((x) => x + 1))}>{error}</Err>
       {!rows ? (
         error ? null : <Loading />
       ) : !rows.length ? (
@@ -130,25 +130,49 @@ function RecordBreach({ onClose, onSaved }) {
   const [chosen, setChosen] = useState([]);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState([]);
+  /* The search: what was asked last and answered, and whether it failed, so "No customer matches" waits for an answer. */
+  const [lookedFor, setLookedFor] = useState(null);
+  const [lookError, setLookError] = useState('');
+  const [lookAgain, setLookAgain] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [problems, setProblems] = useState({});
+  const [first] = useState(() => JSON.stringify(f));
+  const dirty = busy || JSON.stringify(f) !== first || chosen.length > 0 || Boolean(q.trim());
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   useEffect(() => {
     if (q.trim().length < 2) return undefined;
     let live = true;
+    const asked = q.trim();
     const t = setTimeout(() => {
-      opsAccounts({ q: q.trim() })
-        .then((r) => live && setHits((r.accounts || []).slice(0, 6)))
-        .catch(() => live && setHits([]));
+      opsAccounts({ q: asked })
+        .then((r) => {
+          if (!live) return;
+          setLookError('');
+          setHits((r.accounts || []).slice(0, 6));
+          setLookedFor(asked);
+        })
+        .catch((e) => live && setLookError(msg(e, 'look up the customers')));
     }, 250);
     return () => ((live = false), clearTimeout(t));
-  }, [q]);
+  }, [q, lookAgain]);
   const add = (a) => {
     setChosen((c) => (c.some((x) => x.id === a.id) ? c : [...c, { id: a.id, name: a.name }]));
     setQ('');
     setHits([]);
   };
   const save = async () => {
+    if (busy) return;
+    const wrong = {};
+    if (f.what.trim().length < 10) wrong.what = 'Say what happened, in a sentence or two.';
+    if (f.dataKinds.trim().length < 3) wrong.data = 'Say what data was reached, like names and work emails.';
+    if (!f.happenedOn) wrong.happened = 'Enter the day it happened.';
+    if (!f.foundOn) wrong.found = 'Enter the day it was found.';
+    if (f.happenedOn && f.foundOn && f.foundOn < f.happenedOn) wrong.found = 'It cannot be found before it happened.';
+    if (f.stepsTaken.trim().length < 5) wrong.steps = 'Say what CLOR has done about it.';
+    if (!chosen.length) wrong.who = 'Add at least one customer affected.';
+    setProblems(wrong);
+    if (Object.keys(wrong).length) return;
     setBusy(true);
     setError('');
     try {
@@ -163,12 +187,13 @@ function RecordBreach({ onClose, onSaved }) {
   return (
     <WsDrawer
       open
-      onClose={onClose}
+      onClose={() => !busy && onClose()}
+      dirty={dirty}
       title="Record a data breach"
       description="Plain words: the customers’ administrators read this in the email. Saving asks for a code from your authenticator app."
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={onClose}>
             Cancel
           </button>
           <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>
@@ -178,30 +203,44 @@ function RecordBreach({ onClose, onSaved }) {
       }
     >
       <div className="grid gap-5">
+        <HoldOpen active={busy} />
+        <ErrorSummary errors={problems} />
         <Field id="br-what" label="What happened">
-          <textarea id="br-what" className="ui-input" rows={3} maxLength={2000} value={f.what} onChange={set('what')} />
+          <textarea id="br-what" className="ui-input" rows={3} maxLength={2000} value={f.what} onChange={set('what')} {...fieldErr(problems, 'what', 'br')} />
+          <FieldMsg errors={problems} k="what" idBase="br" />
         </Field>
         <Field id="br-data" label="What data" hint="For example: names, work emails and phone numbers of staff.">
-          <input id="br-data" className="ui-input" maxLength={600} value={f.dataKinds} onChange={set('dataKinds')} />
+          <input id="br-data" className="ui-input" maxLength={600} value={f.dataKinds} onChange={set('dataKinds')} {...fieldErr(problems, 'data', 'br')} />
+          <FieldMsg errors={problems} k="data" idBase="br" />
         </Field>
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))' }}>
           <Field id="br-happened" label="Happened on">
-            <input id="br-happened" type="date" className="ui-input" max={today()} value={f.happenedOn} onChange={set('happenedOn')} />
+            <input id="br-happened" type="date" className="ui-input" max={today()} value={f.happenedOn} onChange={set('happenedOn')} {...fieldErr(problems, 'happened', 'br')} />
+            <FieldMsg errors={problems} k="happened" idBase="br" />
           </Field>
           <Field id="br-found" label="Found on">
-            <input id="br-found" type="date" className="ui-input" max={today()} value={f.foundOn} onChange={set('foundOn')} />
+            <input id="br-found" type="date" className="ui-input" max={today()} value={f.foundOn} onChange={set('foundOn')} {...fieldErr(problems, 'found', 'br')} />
+            <FieldMsg errors={problems} k="found" idBase="br" />
           </Field>
         </div>
         <Field id="br-steps" label="What CLOR has done">
-          <textarea id="br-steps" className="ui-input" rows={2} maxLength={2000} value={f.stepsTaken} onChange={set('stepsTaken')} />
+          <textarea id="br-steps" className="ui-input" rows={2} maxLength={2000} value={f.stepsTaken} onChange={set('stepsTaken')} {...fieldErr(problems, 'steps', 'br')} />
+          <FieldMsg errors={problems} k="steps" idBase="br" />
         </Field>
         <Field id="br-ask" label="What customers should do" hint="Leave empty if nothing is needed from them.">
           <textarea id="br-ask" className="ui-input" rows={2} maxLength={1000} value={f.stepsForCustomer} onChange={set('stepsForCustomer')} />
         </Field>
         <Field id="br-who" label="Customers affected" hint="Search by name, email or code.">
-          <input id="br-who" className="ui-input" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input id="br-who" className="ui-input" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} {...fieldErr(problems, 'who', 'br')} />
+          <FieldMsg errors={problems} k="who" idBase="br" />
         </Field>
-        {q.trim().length >= 2 && hits.length ? (
+        {q.trim().length < 2 ? null : lookError ? (
+          <Err onRetry={() => setLookAgain((n) => n + 1)}>{lookError}</Err>
+        ) : lookedFor !== q.trim() && !hits.length ? (
+          <span className="ws-item-sub" role="status">Looking…</span>
+        ) : !hits.length ? (
+          <span className="ws-item-sub" role="status">No customer matches.</span>
+        ) : (
           <ul className="r67-hits" aria-label="Matching customers">
             {hits.map((a) => (
               <li key={a.id}>
@@ -211,7 +250,7 @@ function RecordBreach({ onClose, onSaved }) {
               </li>
             ))}
           </ul>
-        ) : null}
+        )}
         {chosen.length ? (
           <ul className="flex flex-wrap gap-2" aria-label="Customers chosen">
             {chosen.map((c) => (

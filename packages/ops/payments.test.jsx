@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   retry: vi.fn(),
   accounts: vi.fn(),
   record: vi.fn(),
+  confirm: vi.fn(),
 }));
 vi.mock('./api', () => ({
   opsPayments: () => api.list(),
@@ -23,7 +24,7 @@ vi.mock('./api', () => ({
   opsPaymentAccounts: (q) => api.accounts(q),
   opsRecordPayment: (b) => api.record(b),
 }));
-vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: (o) => api.confirm(o) }));
 
 import { Payments } from './Payments';
 
@@ -40,6 +41,7 @@ const list = { providers: [cashfree, razorpay, manual] };
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   api.list.mockResolvedValue(list);
+  api.confirm.mockResolvedValue(true);
   api.events.mockResolvedValue({ events: [], next: null });
 });
 
