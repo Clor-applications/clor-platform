@@ -70,7 +70,7 @@ describe('the screens', () => {
     expect(att.automations.map((a: any) => a.key)).toEqual(['attendance.monthNotLocked', 'attendance.readersSilent', 'attendance.requestsWaiting']);
     const ws = (await api(c, 'get', '/automations?module=workspace').expect(200)).body;
     expect(ws.canEdit).toBe(true);
-    expect(ws.automations.map((a: any) => a.key)).toEqual(['workspace.invitationWaiting', 'workspace.adminNoAuthenticator', 'workspace.closureSoon']);
+    expect(ws.automations.map((a: any) => a.key)).toEqual(['workspace.invitationWaiting', 'workspace.adminNoAuthenticator', 'workspace.closureSoon', 'workspace.outsideAccessEnding', 'workspace.notSigningIn']);
     for (const a of [...att.automations, ...ws.automations]) {
       expect(a).toMatchObject({ on: false, defaultOn: false, managedIn: null, channels: ['bell'], channelOptions: null, nextRun: null });
       expect(a.sentence.split('{n}')).toHaveLength(2);
@@ -217,7 +217,7 @@ describe('Workspace recipes', () => {
   it('switched off, nothing is sent and nothing is recorded', async () => {
     const done = await run(c, now);
     expect(Object.keys(done).filter((k) => k.startsWith('workspace.'))).toEqual([]);
-    for (const kind of ['workspace.invitation_waiting', 'workspace.admin_no_authenticator', 'workspace.closure_soon']) expect(await bells(c, kind)).toEqual([]);
+    for (const kind of ['workspace.invitation_waiting', 'workspace.admin_no_authenticator', 'workspace.closure_soon', 'workspace.outside_access_ending', 'workspace.not_signing_in']) expect(await bells(c, kind)).toEqual([]);
     expect(await runInTenant(c.orgId, () => peoplePrisma.automationRun.count({ where: { orgId: c.orgId, key: { startsWith: 'workspace.' } } }))).toBe(0);
   });
 
@@ -292,6 +292,61 @@ describe('Workspace recipes', () => {
     expect((await run(c, morning(13)))['workspace.closureSoon']).toBe(0);
     expect(await bells(c, 'workspace.closure_soon')).toEqual([]);
   }, 60_000);
+
+  it('an accountant’s access about to end: the owner hears once per end date, inside the chosen days only', async () => {
+    const f = await company();
+    const firm = await withRole(f, 'Viewer', 'Farah Firm');
+    const day = morning(10);
+    const grant = await runInTenant(f.orgId, () => platformPrisma.outsideAccess.create({ data: { accountId: f.accountId, orgId: f.orgId, userId: firm.userId, homeAccountId: 'another-account', expiresAt: new Date(day.getTime() + 20 * DAY) } }));
+    await put(f, 'workspace', { 'workspace.outsideAccessEnding': { on: true, n: 7 } }).expect(200);
+    /* Twenty days away: too early. */
+    expect((await run(f, day))['workspace.outsideAccessEnding']).toBe(0);
+    await runInTenant(f.orgId, () => platformPrisma.outsideAccess.update({ where: { id: grant.id }, data: { expiresAt: new Date(morning(11).getTime() + 5 * DAY) } }));
+    expect((await run(f, morning(11)))['workspace.outsideAccessEnding']).toBe(1);
+    const told = await bells(f, 'workspace.outside_access_ending');
+    expect(told.map((t) => t.userId)).toEqual([f.userId]);
+    expect(told[0].title).toBe('Farah Firm’s access ends in 5 days');
+    expect(JSON.parse(told[0].linkJson!)).toEqual({ app: 'admin', screen: 'outsideAccess' });
+    expect((await run(f, morning(12)))['workspace.outsideAccessEnding']).toBe(0);
+    /* Extended, and coming up again: said again. Ended by hand: nothing. */
+    await runInTenant(f.orgId, () => platformPrisma.outsideAccess.update({ where: { id: grant.id }, data: { expiresAt: new Date(morning(13).getTime() + 6 * DAY) } }));
+    expect((await run(f, morning(13)))['workspace.outsideAccessEnding']).toBe(1);
+    await runInTenant(f.orgId, () => platformPrisma.outsideAccess.update({ where: { id: grant.id }, data: { status: 'REVOKED', expiresAt: new Date(morning(14).getTime() + 2 * DAY) } }));
+    expect((await run(f, morning(14)))['workspace.outsideAccessEnding']).toBe(0);
+    expect(await bells(f, 'workspace.outside_access_ending')).toHaveLength(2);
+  }, 90_000);
+
+  it('somebody who stopped signing in: the owner hears once per quiet spell, never about themself or a newcomer', async () => {
+    const f = await company();
+    const quiet = await withRole(f, 'Viewer', 'Kiran Quiet');
+    const never = await withRole(f, 'Viewer', 'Neha Never');
+    const fresh = await withRole(f, 'Viewer', 'Nitin New');
+    const day = morning(10);
+    await platformPrisma.userOrgMembership.updateMany({ where: { orgId: f.orgId, userId: { in: [f.userId, quiet.userId, never.userId] } }, data: { createdAt: before(day, 60) } });
+    await platformPrisma.user.update({ where: { id: quiet.userId }, data: { lastLoginAt: before(day, 45) } });
+    await platformPrisma.user.update({ where: { id: never.userId }, data: { lastLoginAt: null } });
+    /* Added this week and not signed in yet: not quiet. The owner is away too, and is not told about themself. */
+    await platformPrisma.user.update({ where: { id: fresh.userId }, data: { lastLoginAt: null } });
+    await platformPrisma.user.update({ where: { id: f.userId }, data: { lastLoginAt: before(day, 40) } });
+    await put(f, 'workspace', { 'workspace.notSigningIn': { on: true, n: 30 } }).expect(200);
+    expect((await put(f, 'workspace', { 'workspace.notSigningIn': { n: 7 } }).expect(400)).body.error).toMatch(/14 to 180/);
+
+    expect((await run(f, day))['workspace.notSigningIn']).toBe(2);
+    const told = await bells(f, 'workspace.not_signing_in');
+    expect(told.map((t) => t.userId)).toEqual([f.userId, f.userId]);
+    expect(told.map((t) => t.title).sort()).toEqual(['Kiran Quiet has not signed in for 45 days', 'Neha Never has never signed in']);
+    expect(JSON.parse(told[0].linkJson!)).toEqual({ app: 'admin', screen: 'usage' });
+    /* The next morning: nothing more about the same quiet spell. */
+    expect((await run(f, morning(11)))['workspace.notSigningIn']).toBe(0);
+    /* Back, then away again for the chosen days: said again. */
+    await platformPrisma.user.update({ where: { id: quiet.userId }, data: { lastLoginAt: before(morning(12), 31) } });
+    expect((await run(f, morning(12)))['workspace.notSigningIn']).toBe(1);
+    /* Switched off by the person's own account being closed: nothing. */
+    await platformPrisma.user.update({ where: { id: never.userId }, data: { isActive: false } });
+    await runInTenant(f.orgId, () => platformPrisma.notification.deleteMany({ where: { orgId: f.orgId, kind: 'workspace.not_signing_in' } }));
+    expect((await run(f, morning(13)))['workspace.notSigningIn']).toBe(1);
+    expect((await bells(f, 'workspace.not_signing_in')).map((t) => t.title)).toEqual(['Kiran Quiet has not signed in for 32 days']);
+  }, 120_000);
 });
 
 describe('the daily job', () => {
