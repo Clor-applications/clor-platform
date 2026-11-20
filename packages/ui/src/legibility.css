@@ -136,3 +136,59 @@
   :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='key'] { grid-column: 2; grid-row: 1; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='tag'] { grid-column: 2; grid-row: 2; justify-self: end; text-align: right; }
 }
+
+/* ---- Shared defaults, calm register (design audit 20 Nov 2026, docs/design-audit-2026-11-20.md S1-S4, S9, S10).
+   The shared parts still carried pre-19 Nov rules, so every screen built on them inherited the drift. One rule each
+   here moves them all. Books keeps its own (data-palette='indigo'). ---- */
+
+/* S1. A list sits on the page ground under one rule, with no card around it (DESIGN.md "Lists"). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-list-surface {
+  border: 0 !important;
+  border-top: 1px solid rgb(var(--border)) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+/* S2. Empty state: one line and one button in a 12px hairline block; no illustration on a list (DESIGN.md "Empty states"). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-empty-art { display: none !important; }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-empty-state {
+  border: 1px solid rgb(var(--border));
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin: 1rem;
+}
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-empty-head { font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; }
+
+/* S3. Labels are sentence case at 12/16 600 in muted ink: no uppercase, no tracking (DESIGN.md "Typography"). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(
+  .ui-t-label, .ui-kpi-label, .ui-section-label, .ui-eyebrow, .ui-cell-settled, .pt-tile-label, .people-kpi-label
+) {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  color: rgb(var(--fg-muted));
+}
+
+/* S4. Section headings are 17/24 at 600, wherever they sit (DESIGN.md "section"). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-t-sec,
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-split-panel-head > .ui-t-sec {
+  font-size: 1.0625rem !important;
+  line-height: 1.5rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-empty-state .ui-empty-head { font-size: 0.875rem !important; line-height: 1.25rem !important; }
+
+/* S9. Focus is a 3px ring of the app colour at 28%, on every control (DESIGN.md "Buttons"). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(var(--act) / 0.28);
+}
+
+/* S10. Dialogs: 420px, 12px corners, and a plain scrim with no blur (DESIGN.md "Dialogs", "Elevation"). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-dialog, .ui-confirm) { border-radius: 0.75rem !important; }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-confirm { max-width: 420px; }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-scrim { backdrop-filter: none; }
