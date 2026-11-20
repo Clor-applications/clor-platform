@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Building2, CalendarClock, Receipt, TriangleAlert } from 'lucide-react';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, day, may, errorWords } from './kit';
+import { Err, Loading, Tabs, day, may, errorWords } from './kit';
 import { workerName } from './Health';
 import { daysLeft } from './Trials';
 import { inr } from './money';
@@ -378,6 +378,20 @@ function countRows(d, go, has) {
   ].filter(Boolean);
 }
 
+/*
+ * The queue by whose work it is (20 Nov 2026): Sales looks at customers, Finance at money, Support at
+ * tickets, whoever is on call at the platform. Every group and every count row belongs to one; one
+ * not named here is a customer matter.
+ */
+const QUEUE_PART = {
+  trials: 'customers', quiet: 'customers', stalled: 'customers', suspended: 'customers',
+  invoices: 'money', payments: 'money', renewals: 'money', approvals: 'money', overdue: 'money',
+  tickets: 'support',
+  alerts: 'platform', emails: 'platform',
+};
+const partOf = (k) => QUEUE_PART[k] || 'customers';
+const QUEUE_FILTERS = [['all', 'All'], ['mine', 'Mine'], ['customers', 'Customers'], ['money', 'Money'], ['support', 'Support'], ['platform', 'Platform']];
+
 function NeedsAction({ d, error, go, has, canMark = false }) {
   /* The moment the page opened: days left and days overdue are counted from it, not from each render. */
   const [now] = useState(() => Date.now());
@@ -398,8 +412,22 @@ function NeedsAction({ d, error, go, has, canMark = false }) {
   };
   const all = d ? workGroups(d, go, has, now) : [];
   const putAway = all.reduce((sum, g) => sum + g.rows.filter((r) => later.has(`${g.k}:${r.id}`)).length, 0);
-  const groups = all.map((g) => ({ ...g, rows: showLater ? g.rows : g.rows.filter((r) => !later.has(`${g.k}:${r.id}`)) })).filter((g) => g.rows.length);
-  const counts = d ? countRows(d, go, has) : [];
+  const [filter, setFilter] = useState('all');
+  const visible = all.map((g) => ({ ...g, rows: showLater ? g.rows : g.rows.filter((r) => !later.has(`${g.k}:${r.id}`)) })).filter((g) => g.rows.length);
+  const allCounts = d ? countRows(d, go, has) : [];
+  const isMine = (g, r) => Boolean(marks.mine?.[`${g.k}:${r.id}`]?.me);
+  /* How many rows each filter holds, so an empty one is not offered. "Mine" counts rows taken; a count row cannot be taken. */
+  const size = {
+    all: visible.reduce((n0, g) => n0 + g.rows.length, 0) + allCounts.length,
+    mine: visible.reduce((n0, g) => n0 + g.rows.filter((r) => isMine(g, r)).length, 0),
+  };
+  for (const g of visible) size[partOf(g.k)] = (size[partOf(g.k)] || 0) + g.rows.length;
+  for (const c of allCounts) size[partOf(c.k)] = (size[partOf(c.k)] || 0) + 1;
+  const offered = QUEUE_FILTERS.filter(([k]) => k === 'all' || size[k]);
+  /* A filter that emptied (its last row was let go, or put away) falls back to everything. */
+  const on = offered.some(([k]) => k === filter) ? filter : 'all';
+  const groups = on === 'all' ? visible : on === 'mine' ? visible.map((g) => ({ ...g, rows: g.rows.filter((r) => isMine(g, r)) })).filter((g) => g.rows.length) : visible.filter((g) => partOf(g.k) === on);
+  const counts = on === 'all' ? allCounts : on === 'mine' ? [] : allCounts.filter((c) => partOf(c.k) === on);
   return (
     <section className="ops-section" aria-labelledby="ops-needs">
       <h2 id="ops-needs" className="ops-h2">Needs you today</h2>
@@ -411,6 +439,7 @@ function NeedsAction({ d, error, go, has, canMark = false }) {
         <p className="ops-quiet-line">{putAway ? 'Nothing else needs you today.' : 'Nothing needs you today.'}</p>
       ) : (
         <>
+          {offered.length > 2 ? <Tabs label="Whose work" value={on} onChange={setFilter} tabs={offered.map(([k, name]) => [k, k === 'all' ? name : `${name} (${size[k]})`])} /> : null}
           {groups.map((g) => (
             <div key={g.k} className="ops-section">
               <div className="ops-section-head">
