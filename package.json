@@ -35,7 +35,10 @@
     "setup:local": "node scripts/setup-local.mjs",
     "e2e": "playwright test -c e2e/playwright.config.ts",
     "e2e:smoke": "playwright test -c e2e/playwright.config.ts --grep @smoke",
-    "e2e:report": "node e2e/scripts/results.mjs"
+    "e2e:report": "node e2e/scripts/results.mjs",
+    "qa:live": "bash e2e/live/run.sh",
+    "qa:live:public": "bash e2e/live/run.sh public.live.ts",
+    "qa:live:setup": "node e2e/live/setup.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
