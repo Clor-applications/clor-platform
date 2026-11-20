@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
+import { dateWords } from '../utils/istDate.js';
 
 /**
  * Expiry watch (docs/people/02-PRD.md DOC-03) and expiring work permission
@@ -98,7 +99,7 @@ describe('expiry watch', () => {
     expect(await runDocumentReminders(now)).toBeGreaterThanOrEqual(1);
     const plan = (await people(hr).get(`/employees/${e.id}/checklist`).expect(200)).body;
     expect(plan.renewals.tasks.map((t: any) => [t.title, t.owner, t.dueDate])).toEqual([
-      [`Renew Forklift licence (expires ${plus(20, now)})`, 'HR', plus(13, now)],
+      [`Renew Forklift licence (expires ${dateWords(plus(20, now))})`, 'HR', plus(13, now)],
       ['Plan Deepak Khan’s work while Forklift licence is renewed', 'MANAGER', plus(13, now)],
     ]);
     /* The 7-day reminder does not add the tasks again. */

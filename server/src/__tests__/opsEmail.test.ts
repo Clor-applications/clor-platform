@@ -53,7 +53,7 @@ describe('email in the operator console', () => {
 
     await request(app).put('/api/ops/email/templates/people.joined').set(owner.h).send({ subject: 'Somebody joined {{appName}}', body: 'Plain words from {{appName}}.', reason: 'Owner asked for plainer wording' }).expect(200);
     const row = await sendTemplate({ templateKey: 'people.joined', to: 'someone@example.com', transactional: true });
-    expect(row).toMatchObject({ subject: 'Somebody joined CLOR', bodyText: 'Plain words from CLOR.' });
+    expect(row).toMatchObject({ subject: 'Somebody joined CLOR', bodyText: 'Plain words from CLOR.\n\n— CLOR' });
     expect((await request(app).get('/api/ops/email/templates').set(sup.h).expect(200)).body.templates.find((t: any) => t.key === 'people.joined')).toMatchObject({ changed: true, subject: 'Somebody joined {{appName}}' });
 
     const test = (await request(app).post('/api/ops/email/templates/people.joined/test').set(sup.h).send({ to: 'tester@example.com' }).expect(200)).body;

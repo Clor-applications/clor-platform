@@ -16,7 +16,7 @@ const titleLike = (label: string) => new RegExp(`^${label.replace(/[.*+?^${}()|[
 /** Rail modules that hold a single screen: the rail button opens it, with no list. */
 const ONE_SCREEN = new Set(['Home']);
 
-/* A screen whose menu item reads differently from its title: Settings is "All settings" in its list. */
+/* A screen whose menu item reads differently from its rail name: Settings is "All settings" in its list, and its page title follows the menu. */
 const ITEM: Record<string, string> = { Settings: 'All settings' };
 
 /* The rail names a module in one word; its screen list may carry the long name (R&D menu, 14 Nov 2026). */
@@ -149,7 +149,7 @@ export class PeopleWeb {
       await list.getByRole('button', { name: itemName(ITEM[label] || label) }).click();
     }
     if (this.isPhone && (await this.page.getByRole('dialog', { name: 'People navigation' }).isVisible())) await this.page.keyboard.press('Escape');
-    await expect(this.title).toHaveText(titleLike(opts.title || label));
+    await expect(this.title).toHaveText(titleLike(opts.title || ITEM[label] || label));
     await this.settle();
     await auditScreen(this.page, this.testInfo);
   }
