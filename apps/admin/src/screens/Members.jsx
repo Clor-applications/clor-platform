@@ -364,6 +364,24 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                   ))}
                   {shown.roles.length === 0 ? <li className="ui-caption">No role here.</li> : null}
                 </ul>
+                {/* The roles above, as what they let this person do: read from the same permissions the server checks. */}
+                {shown.words?.length ? (
+                  <>
+                    <p className="ws-kicker">What they can do</p>
+                    <dl className="ws-member-words">
+                      {shown.words.map((w) => (
+                        <div key={w.app}>
+                          <dt>{w.label}</dt>
+                          <dd>
+                            {w.lines.map((line) => (
+                              <span key={line}>{line}.</span>
+                            ))}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </>
+                ) : null}
                 {/*
                   Roles are changed in the company they belong to. This page showed them and stopped: the
                   administrator then went looking for the same person again under Company users.
@@ -392,6 +410,30 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                 ) : null}
               </section>
             ) : null}
+
+            {/* What only this person holds or started: read before they are marked as left, suspended or removed. */}
+            <section className="ws-member-handover" aria-label="Before they leave">
+              <p className="ws-kicker">Before they leave</p>
+              {detail.handover?.length ? (
+                <ul>
+                  {detail.handover.map((h) => {
+                    const here = !h.orgId || h.orgId === tenant?.id;
+                    return (
+                      <li key={h.key}>
+                        <span>{h.text}</span>{' '}
+                        {openScreen && here ? (
+                          <button type="button" className="ws-row-link" onClick={() => openScreen(h.screen)}>Open</button>
+                        ) : switchCompany && h.orgId ? (
+                          <button type="button" className="ws-row-link" onClick={() => switchCompany(h.orgId)}>Switch company</button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="ui-caption">Nothing to hand over: nothing here depends on this person alone.</p>
+              )}
+            </section>
 
             <dl className="ws-member-facts">
               <div>

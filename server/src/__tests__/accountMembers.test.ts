@@ -68,6 +68,29 @@ describe('the account’s people', () => {
     expect(a.companies[0].sensitive.some((k: string) => k.startsWith('PAYROLL::'))).toBe(true);
   });
 
+  it('says the access in words, and what only this person holds before they leave', async () => {
+    const o = await owner('hand');
+    const p = await person(o, 'clerk', 'Accountant');
+    const a = (await request(app).get(`/api/account/members/${p.userId}/access`).set(at(o)).expect(200)).body;
+    expect(a.companies[0].words.map((w: any) => w.label)).toContain('Books');
+    expect(a.companies[0].words.find((w: any) => w.label === 'Books').lines.join(' ')).toMatch(/Adds and changes|Only looks at/);
+    /* Nothing depends on the clerk alone. */
+    expect(a.handover).toEqual([]);
+
+    /* The owner is the only owner and the only administrator, and the clerk has an invitation out and is named in an automation. */
+    const mine = (await request(app).get(`/api/account/members/${o.userId}/access`).set(at(o)).expect(200)).body;
+    expect(mine.companies[0].words).toEqual([expect.objectContaining({ app: 'all' })]);
+    expect(mine.handover.map((h: any) => h.key)).toEqual(['sole-owner', `sole-admin:${o.orgId}`]);
+    expect(mine.handover[0]).toMatchObject({ screen: 'members', orgId: null });
+
+    await platformPrisma.accountInvitation.create({ data: { accountId: o.accountId, email: `late.${Date.now()}@example.com`, grants: '[]', tokenHash: `t-${Date.now()}-${Math.random()}`, expiresAt: new Date(Date.now() + 5 * 86_400_000), invitedByUserId: p.userId } });
+    await request(app).put(`/api/orgs/${o.orgId}/automations?module=workspace`).set(at(o)).send({ automations: { 'workspace.closureSoon': { on: true, to: [`PERSON:${p.userId}`] } } }).expect(200);
+    const after = (await request(app).get(`/api/account/members/${p.userId}/access`).set(at(o)).expect(200)).body.handover;
+    expect(after.map((h: any) => [h.key, h.screen])).toEqual([['invitations', 'invitations'], [`automations:${o.orgId}`, 'automations']]);
+    expect(after[0].text).toMatch(/^1 invitation they sent is still waiting/);
+    expect(after[1].text).toMatch(/^1 automation tells this person in /);
+  });
+
   it('suspends a person in every company of the account at once, and reinstates them', async () => {
     const o = await owner('susp');
     const p = await person(o, 'clerk', 'Accountant');

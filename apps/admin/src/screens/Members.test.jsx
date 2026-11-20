@@ -121,4 +121,37 @@ describe('Workspace → Members', () => {
     await waitFor(() => expect(api.signOutMember).toHaveBeenCalledWith('u2'));
     expect(api.suspendMember).not.toHaveBeenCalled();
   });
+
+  /* 20 Nov 2026: role names and a permission count did not say what a person can do, or what goes with them. */
+  it('says what the person can do in words, and what to hand over before they leave', async () => {
+    api.memberAccess.mockResolvedValue({
+      ...ACCESS,
+      companies: [{ ...ACCESS.companies[0], words: [{ app: 'payroll', label: 'Payroll', lines: ['Adds and changes Pay runs', 'Approves Pay runs'] }] }],
+      handover: [
+        { key: 'invitations', text: '2 invitations they sent are still waiting.', screen: 'invitations', orgId: null },
+        { key: 'keys:c1', text: '1 key they created is still in use in Anand Traders.', screen: 'credentials', orgId: 'c1' },
+      ],
+    });
+    const openScreen = vi.fn();
+    const switchCompany = vi.fn();
+    render(<Members tenant={{ id: 'c2', name: 'Anand Exports' }} openScreen={openScreen} switchCompany={switchCompany} />);
+    fireEvent.click(await screen.findByText('Kavya'));
+    expect(await screen.findByText('Adds and changes Pay runs.')).toBeInTheDocument();
+    expect(screen.getByText('Approves Pay runs.')).toBeInTheDocument();
+    const hand = screen.getByRole('region', { name: 'Before they leave' });
+    expect(hand).toHaveTextContent('2 invitations they sent are still waiting.');
+    /* An account-wide item opens its screen; one in another company offers the switch. */
+    const buttons = hand.querySelectorAll('button');
+    fireEvent.click(buttons[0]);
+    expect(openScreen).toHaveBeenCalledWith('invitations');
+    fireEvent.click(buttons[1]);
+    expect(switchCompany).toHaveBeenCalledWith('c1');
+  });
+
+  it('says there is nothing to hand over when nothing depends on the person', async () => {
+    render(<Members tenant={{ id: 'c2', name: 'Anand Exports' }} />);
+    fireEvent.click(await screen.findByText('Kavya'));
+    expect(await screen.findByText(/Nothing to hand over/)).toBeInTheDocument();
+  });
 });
+
