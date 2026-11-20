@@ -35,9 +35,9 @@ export class EmployeeApp {
     return this.main.getByRole('form', { name: 'Ask for leave' });
   }
 
-  /** The balance card for one type: "Casual leave / 10 / left of 12 · 2 waiting". */
+  /** The balance row for one type: "Casual leave / 10 / left of 12 · 2 waiting" (a row of the list, not a card, since the calm register). */
   balance(type: string): Locator {
-    return this.main.locator('.ui-card').filter({ has: this.page.getByText(type, { exact: true }) }).filter({ hasText: 'left of' }).first();
+    return this.main.getByRole('listitem').filter({ has: this.page.getByText(type, { exact: true }) }).filter({ hasText: 'left of' }).first();
   }
 
   /** Fills the leave form; does not send. */
