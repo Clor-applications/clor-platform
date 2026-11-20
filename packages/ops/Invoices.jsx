@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
@@ -22,7 +22,7 @@ import {
   opsTdsCertificate,
   opsVoidInvoice,
 } from './api';
-import { Empty, Err, Loading, ReasonDrawer, Tabs, day, may, when, errorWords } from './kit';
+import { Empty, Err, ErrorSummary, FieldMsg, HoldOpen, Loading, ReasonDrawer, Tabs, day, fieldErr, may, when, errorWords } from './kit';
 import { inr, rupeesText, toPaise } from './money';
 
 /**
@@ -95,14 +95,25 @@ function Field({ id, label, hint, children }) {
     </div>
   );
 }
-const Problems = ({ list }) =>
-  list?.length ? (
-    <ul role="alert" className="text-sm grid gap-1" style={{ color: 'rgb(var(--ws-danger))' }}>
-      {list.map((p) => (
-        <li key={p}>{p}</li>
-      ))}
-    </ul>
-  ) : null;
+const monthsWord = (n) => (Number(n) === 1 ? '1 month' : `${n} months`);
+
+/**
+ * What marking an invoice paid will do, in words, for the last check before it goes:
+ * the amount, the customer, the months it pays for, and a plain warning when the money is short.
+ * The server takes a short amount and still closes the invoice in full (billing/invoices.ts markInvoicePaid).
+ */
+export function markPaidWords(inv, amount, tds = 0) {
+  const who = inv.account?.name || inv.buyerName || inv.buyer?.name || 'the customer';
+  const covered = amount + (tds || 0);
+  const lines = [
+    `${inr(amount)} from ${who}${tds ? `, with ${inr(tds)} TDS kept back` : ''}, against ${inv.number || 'this invoice'} for ${inr(inv.total)}.`,
+    `The invoice closes as paid and the subscription is paid for ${monthsWord(inv.months || 1)} more.`,
+  ];
+  const short = inv.total - covered;
+  if (short > 0) lines.push(`This is ${inr(short)} short of the invoice. It is still marked paid in full and nothing asks the customer for the rest, so only go on if CLOR agreed to take less.`);
+  else if (short < 0) lines.push(`This is ${inr(-short)} more than the invoice. The extra is not kept as credit.`);
+  return { short: Math.max(0, short), message: lines.join(' ') };
+}
 
 /* ------------------------------------------------------------------ list */
 export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
@@ -113,12 +124,41 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
   const [making, setMaking] = useState(false);
   const [reminding, setReminding] = useState('');
   const [again, setAgain] = useState(0);
+  /* Which list is on screen; while it is not the one asked for, the rows shown are dimmed. */
+  const [shownKey, setShownKey] = useState('');
+  const tableRef = useRef(null);
+  const paged = useRef(false);
   const before = pages[pages.length - 1];
+  const wantKey = `${status}|${before || ''}|${again}`;
+  const loading = shownKey !== wantKey;
   useEffect(() => {
+    let live = true;
     opsInvoices({ status: status === 'all' ? '' : status, before })
-      .then((r) => (setData(r), setError('')))
-      .catch((e) => setError(errorWords(e, 'load the invoices')));
+      .then((r) => {
+        if (!live) return;
+        setData(r);
+        setError('');
+        setShownKey(`${status}|${before || ''}|${again}`);
+        /* Another page: the keyboard and the eye go to the top of the table, not left at the pager. */
+        if (paged.current) {
+          paged.current = false;
+          requestAnimationFrame(() => tableRef.current?.focus());
+        }
+      })
+      .catch((e) => {
+        if (!live) return;
+        setError(errorWords(e, 'load the invoices'));
+        setShownKey(`${status}|${before || ''}|${again}`);
+      });
+    return () => {
+      live = false;
+    };
   }, [status, before, again]);
+  /* The rows on screen stay while the next page is read, dimmed, so the page does not jump. */
+  const turn = (next) => {
+    paged.current = true;
+    setPages(next);
+  };
   const mayChange = may(role, 'BILLING');
   /* Chasing is the Overdue view's job, so only it shows how late each one is and when it was last reminded. */
   const chasing = status === 'OVERDUE';
@@ -154,15 +194,15 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
           setPages([null]);
         }}
       />
-      <Err>{error}</Err>
+      <Err onRetry={() => setAgain((n) => n + 1)}>{error}</Err>
       {!data ? (
         error ? null : <Loading />
       ) : !data.invoices.length ? (
         <Empty>{status === 'all' ? 'No invoices yet. New invoice makes a draft for a customer from the apps they have.' : 'No invoices with this status.'}</Empty>
       ) : (
-        <div className="ws-table-wrap">
+        <div className="ws-table-wrap" ref={tableRef} tabIndex={-1} aria-busy={loading || undefined} style={loading ? { opacity: 0.55, transition: 'opacity 120ms ease-out' } : { transition: 'opacity 120ms ease-out' }}>
           <table className="ws-table">
-            <caption className="sr-only">Invoices</caption>
+            <caption className="sr-only">{`Invoices${pages.length > 1 ? `, page ${pages.length}` : ''}`}</caption>
             <thead>
               <tr>
                 <th>Number</th>
@@ -233,12 +273,13 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
       )}
       {data && (pages.length > 1 || data.hasMore) ? (
         <nav className="flex items-center gap-2" aria-label="Pages">
-          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={pages.length === 1} onClick={() => (setData(null), setPages((p) => p.slice(0, -1)))}>
+          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={loading || pages.length === 1} onClick={() => turn((p) => p.slice(0, -1))}>
             Previous
           </button>
-          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={!data.hasMore} onClick={() => (setData(null), setPages((p) => [...p, data.invoices[data.invoices.length - 1].createdAt]))}>
+          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={loading || !data.hasMore} onClick={() => turn((p) => [...p, data.invoices[data.invoices.length - 1].createdAt])}>
             Next
           </button>
+          {loading ? <span className="ws-head-meta" role="status">Loading…</span> : null}
         </nav>
       ) : null}
       {making ? <InvoiceForm onClose={() => setMaking(false)} onSaved={(inv) => (setMaking(false), openInvoice(inv.id))} /> : null}
@@ -263,32 +304,45 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
   const [f, setF] = useState({ periodStart: invoice?.periodStart || '', periodEnd: invoice?.periodEnd || '', months: String(invoice?.months || 1), note: invoice?.note || '' });
   const [gstOn, setGstOn] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [problems, setProblems] = useState([]);
+  const [problems, setProblems] = useState({});
+  /* The account search: what was asked, whether an answer came, and whether it failed. */
+  const [lookedFor, setLookedFor] = useState(null);
+  const [lookError, setLookError] = useState('');
+  const [lookAgain, setLookAgain] = useState(0);
+  /* Unsaved: a new invoice once a customer is chosen or typed for; a draft once anything differs from it. */
+  const [start] = useState(() => JSON.stringify({ lines, buyer, f }));
+  const dirty = !busy && (invoice ? JSON.stringify({ lines, buyer, f }) !== start : Boolean(account || search.trim()));
 
   useEffect(() => {
     if (account) return undefined;
     let live = true;
+    const asked = search.trim();
     const t = setTimeout(() => {
-      opsPaymentAccounts(search.trim())
-        .then((r) => live && setFound(r.accounts))
-        .catch(() => {});
+      opsPaymentAccounts(asked)
+        .then((r) => {
+          if (!live) return;
+          setLookError('');
+          setFound(r.accounts || []);
+          setLookedFor(asked);
+        })
+        .catch((e) => live && setLookError(errorWords(e, 'look up the accounts')))
     }, 250);
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [search, account]);
+  }, [search, account, lookAgain]);
 
   const choose = async (a) => {
     setAccount(a);
-    setProblems([]);
+    setProblems({});
     try {
       const s = await opsInvoiceStart(a.id);
       setBuyer(buyerIn(s.buyer));
       setLines(s.lines.length ? linesIn(s.lines) : [blankLine()]);
       setGstOn(s.gstRegistered);
     } catch (e) {
-      setProblems([errorWords(e, 'find the account')]);
+      setProblems({ server: errorWords(e, 'find the account') });
     }
   };
   const setLine = (i, k) => (e) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: e.target.value } : l)));
@@ -302,10 +356,16 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
   const subtotal = amounts.reduce((s, a) => s + (a || 0), 0);
 
   const save = async () => {
-    setProblems([]);
-    if (!account) return setProblems(['Choose the customer account.']);
-    const bad = lines.findIndex((l) => toPaise(l.price) == null);
-    if (bad >= 0) return setProblems([`Line ${bad + 1}: enter the price in rupees.`]);
+    /* Every problem at once, each on its field. */
+    const found = {};
+    if (!account) found.account = 'Choose the customer account.';
+    lines.forEach((l, i) => {
+      const q = Number(l.quantity);
+      if (!Number.isInteger(q) || q <= 0) found[`l${i}-q`] = `Line ${i + 1}: the quantity is a whole number, 1 or more.`;
+      if (toPaise(l.price) == null) found[`l${i}-p`] = `Line ${i + 1}: enter the price in rupees, like 1250 or 1250.50.`;
+    });
+    setProblems(found);
+    if (Object.keys(found).length) return;
     const body = {
       lines: lines.map((l) => ({ description: l.description.trim(), appCode: l.appCode || null, quantity: Number(l.quantity), unitAmount: toPaise(l.price) })),
       buyer: { name: buyer.name.trim() || null, gstin: buyer.gstin.trim() || null, state: buyer.state ? GST_STATE_BY_CODE[buyer.state] : null, address: buyer.address.trim() || null, email: buyer.email.trim() || null },
@@ -320,7 +380,8 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
       notify.success(invoice ? 'Draft saved.' : 'Draft made. Check it, then issue it.');
       onSaved(r);
     } catch (e) {
-      setProblems(e?.data?.problems?.length ? e.data.problems : [errorWords(e, 'save the draft')]);
+      const list = e?.data?.problems?.length ? e.data.problems : [errorWords(e, 'save the draft')];
+      setProblems(Object.fromEntries(list.map((m, i) => [`server${i}`, m])));
     } finally {
       setBusy(false);
     }
@@ -329,13 +390,14 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
   return (
     <WsDrawer
       open
-      onClose={onClose}
+      onClose={() => !busy && onClose()}
+      dirty={dirty || busy}
       widthClass="w-[min(48rem,96vw)]"
       title={invoice ? 'Change the draft' : 'New invoice'}
       description="A draft first: nothing is numbered or shown to the customer until you issue it."
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={onClose}>
             Cancel
           </button>
           <button type="button" className="ws-btn ws-btn--primary" disabled={busy || !account} onClick={save}>
@@ -345,6 +407,8 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
       }
     >
       <div className="grid gap-6">
+        <HoldOpen active={busy} />
+        <ErrorSummary errors={problems} />
         {account ? (
           <div className="grid gap-1">
             <span className="text-sm font-semibold">Customer account</span>
@@ -359,8 +423,13 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
           </div>
         ) : (
           <Field id="inv-search" label="Customer account" hint="Type the account’s name or account ID.">
-            <input id="inv-search" className="ui-input" autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} />
-            {found.length ? (
+            <input id="inv-search" className="ui-input" autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} {...fieldErr(problems, 'account', 'inv')} />
+            <FieldMsg errors={problems} k="account" idBase="inv" />
+            {lookError ? (
+              <Err onRetry={() => setLookAgain((n) => n + 1)}>{lookError}</Err>
+            ) : lookedFor !== search.trim() && !found.length ? (
+              search.trim() ? <span className="ws-item-sub" role="status">Looking…</span> : null
+            ) : found.length ? (
               <ul className="grid gap-1" aria-label="Matching accounts">
                 {found.map((a) => (
                   <li key={a.id}>
@@ -372,7 +441,7 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
                 ))}
               </ul>
             ) : search.trim() ? (
-              <span className="ws-item-sub">No account matches.</span>
+              <span className="ws-item-sub" role="status">No account matches.</span>
             ) : null}
           </Field>
         )}
@@ -387,10 +456,12 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
                     <input id={`inv-l${i}-d`} className="ui-input" value={l.description} onChange={setLine(i, 'description')} placeholder="CLOR People, 25 users" />
                   </Field>
                   <Field id={`inv-l${i}-q`} label={i === 0 ? 'Quantity' : <span className="sr-only">Quantity, line {i + 1}</span>}>
-                    <input id={`inv-l${i}-q`} className="ui-input ui-num" inputMode="numeric" value={l.quantity} onChange={setLine(i, 'quantity')} />
+                    <input id={`inv-l${i}-q`} className="ui-input ui-num" inputMode="numeric" value={l.quantity} onChange={setLine(i, 'quantity')} {...fieldErr(problems, `l${i}-q`, 'inv')} />
+                    <FieldMsg errors={problems} k={`l${i}-q`} idBase="inv" />
                   </Field>
                   <Field id={`inv-l${i}-p`} label={i === 0 ? 'Price, ₹' : <span className="sr-only">Price, line {i + 1}</span>}>
-                    <input id={`inv-l${i}-p`} className="ui-input ui-num" inputMode="decimal" value={l.price} onChange={setLine(i, 'price')} />
+                    <input id={`inv-l${i}-p`} className="ui-input ui-num" inputMode="decimal" value={l.price} onChange={setLine(i, 'price')} {...fieldErr(problems, `l${i}-p`, 'inv')} />
+                    <FieldMsg errors={problems} k={`l${i}-p`} idBase="inv" />
                   </Field>
                   <span className="ui-num" style={{ textAlign: 'right', paddingBottom: 10 }}>
                     {amounts[i] == null ? '—' : inr(amounts[i])}
@@ -462,7 +533,6 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
           </>
         ) : null}
         <p className="ws-card-blurb">Saving asks for a code from your authenticator app.</p>
-        <Problems list={problems} />
       </div>
     </WsDrawer>
   );
@@ -491,7 +561,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
   useEffect(() => {
     if (numbered) loadSends();
   }, [numbered, loadSends]);
-  if (!inv) return error ? <Err>{error}</Err> : <Loading />;
+  if (!inv) return error ? <Err onRetry={load}>{error}</Err> : <Loading />;
   const mayChange = may(role, 'BILLING');
   const mayEmail = mayChange && inv.status === 'ISSUED' && Boolean(inv.emailTo);
   const email = async (kind) => {
@@ -667,8 +737,8 @@ export function InvoicePage({ id, role, back, openCustomer }) {
       {doing === 'edit' ? <InvoiceForm invoice={inv} onClose={() => setDoing(null)} onSaved={(r) => done(r)} /> : null}
       <ReasonDrawer
         open={doing === 'issue'}
-        title="Issue this invoice"
-        what="It gets the next number of this year’s series and today’s date, and nothing on it can change after."
+        title={`Issue an invoice for ${inr(inv.total)} to ${inv.account?.name || inv.buyer?.name || 'the customer'}?`}
+        what={`${inv.account?.name || inv.buyer?.name || 'The customer'} is billed ${inr(inv.total)}${inv.months ? ` for ${monthsWord(inv.months)}` : ''}. It gets the next number of this year’s series and today’s date, and nothing on it can change after.`}
         confirmLabel="Issue invoice"
         reasonOptional
         onClose={() => setDoing(null)}
@@ -711,8 +781,8 @@ export function InvoicePage({ id, role, back, openCustomer }) {
       />
       <ReasonDrawer
         open={doing === 'void'}
-        title="Cancel this invoice"
-        what={`${inv.number} stays in the series, marked cancelled, and the customer sees nothing is due on it. A paid invoice cannot be cancelled.`}
+        title={`Cancel ${inv.number} for ${inr(inv.total)}?`}
+        what={`${inv.account?.name || inv.buyer?.name || 'The customer'} no longer owes ${inr(inv.total)} on ${inv.number}. It stays in the series, marked cancelled, and the customer sees nothing is due on it. A paid invoice cannot be cancelled.`}
         confirmLabel="Cancel invoice"
         cancelLabel="Keep invoice"
         tone="danger"
@@ -768,9 +838,12 @@ function EmailsSent({ sends }) {
 }
 
 function MarkPaid({ inv, onClose, onDone }) {
-  const [f, setF] = useState({ reference: '', paidOn: today(), amount: rupeesText(inv.total), tds: '' });
+  const [first] = useState(() => ({ reference: '', paidOn: today(), amount: rupeesText(inv.total), tds: '' }));
+  const [f, setF] = useState(first);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [problems, setProblems] = useState({});
+  const dirty = JSON.stringify(f) !== JSON.stringify(first);
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const amount = toPaise(f.amount);
   const tds = f.tds.trim() ? toPaise(f.tds) : 0;
@@ -785,8 +858,23 @@ function MarkPaid({ inv, onClose, onDone }) {
   };
   const save = async () => {
     setError('');
-    if (!amount) return setError('Enter the amount received, in rupees.');
-    if (f.tds.trim() && !tds) return setError('Enter the TDS in rupees, or leave it empty.');
+    const found = {};
+    if (!/^[A-Za-z0-9/-]{6,40}$/.test(f.reference.trim())) found.reference = 'Enter the UTR or bank reference: 6 to 40 letters and digits.';
+    if (!f.paidOn) found.paidOn = 'Enter the date the money arrived.';
+    if (!amount) found.amount = 'Enter the amount received, in rupees, like 11800 or 11800.50.';
+    if (f.tds.trim() && !tds) found.tds = 'Enter the TDS in rupees, or leave it empty.';
+    setProblems(found);
+    if (Object.keys(found).length) return;
+    /* The last look: the amount, the customer, the months, and the shortfall when there is one. */
+    const words = markPaidWords(inv, amount, tds);
+    const ok = await confirmDialog({
+      title: words.short ? `Mark ${inv.number} paid, ${inr(words.short)} short?` : `Mark ${inv.number} paid?`,
+      message: words.message,
+      confirmLabel: words.short ? 'Mark paid anyway' : 'Mark paid',
+      cancelLabel: 'Go back',
+      tone: words.short ? 'danger' : 'primary',
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       onDone(await opsMarkInvoicePaid(inv.id, { reference: f.reference.trim(), paidOn: f.paidOn, amount, tdsDeducted: tds || null }));
@@ -799,12 +887,13 @@ function MarkPaid({ inv, onClose, onDone }) {
   return (
     <WsDrawer
       open
-      onClose={onClose}
+      onClose={() => !busy && onClose()}
+      dirty={dirty || busy}
       title={`Mark ${inv.number} paid`}
       description={`A UPI or bank transfer that reached CLOR’s account. The subscription becomes active for ${inv.months === 1 ? '1 month' : `${inv.months} months`}, and the payment goes in the Payments log.`}
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={onClose}>
             Cancel
           </button>
           <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>
@@ -814,18 +903,24 @@ function MarkPaid({ inv, onClose, onDone }) {
       }
     >
       <div className="grid gap-5">
+        <HoldOpen active={busy} />
+        <ErrorSummary errors={problems} />
         <Field id="paid-ref" label="UTR or bank reference" hint="The 12-digit UTR from the UPI app or the bank statement. The same reference cannot be used twice.">
-          <input id="paid-ref" className="ui-input" autoComplete="off" spellCheck={false} value={f.reference} onChange={set('reference')} />
+          <input id="paid-ref" className="ui-input" autoComplete="off" spellCheck={false} value={f.reference} onChange={set('reference')} {...fieldErr(problems, 'reference', 'paid')} />
+          <FieldMsg errors={problems} k="reference" idBase="paid" />
         </Field>
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))' }}>
           <Field id="paid-on" label="Money arrived on">
-            <input id="paid-on" className="ui-input" type="date" max={today()} value={f.paidOn} onChange={set('paidOn')} />
+            <input id="paid-on" className="ui-input" type="date" max={today()} value={f.paidOn} onChange={set('paidOn')} {...fieldErr(problems, 'paidOn', 'paid')} />
+            <FieldMsg errors={problems} k="paidOn" idBase="paid" />
           </Field>
-          <Field id="paid-amount" label="Amount received, ₹" hint={amount && amount + tds !== inv.total ? `The invoice is for ${inr(inv.total)}.` : null}>
-            <input id="paid-amount" className="ui-input ui-num" inputMode="decimal" value={f.amount} onChange={set('amount')} />
+          <Field id="paid-amount" label="Amount received, ₹" hint={amount && amount + tds < inv.total ? `The invoice is for ${inr(inv.total)}: this is ${inr(inv.total - amount - tds)} short.` : amount && amount + tds !== inv.total ? `The invoice is for ${inr(inv.total)}.` : null}>
+            <input id="paid-amount" className="ui-input ui-num" inputMode="decimal" value={f.amount} onChange={set('amount')} {...fieldErr(problems, 'amount', 'paid')} />
+            <FieldMsg errors={problems} k="amount" idBase="paid" />
           </Field>
           <Field id="paid-tds" label="TDS deducted, ₹" hint="If the customer kept back tax at source. Their certificate is then chased under TDS certificates.">
-            <input id="paid-tds" className="ui-input ui-num" inputMode="decimal" placeholder="None" value={f.tds} onChange={setTds} />
+            <input id="paid-tds" className="ui-input ui-num" inputMode="decimal" placeholder="None" value={f.tds} onChange={setTds} {...fieldErr(problems, 'tds', 'paid')} />
+            <FieldMsg errors={problems} k="tds" idBase="paid" />
           </Field>
         </div>
         <p className="ws-card-blurb">Saving asks for a code from your authenticator app. It goes in the Staff audit log.</p>

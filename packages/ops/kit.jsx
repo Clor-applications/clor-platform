@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 
 import { WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import Modal from '@ui/components/ui/Modal';
@@ -82,8 +82,106 @@ export const REASON = {
   USER_LIMIT: 'The account is at its user limit.',
 };
 
-export const Err = ({ children }) => (children ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p> : null);
-export const Loading = () => <p className="ws-card-blurb">Loading…</p>;
+/** An error line. With `onRetry` (a load that failed) it carries a Try again button, so a failure never looks like an empty list. */
+export const Err = ({ children, onRetry = null }) => {
+  if (!children) return null;
+  if (!onRetry) return <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p>;
+  return (
+    <div role="alert" className="flex flex-wrap items-center gap-3">
+      <p className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p>
+      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={onRetry}>Try again</button>
+    </div>
+  );
+};
+export const Loading = ({ label = 'Loading…' }) => <p className="ws-card-blurb" role="status" aria-live="polite">{label}</p>;
+
+/** Tell the console a change was made, so the menu counts (open tickets, approvals waiting) are read again. */
+export const countsChanged = () => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('ops:changed'));
+};
+
+/**
+ * While a request runs, its dialog stays open: Escape and the close button do nothing until it answers,
+ * so nobody closes a confirm believing they stopped a change that is still going through.
+ * Render it inside the dialog: a child's effect runs before its parent's, so this listener is in place
+ * before the dialog's own and can stop the key first.
+ */
+export function HoldOpen({ active }) {
+  const on = useRef(active);
+  const mark = useRef(null);
+  useEffect(() => { on.current = active; }, [active]);
+  useEffect(() => {
+    const stop = (e) => { e.stopImmediatePropagation(); e.stopPropagation(); e.preventDefault(); };
+    /* Only this dialog's own keys and close button: the authenticator code prompt raised on top
+       of it during the request keeps its Escape. */
+    const mine = (target) => {
+      const box = mark.current?.closest?.('[role="dialog"]');
+      return Boolean(box) && (box.contains(target) || target === document.body || target === document.documentElement);
+    };
+    const key = (e) => { if (on.current && e.key === 'Escape' && mine(e.target)) stop(e); };
+    const click = (e) => {
+      if (!on.current) return;
+      const b = e.target?.closest?.('button[aria-label="Close"]');
+      if (b && mine(b)) stop(e);
+    };
+    window.addEventListener('keydown', key, true);
+    window.addEventListener('click', click, true);
+    return () => {
+      window.removeEventListener('keydown', key, true);
+      window.removeEventListener('click', click, true);
+    };
+  }, []);
+  return <span ref={mark} hidden />;
+}
+
+/**
+ * Every problem with a form at once, above its fields. It takes the focus when it appears, so the
+ * keyboard and a screen reader land on it; each line names the field. `errors`: { field: message }.
+ */
+export function ErrorSummary({ errors, label = 'Fix these first' }) {
+  const box = useRef(null);
+  const list = Object.entries(errors || {}).filter(([, m]) => m);
+  const sig = list.map(([k, m]) => `${k}:${m}`).join('|');
+  useEffect(() => {
+    if (sig) box.current?.focus();
+  }, [sig]);
+  if (!list.length) return null;
+  return (
+    <div ref={box} tabIndex={-1} role="alert" className="ws-notice" style={{ color: 'rgb(var(--ws-danger))' }}>
+      <p className="text-sm font-semibold">{label}</p>
+      <ul className="text-sm" style={{ listStyle: 'disc', paddingInlineStart: 18 }}>
+        {list.map(([k, m]) => <li key={k}>{m}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+/** The props that tie a field to its error line: aria-invalid and aria-describedby. */
+export const fieldErr = (errors, key, idBase = 'f') => (errors?.[key] ? { 'aria-invalid': true, 'aria-describedby': `${idBase}-${key}-err` } : {});
+/** The error line under a field, with the id fieldErr points at. */
+export const FieldMsg = ({ errors, k, idBase = 'f' }) =>
+  errors?.[k] ? <span id={`${idBase}-${k}-err`} className="text-xs" style={{ color: 'rgb(var(--ws-danger))' }}>{errors[k]}</span> : null;
+
+/**
+ * A busy flag per row (Withdraw, Close, Take over): only the row being worked on is disabled,
+ * and the same row cannot be sent twice. `run(id, fn)` returns fn's result; `busy(id)` is true while it runs.
+ */
+export function useRowBusy() {
+  const [rows, setRows] = useState(() => new Set());
+  const live = useRef(new Set());
+  const run = async (id, fn) => {
+    if (live.current.has(id)) return undefined;
+    live.current.add(id);
+    setRows(new Set(live.current));
+    try {
+      return await fn();
+    } finally {
+      live.current.delete(id);
+      setRows(new Set(live.current));
+    }
+  };
+  return { busy: (id) => rows.has(id), run };
+}
 export const Empty = ({ children }) => (
   <div className="ws-empty">
     <p>{children}</p>
@@ -107,61 +205,90 @@ export function Tabs({ label, tabs, value, onChange }) {
  * Confirm a change: what will happen, a reason for the record, and the
  * button. The server asks for an authenticator code on the way (step-up).
  * `onConfirm(reason)` does the work; a thrown error is shown in the panel.
+ * `what` says the consequence in full: the amount, the customer, how many, live or test.
+ * `dirty`: fields of its own hold edits, so closing asks first.
  */
-export function ReasonDrawer({ open, title, what, confirmLabel, cancelLabel = 'Cancel', tone = 'primary', onClose, onConfirm, children, ready = true, reasonOptional = false }) {
+export function ReasonDrawer({ open, title, what, confirmLabel, cancelLabel = 'Cancel', tone = 'primary', onClose, onConfirm, children, ready = true, reasonOptional = false, dirty = false, modal = !children, wide = false }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tried, setTried] = useState(false);
+  const hintId = useId();
   useEffect(() => {
     if (open) {
       setReason('');
       setError('');
+      setTried(false);
     }
   }, [open]);
+  const okReason = reasonOptional || reason.trim().length >= 3;
   const submit = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    if (!okReason) {
+      setTried(true);
+      return;
+    }
     setBusy(true);
     setError('');
     try {
       await onConfirm(reason.trim());
+      countsChanged();
     } catch (err) {
       setError(errorWords(err, 'make the change'));
     } finally {
       setBusy(false);
     }
   };
-  const okReason = reasonOptional || reason.trim().length >= 3;
+  /* Cancel, Escape and the close button wait while the request runs (HoldOpen). */
+  const close = () => { if (!busy) onClose?.(); };
   const actions = (
     <>
-      <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>{cancelLabel}</button>
+      <button type="button" className="ws-btn ws-btn--quiet" onClick={close} disabled={busy}>{cancelLabel}</button>
       <button type="submit" form="ops-reason" className={tone === 'danger' ? 'ws-btn ws-btn--danger' : 'ws-btn ws-btn--primary'} disabled={busy || !okReason || !ready}>
         {busy ? 'Working…' : confirmLabel}
       </button>
     </>
   );
+  const hintBad = tried && !okReason;
   const form = (
       <form id="ops-reason" className="grid gap-5" onSubmit={submit}>
+        <HoldOpen active={busy} />
         {what ? <p className="ws-notice">{what}</p> : null}
         {children}
-        <label className="grid gap-1">
-          <span className="text-sm font-semibold">Why</span>
-          <textarea className="ui-input" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the Staff audit log" />
-        </label>
+        <div className="grid gap-1">
+          <label htmlFor={`${hintId}-why`} className="text-sm font-semibold">Why</label>
+          <textarea
+            id={`${hintId}-why`}
+            className="ui-input"
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            onBlur={() => reason && setTried(true)}
+            placeholder="One sentence, for the Staff audit log"
+            aria-describedby={hintId}
+            aria-invalid={hintBad || undefined}
+          />
+          <span id={hintId} className="text-xs" style={{ color: hintBad ? 'rgb(var(--ws-danger))' : 'rgb(var(--fg-muted))' }}>
+            {reasonOptional ? 'Optional' : 'Reason required (3+ characters)'}
+          </span>
+        </div>
         <p className="ws-card-blurb">You will be asked for a code from your authenticator app. The change goes in the Staff audit log{reasonOptional ? '' : ' with your reason'}.</p>
         <Err>{error}</Err>
       </form>
   );
   /* A confirmation is a 420px dialog (DESIGN.md "Dialogs"); only one that carries fields of its own
-     (children: a date, an amount, a choice) keeps the side panel, where a form belongs. */
-  if (!children) {
+     (children: a date, an amount, a choice) keeps the side panel, where a form belongs. `modal` keeps
+     a confirmation that only shows things (a list of price changes) a dialog; `wide` gives it room. */
+  if (modal) {
     return open ? (
-      <Modal title={title} onClose={onClose} maxWidthClass="max-w-[420px]" footer={<div className="flex justify-end gap-2">{actions}</div>}>
+      <Modal title={title} onClose={close} showCloseIcon={!busy} dirty={busy || dirty} maxWidthClass={wide ? 'max-w-[640px]' : 'max-w-[420px]'} footer={<div className="flex justify-end gap-2">{actions}</div>}>
         {form}
       </Modal>
     ) : null;
   }
   return (
-    <WsDrawer open={open} onClose={onClose} title={title} actions={actions}>
+    <WsDrawer open={open} onClose={close} title={title} actions={actions} dirty={busy || dirty}>
       {form}
     </WsDrawer>
   );

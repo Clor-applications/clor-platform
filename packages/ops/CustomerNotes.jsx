@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsAddNote, opsAddTag, opsChangeNote, opsNotes, opsRemoveNote, opsRemoveTag, opsTags } from './api';
 import { Empty, Err, Loading, may, when, errorWords } from './kit';
@@ -57,7 +57,18 @@ export function CustomerNotes({ id, role }) {
     }
   };
 
-  if (!d) return error ? <Err>{error}</Err> : <Loading />;
+  const removeNote = async (n) => {
+    const first = String(n.body || '').split('\n')[0];
+    const ok = await confirmDialog({
+      title: 'Remove this note?',
+      message: `“${first.length > 80 ? `${first.slice(0, 80)}…` : first}” by ${n.mine ? 'you' : n.author}. It cannot be brought back.`,
+      confirmLabel: 'Remove note',
+      cancelLabel: 'Keep it',
+    });
+    if (ok) run(() => opsRemoveNote(id, n.id), 'Note removed.');
+  };
+
+  if (!d) return error ? <Err onRetry={load}>{error}</Err> : <Loading />;
   const unused = known.filter((t) => !d.tags.includes(t));
   return (
     <>
@@ -137,7 +148,7 @@ export function CustomerNotes({ id, role }) {
                         <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={busy} onClick={() => run(() => opsChangeNote(id, n.id, { pinned: !n.pinned }), n.pinned ? 'Unpinned.' : 'Pinned.')}>
                           {n.pinned ? 'Unpin' : 'Pin'}
                         </button>
-                        <button type="button" className="ws-btn ws-btn--danger-quiet ws-btn--small" disabled={busy} onClick={() => run(() => opsRemoveNote(id, n.id), 'Note removed.')}>
+                        <button type="button" className="ws-btn ws-btn--danger-quiet ws-btn--small" disabled={busy} onClick={() => removeNote(n)}>
                           Remove
                         </button>
                       </span>

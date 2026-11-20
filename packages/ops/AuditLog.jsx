@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead } from '../../apps/admin/src/screens/wsKit';
@@ -17,6 +17,7 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     opsAuditFilters().then(setChoices).catch(() => {});
   }, []);
@@ -28,7 +29,7 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
     return () => {
       live = false;
     };
-  }, [f]);
+  }, [f, tick]);
   const set = (k) => (e) => setF((v) => ({ ...v, [k]: e.target.value, page: 0 }));
 
   const download = async () => {
@@ -92,7 +93,7 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
           <input className="ui-input tabular-nums" type="date" value={f.to} onChange={set('to')} />
         </label>
       </div>
-      <Err>{error}</Err>
+      <Err onRetry={() => setTick((n) => n + 1)}>{error}</Err>
       {!d ? (
         error ? null : <Loading />
       ) : d.events.length === 0 ? (
@@ -141,23 +142,63 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
   );
 }
 
-/** Type part of a customer's name, ID or owner email; pick from what matches. */
+/**
+ * Type part of a customer's name, ID or owner email; pick from what matches. A combobox like the
+ * console search: arrows move, Enter picks, Escape or leaving the field closes the list. "No account
+ * matches" is said only once the server has answered; a failed search says so.
+ */
 function CustomerPicker({ value, onChange }) {
   const [q, setQ] = useState('');
-  const [hits, setHits] = useState([]);
+  const [res, setRes] = useState({ state: 'idle', hits: [] });
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const listId = useId();
+  const term = q.trim();
   useEffect(() => {
-    if (!q.trim()) return undefined;
+    if (!term) return undefined;
     let live = true;
     const t = setTimeout(() => {
-      opsAccounts({ q: q.trim() })
-        .then((r) => live && setHits(r.accounts.slice(0, 6)))
-        .catch(() => live && setHits([]));
+      opsAccounts({ q: term })
+        .then((r) => {
+          if (!live) return;
+          setRes({ state: 'done', hits: (r?.accounts || []).slice(0, 6) });
+          setActive(0);
+        })
+        .catch(() => live && setRes({ state: 'error', hits: [] }));
     }, 250);
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [q]);
+  }, [term]);
+  const pick = (a) => {
+    if (!a) return;
+    onChange({ id: a.id, name: a.name });
+    setQ('');
+    setOpen(false);
+    setRes({ state: 'idle', hits: [] });
+  };
+  const hits = res.state === 'done' ? res.hits : [];
+  const onKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setOpen(true);
+      setActive((n) => Math.min(n + 1, Math.max(hits.length - 1, 0)));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActive((n) => Math.max(n - 1, 0));
+    } else if (e.key === 'Enter') {
+      if (open && hits[active]) {
+        e.preventDefault();
+        pick(hits[active]);
+      }
+    } else if (e.key === 'Escape') {
+      if (open) {
+        e.preventDefault();
+        setOpen(false);
+      }
+    }
+  };
   if (value) {
     return (
       <div className="grid gap-1">
@@ -169,21 +210,57 @@ function CustomerPicker({ value, onChange }) {
       </div>
     );
   }
+  const showList = open && Boolean(term);
   return (
     <div className="grid gap-1" style={{ position: 'relative' }}>
       <label className="grid gap-1">
         <span className="text-sm font-semibold">Customer</span>
-        <input className="ui-input" value={q} placeholder="Any customer" onChange={(e) => setQ(e.target.value)} />
+        <input
+          className="ui-input"
+          value={q}
+          placeholder="Any customer"
+          role="combobox"
+          aria-expanded={showList}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={showList && hits[active] ? `${listId}-${hits[active].id}` : undefined}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setOpen(true);
+            if (e.target.value.trim() !== term) setRes({ state: 'loading', hits: [] });
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          onKeyDown={onKeyDown}
+        />
       </label>
-      {q.trim() && hits.length ? (
-        <ul className="ops-picker" role="listbox" aria-label="Matching customers">
-          {hits.map((a) => (
-            <li key={a.id}>
-              <button type="button" role="option" aria-selected="false" onClick={() => { onChange({ id: a.id, name: a.name }); setQ(''); }}>
-                {a.name} <span className="ws-item-sub tabular-nums">{a.code}</span>
-              </button>
-            </li>
-          ))}
+      {showList ? (
+        <ul className="ops-picker" id={listId} role="listbox" aria-label="Matching customers">
+          {res.state === 'loading' || res.state === 'idle' ? (
+            <li className="ops-search-note" role="presentation">Searching…</li>
+          ) : res.state === 'error' ? (
+            <li className="ops-search-note" role="presentation">The search did not answer. Type again to retry.</li>
+          ) : hits.length ? (
+            hits.map((a, i) => (
+              <li
+                key={a.id}
+                id={`${listId}-${a.id}`}
+                role="option"
+                aria-selected={i === active}
+                className="ops-search-option"
+                onMouseEnter={() => setActive(i)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  pick(a);
+                }}
+              >
+                <span className="ops-search-title">{a.name}</span>
+                {a.code ? <span className="ops-search-sub tabular-nums">{a.code}</span> : null}
+              </li>
+            ))
+          ) : (
+            <li className="ops-search-note" role="presentation">No account matches.</li>
+          )}
         </ul>
       ) : null}
     </div>

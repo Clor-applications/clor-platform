@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { dayText } from '@ui/utils/errorWords';
 import { notify } from '@ui/components/ui/notify';
 
@@ -34,7 +34,13 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
   const [startsOn, setStartsOn] = useState(todayIso());
   const [draftInvoice, setDraftInvoice] = useState(true);
   const [quote, setQuote] = useState(null);
+  /* The inputs the shown quote was worked out for; a quote for other inputs is never shown or confirmed. */
+  const [quoteKey, setQuoteKey] = useState('');
   const [quoteError, setQuoteError] = useState('');
+  const asked = useRef(0);
+  /* Anything typed or chosen here: closing then asks first. */
+  const [touched, setTouched] = useState(false);
+  const [reload, setReload] = useState(0);
   /* The discount limit when this deal needs a second person (Approvals), else null. */
   const [needs, setNeeds] = useState(null);
 
@@ -42,6 +48,8 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
     if (!open) return;
     setError('');
     setQuote(null);
+    setQuoteKey('');
+    setTouched(false);
     opsDealOptions(account.id)
       .then((o) => {
         setOpts(o);
@@ -50,7 +58,12 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
         setPick(first ? `${first.source}:${first.ref}` : '');
       })
       .catch((e) => setError(errorWords(e, 'load the plans')));
-  }, [open, account.id]);
+  }, [open, account.id, reload]);
+  const retry = useCallback(() => setReload((n) => n + 1), []);
+  const edit = (fn) => (e) => {
+    setTouched(true);
+    fn(e);
+  };
 
   const plan = useMemo(() => opts?.plans.find((p) => `${p.source}:${p.ref}` === pick) || null, [opts, pick]);
   useEffect(() => {
@@ -68,12 +81,19 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
   const body = plan && Number.isInteger(q) && q >= 1 ? { source: plan.source, ref: plan.ref, period, quantity: q, offerCode: offerCode || null } : null;
   const key = JSON.stringify(body);
   useEffect(() => {
-    if (!open || !body) return setQuote(null);
+    if (!open || !body) {
+      setQuote(null);
+      setQuoteKey('');
+      return undefined;
+    }
     let live = true;
+    /* Only the newest request may set the quote: an older answer arriving late is dropped. */
+    const id = ++asked.current;
+    setQuoteError('');
     const t = setTimeout(() => {
       opsDealQuote(account.id, body)
-        .then((r) => live && (setQuote(r.deal), setNeeds(r.needsApproval ? r.limit : null), setQuoteError('')))
-        .catch((e) => live && (setQuote(null), setQuoteError(errorWords(e, 'work out the price'))));
+        .then((r) => live && id === asked.current && (setQuote(r.deal), setQuoteKey(key), setNeeds(r.needsApproval ? r.limit : null), setQuoteError('')))
+        .catch((e) => live && id === asked.current && (setQuote(null), setQuoteKey(''), setQuoteError(errorWords(e, 'work out the price'))));
     }, 200);
     return () => {
       live = false;
@@ -82,7 +102,10 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, key, account.id]);
 
-  const ready = Boolean(quote) && (status === 'active' || Number(trialDays) >= 1);
+  /* A quote is current only for the inputs on screen; while a new one is worked out, nothing can be set. */
+  const fresh = Boolean(quote) && quoteKey === key;
+  const pending = Boolean(body) && !fresh && !quoteError;
+  const ready = fresh && (status === 'active' || (/^\d+$/.test(String(trialDays).trim()) && Number(trialDays) >= 1));
   const confirm = async (reason) => {
     const r = await opsSetDeal(account.id, { ...body, status, trialDays: status === 'trialing' ? Number(trialDays) : null, startsOn, draftInvoice: status === 'active' && draftInvoice, reason });
     if (r?.needsApproval) notify.success(`Sent for approval. ${account.name} moves to ${quote.plan.name} when a colleague approves it in Approvals.`);
@@ -100,12 +123,13 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
       open={open}
       title="New subscription"
       what={`Puts ${account.name} on a plan at a price: its apps open for every company they have, and the plan replaces whatever they had. They pay each invoice online, by UPI or by bank transfer.`}
-      confirmLabel={needs != null && quote ? 'Ask for approval' : 'Set subscription'}
+      confirmLabel={needs != null && fresh ? 'Ask for approval' : 'Set subscription'}
       ready={ready}
+      dirty={touched}
       onClose={onClose}
       onConfirm={confirm}
     >
-      <Err>{error}</Err>
+      <Err onRetry={retry}>{error}</Err>
       {!opts && !error ? <Loading /> : null}
       {opts && !opts.plans.length ? (
         <p className="ws-card-blurb">No plans to sell yet: publish a price list under Pricing, or make a custom plan.</p>
@@ -114,7 +138,7 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
         <>
           <div className="grid gap-1">
             <label htmlFor="deal-plan" className="text-sm font-semibold">Plan</label>
-            <select id="deal-plan" className="ui-select" value={pick} onChange={(e) => setPick(e.target.value)} aria-describedby="deal-plan-hint">
+            <select id="deal-plan" className="ui-select" value={pick} onChange={edit((e) => setPick(e.target.value))} aria-describedby="deal-plan-hint">
               {book.length ? (
                 <optgroup label="Price list">
                   {book.map((p) => (
@@ -144,7 +168,7 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
                 const has = plan && (k === 'YEARLY' ? plan.yearly : plan.monthly);
                 return (
                   <label key={k} className="flex items-center gap-2" style={{ opacity: has ? 1 : 0.5 }}>
-                    <input type="radio" name="deal-period" checked={period === k} disabled={!has} onChange={() => setPeriod(k)} />
+                    <input type="radio" name="deal-period" checked={period === k} disabled={!has} onChange={edit(() => setPeriod(k))} />
                     {k === 'MONTHLY' ? 'Monthly' : 'Yearly'}
                     {!has ? <span className="ws-item-sub">not sold</span> : null}
                   </label>
@@ -155,11 +179,11 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1">
               <span className="text-sm font-semibold">How many {plan ? unitName(plan.unit) : 'units'}</span>
-              <input className="ui-input tabular-nums" type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} style={{ maxWidth: 160 }} />
+              <input className="ui-input tabular-nums" type="text" inputMode="numeric" value={quantity} onChange={edit((e) => setQuantity(e.target.value.replace(/\D/g, '')))} style={{ maxWidth: 160 }} />
             </label>
             <label className="grid gap-1">
               <span className="text-sm font-semibold">Offer</span>
-              <select className="ui-select" value={offerCode} onChange={(e) => setOfferCode(e.target.value)}>
+              <select className="ui-select" value={offerCode} onChange={edit((e) => setOfferCode(e.target.value))}>
                 <option value="">No offer</option>
                 {offers.map((o) => (
                   <option key={o.code} value={o.code}>
@@ -173,21 +197,21 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
             <legend className="text-sm font-semibold">Starts</legend>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <label className="flex items-center gap-2">
-                <input type="radio" name="deal-status" checked={status === 'active'} onChange={() => setStatus('active')} />
+                <input type="radio" name="deal-status" checked={status === 'active'} onChange={edit(() => setStatus('active'))} />
                 Paid from
               </label>
               <label className="flex items-center gap-2">
-                <input type="radio" name="deal-status" checked={status === 'trialing'} onChange={() => setStatus('trialing')} />
+                <input type="radio" name="deal-status" checked={status === 'trialing'} onChange={edit(() => setStatus('trialing'))} />
                 Free trial first, from
               </label>
               <label className="flex items-center gap-2">
                 <span className="sr-only">Start date</span>
-                <input className="ui-input" type="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
+                <input className="ui-input" type="date" value={startsOn} onChange={edit((e) => setStartsOn(e.target.value))} />
               </label>
               {status === 'trialing' ? (
                 <label className="flex items-center gap-2">
                   <span>for</span>
-                  <input className="ui-input tabular-nums" type="number" min={1} max={365} value={trialDays} onChange={(e) => setTrialDays(e.target.value)} style={{ width: 90 }} aria-label="Trial days" />
+                  <input className="ui-input tabular-nums" type="text" inputMode="numeric" maxLength={3} value={trialDays} onChange={edit((e) => setTrialDays(e.target.value.replace(/\D/g, '')))} style={{ width: 90 }} aria-label="Trial days" />
                   <span>days</span>
                 </label>
               ) : null}
@@ -199,7 +223,12 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
             </p>
           ) : null}
           <Err>{quoteError}</Err>
-          {quote ? (
+          {pending ? (
+            <p className="ws-card-blurb" role="status">
+              Working out the price for these choices…
+            </p>
+          ) : null}
+          {fresh ? (
             <dl className="ops-facts" aria-label="Price">
               <dt>List price</dt>
               <dd className="tabular-nums">
@@ -223,14 +252,14 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
               </dd>
             </dl>
           ) : null}
-          {needs != null && quote ? (
+          {needs != null && fresh ? (
             <p className="ws-notice" role="status">
               This takes more than {needs}% off the list price, so a second person must approve it. It goes to Approvals, and nothing changes for {account.name} until a colleague approves it.
             </p>
           ) : null}
           {status === 'active' ? (
             <label className="flex items-center gap-2">
-              <input type="checkbox" checked={draftInvoice} onChange={(e) => setDraftInvoice(e.target.checked)} />
+              <input type="checkbox" checked={draftInvoice} onChange={edit((e) => setDraftInvoice(e.target.checked))} />
               Draft the first invoice, for you to check and issue
             </label>
           ) : null}
@@ -246,11 +275,12 @@ export function Subscriptions({ openCustomer }) {
   const [tab, setTab] = useState('active');
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
-  useEffect(() => {
+  const load = useCallback(() => {
     opsSubscriptions({ status: tab === 'all' ? '' : tab })
       .then((r) => (setD(r), setError('')))
       .catch((e) => setError(errorWords(e, 'load the subscriptions')));
   }, [tab]);
+  useEffect(load, [load]);
   const sum = d?.summary;
 
   /* Export the rows this tab shows, as a spreadsheet. */
@@ -309,7 +339,7 @@ export function Subscriptions({ openCustomer }) {
           ['all', 'All'],
         ]}
       />
-      <Err>{error}</Err>
+      <Err onRetry={load}>{error}</Err>
       {!d?.subscriptions ? (
         error ? null : <Loading />
       ) : !d.subscriptions.length ? (

@@ -148,18 +148,19 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
   useEffect(() => {
     opsTags().then((r) => setTags(r.tags || [])).catch(() => setTags([]));
   }, []);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
     const t = setTimeout(() => {
       opsAccounts(view.tag ? view : { q: view.q, status: view.status, page: view.page, sort: view.sort })
         .then((r) => live && (setData(r), setError('')))
-        .catch((e) => live && setError(errorWords(e, 'load this account')));
+        .catch((e) => live && setError(errorWords(e, 'load the accounts')));
     }, 200);
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [view]);
+  }, [view, tick]);
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   return (
     <>
@@ -192,7 +193,7 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
           </select>
         ) : null}
       </div>
-      <Err>{error}</Err>
+      <Err onRetry={() => setTick((n) => n + 1)}>{error}</Err>
       {!data ? (
         error ? null : <Loading />
       ) : data.accounts.length === 0 ? (
@@ -289,6 +290,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
   useEffect(load, [load]);
   /* The account's invoices, fetched once when the page opens: the line under the name says what is unpaid, and the Invoices and payments tab lists the same rows. */
   const [got, setInv] = useState(null);
+  const [invTick, setInvTick] = useState(0);
   useEffect(() => {
     let live = true;
     opsInvoices({ accountId: id })
@@ -297,11 +299,15 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, invTick]);
+  const reloadInvoices = useCallback(() => {
+    setInv(null);
+    setInvTick((n) => n + 1);
+  }, []);
   /* Another account's rows never show while this one's are on their way. */
   const inv = got?.forId === id ? got : null;
 
-  if (!d) return error ? <Err>{error}</Err> : <Loading />;
+  if (!d) return error ? <Err onRetry={load}>{error}</Err> : <Loading />;
   const a = d.account;
   const s = d.subscription;
   const name = a.title || a.name;
@@ -368,7 +374,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         {tab === 'overview' ? <Overview d={d} plan={plan} setTab={setTab} role={role} openDenials={openDenials} openOrgs={openOrgs} /> : null}
         {tab === 'subscription' ? <Subscription d={d} name={name} plan={plan} role={role} reload={load} openInvoice={(invoiceId) => openLink({ page: 'invoices', id: invoiceId })} /> : null}
         {tab === 'limits' ? <Limits id={id} name={name} role={role} /> : null}
-        {tab === 'money' ? <Money id={id} inv={inv} setInv={setInv} openInvoice={(invoiceId) => openLink({ page: 'invoices', id: invoiceId })} /> : null}
+        {tab === 'money' ? <Money id={id} inv={inv} setInv={setInv} reloadInvoices={reloadInvoices} openInvoice={(invoiceId) => openLink({ page: 'invoices', id: invoiceId })} /> : null}
         {tab === 'requests' ? <Requests id={id} openDemo={openDemo} openLink={openLink} /> : null}
         {tab === 'users' ? (
           <>
@@ -427,6 +433,7 @@ const ago2 = (d) => {
 function Entitlements({ id, d, openDenials, children }) {
   const [e, setE] = useState(null);
   const [error, setError] = useState('');
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
     Promise.resolve(opsAccountEntitlements(id))
@@ -435,12 +442,12 @@ function Entitlements({ id, d, openDenials, children }) {
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, tick]);
   /* The organizations (children) show whatever happens to this panel. */
   if (error || !e)
     return (
       <>
-        {error ? <Err>{error}</Err> : <Loading />}
+        {error ? <Err onRetry={() => { setError(''); setTick((n) => n + 1); }}>{error}</Err> : <Loading />}
         {children}
       </>
     );
@@ -670,8 +677,15 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
   const [trialDays, setTrialDays] = useState(30);
   const [status, setStatus] = useState('trialing');
   const [dealOpen, setDealOpen] = useState(false);
+  /* Any field in the panel changed since it opened: closing it then asks first. */
+  const [touched, setTouched] = useState(false);
+  const touch = (fn) => (...args) => {
+    setTouched(true);
+    fn(...args);
+  };
   const openAction = (k) => {
     if (k === 'deal') return setDealOpen(true);
+    setTouched(false);
     if (k === 'apps') setApps(withIncluded(new Set(s?.apps || [])));
     if (k === 'plan') setApps(new Set(['accounting']));
     setAction(k);
@@ -790,7 +804,8 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
         confirmLabel={action ? ACTIONS[action].confirm : ''}
         cancelLabel={action === 'cancel' ? 'Keep subscription' : 'Cancel'}
         tone={action ? ACTIONS[action].tone : 'primary'}
-        ready={(action !== 'apps' && action !== 'plan') || apps.size > 0}
+        ready={((action !== 'apps' && action !== 'plan') || apps.size > 0) && (action !== 'trial' || (Number(days) >= 1 && Number(days) <= 90)) && (action !== 'plan' || status !== 'trialing' || (Number(trialDays) >= 1 && Number(trialDays) <= 365))}
+        dirty={touched}
         onClose={() => setAction(null)}
         onConfirm={run}
       >
@@ -798,13 +813,14 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
           <label className="grid gap-1">
             <span className="text-sm font-semibold">Extra days</span>
             <span className="flex flex-wrap items-center gap-2">
-              <input className="ui-input tabular-nums" type="number" min={1} max={90} value={days} onChange={(e) => setDays(e.target.value)} style={{ maxWidth: 140 }} />
+              <input className="ui-input tabular-nums" type="text" inputMode="numeric" aria-describedby="ops-trial-days-hint" value={days} onChange={touch((e) => setDays(e.target.value.replace(/\D/g, '').slice(0, 2)))} style={{ maxWidth: 140 }} />
               <span className="ui-quick-days" role="group" aria-label="Quick picks">
                 {[7, 14, 30].map((n) => (
-                  <button key={n} type="button" className="ui-quick-day" aria-pressed={Number(days) === n} onClick={() => setDays(n)}>+{n} days</button>
+                  <button key={n} type="button" className="ui-quick-day" aria-pressed={Number(days) === n} onClick={touch(() => setDays(n))}>+{n} days</button>
                 ))}
               </span>
             </span>
+            <span id="ops-trial-days-hint" className="ws-card-blurb">1 to 90 days.</span>
           </label>
         ) : null}
         {action === 'apps' || action === 'plan' ? (
@@ -820,7 +836,7 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
                     checked={included || apps.has(k)}
                     disabled={included}
                     aria-describedby={included ? 'ops-included-attendance' : undefined}
-                    onChange={() => setApps((cur) => withIncluded(toggle(cur, k)))}
+                    onChange={touch(() => setApps((cur) => withIncluded(toggle(cur, k))))}
                   />
                   <span>
                     {APP_NAMES[k]}
@@ -835,7 +851,7 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
           <>
             <label className="grid gap-1">
               <span className="text-sm font-semibold">Status</span>
-              <select className="ui-select" value={status} onChange={(e) => setStatus(e.target.value)}>
+              <select className="ui-select" value={status} onChange={touch((e) => setStatus(e.target.value))}>
                 <option value="trialing">Free trial</option>
                 <option value="active">Active (free, or paid outside CLOR)</option>
               </select>
@@ -843,7 +859,8 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
             {status === 'trialing' ? (
               <label className="grid gap-1">
                 <span className="text-sm font-semibold">Trial length in days</span>
-                <input className="ui-input tabular-nums" type="number" min={1} max={365} value={trialDays} onChange={(e) => setTrialDays(e.target.value)} style={{ maxWidth: 140 }} />
+                <input className="ui-input tabular-nums" type="text" inputMode="numeric" aria-describedby="ops-plan-days-hint" value={trialDays} onChange={touch((e) => setTrialDays(e.target.value.replace(/\D/g, '').slice(0, 3)))} style={{ maxWidth: 140 }} />
+                <span id="ops-plan-days-hint" className="ws-card-blurb">1 to 365 days.</span>
               </label>
             ) : null}
           </>
@@ -854,13 +871,14 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
 }
 
 /* ------------------------------------------------- invoices and payments */
-function Money({ id, inv, setInv, openInvoice }) {
+function Money({ id, inv, setInv, reloadInvoices, openInvoice }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    opsCustomerPayments(id).then(setD).catch((e) => setError(errorWords(e, 'load the invoices and payments')));
+  const loadPayments = useCallback(() => {
+    opsCustomerPayments(id).then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'load the invoices and payments')));
   }, [id]);
+  useEffect(loadPayments, [loadPayments]);
   const rows = inv?.invoices || [];
   const owed = unpaidOf(rows);
   /* The list comes fifty at a time, newest first; older ones are added under the ones already shown. */
@@ -882,7 +900,7 @@ function Money({ id, inv, setInv, openInvoice }) {
         {!inv ? (
           <Loading />
         ) : inv.error ? (
-          <Err>{inv.error}</Err>
+          <Err onRetry={reloadInvoices}>{inv.error}</Err>
         ) : !rows.length ? (
           <Empty>No invoices yet. One shows here when a new subscription is set up for this account, or a draft is made for it in Billing and setup, Invoices.</Empty>
         ) : (
@@ -942,7 +960,7 @@ function Money({ id, inv, setInv, openInvoice }) {
       <section className="ops-section" aria-labelledby="ops-payment-events">
         <h2 id="ops-payment-events" className="ops-h2">Payment events</h2>
         {!d ? (
-          error ? <Err>{error}</Err> : <Loading />
+          error ? <Err onRetry={() => (setError(''), loadPayments())}>{error}</Err> : <Loading />
         ) : !d.payments.length ? (
           <p className="ws-card-blurb">No payment events yet. What a payment gateway tells CLOR about this customer shows here.</p>
         ) : (
@@ -998,10 +1016,11 @@ const TICKET_WORDS = { OPEN: 'Needs an answer', WAITING: 'Waiting on customer', 
 function Requests({ id, openDemo, openLink }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
-  useEffect(() => {
-    opsCustomerRequests(id).then(setD).catch((e) => setError(errorWords(e, 'load the requests')));
+  const load = useCallback(() => {
+    opsCustomerRequests(id).then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'load the requests')));
   }, [id]);
-  if (!d) return error ? <Err>{error}</Err> : <Loading />;
+  useEffect(load, [load]);
+  if (!d) return error ? <Err onRetry={() => (setError(''), load())}>{error}</Err> : <Loading />;
   return (
     <>
       <Panel title="Demo requests">
@@ -1070,7 +1089,7 @@ function Users({ id, role }) {
   const [error, setError] = useState('');
   const [act, setAct] = useState(null); // { kind, user | invitation }
   const load = useCallback(() => {
-    opsCustomerUsers(id).then(setD).catch((e) => setError(errorWords(e, 'load the users')));
+    opsCustomerUsers(id).then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'load the users')));
   }, [id]);
   useEffect(load, [load]);
   const support = may(role, 'SUPPORT');
@@ -1101,7 +1120,7 @@ function Users({ id, role }) {
     load();
   };
 
-  if (!d) return error ? <Err>{error}</Err> : <Loading />;
+  if (!d) return error ? <Err onRetry={load}>{error}</Err> : <Loading />;
   const who = act?.user ? act.user.name || act.user.email : act?.invitation?.email;
   return (
     <>
@@ -1199,11 +1218,11 @@ function Connections({ id, role }) {
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(false);
   const load = useCallback(() => {
-    opsCustomerConnections(id).then(setD).catch((e) => setError(errorWords(e, 'load the connections')));
+    opsCustomerConnections(id).then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'load the connections')));
   }, [id]);
   useEffect(load, [load]);
 
-  if (!d) return error ? <Err>{error}</Err> : <Loading />;
+  if (!d) return error ? <Err onRetry={load}>{error}</Err> : <Loading />;
   const troubled = d.items.filter((i) => i.state === 'error' || i.state === 'offline').length;
   return (
     <>
@@ -1330,9 +1349,10 @@ function Timeline({ id, openLink }) {
   const [kind, setKind] = useState('key');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    opsCustomerActivity(id).then(setD).catch((e) => setError(errorWords(e, 'load the timeline')));
+  const loadActivity = useCallback(() => {
+    opsCustomerActivity(id).then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'load the timeline')));
   }, [id]);
+  useEffect(loadActivity, [loadActivity]);
   const older = async () => {
     setBusy(true);
     setError('');
@@ -1345,7 +1365,7 @@ function Timeline({ id, openLink }) {
       setBusy(false);
     }
   };
-  if (!d) return error ? <Err>{error}</Err> : <Loading />;
+  if (!d) return error ? <Err onRetry={() => (setError(''), loadActivity())}>{error}</Err> : <Loading />;
   const lines = d.lines.filter((l) => kind === 'all' || (kind === 'key' ? l.kind !== 'sign-in' : l.kind === kind));
   const days = [];
   for (const l of lines) {

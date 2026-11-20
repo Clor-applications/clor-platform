@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
-import { APP_NAMES, Empty, Err, Loading, ReasonDrawer, Tabs, may, errorWords } from './kit';
+import { APP_NAMES, Empty, Err, ErrorSummary, FieldMsg, Loading, ReasonDrawer, Tabs, may, errorWords, fieldErr } from './kit';
 import { inr, rupeesText, toPaise } from './money';
 import { opsAccounts, opsCustomPlanArchive, opsCustomPlanSave, opsCustomPlans } from './api';
 
@@ -18,7 +18,7 @@ export const units = (unit, n) => `${n} ${(UNIT[unit] || ['unit', 'units'])[n ==
 export const priceWords = (base, extra, unit, included, per) =>
   base == null ? null : `${inr(base)} a ${per} for ${units(unit, included)}${extra ? `, ${inr(extra)} for each more` : ''}`;
 
-function Field({ id, label, hint, children }) {
+function Field({ id, label, hint, errors, k, children }) {
   return (
     <div className="grid gap-1 content-start">
       <label htmlFor={id} className="text-sm font-semibold">
@@ -26,6 +26,7 @@ function Field({ id, label, hint, children }) {
       </label>
       {children}
       {hint ? <span className="ws-card-blurb">{hint}</span> : null}
+      {k ? <FieldMsg errors={errors} k={k} idBase="plan" /> : null}
     </div>
   );
 }
@@ -87,7 +88,7 @@ function CustomerPick({ value, valueName, onChange }) {
 export function PlanEditor({ editing, apps, onClose, onSaved, forAccount = null }) {
   const isNew = !editing?.id;
   const e = editing || {};
-  const [f, setF] = useState({
+  const [f, setF] = useState(() => ({
     accountId: e.accountId ?? forAccount?.id ?? null,
     accountName: e.accountName ?? forAccount?.name ?? '',
     name: e.name || '',
@@ -100,16 +101,36 @@ export function PlanEditor({ editing, apps, onClose, onSaved, forAccount = null 
     yearly: rupeesText(e.yearlyPrice),
     yearlyExtra: rupeesText(e.yearlyExtra || 0),
     gst: e.gstApplies ?? true,
-  });
+  }));
+  const [start] = useState(() => JSON.stringify(f));
+  const dirty = JSON.stringify(f) !== start;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const fe = (k) => fieldErr(errors, k, 'plan');
   const set = (k) => (ev) => setF((x) => ({ ...x, [k]: ev.target.value }));
   const m = toPaise(f.monthly);
   const y = toPaise(f.yearly);
   const included = Number(f.included);
-  const ready = f.name.trim().length >= 3 && f.apps.length > 0 && (m != null || y != null) && Number.isInteger(included) && included >= 1;
+  /* Every problem at once, each on its field. */
+  const problems = () => {
+    const bad = {};
+    if (f.name.trim().length < 3) bad.name = 'Give the plan a name of 3 characters or more.';
+    if (!f.apps.length) bad.apps = 'Choose at least one app.';
+    if (!/^\d+$/.test(String(f.included).trim()) || included < 1) bad.included = 'Included is a whole number, 1 or more.';
+    if (f.monthly.trim() && m == null) bad.monthly = 'The monthly price is an amount in rupees, like 2500 or 2499.50.';
+    if (f.yearly.trim() && y == null) bad.yearly = 'The yearly price is an amount in rupees, like 25000 or 24999.50.';
+    if (!bad.monthly && !bad.yearly && m == null && y == null) bad.monthly = 'Give a monthly price, a yearly price or both.';
+    if (f.monthlyExtra.trim() && toPaise(f.monthlyExtra) == null) bad.monthlyExtra = 'The monthly price for each more is an amount in rupees, or 0.';
+    if (f.yearlyExtra.trim() && toPaise(f.yearlyExtra) == null) bad.yearlyExtra = 'The yearly price for each more is an amount in rupees, or 0.';
+    return bad;
+  };
   const save = async (ev) => {
     ev.preventDefault();
+    if (busy) return;
+    const bad = problems();
+    setErrors(bad);
+    if (Object.keys(bad).length) return;
     setBusy(true);
     setError('');
     try {
@@ -135,11 +156,11 @@ export function PlanEditor({ editing, apps, onClose, onSaved, forAccount = null 
   };
   const priceRow = (key, label) => (
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field id={`plan-${key}`} label={`${label} price, ₹`} hint={`Covers ${units(f.unit, included || 1)}. Empty: not sold ${label.toLowerCase()}.`}>
-        <input id={`plan-${key}`} className="ui-input tabular-nums" inputMode="decimal" value={f[key]} onChange={set(key)} />
+      <Field id={`plan-${key}`} label={`${label} price, ₹`} hint={`Covers ${units(f.unit, included || 1)}. Empty: not sold ${label.toLowerCase()}.`} errors={errors} k={key}>
+        <input id={`plan-${key}`} className="ui-input tabular-nums" inputMode="decimal" value={f[key]} onChange={set(key)} {...fe(key)} />
       </Field>
-      <Field id={`plan-${key}Extra`} label={`Each ${(UNIT[f.unit] || ['unit'])[0]} more a ${key === 'monthly' ? 'month' : 'year'}, ₹`}>
-        <input id={`plan-${key}Extra`} className="ui-input tabular-nums" inputMode="decimal" value={f[`${key}Extra`]} onChange={set(`${key}Extra`)} />
+      <Field id={`plan-${key}Extra`} label={`Each ${(UNIT[f.unit] || ['unit'])[0]} more a ${key === 'monthly' ? 'month' : 'year'}, ₹`} errors={errors} k={`${key}Extra`}>
+        <input id={`plan-${key}Extra`} className="ui-input tabular-nums" inputMode="decimal" value={f[`${key}Extra`]} onChange={set(`${key}Extra`)} {...fe(`${key}Extra`)} />
       </Field>
     </div>
   );
@@ -147,32 +168,35 @@ export function PlanEditor({ editing, apps, onClose, onSaved, forAccount = null 
     <WsDrawer
       open
       onClose={onClose}
+      dirty={dirty || busy}
       title={isNew ? 'New custom plan' : `Change ${e.name}`}
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" form="ops-plan" className="ws-btn ws-btn--primary" disabled={busy || !ready}>
+          <button type="submit" form="ops-plan" className="ws-btn ws-btn--primary" disabled={busy}>
             {busy ? 'Saving…' : isNew ? 'Make plan' : 'Save plan'}
           </button>
         </>
       }
     >
-      <form id="ops-plan" onSubmit={save} className="grid gap-4">
+      <form id="ops-plan" onSubmit={save} className="grid gap-4" noValidate>
+        <ErrorSummary errors={errors} label="Fix these before the plan is saved" />
         {!isNew && e.inUse ? (
           <p className="ws-notice" role="status">
             {e.inUse} {e.inUse === 1 ? 'customer is' : 'customers are'} on this plan at the price set then. A change here applies to subscriptions set from now on.
           </p>
         ) : null}
-        <Field id="plan-name" label="Name">
-          <input id="plan-name" className="ui-input" value={f.name} onChange={set('name')} maxLength={80} />
+        <Field id="plan-name" label="Name" errors={errors} k="name">
+          <input id="plan-name" className="ui-input" value={f.name} onChange={set('name')} maxLength={80} {...fe('name')} />
         </Field>
         <Field id="plan-customer" label="For">
           {forAccount ? <span className="text-sm">{forAccount.name}</span> : <CustomerPick value={f.accountId} valueName={f.accountName} onChange={(id, name) => setF((x) => ({ ...x, accountId: id, accountName: name }))} />}
         </Field>
-        <fieldset className="grid gap-2">
+        <fieldset className="grid gap-2" {...fe('apps')}>
           <legend className="text-sm font-semibold">Apps</legend>
+          <FieldMsg errors={errors} k="apps" idBase="plan" />
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {apps.map((a) => (
               <label key={a.code} className="flex items-center gap-2">
@@ -190,8 +214,8 @@ export function PlanEditor({ editing, apps, onClose, onSaved, forAccount = null 
               <option value="COMPANY">Companies</option>
             </select>
           </Field>
-          <Field id="plan-included" label="Included in the price">
-            <input id="plan-included" className="ui-input tabular-nums" type="number" min={1} value={f.included} onChange={set('included')} />
+          <Field id="plan-included" label="Included in the price" errors={errors} k="included">
+            <input id="plan-included" className="ui-input tabular-nums" type="text" inputMode="numeric" value={f.included} onChange={set('included')} {...fe('included')} />
           </Field>
         </div>
         {priceRow('monthly', 'Monthly')}
@@ -218,7 +242,7 @@ export function CustomPlans({ role, openCustomer = () => {} }) {
   const mayChange = may(role, 'BILLING');
   const load = useCallback(() => {
     opsCustomPlans()
-      .then(setD)
+      .then((r) => (setD(r), setError('')))
       .catch((e) => setError(errorWords(e, 'load the custom plans')));
   }, []);
   useEffect(load, [load]);
@@ -249,7 +273,7 @@ export function CustomPlans({ role, openCustomer = () => {} }) {
             ['archived', 'Archived'],
           ]}
         />
-        <Err>{error}</Err>
+        <Err onRetry={load}>{error}</Err>
         {!d && !error ? (
           <Loading />
         ) : d && !rows.length ? (

@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ opsSupportGrants: vi.fn(), opsAskSupportGrant: vi.fn(), opsEndSupportGrant: vi.fn() }));
+const ask = vi.hoisted(() => vi.fn(() => Promise.resolve(true)));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: (...a) => ask(...a) }));
 vi.mock('./api', () => ({
   opsSupportGrants: (...a) => api.opsSupportGrants(...a),
   opsAskSupportGrant: (...a) => api.opsAskSupportGrant(...a),
@@ -43,6 +45,7 @@ describe('operator console: support access', () => {
     const open = await screen.findByRole('link', { name: 'Open in the app' });
     expect(open.getAttribute('href')).toMatch(/\/o\/4831920657$/);
     fireEvent.click(screen.getByRole('button', { name: 'Done, close it' }));
+    await waitFor(() => expect(ask).toHaveBeenCalledWith(expect.objectContaining({ title: expect.stringMatching(/^Close access to /), message: expect.stringMatching(/CLOR staff lose access/) })));
     await waitFor(() => expect(api.opsEndSupportGrant).toHaveBeenCalledWith('g1'));
   });
 });

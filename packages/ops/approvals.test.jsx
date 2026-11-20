@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ opsApprovals: vi.fn(), opsApprovalStep: vi.fn(), opsApprovalLimit: vi.fn() }));
 vi.mock('./api', () => Object.fromEntries(Object.keys(api).map((k) => [k, (...a) => api[k](...a)])));
-vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, confirmDialog: vi.fn(() => Promise.resolve(true)) }));
 
 import { Approvals } from './Approvals';
+import { confirmDialog } from '@ui/components/ui/notify';
 
 const base = { kind: 'DEAL', accountId: 'acc', customer: 'Meridian Facilities', summary: 'Growth, 25 users, monthly, ₹6,000 instead of ₹10,000 (HALF: 40% off)', discountPercent: 40, reason: 'Matching a rival quote', status: 'PENDING', statusWord: 'Waiting', createdAt: '2026-11-11T05:00:00Z', expiresAt: '2026-11-14T05:00:00Z', decidedBy: null, result: null };
 const page = (approvals, extra = {}) => ({ limit: 20, expiresHours: 72, waiting: approvals.length, canChangeLimit: false, approvals, ...extra });
@@ -26,11 +27,12 @@ describe('operator console: approvals', () => {
     expect(screen.getByText(/You cannot approve your own request/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Approve the request for Kaveri Traders' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Approve the request for Meridian Facilities' }));
-    fireEvent.change(screen.getByLabelText('Why'), { target: { value: 'Fine for a year' } });
+    fireEvent.change(screen.getByLabelText(/^Why/), { target: { value: 'Fine for a year' } });
     const btns = screen.getAllByRole('button', { name: 'Approve' });
     fireEvent.click(btns[btns.length - 1]);
     await waitFor(() => expect(api.opsApprovalStep).toHaveBeenCalledWith('a1', 'approve', 'Fine for a year'));
     fireEvent.click(screen.getByRole('button', { name: 'Withdraw the request for Kaveri Traders' }));
+    await waitFor(() => expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Withdraw the request for Kaveri Traders?', confirmLabel: 'Withdraw request' })));
     await waitFor(() => expect(api.opsApprovalStep).toHaveBeenCalledWith('a2', 'withdraw'));
   });
 
@@ -61,7 +63,7 @@ describe('operator console: approvals', () => {
     expect(await screen.findByText(/Nothing is waiting/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Change the limit' }));
     fireEvent.change(screen.getByLabelText(/Ask a second person when a subscription takes off more than/), { target: { value: '30' } });
-    fireEvent.change(screen.getByLabelText('Why'), { target: { value: 'Festival season' } });
+    fireEvent.change(screen.getByLabelText(/^Why/), { target: { value: 'Festival season' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save limit' }));
     await waitFor(() => expect(api.opsApprovalLimit).toHaveBeenCalledWith(30, 'Festival season'));
   });

@@ -408,7 +408,8 @@ describe('Invoice settings', () => {
       fireEvent.click(await screen.findByLabelText('Remind customers automatically'));
       fireEvent.change(screen.getByLabelText('Days before the due date'), { target: { value: '9, 7, 5, 3' } });
       fireEvent.click(screen.getByRole('button', { name: 'Save reminders' }));
-      expect(await screen.findByText('Days before the due date: up to three numbers, each from 1 to 30.')).toBeTruthy();
+      expect((await screen.findAllByText('Days before the due date: up to three numbers, each from 1 to 30.')).length).toBeGreaterThan(0);
+      expect(screen.getByLabelText('Days before the due date').getAttribute('aria-invalid')).toBe('true');
       expect(api.saveSettings).not.toHaveBeenCalled();
 
       fireEvent.change(screen.getByLabelText('Days before the due date'), { target: { value: '3' } });

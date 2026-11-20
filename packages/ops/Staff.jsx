@@ -47,6 +47,8 @@ export function Staff({ me }) {
 
   const rows = d ? [...d.bootstrap.map((b) => ({ ...b, bootstrap: true, active: true })), ...d.operators] : [];
   const name = act?.row ? act.row.name || act.row.email : '';
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+  const emailBad = Boolean(form.email.trim()) && !emailOk;
   return (
     <>
       <PageHead
@@ -55,7 +57,7 @@ export function Staff({ me }) {
         counts={d ? `${rows.length} on the console${d.invites.length ? ` · ${d.invites.length} invited` : ''}` : null}
         actions={<button type="button" className="ws-btn ws-btn--primary" onClick={() => setAct({ kind: 'invite' })}>Invite staff</button>}
       />
-      <Err>{error}</Err>
+      <Err onRetry={load}>{error}</Err>
       {!d ? (
         error ? null : <Loading />
       ) : (
@@ -162,7 +164,8 @@ export function Staff({ me }) {
         }
         confirmLabel={{ invite: 'Send invitation', role: 'Change role', remove: 'Remove', withdraw: 'Withdraw' }[act?.kind] || ''}
         tone={act?.kind === 'remove' || act?.kind === 'withdraw' ? 'danger' : 'primary'}
-        ready={act?.kind !== 'invite' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())}
+        ready={act?.kind !== 'invite' || emailOk}
+        dirty={act?.kind === 'invite' && (Boolean(form.email.trim()) || form.role !== 'SUPPORT')}
         onClose={() => setAct(null)}
         onConfirm={run}
       >
@@ -170,7 +173,16 @@ export function Staff({ me }) {
           <>
             <label className="grid gap-1">
               <span className="text-sm font-semibold">Email</span>
-              <input className="ui-input" type="email" autoComplete="off" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+              <input
+                className="ui-input"
+                type="email"
+                autoComplete="off"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                aria-invalid={emailBad || undefined}
+                aria-describedby={emailBad ? 'ops-staff-email-err' : undefined}
+              />
+              {emailBad ? <span id="ops-staff-email-err" className="text-xs" style={{ color: 'rgb(var(--ws-danger))' }}>Write a whole email address, such as name@clor.in.</span> : null}
             </label>
             <fieldset className="grid gap-2">
               <legend className="text-sm font-semibold" style={{ marginBottom: 6 }}>Role</legend>

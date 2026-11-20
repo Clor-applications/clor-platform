@@ -33,18 +33,20 @@ export function Limits({ id, name, role }) {
 
   const load = useCallback(() => {
     opsCustomerLimits(id)
-      .then(setD)
+      .then((r) => (setD(r), setError('')))
       .catch((e) => setError(errorWords(e, 'load the limits')));
   }, [id]);
   useEffect(load, [load]);
-  if (!d) return error ? <Err>{error}</Err> : <Loading />;
+  if (!d) return error ? <Err onRetry={load}>{error}</Err> : <Loading />;
 
   const openLimits = () => {
     setForm({ companies: d.set.maxCompanies ?? '', users: d.set.maxUsers ?? '' });
     setEditing(true);
   };
   const asNumber = (v) => (String(v).trim() === '' ? null : Number(v));
-  const formOk = ['companies', 'users'].every((k) => String(form[k]).trim() === '' || (Number.isInteger(Number(form[k])) && Number(form[k]) >= 1));
+  const fieldOk = (k) => String(form[k]).trim() === '' || (Number.isInteger(Number(form[k])) && Number(form[k]) >= 1);
+  const formOk = ['companies', 'users'].every(fieldOk);
+  const limitsDirty = editing && (String(form.companies) !== String(d.set.maxCompanies ?? '') || String(form.users) !== String(d.set.maxUsers ?? ''));
   const saveLimits = async (reason) => {
     await opsSetCustomerLimits(id, { maxCompanies: asNumber(form.companies), maxUsers: asNumber(form.users), reason });
     notify.success('Limits changed.');
@@ -184,6 +186,7 @@ export function Limits({ id, name, role }) {
         what={`Leave a box empty to use the ${d.plan.name} plan’s own. A lower limit takes nothing away: ${name} keeps what they have, and cannot add more until they are under it.`}
         confirmLabel="Change limits"
         ready={formOk}
+        dirty={limitsDirty}
         onClose={() => setEditing(false)}
         onConfirm={saveLimits}
       >
@@ -196,16 +199,18 @@ export function Limits({ id, name, role }) {
             <input
               id={`ops-limit-${k}`}
               className="ui-input tabular-nums"
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={1}
               value={form[k]}
               placeholder={own == null ? 'No limit' : String(own)}
               aria-describedby={`ops-limit-${k}-own`}
-              onChange={(e) => setForm((x) => ({ ...x, [k]: e.target.value }))}
+              aria-invalid={!fieldOk(k) || undefined}
+              onChange={(e) => setForm((x) => ({ ...x, [k]: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
               style={{ maxWidth: 160 }}
             />
-            <span id={`ops-limit-${k}-own`} className="ws-item-sub">Plan’s own: {planLimit(own, words)}.</span>
+            <span id={`ops-limit-${k}-own`} className="ws-item-sub" style={fieldOk(k) ? undefined : { color: 'rgb(var(--ws-danger))' }}>
+              {fieldOk(k) ? `Plan’s own: ${planLimit(own, words)}.` : `Write 1 or more, or leave it empty for the plan’s own (${planLimit(own, words)}).`}
+            </span>
           </div>
         ))}
       </ReasonDrawer>

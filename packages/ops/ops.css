@@ -189,7 +189,7 @@ html[data-portal='ops'] .ops-search-icon {
   background: rgb(var(--surface));
   color: rgb(var(--fg));
   cursor: pointer;
-  transition: background-color 120ms ease;
+  transition: background-color 120ms ease-out;
 }
 .ops-round-btn:hover {
   background: var(--ops-press);
@@ -294,7 +294,7 @@ html[data-portal='ops'] .ops-frame {
   background: transparent;
   color: rgb(var(--fg));
   cursor: pointer;
-  transition: background-color 120ms ease;
+  transition: background-color 120ms ease-out;
 }
 .ops-rail-btn > span {
   display: -webkit-box;
@@ -395,7 +395,7 @@ html[data-portal='ops'] .ops-nav-item {
   text-align: left;
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color 120ms ease;
+  transition: background-color 120ms ease-out;
 }
 html[data-portal='ops'] .ops-nav-item:hover {
   background: var(--ops-hover);
@@ -480,7 +480,7 @@ html[data-portal='ops'] .ops-main .ws > .ws-inner {
     height: calc(100dvh - var(--ops-bars));
     transform: translateX(-100%);
     visibility: hidden;
-    transition: transform 200ms var(--ws-ease), visibility 200ms;
+    transition: transform 180ms ease-in-out, visibility 180ms;
   }
   html[data-portal='ops'] .ops-side[data-open] {
     transform: none;
@@ -751,7 +751,7 @@ html[data-portal='ops'] .ws-table tbody tr:first-child td {
   border-top: 0;
 }
 html[data-portal='ops'] .ws-table tbody tr {
-  transition: background-color 120ms ease;
+  transition: background-color 120ms ease-out;
 }
 html[data-portal='ops'] .ws-table tbody tr:hover {
   background: rgb(var(--hover, 247 247 247));
@@ -936,7 +936,7 @@ html[data-portal='ops'] .ws-stat-value {
   font: inherit;
   color: inherit;
   cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease;
+  transition: border-color 120ms ease-out, background-color 120ms ease-out;
 }
 .ops-kpi:hover {
   border-color: rgb(var(--border-strong));

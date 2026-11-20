@@ -21,7 +21,7 @@ import { Offers } from './Offers';
 import { CustomPlans } from './CustomPlans';
 import { DealDrawer, Subscriptions } from './Deals';
 
-const why = () => screen.getByLabelText('Why');
+const why = () => screen.getByLabelText(/^Why/);
 const last = (name) => {
   const b = screen.getAllByRole('button', { name });
   return b[b.length - 1];
@@ -120,6 +120,24 @@ describe('operator console: a subscription deal', () => {
     expect(onDone).toHaveBeenCalled();
     /* The drafted invoice opens, so nobody hunts for it in Invoices. */
     expect(openInvoice).toHaveBeenCalledWith('inv1');
+  });
+
+  it('hides the old price and holds Set subscription while a new quote is worked out', async () => {
+    api.opsDealOptions.mockResolvedValue({ plans, offers: [], current: null });
+    let answer;
+    api.opsDealQuote.mockResolvedValueOnce({ deal: { ...deal, offer: null } }).mockImplementation(() => new Promise((r) => (answer = r)));
+    render(<DealDrawer open account={{ id: 'acc', name: 'Meridian' }} onClose={() => {}} onDone={() => {}} />);
+    expect(await screen.findAllByText('₹2,610 a month')).not.toHaveLength(0);
+    fireEvent.change(why(), { target: { value: 'Signed the order form' } });
+    expect(last('Set subscription')).not.toBeDisabled();
+    fireEvent.change(screen.getByLabelText('How many employees'), { target: { value: '40' } });
+    expect(screen.queryByText('₹2,610 a month')).toBeNull();
+    expect(screen.getByText(/Working out the price for these choices/)).toBeInTheDocument();
+    expect(last('Set subscription')).toBeDisabled();
+    await waitFor(() => expect(api.opsDealQuote).toHaveBeenCalledTimes(2));
+    answer({ deal: { ...deal, offer: null, total: 350000 } });
+    expect(await screen.findByText('₹3,500 a month')).toBeInTheDocument();
+    expect(last('Set subscription')).not.toBeDisabled();
   });
 
   it('says a big discount needs a second person, and sends it for approval', async () => {

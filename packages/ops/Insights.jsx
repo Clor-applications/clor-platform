@@ -18,12 +18,13 @@ const NumHead = ({ children }) => <th className="num" style={{ textAlign: 'right
 export function Insights() {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    opsInsights().then(setD).catch((e) => setError(errorWords(e, 'load the insights')));
-  }, []);
+    opsInsights().then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'load the insights')));
+  }, [tick]);
   if (!d) {
     return (
-      <div className="ws"><div className="ws-inner">{error ? <Err>{error}</Err> : <Loading />}</div></div>
+      <div className="ws"><div className="ws-inner">{error ? <Err onRetry={() => { setError(''); setTick((n) => n + 1); }}>{error}</Err> : <Loading />}</div></div>
     );
   }
   const months = [...d.months].reverse();
