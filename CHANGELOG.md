@@ -112,6 +112,18 @@ API revision `clor-api-00144-zdv`. Previous release `rel-f16a2ae` (roll back the
 - #338 Rounds 41–45 picks (outside Books): field staff, leave kinds, employee record, staff money, people reports
 - #336 Rounds 26–40 picks (outside Books): 15 rounds combined
 
+## rel-f16a2ae - 2026-11-18
+
+API revision `clor-api-00143-x2z`. Previous release `rel-c2ab508` (roll back there).
+
+- #324 Lapsed apps still read, sign-up pause covers the app's own page, export reads in pages
+- #323 Books: settlement counts TDS and notes, e-invoice tied to the books, reverse charge sales, TDS/TCS limits
+- #335 Round 25 picks: UAN question, registration days left
+- #334 Round 24 picks: balance below zero, next employee code, split shifts, Today on a screen
+- #333 Round 23 picks: tenure chart, upload limits, half-day sentence
+- #332 Release record: rel-c2ab508
+- #331 Round 22 picks: joined-and-left chart, Copy link, maternity return date
+
 ## rel-c2ab508 - 2026-11-18
 
 API revision `clor-api-00142-gh5`. Previous release `rel-128629a` (roll back there).
