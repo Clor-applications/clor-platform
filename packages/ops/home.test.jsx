@@ -222,5 +222,44 @@ describe('Overview', () => {
     expect((await screen.findByRole('button', { name: 'Nila Traders' })).closest('li')).toHaveTextContent('Asha Rao is on it');
     expect(screen.queryByRole('button', { name: /^Mine:|^Take over:|^Not today:/ })).toBeNull();
   });
+
+  /* 20 Nov 2026: one long list for five kinds of staff; each wants their own part first. */
+  it('filters the queue by whose work it is, counts each part, and offers only the parts that have rows', async () => {
+    const work = {
+      invoices: { total: 1, items: [{ id: 'i1', number: 'CLOR/1', accountId: 'a1', customer: 'Kaveri Foods', total: 590000, dueDate: '2026-11-01T00:00:00Z' }] },
+      tickets: { total: 1, items: [{ id: 't1', code: 'T-1', subject: 'Payroll will not run', accountId: 'a2', customer: 'Nila Traders', priority: 'URGENT', assigned: false, createdAt: '2026-11-19T06:00:00Z' }] },
+      quiet: { total: 1, items: [{ accountId: 'a3', customer: 'Sundar Mills', lastActiveAt: '2026-10-20T06:00:00Z', monthly: 250000 }] },
+    };
+    api.opsHome.mockResolvedValue({ ...quiet, failedEmails: 2, work, marks: { mine: { 'tickets:t1': { name: 'Me', me: true } }, later: [] } });
+    render(<Home go={vi.fn()} has={() => true} me={{ role: 'SUPPORT' }} />);
+    const tabs = await screen.findByRole('tablist', { name: 'Whose work' });
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['All', 'Mine (1)', 'Customers (1)', 'Money (1)', 'Support (1)', 'Platform (1)']);
+    const shown = () => ['Kaveri Foods', 'Payroll will not run', 'Sundar Mills'].filter((name) => screen.queryByRole('button', { name }));
+
+    expect(shown()).toHaveLength(3);
+    expect(screen.getByText('2 emails failed')).toBeInTheDocument();
+
+    fireEvent.click(within(tabs).getByRole('tab', { name: 'Money (1)' }));
+    expect(shown()).toEqual(['Kaveri Foods']);
+    expect(screen.queryByText('2 emails failed')).toBeNull();
+
+    fireEvent.click(within(tabs).getByRole('tab', { name: 'Platform (1)' }));
+    expect(shown()).toEqual([]);
+    expect(screen.getByText('2 emails failed')).toBeInTheDocument();
+
+    fireEvent.click(within(tabs).getByRole('tab', { name: 'Mine (1)' }));
+    expect(shown()).toEqual(['Payroll will not run']);
+
+    fireEvent.click(within(tabs).getByRole('tab', { name: 'Customers (1)' }));
+    expect(shown()).toEqual(['Sundar Mills']);
+  });
+
+  it('shows no filters when the queue is all one part', async () => {
+    api.opsHome.mockResolvedValue({ ...quiet, work: { invoices: { total: 1, items: [{ id: 'i1', number: 'CLOR/1', accountId: 'a1', customer: 'Kaveri Foods', total: 590000, dueDate: '2026-11-01T00:00:00Z' }] } }, marks: { mine: {}, later: [] } });
+    render(<Home go={vi.fn()} has={() => true} me={{ role: 'BILLING' }} />);
+    expect(await screen.findByRole('button', { name: 'Kaveri Foods' })).toBeInTheDocument();
+    expect(screen.queryByRole('tablist', { name: 'Whose work' })).toBeNull();
+  });
 });
+
 
