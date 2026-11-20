@@ -31,6 +31,34 @@ describe('a customer’s page in the operator console', () => {
     expect(one.subscription).toMatchObject({ status: 'trialing', apps: ['accounting'] });
   }, 90_000);
 
+  it('says how each customer is doing, with the reasons, and can list the worst first', async () => {
+    const reader = await staff('READ_ONLY');
+    const well = await company('well');
+    const late = await company('late');
+    for (const c of [well, late]) {
+      await setSubscription(c.accountId, { apps: [{ appCode: 'accounting' }], status: 'active' });
+      await platformPrisma.user.updateMany({ where: { accountId: c.accountId }, data: { lastLoginAt: new Date() } });
+    }
+    await platformPrisma.billingInvoice.create({ data: { accountId: late.accountId, status: 'ISSUED', number: `H/${Date.now()}`, total: 118000, dueDate: new Date('2020-01-05') } });
+    await platformPrisma.supportTicket.create({ data: { accountId: late.accountId, openedByUserId: late.userId, subject: 'Cannot post', priority: 'URGENT' } });
+
+    const one = (await request(app).get(`/api/ops/accounts/${late.accountId}`).set(reader.h).expect(200)).body;
+    expect(one.health.level).toBe('risk');
+    expect(one.health.reasons.find((r: any) => r.key === 'payment')).toMatchObject({ level: 'risk', text: '1 invoice is past the due date', action: expect.any(String) });
+    expect(one.health.reasons.find((r: any) => r.key === 'support')).toMatchObject({ level: 'risk', text: '1 urgent ticket is open' });
+    expect(one.health.reasons.find((r: any) => r.key === 'usage')).toMatchObject({ level: 'good', action: null });
+    expect((await request(app).get(`/api/ops/accounts/${well.accountId}`).set(reader.h).expect(200)).body.health.level).toBe('good');
+
+    const list = (await request(app).get('/api/ops/accounts').query({ sort: 'health', limit: 100 }).set(reader.h).expect(200)).body.accounts;
+    const rank = (h: any) => (h ? { good: 0, watch: 1, risk: 2 }[h.level as 'good'] : -1);
+    const ranks = list.map((a: any) => rank(a.health));
+    expect(ranks).toEqual([...ranks].sort((a, b) => b - a));
+    expect(list[0].health.level).toBe('risk');
+    /* A suspended customer is not judged. */
+    await request(app).post(`/api/ops/accounts/${well.accountId}/suspend`).set((await staff('BILLING')).h).send({ reason: 'Asked to pause' }).expect(200);
+    expect((await request(app).get(`/api/ops/accounts/${well.accountId}`).set(reader.h).expect(200)).body.health).toBeNull();
+  }, 120_000);
+
   it('lists trials by the day they end, soonest first, a page at a time, and counts the week’s over the whole list', async () => {
     const reader = await staff('READ_ONLY');
     const DAY = 86_400_000;
