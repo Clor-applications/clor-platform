@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { fyLabel } from '@ui/picks/round34';
 import { Plus, Receipt, Trash2 } from '@ui/components/ui/lineIcons';
-import Drawer from '@ui/components/ui/Drawer';
+import Drawer from './EditDrawer';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { formatDateIn } from '@ui/utils/dates';
-import { wholeRupees as money, moneyCell } from '@ui/utils/money';
+import { dateWords } from '@ui/utils/dates';
+import { rupees as money, moneyCell } from '@ui/utils/money';
 import { addTdsChallan, getTdsChallans, removeTdsChallan } from '../api/payrollReports';
 import { leftWords } from './filingChecks';
 import { errorWords } from '@ui/utils/errorWords';
@@ -49,7 +49,7 @@ function Panel({ fy, onClose }) {
   }, [load]);
 
   const remove = async (c) => {
-    const ok = await confirmDialog({ title: 'Remove this challan?', message: `Challan ${c.bsrCode} / ${c.challanSerial} of ${formatDateIn(c.depositDate)} comes off ${monthWords(c.month)}.`, confirmLabel: 'Remove challan', tone: 'danger' });
+    const ok = await confirmDialog({ title: 'Remove this challan?', message: `Challan ${c.bsrCode} / ${c.challanSerial} of ${dateWords(c.depositDate)} comes off ${monthWords(c.month)}.`, confirmLabel: 'Remove challan', tone: 'danger' });
     if (!ok) return;
     try {
       await removeTdsChallan(c.id);
@@ -100,7 +100,7 @@ function Panel({ fy, onClose }) {
                         {m.left ? <span className="ui-caption block">{leftWords(m.left)}</span> : null}
                       </td>
                       <td className="ui-col-date ui-col-h-center">
-                        {formatDateIn(m.due)}
+                        {dateWords(m.due)}
                         {m.late ? <span className="ui-pill ui-pill-warn ml-1">Late</span> : null}
                       </td>
                       <td className="text-right">
@@ -112,7 +112,7 @@ function Panel({ fy, onClose }) {
                     {m.challans.map((c) => (
                       <tr key={c.id} className="ui-tds-challan-row">
                         <td colSpan={2} className="ui-caption">
-                          <span className="ui-mono">{c.bsrCode} / {c.challanSerial}</span> · paid {formatDateIn(c.depositDate)}
+                          <span className="ui-mono">{c.bsrCode} / {c.challanSerial}</span> · paid {dateWords(c.depositDate)}
                         </td>
                         <td className="ui-col-amount">{moneyCell(c.amount)}</td>
                         <td colSpan={2} />

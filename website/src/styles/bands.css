@@ -168,7 +168,7 @@ body:has(.fx-secnav) .nav {
   border-radius: var(--r-control);
   background: var(--fx-night);
   color: #fff;
-  transition: background-color 0.18s var(--ease), transform 0.18s var(--ease);
+  transition: background-color var(--dur-hover) var(--ease), transform var(--dur-hover) var(--ease);
 }
 .fx-go:hover {
   text-decoration: underline;
@@ -217,7 +217,7 @@ body:has(.fx-secnav) .nav {
   color: var(--ink);
   font: 600 var(--t-sm) / 1 var(--font-text);
   cursor: pointer;
-  transition: background-color 0.18s var(--ease), color 0.18s var(--ease);
+  transition: background-color var(--dur-hover) var(--ease), color var(--dur-hover) var(--ease);
 }
 .fx-tabs button:hover {
   background: #d3dcea;
@@ -583,10 +583,6 @@ body:has(.fx-secnav) .nav {
   height: 100%;
   object-fit: cover;
   object-position: 50% 30%;
-  transition: transform 0.5s var(--ease);
-}
-.fx-card:hover .fx-card-pic img {
-  transform: scale(1.03);
 }
 .fx-card-body {
   display: flex;
@@ -647,7 +643,7 @@ body:has(.fx-secnav) .nav {
 }
 .fx-acc-item button svg {
   flex: none;
-  transition: transform 0.2s var(--ease);
+  transition: transform var(--dur-menu) var(--ease);
 }
 .fx-acc-item.is-open button svg {
   transform: rotate(180deg);
@@ -656,7 +652,7 @@ body:has(.fx-secnav) .nav {
   display: grid;
   gap: var(--s-4);
   padding-bottom: var(--s-5);
-  animation: fx-in 0.3s var(--ease) both;
+  animation: fx-in var(--dur-dialog) var(--ease) both;
 }
 .fx-acc-body p {
   color: var(--ink-2);
@@ -670,7 +666,7 @@ body:has(.fx-secnav) .nav {
   background:
     radial-gradient(rgba(255, 255, 255, 0.28) 1px, transparent 1.4px) 0 0 / 7px 7px,
     linear-gradient(135deg, #1b2f73, #006a9e 60%, #38c6e6);
-  animation: fx-in 0.35s var(--ease) both;
+  animation: fx-in var(--dur-dialog) var(--ease) both;
 }
 .fx-frame img {
   width: 100%;
@@ -709,11 +705,6 @@ body:has(.fx-secnav) .nav {
   border: 1px solid var(--fx-edge);
   border-radius: var(--r-panel);
   box-shadow: var(--fx-shadow);
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-.fx-pcard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 1px 2px rgba(11, 21, 48, 0.05), 0 18px 32px -18px rgba(11, 21, 48, 0.35);
 }
 .fx-pcard h3 {
   font-size: var(--t-lg);
@@ -806,7 +797,7 @@ body:has(.fx-secnav) .nav {
   padding: clamp(14px, 2vw, 24px);
   border-radius: var(--r-panel);
   background: color-mix(in srgb, var(--app, #232a66) 9%, #fff);
-  animation: fx-in 0.35s var(--ease) both;
+  animation: fx-in var(--dur-dialog) var(--ease) both;
 }
 .fx-app-win .win,
 .fx-story-art .win {
@@ -1176,11 +1167,10 @@ body:has(.fx-secnav) .nav {
 .pg .cat-item,
 .pg .cat-item + .cat-item {
   border: 1px solid var(--fx-edge);
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  transition: border-color var(--dur-hover) var(--ease);
 }
 .pg .cat-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 1px 2px rgba(11, 21, 48, 0.05), 0 18px 32px -18px rgba(11, 21, 48, 0.35);
+  border-color: var(--line-strong);
 }
 .pg .faq-list {
   border: 0;
@@ -1934,10 +1924,11 @@ body:has(.fx-secnav) .nav {
   background: #fff;
   box-shadow: 0 1.4em 2.4em -1em rgba(11, 21, 48, 0.55), 0 0.2em 0.5em rgba(11, 21, 48, 0.14);
   white-space: nowrap;
-  animation: pop-float 6s ease-in-out infinite;
+  /* One slow float on load, then still: nothing on the page moves for ever. */
+  animation: pop-float 6s ease-in-out 1;
 }
 .pop--bl {
-  animation-delay: -3s;
+  animation-delay: 0.6s;
 }
 .pop strong,
 .pop small {
@@ -1974,11 +1965,6 @@ body:has(.fx-secnav) .nav {
 .pop--bl {
   bottom: -1.4em;
   left: -1.6em;
-}
-@keyframes pop-float {
-  50% {
-    transform: translateY(-0.45em);
-  }
 }
 
 /* Where the scenes stand. */
@@ -2130,7 +2116,7 @@ body:has(.fx-secnav) .nav {
   transform: rotate(5deg);
   font-size: 12px;
   color: var(--ink);
-  animation: pop-float 7s ease-in-out -2s infinite;
+  animation: pop-float 7s ease-in-out 0.3s 1;
 }
 .fx-phone-head {
   display: flex;
@@ -2176,19 +2162,20 @@ body:has(.fx-secnav) .nav {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.fx-phone-btn {
+/* A line of the picture, not a control: it must not look like a button nobody can press. */
+.fx-phone-pdf {
   display: block;
-  padding: 7px;
-  border-radius: 9px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
   text-align: center;
   font-weight: 600;
   font-size: 11px;
-  color: #fff;
-  background: linear-gradient(140deg, var(--app), var(--app-2));
+  color: var(--ink-3);
 }
+/* The one float for notes and the phone: translate, so it never fights an element's own rotate. */
 @keyframes pop-float {
   50% {
-    translate: 0 -6px;
+    translate: 0 -0.45em;
   }
 }
 @media (max-width: 1180px) {
@@ -2234,7 +2221,7 @@ body:has(.fx-secnav) .nav {
   .fx-phone-k {
     margin-top: 8px;
   }
-  .fx-phone-btn {
+  .fx-phone-pdf {
     margin-top: 8px;
   }
   .fx-app-win,
@@ -2284,11 +2271,6 @@ body:has(.fx-secnav) .nav {
   border: 1px solid color-mix(in srgb, var(--app) 26%, #fff);
   border-radius: var(--r-panel);
   box-shadow: var(--fx-shadow);
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-.tcard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 1px 2px rgba(11, 21, 48, 0.05), 0 22px 36px -22px var(--app-2);
 }
 .tcard-top {
   height: 128px;
@@ -2578,11 +2560,10 @@ body:has(.fx-secnav) .nav {
   border-radius: var(--r-panel);
   box-shadow: var(--fx-shadow);
   text-decoration: none;
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  transition: border-color var(--dur-hover) var(--ease);
 }
 .gd-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 1px 2px rgba(11, 21, 48, 0.05), 0 20px 34px -20px var(--app-2);
+  border-color: color-mix(in srgb, var(--app) 55%, #fff);
 }
 .gd-icon {
   display: grid;
@@ -2908,7 +2889,7 @@ body:has(.fx-secnav) .nav {
 .pg .form textarea {
   background: var(--fx-ground);
   border-color: var(--fx-edge);
-  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease), background-color 0.15s var(--ease);
+  transition: border-color var(--dur-hover) var(--ease), box-shadow var(--dur-hover) var(--ease), background-color var(--dur-hover) var(--ease);
 }
 .pg .form input:not([type='checkbox']):hover,
 .pg .form select:hover,
@@ -3156,7 +3137,7 @@ body:has(.fx-secnav) .nav {
   align-content: center;
   gap: var(--s-4);
   min-height: 12.5rem;
-  animation: fx-in 0.6s var(--ease) both;
+  animation: fx-in var(--dur-dialog) var(--ease) both;
 }
 .fx-quotes .fx-eyebrow {
   margin: 0;
@@ -3221,7 +3202,7 @@ body:has(.fx-secnav) .nav {
   background: transparent;
   color: #fff;
   cursor: pointer;
-  transition: background-color 150ms var(--ease), border-color 150ms var(--ease);
+  transition: background-color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease);
 }
 .fx-quotes-pause:hover {
   background: rgba(255, 255, 255, 0.12);

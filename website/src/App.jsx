@@ -55,12 +55,42 @@ function useReveal(route) {
   }, [route]);
 }
 
+/* Small pictures that play once: held (data-play="wait") while below the first screen, let go as they come into view. */
+const PLAY = 'main .setup, main .links-wire';
+
+function usePlayOnView(route) {
+  useEffect(() => {
+    if (!('IntersectionObserver' in window)) return undefined;
+    const fold = window.innerHeight;
+    const els = [...document.querySelectorAll(PLAY)].filter((el) => el.getBoundingClientRect().top > fold);
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const en of entries) {
+          if (!en.isIntersecting) continue;
+          en.target.dataset.play = 'on';
+          io.unobserve(en.target);
+        }
+      },
+      { threshold: 0.3 },
+    );
+    for (const el of els) {
+      el.dataset.play = 'wait';
+      io.observe(el);
+    }
+    return () => {
+      io.disconnect();
+      for (const el of els) delete el.dataset.play;
+    };
+  }, [route]);
+}
+
 function Page() {
   const path = usePath();
   const route = routeFor(path);
   const first = useRef(true);
   const [said, setSaid] = useState('');
   useReveal(route);
+  usePlayOnView(route);
   useEffect(() => {
     document.title = titleFor(route);
     /* The first load is the browser's own; after an in-page move, focus lands on the new page and its title is read out. */

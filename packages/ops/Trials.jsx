@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
-import { Loading, Pager, errorWords } from './kit';
+import { Err, Loading, Pager, errorWords } from './kit';
 import { opsAccounts, opsExtendTrial, opsResendSignup, opsSignups } from './api';
 
 /**
@@ -32,7 +32,6 @@ const appName = (code) => APPS.find(([k]) => k === code)?.[1] || code;
 const appsText = (codes = []) => APPS.filter(([k]) => codes.includes(k)).map(([, n]) => n).join(', ') || '—';
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
-const Err = ({ children }) => (children ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p> : null);
 const SIGNUP_STATE = { PENDING: ['Link sent', 'ws-pill ws-pill--warn'], CONFIRMED: ['Account made', 'ws-pill ws-pill--ok'], EXPIRED: ['Link ran out', 'ws-pill ws-pill--off'] };
 const DAY = 86_400_000;
 
@@ -70,7 +69,7 @@ export function Trials({ role, openAccount, openSubscription = openAccount, endi
   const loadSignups = useCallback(
     () =>
       opsSignups({})
-        .then(setSignups)
+        .then((r) => (setSignups(r), setError('')))
         .catch((e) => setError(errorWords(e, 'load the sign-ups'))),
     [],
   );
@@ -91,7 +90,7 @@ export function Trials({ role, openAccount, openSubscription = openAccount, endi
   return (
     <>
       <PageHead crumbs={['Customers and sales']} title="Trials" counts={meta} />
-      <Err>{error}</Err>
+      <Err onRetry={() => { setError(''); loadAccounts(); loadSignups(); }}>{error}</Err>
       {offer ? (
         <p className="ws-card-blurb">
           A trial from clor.in runs {offer.trialDays} days with {offer.apps.map((a) => a.name).join(', ')}
@@ -249,8 +248,13 @@ function TrialDrawer({ action, onClose, onDone }) {
     setError('');
     setDays(14);
   }, [action]);
+  const n = Number(days);
+  const daysOk = Number.isInteger(n) && n >= 1 && n <= 90;
+  const dirty = Boolean(reason.trim()) || String(days) !== '14';
+  const close = () => { if (!busy) onClose(); };
   const submit = async (e) => {
     e.preventDefault();
+    if (busy || !daysOk) return;
     setBusy(true);
     setError('');
     try {
@@ -266,13 +270,14 @@ function TrialDrawer({ action, onClose, onDone }) {
   return (
     <WsDrawer
       open={Boolean(action)}
-      onClose={onClose}
+      onClose={close}
+      dirty={dirty || busy}
       title="Extend the trial"
       description={account ? `${account.name}${account.owner?.email ? `, ${account.owner.email}` : ''}. You will be asked for an authenticator code; the change is recorded and shown to the customer.` : ''}
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="submit" form="ops-trial" className="ws-btn ws-btn--primary" disabled={busy || reason.trim().length < 3}>
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>Cancel</button>
+          <button type="submit" form="ops-trial" className="ws-btn ws-btn--primary" disabled={busy || reason.trim().length < 3 || !daysOk}>
             {busy ? 'Working…' : 'Extend trial'}
           </button>
         </>
@@ -280,14 +285,26 @@ function TrialDrawer({ action, onClose, onDone }) {
     >
       <form id="ops-trial" className="grid gap-5" onSubmit={submit}>
         <Err>{error}</Err>
-        <label className="grid gap-1">
-          <span className="text-sm font-semibold">Extra days</span>
-          <input className="ui-input ui-num" style={{ maxWidth: 128 }} type="number" min={1} max={90} value={days} onChange={(e) => setDays(e.target.value)} />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-semibold">Why</span>
-          <textarea className="ui-input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the record" />
-        </label>
+        <div className="grid gap-1">
+          <label htmlFor="ops-trial-extra" className="text-sm font-semibold">Extra days</label>
+          <input
+            id="ops-trial-extra"
+            className="ui-input ui-num"
+            style={{ maxWidth: 128 }}
+            type="text"
+            inputMode="numeric"
+            value={days}
+            onChange={(e) => setDays(e.target.value.replace(/\D/g, '').slice(0, 2))}
+            aria-invalid={!daysOk || undefined}
+            aria-describedby="ops-trial-days"
+          />
+          <span id="ops-trial-days" className="text-xs" style={{ color: daysOk ? 'rgb(var(--fg-muted))' : 'rgb(var(--ws-danger))' }}>1 to 90 days.</span>
+        </div>
+        <div className="grid gap-1">
+          <label htmlFor="ops-trial-reason" className="text-sm font-semibold">Why</label>
+          <textarea id="ops-trial-reason" className="ui-input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the record" aria-describedby="ops-trial-why" />
+          <span id="ops-trial-why" className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>Reason required (3+ characters)</span>
+        </div>
         {account?.trialEndsAt ? <p className="ws-card-blurb">Ends {day(account.trialEndsAt)} now; the days are added from today or from then, whichever is later.</p> : null}
       </form>
     </WsDrawer>

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ opsMarkQueue: vi.fn(), opsUnmarkQueue: vi.fn(), opsHome: vi.fn(), opsOverview: vi.fn(), opsHealth: vi.fn(), opsAudit: vi.fn(), opsHandover: vi.fn(), opsWriteHandover: vi.fn() }));
 vi.mock('./api', () => api);
+const ask = vi.hoisted(() => vi.fn(() => Promise.resolve(true)));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: (...a) => ask(...a) }));
 
 import { Home } from './Home';
 
@@ -203,6 +205,11 @@ describe('Overview', () => {
     const second = (await screen.findByRole('button', { name: 'Nila Traders' })).closest('li');
     expect(second).toHaveTextContent('Asha Rao is on it');
     expect(within(second).getByRole('button', { name: 'Take over: Nila Traders' })).toBeInTheDocument();
+    /* Taking a row from a colleague asks first, by name; saying no leaves it with them. */
+    ask.mockResolvedValueOnce(false);
+    fireEvent.click(within(second).getByRole('button', { name: 'Take over: Nila Traders' }));
+    await vi.waitFor(() => expect(ask).toHaveBeenCalledWith(expect.objectContaining({ title: 'Take over from Asha Rao?', confirmLabel: 'Take over' })));
+    expect(api.opsMarkQueue).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Mine: Kaveri Foods' }));
     expect(api.opsMarkQueue).toHaveBeenCalledWith('invoices:i1', 'MINE');

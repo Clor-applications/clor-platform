@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Loading, errorWords } from './kit';
+import { Err, Loading, countsChanged, errorWords } from './kit';
+import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { ArrowLeft } from 'lucide-react';
 
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -34,7 +35,6 @@ const STATES = [...new Set(Object.values(GST_STATE_BY_CODE))].filter((s) => !/\(
 const phone = (p) => (/^\+91\d{10}$/.test(p || '') ? `+91 ${p.slice(3, 8)} ${p.slice(8)}` : p);
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
-const Err = ({ children }) => (children ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p> : null);
 
 /* What the team did, in a line each. */
 const HISTORY = { DEMO_ACCOUNT_CREATED: 'Account created', EXPLORE_RESENT: 'Explore link sent again', EXPLORE_ENDED: 'Explore access ended', DEMO_REQUEST_ASSIGNED: 'Given to someone', DEMO_REQUEST_FOLLOW_UP: 'Follow-up date set' };
@@ -59,6 +59,7 @@ export function DemoRequests({ openRequest }) {
   const [view, setView] = useState({ status: 'all', page: 0, view: 'all', source: '' });
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
     /* Only the filters in use go on the address. */
@@ -68,7 +69,7 @@ export function DemoRequests({ openRequest }) {
     return () => {
       live = false;
     };
-  }, [view]);
+  }, [view, tick]);
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const waiting = data?.counts?.NEW || 0;
   return (
@@ -101,9 +102,9 @@ export function DemoRequests({ openRequest }) {
           </select>
         ) : null}
       </div>
-      <Err>{error}</Err>
+      <Err onRetry={() => setTick((n) => n + 1)}>{error}</Err>
       {!data ? (
-        <Loading />
+        error ? null : <Loading />
       ) : data.requests.length === 0 ? (
         <div className="ws-empty">
           <p>
@@ -189,6 +190,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
     opsDemoRequest(id)
       .then((r) => {
         setD(r);
+        setError('');
         setStatus(r.request.status);
         setNote(r.request.note || '');
         setOwner(r.request.assignedToUserId || '');
@@ -203,13 +205,15 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
       .catch(() => setTeam([]));
   }, []);
 
-  if (!d) return error ? <Err>{error}</Err> : <Loading />;
-  const r = d.request;
+  const r = d?.request;
+  const wasFollowUp = r?.followUpAt ? istDay(r.followUpAt) : '';
+  const changed = Boolean(r) && (status !== r.status || note.trim() !== (r.note || '') || owner !== (r.assignedToUserId || '') || followUp !== wasFollowUp);
+  /* Leaving the page, or closing the tab, with a change not saved asks first. */
+  useUnsavedChanges(changed);
+  if (!d) return error ? <Err onRetry={() => (setError(''), load())}>{error}</Err> : <Loading />;
   const closed = r.status === 'ACCOUNT_CREATED';
   const mayMove = may(role, 'SALES', 'SUPPORT', 'BILLING');
   const mayCreate = may(role, 'BILLING');
-  const wasFollowUp = r.followUpAt ? istDay(r.followUpAt) : '';
-  const changed = status !== r.status || note.trim() !== (r.note || '') || owner !== (r.assignedToUserId || '') || followUp !== wasFollowUp;
 
   const save = async (e) => {
     e.preventDefault();
@@ -224,6 +228,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
         ...(followUp !== wasFollowUp ? { followUpAt: followUp ? `${followUp}T00:00:00+05:30` : null } : {}),
       });
       notify.success('Saved. It is on the record.');
+      countsChanged();
       load();
     } catch (err) {
       setSaveError(errorWords(err, 'save the demo request'));
@@ -439,8 +444,13 @@ function CreateAccount({ open, request, onClose, onDone }) {
     setApps(new Set(request.apps));
     setError('');
   }, [open, request.apps]);
+  const days = Number(trialDays);
+  const daysOk = Number.isInteger(days) && days >= 1 && days <= 90;
+  const dirty = Boolean(state) || String(trialDays) !== '30' || apps.size !== request.apps.length || request.apps.some((k) => !apps.has(k));
+  const close = () => { if (!busy) onClose(); };
   const submit = async (e) => {
     e.preventDefault();
+    if (busy || !daysOk) return;
     setBusy(true);
     setError('');
     try {
@@ -456,13 +466,14 @@ function CreateAccount({ open, request, onClose, onDone }) {
   return (
     <WsDrawer
       open={open}
-      onClose={onClose}
+      onClose={close}
+      dirty={dirty || busy}
       title="Create account"
       description={`${request.company}, owned by ${request.name} (${request.email}). They get an email with a link to set their password. You will be asked for an authenticator code.`}
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="submit" form="ops-demo-create" className="ws-btn ws-btn--primary" disabled={busy || !state || !apps.size}>
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>Cancel</button>
+          <button type="submit" form="ops-demo-create" className="ws-btn ws-btn--primary" disabled={busy || !state || !apps.size || !daysOk}>
             {busy ? 'Creating…' : 'Create account'}
           </button>
         </>
@@ -489,7 +500,17 @@ function CreateAccount({ open, request, onClose, onDone }) {
         </fieldset>
         <label className="grid gap-1">
           <span className="text-sm font-semibold">Trial length, days</span>
-          <input className="ui-input ui-num" style={{ maxWidth: 128 }} type="number" min={1} max={90} value={trialDays} onChange={(e) => setTrialDays(e.target.value)} />
+          <input
+            className="ui-input ui-num"
+            style={{ maxWidth: 128 }}
+            type="text"
+            inputMode="numeric"
+            value={trialDays}
+            onChange={(e) => setTrialDays(e.target.value.replace(/\D/g, '').slice(0, 2))}
+            aria-invalid={!daysOk || undefined}
+            aria-describedby="ops-demo-days-hint"
+          />
+          <span id="ops-demo-days-hint" className="text-xs" style={{ color: daysOk ? 'rgb(var(--fg-muted))' : 'rgb(var(--ws-danger))' }}>1 to 90 days.</span>
         </label>
         <p className="ws-card-blurb">
           {apps.size ? `They will open ${appName(request.apps.find((k) => apps.has(k)) || APPS.map(([k]) => k).find((k) => apps.has(k)))} first. ` : 'Tick at least one app. '}

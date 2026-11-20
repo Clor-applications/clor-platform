@@ -4,7 +4,7 @@
  */
 
 .rg-section { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
-.rg-h2 { margin: 0; font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: rgb(var(--fg)); }
+.rg-h2 { margin: 0; font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; letter-spacing: 0; color: rgb(var(--fg)); }
 .rg-sub { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
 .rg-none { white-space: normal; padding-top: 0.25rem; }
 .rg-link {
@@ -13,7 +13,7 @@
 }
 .rg-link:hover { color: rgb(var(--act-hover)); }
 .rg-link:focus-visible { outline: 2px solid rgb(var(--ring, var(--act))); outline-offset: 2px; }
-.rg-tag { font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; color: rgb(var(--fg)); }
+.rg-tag { font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0; white-space: nowrap; color: rgb(var(--fg)); }
 .rg-who { display: inline-flex; align-items: center; gap: 0.625rem; min-width: 0; max-width: 16rem; }
 
 /* ------------------------------------------------------------ benefit plans */
@@ -25,7 +25,7 @@
 .rg-plan-head { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
 .rg-plan-icon {
   display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: 0.5rem;
-  background: rgb(var(--rg-id) / 0.12);
+  border: 1px solid rgb(var(--border)); background: rgb(var(--surface)); /* a neutral box, never a tinted chip */
 }
 .rg-plan-icon > svg { width: 1.25rem; height: 1.25rem; }
 .rg-plan-title { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: rgb(var(--fg)); }
@@ -39,10 +39,11 @@
 
 /* ------------------------------------------------------- announcement feed */
 .rg-feed-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem); gap: 2rem; align-items: start; }
-.rg-feed { display: flex; flex-direction: column; gap: 1rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
+/* The feed is rows under hairlines, not a stack of boxes (DESIGN.md: no card round a list item). */
+.rg-feed { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; list-style: none; min-width: 0; border-bottom: 1px solid rgb(var(--border)); }
 .rg-post {
-  display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; padding: 1.25rem;
-  border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface));
+  display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; padding: 1rem 0;
+  border-top: 1px solid rgb(var(--border)); background: rgb(var(--surface));
 }
 .rg-post-head { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
 .rg-post-sym { display: grid; place-items: center; flex: none; width: 1.25rem; height: 1.25rem; font-size: 1rem; line-height: 1; }
@@ -74,8 +75,8 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; width: 3.5rem; height: 3.5rem;
   border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface));
 }
-.rg-date-month { font-size: 0.75rem; line-height: 1rem; font-weight: 700; color: rgb(var(--act)); }
-.rg-date-day { font-size: 1.375rem; line-height: 1.75rem; font-weight: 700; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.rg-date-month { font-size: 0.75rem; line-height: 1rem; font-weight: 600; color: rgb(var(--fg-muted)); }
+.rg-date-day { font-size: 1.375rem; line-height: 1.75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
 .rg-event-text { display: flex; flex-direction: column; gap: 0.125rem; flex: 1 1 auto; min-width: 0; }
 .rg-event-title { margin-right: 0; max-width: 100%; }
 .rg-event-end { display: flex; align-items: center; gap: 0.75rem; flex: none; }
@@ -90,5 +91,4 @@
   .rg-event-text { flex-basis: calc(100% - 4.5rem); }
   .rg-event-end { width: 100%; justify-content: space-between; padding-left: 4.5rem; }
   .rg-event .rg-sub { white-space: normal; }
-  .rg-post { padding: 1rem; }
 }

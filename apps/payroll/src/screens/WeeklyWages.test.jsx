@@ -56,7 +56,7 @@ it('opens a draft sheet, changes days and approves it', async () => {
   render(<WeeklyWages />);
   await user.click(await screen.findByRole('button', { name: '25 Jan – 31 Jan 2027' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'Wages for 25 Jan – 31 Jan 2027' })).toBeTruthy();
-  const days = screen.getByRole('spinbutton', { name: 'Days for Ravi Kumar' });
+  const days = screen.getByRole('textbox', { name: 'Days for Ravi Kumar' });
   await user.clear(days);
   await user.type(days, '5');
   await user.tab();

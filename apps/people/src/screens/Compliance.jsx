@@ -11,7 +11,7 @@ import SuggestInput from '@ui/components/ui/SuggestInput';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import * as api from '../api/compliance';
 import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
@@ -250,13 +250,20 @@ function ObligationDrawer({ o, known = [], canAct, owners, onClose, onSaved }) {
       setBusy(false);
     }
   };
+  const [removing, setRemoving] = useState(null);
   const remove = async (p) => {
+    if (removing) return;
+    if (!(await confirmDialog({ title: `Remove ${p.name}?`, message: `It is taken off “${o.title}” as proof. Attach it again if you need it back.`, confirmLabel: 'Remove proof' }))) return;
+    setRemoving(p.id);
     try {
       await api.removeProof(o.id, p.id);
       setProofs((list) => list.filter((x) => x.id !== p.id));
+      notify.success('Proof removed');
       onSaved();
     } catch (e) {
       notify.error(errorWords(e, 'remove it'));
+    } finally {
+      setRemoving(null);
     }
   };
   const view = async (p) => {
@@ -293,7 +300,7 @@ function ObligationDrawer({ o, known = [], canAct, owners, onClose, onSaved }) {
                   <FileText size={16} aria-hidden="true" />
                   <button type="button" className="ui-link min-w-0 flex-1 truncate text-left" onClick={() => view(p)}>{p.name}</button>
                   {p.uploadedBy ? <span className="ui-caption">{p.uploadedBy}</span> : null}
-                  {canAct && !locked ? <button type="button" className="ui-icon-btn" aria-label={`Remove ${p.name}`} onClick={() => remove(p)}><X size={16} aria-hidden="true" /></button> : null}
+                  {canAct && !locked ? <button type="button" className="ui-icon-btn" aria-label={`Remove ${p.name}`} disabled={Boolean(removing) || busy} aria-busy={removing === p.id || undefined} onClick={() => remove(p)}><X size={16} aria-hidden="true" /></button> : null}
                 </li>
               ))}
             </ul>

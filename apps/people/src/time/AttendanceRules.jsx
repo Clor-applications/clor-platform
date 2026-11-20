@@ -289,7 +289,7 @@ function PreviewTable({ preview }) {
   if (!rows.length) return <p className="text-sm" role="status">Nobody in {monthTitle(preview.month)}.</p>;
   return (
     <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }} role="status">
-      <table className="w-full text-sm" aria-label={`Penalties in ${monthTitle(preview.month)}`}>
+      <table className="ui-table w-full" aria-label={`Penalties in ${monthTitle(preview.month)}`}>
         <thead>
           <tr className="text-left">
             <th scope="col" className="py-2 pr-3 font-semibold">Employee</th>

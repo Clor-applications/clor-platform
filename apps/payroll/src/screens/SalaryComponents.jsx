@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import { Plus, SlidersHorizontal, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -6,7 +7,7 @@ import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
-import Drawer from '@ui/components/ui/Drawer';
+import Drawer from '../components/EditDrawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
   listSalaryComponents,
@@ -525,9 +526,9 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
           {form.calculationMethod === 'FIXED' ? (
             <div>
               <label className="ui-label" htmlFor="component-amount">Amount</label>
-              <input
+              <MoneyInput
                 id="component-amount"
-                type="number"
+                type="text" inputMode="decimal"
                 min="0"
                 step="0.01"
                 className="ui-input ui-num w-full"
@@ -543,7 +544,7 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
                 <label className="ui-label" htmlFor="component-percentage">Percentage</label>
                 <input
                   id="component-percentage"
-                  type="number"
+                  type="text" inputMode="decimal"
                   min="0"
                   step="0.01"
                   className="ui-input ui-num w-full"
@@ -721,9 +722,9 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
               </div>
               <div>
                 <label className="ui-label" htmlFor="component-threshold-amount">Amount</label>
-                <input
+                <MoneyInput
                   id="component-threshold-amount"
-                  type="number"
+                  type="text" inputMode="decimal"
                   min="0"
                   className="ui-input ui-num w-full"
                   value={form.thresholdAmount ?? 0}
@@ -733,9 +734,9 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
               {form.thresholdOperator === 'RANGE' ? (
                 <div className="sm:col-start-4">
                   <label className="ui-label" htmlFor="component-threshold-end">and</label>
-                  <input
+                  <MoneyInput
                     id="component-threshold-end"
-                    type="number"
+                    type="text" inputMode="decimal"
                     min="0"
                     className="ui-input ui-num w-full"
                     value={form.thresholdRangeEnd ?? 0}
@@ -753,9 +754,9 @@ const ComponentForm = ({ initial, onClose, onSaved }) => {
             <>
               <div>
                 <label className="ui-label" htmlFor="component-max">Maximum</label>
-                <input
+                <MoneyInput
                   id="component-max"
-                  type="number"
+                  type="text" inputMode="decimal"
                   min="0"
                   className="ui-input ui-num w-full"
                   value={form.maximumAmount ?? 0}

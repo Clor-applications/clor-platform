@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Drawer from '@ui/components/ui/Drawer';
 import useRequest from '@ui/components/ui/useRequest';
+import ErrorState from '@ui/components/ui/ErrorState';
 import { notify } from '@ui/components/ui/notify';
 import { getInterviewQuestions, setInterviewQuestions } from '../api/talent';
 import { FormError, Footer, SHEET } from './shared';
@@ -84,7 +85,8 @@ export function InterviewQuestionsDrawer({ onClose }) {
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={text !== null && text !== initial} title="Interview questions"
       description="The same list for every job. Each interviewer rates every question from 1 to 5 beside their recommendation."
-      footer={<Footer onCancel={onClose} onSave={save} busy={busy || req.loading} label="Save" />}>
+      footer={<Footer onCancel={onClose} onSave={save} busy={busy || req.loading} disabled={Boolean(req.error && !req.data)} label="Save" />}>
+      {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} compact /> : (
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (!busy) save(); }}>
         <FormError error={error} />
         <label className="block sm:col-span-2"><span className="ui-label">Questions, one a line</span>
@@ -92,6 +94,7 @@ export function InterviewQuestionsDrawer({ onClose }) {
           <span className="ui-help">Up to 12. Ratings already given keep the questions they were given against.</span>
         </label>
       </form>
+      )}
     </Drawer>
   );
 }

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsRemoveSavedReply, opsSaveSavedReply, opsSavedReplies } from './api';
-import { APP_NAMES, Empty, Err, Loading, errorWords, may } from './kit';
+import { APP_NAMES, Empty, Err, ErrorSummary, FieldMsg, Loading, errorWords, fieldErr, may } from './kit';
 
 /**
  * Saved replies (server: routes/opsSavedReplies.ts): the answers Support gives
@@ -19,7 +19,21 @@ function Editor({ reply, onClose, onSaved }) {
   const [helpUrl, setHelpUrl] = useState(reply?.helpUrl || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const dirty = title !== (reply?.title || '') || body !== (reply?.body || '') || app !== (reply?.app || '') || helpUrl !== (reply?.helpUrl || '');
+  const close = () => { if (!busy) onClose(); };
+  const check = () => {
+    const e = {};
+    if (title.trim().length < 3) e.title = 'Title: write at least 3 characters.';
+    if (body.trim().length < 10) e.body = 'Reply: write at least 10 characters.';
+    if (helpUrl.trim() && !/^https:\/\//i.test(helpUrl.trim())) e.helpUrl = 'Help page: start the link with https://.';
+    return e;
+  };
   const save = async () => {
+    if (busy) return;
+    const e = check();
+    setErrors(e);
+    if (Object.keys(e).length) return;
     setBusy(true);
     setError('');
     try {
@@ -34,26 +48,30 @@ function Editor({ reply, onClose, onSaved }) {
   return (
     <WsDrawer
       open
-      onClose={onClose}
+      onClose={close}
+      dirty={dirty || busy}
       title={reply ? 'Change the saved reply' : 'New saved reply'}
       description="Write {name} for the customer’s first name and {ticket} for the ticket’s code."
       actions={
         <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy || title.trim().length < 3 || body.trim().length < 10} onClick={save}>
+          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>Cancel</button>
+          <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>
             {busy ? 'Saving…' : 'Save reply'}
           </button>
         </>
       }
     >
       <div className="grid gap-5">
+        <ErrorSummary errors={errors} />
         <label className="grid gap-1">
           <span className="ui-label">Title</span>
-          <input className="ui-input" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Forgot password" />
+          <input className="ui-input" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Forgot password" {...fieldErr(errors, 'title', 'sr')} />
+          <FieldMsg errors={errors} k="title" idBase="sr" />
         </label>
         <label className="grid gap-1">
           <span className="ui-label">Reply</span>
-          <textarea className="ui-input" rows={8} maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={'Hi {name},\n\nUse Forgot password on the sign-in page…'} />
+          <textarea className="ui-input" rows={8} maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} placeholder={'Hi {name},\n\nUse Forgot password on the sign-in page…'} {...fieldErr(errors, 'body', 'sr')} />
+          <FieldMsg errors={errors} k="body" idBase="sr" />
         </label>
         <label className="grid gap-1">
           <span className="ui-label">App</span>
@@ -68,7 +86,8 @@ function Editor({ reply, onClose, onSaved }) {
         {/* Round 55 (canned replies B): a help page the reply links to. */}
         <label className="grid gap-1">
           <span className="ui-label">Help page (optional)</span>
-          <input className="ui-input" type="url" inputMode="url" maxLength={500} value={helpUrl} onChange={(e) => setHelpUrl(e.target.value)} placeholder="https://clor.in/help/…" />
+          <input className="ui-input" type="url" inputMode="url" maxLength={500} value={helpUrl} onChange={(e) => setHelpUrl(e.target.value)} placeholder="https://clor.in/help/…" {...fieldErr(errors, 'helpUrl', 'sr')} />
+          <FieldMsg errors={errors} k="helpUrl" idBase="sr" />
           <span className="ui-caption">Added under the reply as “Read more” with this link.</span>
         </label>
         <Err>{error}</Err>
@@ -105,7 +124,7 @@ export function SavedReplies({ me }) {
           description="Answers Support gives often, picked in a ticket’s reply box and changed there before sending."
           actions={canWrite ? <button type="button" className="ws-btn ws-btn--primary" onClick={() => setEditing('new')}>New saved reply</button> : null}
         />
-        <Err>{error}</Err>
+        <Err onRetry={load}>{error}</Err>
         {!rows ? (
           error ? null : <Loading />
         ) : !rows.length ? (

@@ -89,6 +89,12 @@ import { Denials, FeatureSwitches, Organisations, Users } from './Lists';
 import { ROLE, errorWords } from './kit';
 import { opsEnableTwoFactor, opsHome, opsMe, opsMySupportGrants, opsStartTwoFactor } from './api';
 import { ConsoleGrant, consoleGrantState } from './ConsoleGrant';
+import { confirmLeave, hasUnsaved } from '@platform/unsaved';
+import { confirmDialog } from '@ui/components/ui/notify';
+
+/* Leaving a page with unsaved edits (a price-book draft): Stay is the main button, so a stray click loses nothing. */
+const askLeave = () =>
+  confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', cancelLabel: 'Stay', stayFirst: true });
 
 /**
  * The CLOR operator console (W-8.2; roadmap items 13 and 14), at ops.clor.in
@@ -418,7 +424,7 @@ function EnrolAuthenticator({ onDone }) {
             <p className="ws-card-blurb">Can’t scan? Enter this key: <span className="ui-mono" style={{ wordBreak: 'break-all' }}>{setup.secret}</span></p>
             <div className="flex gap-2">
               <input className="ui-input ui-num w-36 text-center tracking-widest" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456" aria-label="Code from the app" value={code} onChange={(e) => { setCode(e.target.value); setError(''); }} autoFocus />
-              <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || code.trim().length !== 6}>Turn on</button>
+              <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || code.trim().length !== 6}>{busy ? 'Turning on…' : 'Turn on'}</button>
             </div>
           </div>
         </form>
@@ -458,8 +464,18 @@ function Console() {
   useEffect(() => {
     if (/^\/o\//.test(window.location.pathname)) window.history.replaceState({}, '', `${OPS_HOST ? '/' : '/ops'}${window.location.hash}`);
   }, []);
+  /* Back or a typed address over unsaved edits (a price-book draft) asks first; Stay puts the address back. */
+  const routeRef = useRef(route);
+  useEffect(() => { routeRef.current = route; }, [route]);
   useEffect(() => {
-    const onHash = () => setRoute(parseRoute(window.location.hash));
+    const onHash = async () => {
+      const next = parseRoute(window.location.hash);
+      if (hasUnsaved() && !(await confirmLeave(askLeave))) {
+        window.history.pushState(null, '', routeHash(routeRef.current));
+        return;
+      }
+      setRoute(next);
+    };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -468,7 +484,13 @@ function Console() {
     if (!user) return;
     opsMe()
       .then(setMe)
-      .catch((e) => setRefused({ code: e?.code || e?.data?.code, message: errorWords(e, 'open the staff console') }));
+      .catch((e) => {
+        const code = e?.code || e?.data?.code;
+        /* Only the server's own "not staff" answer says so. A network failure or a server error
+           is said as that, with Try again: a 503 is not a reason to tell staff they are not staff. */
+        const notStaff = code === 'OPERATOR_ONLY' || (e?.status === 403 && !code);
+        setRefused({ code, notStaff, message: errorWords(e, 'open the staff console') });
+      });
   }, [user, reload]);
 
   /*
@@ -476,6 +498,25 @@ function Console() {
    * access requests not yet answered. Read once when the console opens, not on every page. Either may fail
    * (a role that cannot see it); the menu simply shows none.
    */
+  /* Read again after a change (a confirm went through: `ops:changed`) and when staff come back to the tab. */
+  const [countsTick, setCountsTick] = useState(0);
+  useEffect(() => {
+    if (!me) return undefined;
+    let last = 0;
+    const again = () => {
+      /* A burst of focus events (alt-tab back and forth) reads once. */
+      if (Date.now() - last < 2000) return;
+      last = Date.now();
+      setCountsTick((n) => n + 1);
+    };
+    const changed = () => setCountsTick((n) => n + 1);
+    window.addEventListener('focus', again);
+    window.addEventListener('ops:changed', changed);
+    return () => {
+      window.removeEventListener('focus', again);
+      window.removeEventListener('ops:changed', changed);
+    };
+  }, [me]);
   useEffect(() => {
     if (!me) return;
     let live = true;
@@ -488,7 +529,7 @@ function Console() {
     return () => {
       live = false;
     };
-  }, [me]);
+  }, [me, countsTick]);
 
   /* A new page puts the keyboard and the screen reader at its top, not back in the menu (WCAG 2.4.3). */
   const mainRef = useRef(null);
@@ -506,31 +547,43 @@ function Console() {
   }, [menuOpen]);
 
   const go = useCallback((page, params = {}, id = '', tab = '', replace = false) => {
-    const next = { page, id, tab, params };
-    const hash = routeHash(next);
-    if (replace) window.history.replaceState(null, '', hash);
-    else window.history.pushState(null, '', hash);
-    setRoute(parseRoute(hash));
-    setMenuOpen(false);
-    if (!replace) window.scrollTo(0, 0);
+    const move = () => {
+      const hash = routeHash({ page, id, tab, params });
+      if (replace) window.history.replaceState(null, '', hash);
+      else window.history.pushState(null, '', hash);
+      setRoute(parseRoute(hash));
+      setMenuOpen(false);
+      if (!replace) window.scrollTo(0, 0);
+    };
+    /* Over unsaved edits (a price-book draft) the menu, search and links ask first. */
+    if (!hasUnsaved()) return move();
+    return confirmLeave(askLeave).then((ok) => (ok ? move() : undefined));
   }, []);
 
   if (refused) {
     const needsCode = refused.code === 'TWO_FACTOR_SETUP_REQUIRED';
+    const failed = !needsCode && !refused.notStaff;
+    const again = () => { setRefused(null); setReload((n) => n + 1); };
     /* A stop before the console is a gate page like every other (owner, 15 Nov 2026): GatePage's frame. */
     return (
       <GatePage
         icon={ShieldLine}
         tone={needsCode ? undefined : 'alert'}
-        title={needsCode ? 'Set up your authenticator' : 'This page is for CLOR staff'}
+        title={needsCode ? 'Set up your authenticator' : failed ? 'The staff console did not open' : 'This page is for CLOR staff'}
         subtitle={needsCode ? undefined : refused.message}
         who={user?.email || user?.fullName}
         onSignOut={signOut}
       >
-        {needsCode ? <EnrolAuthenticator onDone={() => { setRefused(null); setReload((n) => n + 1); }} /> : null}
-        <p>
-          <a className="ui-link" href={WORKSPACE_URL}>Go to your workspace</a>
-        </p>
+        {needsCode ? <EnrolAuthenticator onDone={again} /> : null}
+        {failed ? (
+          <p>
+            <button type="button" className="ws-btn ws-btn--primary" onClick={again}>Try again</button>
+          </p>
+        ) : (
+          <p>
+            <a className="ui-link" href={WORKSPACE_URL}>Go to your workspace</a>
+          </p>
+        )}
       </GatePage>
     );
   }

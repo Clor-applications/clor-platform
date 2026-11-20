@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, when, errorWords } from './kit';
+import { Err, ErrorSummary, Loading, when, errorWords } from './kit';
+import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { opsSaveSms, opsSms, opsTestSms } from './api';
 
 /**
@@ -36,7 +37,10 @@ export function TextMessages({ role }) {
     load();
   }, []);
 
-  if (!f) return error ? <Err>{error}</Err> : <Loading />;
+  /* A change not saved: leaving the page asks first, and the test (which uses what is saved) waits. */
+  const dirty = Boolean(f && sms) && (f.enabled !== sms.enabled || f.templateId !== (sms.templateId || '') || f.senderId !== (sms.senderId || '') || Boolean(f.authKey));
+  useUnsavedChanges(dirty);
+  if (!f) return error ? <Err onRetry={() => { setError(''); load(); }}>{error}</Err> : <Loading />;
   const mayChange = role === 'SUPER_ADMIN';
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
@@ -134,13 +138,7 @@ export function TextMessages({ role }) {
               <span className="ws-card-blurb">Six capital letters, as registered on DLT.</span>
             </div>
           </div>
-          {problems.length ? (
-            <ul role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))', paddingLeft: 18, listStyle: 'disc' }}>
-              {problems.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-          ) : null}
+          <ErrorSummary errors={Object.fromEntries(problems.map((p, i) => [`p${i}`, p]))} label="Not saved" />
           {mayChange ? <p className="ws-card-blurb">Saving asks for a code from your authenticator app.</p> : <p className="ws-card-blurb">Only an owner of the console can change this.</p>}
         </form>
       </Panel>
@@ -153,7 +151,7 @@ export function TextMessages({ role }) {
               <span className="text-sm font-semibold">Indian mobile number</span>
               <input className="ui-input tabular-nums" inputMode="tel" autoComplete="off" maxLength={16} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" />
             </label>
-            <button type="submit" className="ws-btn ws-btn--quiet" disabled={testing || phone.replace(/\D/g, '').length < 10 || !sms.authKeySaved || !sms.templateId}>
+            <button type="submit" className="ws-btn ws-btn--quiet" title={dirty ? 'Save first: the test uses what is saved' : undefined} disabled={testing || dirty || phone.replace(/\D/g, '').length < 10 || !sms.authKeySaved || !sms.templateId}>
               {testing ? 'Sending…' : 'Send test text'}
             </button>
           </form>

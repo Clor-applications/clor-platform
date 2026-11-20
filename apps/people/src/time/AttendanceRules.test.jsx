@@ -119,8 +119,10 @@ it('absences: a found case offers notice 1, sent with who signs it', async () =>
   fireEvent.click((await screen.findAllByText('Gone Away'))[0]);
   const dialog = await screen.findByRole('dialog');
   fireEvent.click(within(dialog).getByRole('button', { name: 'Send notice 1' }));
-  fireEvent.click(await within(dialog).findByRole('button', { name: 'Send' }));
+  /* The form's own button names the act; sending asks first, naming the person and the notice. */
+  fireEvent.click(await within(dialog).findByRole('button', { name: 'Send notice 1' }));
   await waitFor(() => expect(api.sendAbsenceNotice).toHaveBeenCalledWith('c1', expect.objectContaining({ signatory: 'Meera Shah, HR', email: true })));
+  expect(dialogs.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Send notice 1 to Gone Away?', confirmLabel: 'Send notice 1' }));
 });
 
 it('night work: who works nights without consent comes first; HR records consent', async () => {
@@ -170,12 +172,15 @@ it('absences: someone back at work needs a reason to be recorded as absconded', 
   fireEvent.click(screen.getAllByText('Back Again')[0]);
   const dialog = await screen.findByRole('dialog');
   fireEvent.click(within(dialog).getByRole('button', { name: 'Record the leaving' }));
-  const record = within(dialog).getByRole('button', { name: 'Record' });
+  const record = within(dialog).getByRole('button', { name: 'Record as absconded' });
   expect(record.disabled).toBe(true);
+  /* A disabled button says why, in a help line under it. */
+  expect(within(dialog).getByText(/Tick "Record it all the same"/)).toBeTruthy();
   fireEvent.click(within(dialog).getByLabelText('Record it all the same'));
   fireEvent.change(within(dialog).getAllByRole('combobox').at(-1), { target: { value: 'Came only to collect belongings' } });
   fireEvent.click(record);
   await waitFor(() => expect(api.recordAbsconded).toHaveBeenCalledWith('c2', expect.objectContaining({ confirmBack: true, reason: 'Came only to collect belongings' })));
+  expect(dialogs.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Record Back Again as absconded?', confirmLabel: 'Record as absconded' }));
 });
 
 it('settings: a mark cuts the time missed by default; rounding asks how far; the step rule shows its numbers and the warning', async () => {

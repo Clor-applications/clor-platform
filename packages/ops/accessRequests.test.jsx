@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ opsMySupportGrants: vi.fn(), opsEndSupportGrant: vi.fn() }));
 vi.mock('./api', () => api);
-vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, confirmDialog: vi.fn(() => Promise.resolve(true)) }));
 
 import { AccessRequests } from './AccessRequests';
+import { confirmDialog } from '@ui/components/ui/notify';
 
 const now = new Date().toISOString();
 const grants = [
@@ -31,6 +32,10 @@ describe('Access requests', () => {
     await waitFor(() => expect(api.opsEndSupportGrant).toHaveBeenCalledWith('g1'));
     fireEvent.click(screen.getByRole('tab', { name: 'Open (1)' }));
     expect(screen.getByText(/Look at and change Patil Constructions/)).toBeInTheDocument();
+    /* Closing access that is open says so first: staff lose access now. */
+    fireEvent.click(screen.getByRole('button', { name: 'Close the request for Patil Constructions' }));
+    await waitFor(() => expect(confirmDialog).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Close access to Patil Constructions?', message: expect.stringMatching(/CLOR staff lose access to Patil Constructions now/) })));
+    await waitFor(() => expect(api.opsEndSupportGrant).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole('button', { name: 'Open account' }));
     expect(openCustomer).toHaveBeenCalledWith('a2');
     fireEvent.click(screen.getByRole('tab', { name: 'Ended' }));

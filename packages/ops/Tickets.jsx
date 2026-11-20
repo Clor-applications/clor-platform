@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { confirmDialog } from '@ui/components/ui/notify';
 
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
-import { APP_NAMES, Err, Loading, Tabs, appsText, day, may, when, errorWords, countLine } from './kit';
+import { APP_NAMES, Err, Loading, Pager, Tabs, appsText, countsChanged, day, may, when, errorWords, countLine } from './kit';
 import { opsAccount, opsInvoices, opsTicket, opsTicketChange, opsTicketReply, opsTickets } from './api';
 import { StatusPill, customerStatus, unpaidOf } from './Customers';
 import { inr } from './money';
@@ -35,17 +36,28 @@ function RowPriority({ priority }) {
 }
 const CATEGORY = { QUESTION: 'Question', PROBLEM: 'Problem', BILLING: 'Plan or billing', DATA: 'Data', OTHER: 'Other' };
 const appName = (a) => (a === 'workspace' ? 'Admin center' : APP_NAMES[a] || a);
+/* The server answers at most 200 tickets a view; the page shows them 50 at a time. */
+const PAGE = 50;
 
 export function Tickets({ initialStatus = 'active', openTicket, me }) {
   const [status, setStatus] = useState(initialStatus);
   const [d, setD] = useState(null);
   const [q, setQ] = useState('');
   const [error, setError] = useState('');
+  const [page, setPage] = useState(0);
+  /* Only the newest request may set the list: a slow answer for an older search or tab is dropped. */
+  const ask = useRef(0);
   const load = useCallback(() => {
+    const n = ++ask.current;
     const params = status === 'mine' ? { status: 'active', mine: '1' } : { status };
     opsTickets({ ...params, q: q.trim() || undefined })
-      .then(setD)
-      .catch((e) => setError(errorWords(e, 'load the tickets')));
+      .then((r) => {
+        if (n !== ask.current) return;
+        setD(r);
+        setError('');
+        setPage(0);
+      })
+      .catch((e) => n === ask.current && setError(errorWords(e, 'load the tickets')));
   }, [status, q]);
   useEffect(() => {
     const t = setTimeout(load, q ? 250 : 0);
@@ -75,7 +87,7 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
           />
           <input className="ui-input" style={{ maxWidth: 280 }} type="search" aria-label="Find a ticket" placeholder="T-1042 or words in the subject" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <Err>{error}</Err>
+        <Err onRetry={load}>{error}</Err>
         {!d && !error ? (
           <Loading />
         ) : d && d.tickets.length === 0 ? (
@@ -97,7 +109,7 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
                 </tr>
               </thead>
               <tbody>
-                {exceptionsFirst(d.tickets, isOpen).map((t) => (
+                {exceptionsFirst(d.tickets, isOpen).slice(page * PAGE, (page + 1) * PAGE).map((t) => (
                   <tr key={t.id} className="ws-row-link" onClick={() => openTicket(t.id)}>
                     <td>
                       <button type="button" className="ws-link" onClick={(e) => { e.stopPropagation(); openTicket(t.id); }}>
@@ -117,6 +129,7 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
             </table>
           </div>
         ) : null}
+        {d ? <Pager page={page} pages={Math.ceil(d.tickets.length / PAGE)} onPage={setPage} /> : null}
       </div>
     </div>
   );
@@ -154,9 +167,10 @@ export function TicketPage({ id, back, openCustomer, openTicket, lookUp, me }) {
   const [notice, setNotice] = useState('');
   const canAct = may(me?.role, 'SUPPORT');
 
-  useEffect(() => {
-    opsTicket(id).then(setT).catch((e) => setError(errorWords(e, 'load the ticket')));
+  const loadTicket = useCallback(() => {
+    opsTicket(id).then((r) => (setT(r), setError(''))).catch((e) => setError(errorWords(e, 'load the ticket')));
   }, [id]);
+  useEffect(loadTicket, [loadTicket]);
   const about = useCustomerContext(t?.account?.id, id);
 
   const run = async (fn, said) => {
@@ -166,6 +180,8 @@ export function TicketPage({ id, back, openCustomer, openTicket, lookUp, me }) {
     try {
       const r = await fn();
       setT(r.ticket || r);
+      setError('');
+      countsChanged();
       if (said) setNotice(typeof said === 'function' ? said(r) : said);
     } catch (e) {
       setError(errorWords(e, 'save the change'));
@@ -181,7 +197,22 @@ export function TicketPage({ id, back, openCustomer, openTicket, lookUp, me }) {
       return r;
     }, internal ? 'Note added. The customer does not see it.' : (r) => (r.told ? 'Sent. The customer has it by email.' : 'Saved on the ticket. The email did not go; the customer sees it in their Admin center.'));
 
-  if (!t) return <div className="ws"><div className="ws-inner">{error ? <Err>{error}</Err> : <Loading />}</div></div>;
+  /* Closing ends the conversation: the customer can no longer reply on it, so it asks first. */
+  const changeStatus = async (next) => {
+    if (next === t.status) return;
+    if (next === 'CLOSED') {
+      const ok = await confirmDialog({
+        title: `Close ${t.code}?`,
+        message: `${t.account.name}: “${t.subject}”. ${t.openedBy.name} can no longer reply on it, and you cannot send a reply on a closed ticket.`,
+        confirmLabel: 'Close ticket',
+        cancelLabel: 'Keep it open',
+      });
+      if (!ok) return;
+    }
+    run(() => opsTicketChange(id, { status: next }), `Status changed to ${STATUS[next]?.[0]?.toLowerCase() || next}.`);
+  };
+
+  if (!t) return <div className="ws"><div className="ws-inner">{error ? <Err onRetry={() => (setError(''), loadTicket())}>{error}</Err> : <Loading />}</div></div>;
   const mineNow = t.assignedTo?.id === me?.user?.id;
   const acct = about.account?.account ? about.account : null;
   const sub = acct?.subscription;
@@ -267,7 +298,7 @@ export function TicketPage({ id, back, openCustomer, openTicket, lookUp, me }) {
                   </div>
                   <div className="grid">
                     <label htmlFor="tk-status" className="text-sm">Status</label>
-                    <select id="tk-status" className="ui-select" value={t.status} disabled={busy} onChange={(e) => run(() => opsTicketChange(id, { status: e.target.value }), 'Status changed.')}>
+                    <select id="tk-status" className="ui-select" value={t.status} disabled={busy} onChange={(e) => changeStatus(e.target.value)}>
                       {Object.entries(STATUS).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}
                     </select>
                   </div>

@@ -1,5 +1,6 @@
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useRef, useState } from 'react';
+import { CountLine } from '@ui/components/ui/CountLine';
 import { Check, FileDown, Upload } from '@ui/components/ui/lineIcons';
 
 import { PageHeader } from '@ui/components/ui/Primitives';
@@ -46,6 +47,7 @@ const csvCell = (v) => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s) && 
 export default function ImportEmployees({ openScreen }) {
   const perms = usePermissions();
   const [file, setFile] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
   const [mapping, setMapping] = useState([]);
   const [mode, setMode] = useState('create');
   const [preview, setPreview] = useState(null);
@@ -164,9 +166,13 @@ export default function ImportEmployees({ openScreen }) {
 
         {step === 'upload' ? (
           <div className="space-y-3">
-            <label className="ui-dropzone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); take(e.dataTransfer.files?.[0]); }}>
+            <label className="ui-dropzone" data-over={dragOver || undefined}
+              onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragOver={(e) => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
+              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); take(e.dataTransfer.files?.[0]); }}>
               <Upload size={24} aria-hidden="true" />
-              <span className="font-semibold">Choose a CSV or Excel file</span>
+              <span className="font-semibold">{dragOver ? 'Drop the file to use it' : 'Choose a CSV or Excel file'}</span>
               <span className="ui-caption">or drop it here · up to 2 MB and {MAX_ROWS} rows</span>
               <input ref={input} type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => take(e.target.files?.[0])} />
             </label>
@@ -213,11 +219,13 @@ export default function ImportEmployees({ openScreen }) {
 
         {step === 'validate' && preview ? (
           <div className="space-y-3">
-            <dl className="ui-metric-strip">
-              <div className="ui-metric" data-tint="mint" data-zero={Number(preview.imported) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{preview.imported}</dd><dt className="ui-metric-label">Ready{preview.results.some((r) => r.action === 'UPDATE') ? ` (${preview.results.filter((r) => r.action === 'UPDATE').length} updates)` : ''}</dt></span></div>
-              <div className="ui-metric" data-tint="peach" data-zero={Number(preview.failed) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{preview.failed}</dd><dt className="ui-metric-label">With a problem</dt></span></div>
-              <div className="ui-metric" data-tint="lilac" data-zero={!preview.results.some((r) => r.warning) || undefined}><span><dd className="ui-metric-value tabular-nums">{preview.results.filter((r) => r.warning).length}</dd><dt className="ui-metric-label">May be someone already here</dt></span></div>
-            </dl>
+            {/* One count line, the zero clauses left out (DESIGN.md "Page header"). */}
+            <CountLine label="Import check" items={[
+              { key: 'ready', label: `ready${preview.results.some((r) => r.action === 'UPDATE') ? ` (${preview.results.filter((r) => r.action === 'UPDATE').length} updates)` : ''}`, value: Number(preview.imported) || 0 },
+              { key: 'failed', label: 'with a problem', value: Number(preview.failed) || 0, tone: 'neg' },
+              { key: 'warn', label: 'may be someone already here', value: preview.results.filter((r) => r.warning).length, tone: 'warn' },
+            ]} />
+            {!Number(preview.imported) && !Number(preview.failed) && !preview.results.some((r) => r.warning) ? <p className="ui-caption">No rows to import.</p> : null}
             {busy ? <ImportProgress rows={preview.imported} /> : null}
             <p className="ui-caption">{mode === 'update' ? 'People already here are updated with the columns given.' : 'Rows with an employee ID already here are skipped.'} An import can be undone for 24 hours.</p>
             {step === 'validate' ? (

@@ -150,7 +150,7 @@ export default function Registers({ params = {}, updateParams, register: fixed }
             <div className="register-noprint"><EmptyState title="Nothing in this register for the period" /></div>
           ) : (
             <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }}>
-              <table className={`w-full border-collapse ${kind === 'muster' ? 'text-xs' : 'text-sm'}`} aria-label={reg.label}>
+              <table className={`ui-table w-full ${kind === 'muster' ? 'text-[0.8125rem]' : ''}`} aria-label={reg.label}>
                 <thead>
                   <tr>
                     {d.columns.map((c, i) => <th key={i} scope="col" className={`p-2 font-semibold ${isDay(c) ? 'text-center p-0.5 min-w-5' : isFigure(c) ? 'text-right' : 'text-left'}`}>{c}</th>)}
@@ -158,7 +158,7 @@ export default function Registers({ params = {}, updateParams, register: fixed }
                 </thead>
                 <tbody>
                   {d.rows.map((r, ri) => (
-                    <tr key={ri} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
+                    <tr key={ri}>
                       {r.map((v, i) => <td key={i} className={`p-2 align-top ${isDay(d.columns[i]) ? 'text-center p-0.5' : isFigure(d.columns[i]) ? 'text-right tabular-nums' : /^\d{4}-\d{2}-\d{2}$/.test(v) ? 'tabular-nums whitespace-nowrap' : ''}`}>{showRegisterValue(v)}</td>)}
                     </tr>
                   ))}

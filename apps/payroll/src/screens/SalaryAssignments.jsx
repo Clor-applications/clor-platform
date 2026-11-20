@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { Banknote, Plus, TrendingUp, Users } from '@ui/components/ui/lineIcons';
 
@@ -7,7 +8,7 @@ import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import Drawer from '@ui/components/ui/Drawer';
+import Drawer from '../components/EditDrawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listSalaryStructures } from '../api/payrollStructures';
 import UanQuestion from '../components/UanQuestion';
@@ -22,7 +23,7 @@ import {
   checkMinimumWage,
 } from '../api/payrollPeople';
 import LoadFailed from '@ui/components/ui/LoadFailed';
-import { wholeRupees as money, moneyCell } from '@ui/utils/money';
+import { rupees as money, moneyCell } from '@ui/utils/money';
 import { CtcSplit } from '../components/round59';
 import { dayText, errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
@@ -531,9 +532,9 @@ const RaiseForm = ({ person, structures, current, onCancel, onSaved }) => {
         </div>
         <div>
           <label className="ui-label" htmlFor="raise-ctc">Annual CTC</label>
-          <input
+          <MoneyInput
             id="raise-ctc"
-            type="number"
+            type="text" inputMode="decimal"
             min="0"
             step="1000"
             className="ui-input ui-num w-full"

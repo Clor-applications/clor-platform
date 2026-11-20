@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsBooksChoices, opsInvoicing, opsRenewals, opsRunRenewals, opsSaveBooksLink, opsSaveInvoicing, opsSaveSelfServe, opsTestBooks } from './api';
-import { Err, Loading, day, may, errorWords } from './kit';
+import { Err, ErrorSummary, FieldMsg, Loading, day, fieldErr, may, errorWords } from './kit';
+import { inr } from './money';
 
 /**
  * Invoice settings (server: routes/opsInvoices.ts, billing/invoicing.ts).
@@ -23,14 +24,32 @@ function Field({ id, label, hint, children }) {
     </div>
   );
 }
-const Problems = ({ list }) =>
-  list?.length ? (
-    <ul role="alert" className="text-sm grid gap-1" style={{ color: 'rgb(var(--ws-danger))' }}>
-      {list.map((p) => (
-        <li key={p}>{p}</li>
-      ))}
-    </ul>
-  ) : null;
+/* Every problem at once, in a summary that takes the focus; `list` is { field: message } or a list from the server. */
+const Problems = ({ list }) => <ErrorSummary errors={Array.isArray(list) ? Object.fromEntries(list.map((m, i) => [`p${i}`, m])) : list} />;
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** "Kaveri Foods, Godavari Mills and 3 more". */
+export const namesText = (names, shown = 3) => {
+  const list = names.filter(Boolean);
+  if (list.length <= shown) return list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}` : list[0] || '';
+  return `${list.slice(0, shown).join(', ')} and ${list.length - shown} more`;
+};
+/**
+ * What "Issue the N due now" will do, in words: how many invoices, to whom, and the total when the
+ * list carries each renewal's amount (paise). Used by the confirm and its test.
+ */
+export function renewalRunWords(due) {
+  const n = due.length;
+  const amounts = due.map((r) => r.amount ?? r.total);
+  const known = n > 0 && amounts.every((a) => Number.isFinite(Number(a)) && a != null);
+  const total = known ? amounts.reduce((t, a) => t + Number(a), 0) : null;
+  return {
+    title: `Issue ${plural(n, 'renewal invoice')}${total != null ? ` for ${inr(total)}` : ''}?`,
+    message: `${plural(n, 'invoice')} ${n === 1 ? 'is' : 'are'} issued now and emailed to the account ${n === 1 ? 'owner' : 'owners'}: ${namesText(due.map((r) => r.name))}.${
+      total != null ? ` Together they bill ${inr(total)}.` : ' Each is billed at its plan’s price, or the offer’s while it lasts.'
+    } Issued invoices are numbered and cannot be changed, only cancelled.`,
+    confirmLabel: `Issue ${plural(n, 'invoice')}`,
+  };
+}
 
 export function InvoiceSettings({ role, openTax, openPayments, openTemplates }) {
   const [s, setS] = useState(null);
@@ -41,7 +60,7 @@ export function InvoiceSettings({ role, openTax, openPayments, openTemplates }) 
       .catch((e) => setError(errorWords(e, 'load the invoice settings')));
   }, []);
   useEffect(load, [load]);
-  if (!s) return error ? <Err>{error}</Err> : <Loading />;
+  if (!s) return error ? <Err onRetry={load}>{error}</Err> : <Loading />;
   const mayChange = may(role, 'BILLING');
   return (
     <>
@@ -147,15 +166,34 @@ function Renewals({ s: settings, mayChange, onSaved }) {
   const [busy, setBusy] = useState('');
   const [problems, setProblems] = useState([]);
   const [list, setList] = useState(null);
+  const [listError, setListError] = useState('');
   const loadList = useCallback(() => {
+    setListError('');
     opsRenewals()
       .then((r) => setList(r?.upcoming || []))
-      .catch(() => setList([]));
+      .catch((e) => setListError(errorWords(e, 'load the renewals coming up')));
   }, []);
   useEffect(loadList, [loadList]);
   const changed = on !== s.renewals.on || Number(days) !== s.renewals.daysBefore;
+  /* Turning them on: the next run (within six hours) issues every renewal inside the new window that has no invoice yet. */
+  const wouldIssue = (list || []).filter((r) => !r.invoice && new Date(`${r.renewsOn}T00:00:00+05:30`).getTime() <= Date.now() + Number(days || 0) * 86_400_000);
   const save = async (e) => {
     e.preventDefault();
+    if (on && !s.renewals.on) {
+      const n = wouldIssue.length;
+      const ok = await confirmDialog({
+        title: 'Turn on renewal invoices?',
+        message:
+          list === null
+            ? `CLOR then issues and emails each renewal invoice ${days} ${Number(days) === 1 ? 'day' : 'days'} before the period ends. The list of renewals could not be read, so how many go out first is not known.`
+            : n
+              ? `${plural(n, 'renewal invoice')} ${n === 1 ? 'goes' : 'go'} out at the next run, within six hours, and ${n === 1 ? 'is' : 'are'} emailed to the account ${n === 1 ? 'owner' : 'owners'}: ${namesText(wouldIssue.map((r) => r.name))}. After that, each goes ${days} ${Number(days) === 1 ? 'day' : 'days'} before its period ends.`
+              : `No renewal is inside the ${days}-day window today, so nothing goes out at once. After that, each goes ${days} ${Number(days) === 1 ? 'day' : 'days'} before its period ends.`,
+        confirmLabel: 'Turn on renewal invoices',
+        tone: 'primary',
+      });
+      if (!ok) return;
+    }
     setBusy('save');
     setProblems([]);
     try {
@@ -169,7 +207,11 @@ function Renewals({ s: settings, mayChange, onSaved }) {
       setBusy('');
     }
   };
+  const dueRows = (list || []).filter((r) => r.dueNow && !r.invoice);
   const runNow = async () => {
+    if (busy) return;
+    const words = renewalRunWords(dueRows);
+    if (!(await confirmDialog({ ...words, tone: 'primary' }))) return;
     setBusy('run');
     setProblems([]);
     try {
@@ -183,7 +225,7 @@ function Renewals({ s: settings, mayChange, onSaved }) {
       setBusy('');
     }
   };
-  const due = (list || []).filter((r) => r.dueNow && !r.invoice).length;
+  const due = dueRows.length;
   return (
     <Panel title="Renewal invoices">
       <form className="grid gap-5" onSubmit={save}>
@@ -199,7 +241,9 @@ function Renewals({ s: settings, mayChange, onSaved }) {
             <input id="renew-days" className="ui-input ui-num" inputMode="numeric" disabled={!mayChange || !on} value={days} onChange={(e) => setDays(e.target.value.replace(/\D/g, '').slice(0, 2))} style={{ maxWidth: '8rem' }} />
           </Field>
         </div>
-        {list === null ? (
+        {listError ? (
+          <Err onRetry={loadList}>{listError}</Err>
+        ) : list === null ? (
           <Loading />
         ) : list.length ? (
           <ul className="ws-list" aria-label="Renewals in the next 30 days">
@@ -268,12 +312,22 @@ function Reminders({ s: settings, mayChange, onSaved, openTemplates }) {
   const would = settings.wouldRemindIfOn ?? settings.wouldRemindToday ?? 0;
   const save = async (e) => {
     e.preventDefault();
-    const wrong = [];
-    if (!b || b.length > 3 || b.some((d) => d < 1 || d > 30)) wrong.push('Days before the due date: up to three numbers, each from 1 to 30.');
-    if (!a || a.length > 4 || a.some((d) => d < 1 || d > 60)) wrong.push('Days after the due date: up to four numbers, each from 1 to 60.');
-    if (!/^[1-6]$/.test(cap)) wrong.push('Stop after this many reminders: a number from 1 to 6.');
+    const wrong = {};
+    if (!b || b.length > 3 || b.some((d) => d < 1 || d > 30)) wrong.before = 'Days before the due date: up to three numbers, each from 1 to 30.';
+    if (!a || a.length > 4 || a.some((d) => d < 1 || d > 60)) wrong.after = 'Days after the due date: up to four numbers, each from 1 to 60.';
+    if (!/^[1-6]$/.test(cap)) wrong.cap = 'Stop after this many reminders: a number from 1 to 6.';
     setProblems(wrong);
-    if (wrong.length) return;
+    if (Object.keys(wrong).length) return;
+    /* Turning them on emails customers: say how many today before it goes. */
+    if (on && !saved.on) {
+      const ok = await confirmDialog({
+        title: 'Turn on automatic reminders?',
+        message: `${would === 1 ? '1 invoice is' : `${would} invoices are`} reminded today, by email to the customer. Invoices issued before today are never reminded automatically, and a paid or cancelled invoice never is.`,
+        confirmLabel: 'Turn on reminders',
+        tone: 'primary',
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       await opsSaveInvoicing({ remindersOn: on, reminderDaysBefore: b, reminderOnDueDate: onDue, reminderDaysAfter: a, reminderCap: Number(cap) });
@@ -303,13 +357,16 @@ function Reminders({ s: settings, mayChange, onSaved, openTemplates }) {
         </label>
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))' }}>
           <Field id="remind-before" label="Days before the due date" hint="Up to three, with commas: 7, 3. Leave empty for none.">
-            <input id="remind-before" className="ui-input ui-num" inputMode="numeric" disabled={off} value={before} onChange={(e) => setBefore(e.target.value)} />
+            <input id="remind-before" className="ui-input ui-num" inputMode="numeric" disabled={off} value={before} onChange={(e) => setBefore(e.target.value)} {...fieldErr(problems, 'before', 'remind')} />
+            <FieldMsg errors={problems} k="before" idBase="remind" />
           </Field>
           <Field id="remind-after" label="Days after the due date" hint="Up to four, with commas: 3, 7, 14. Leave empty for none.">
-            <input id="remind-after" className="ui-input ui-num" inputMode="numeric" disabled={off} value={after} onChange={(e) => setAfter(e.target.value)} />
+            <input id="remind-after" className="ui-input ui-num" inputMode="numeric" disabled={off} value={after} onChange={(e) => setAfter(e.target.value)} {...fieldErr(problems, 'after', 'remind')} />
+            <FieldMsg errors={problems} k="after" idBase="remind" />
           </Field>
           <Field id="remind-cap" label="Stop after this many reminders" hint="From 1 to 6 for one invoice.">
-            <input id="remind-cap" className="ui-input ui-num" inputMode="numeric" disabled={off} value={cap} onChange={(e) => setCap(e.target.value.replace(/\D/g, '').slice(0, 1))} style={{ maxWidth: '8rem' }} />
+            <input id="remind-cap" className="ui-input ui-num" inputMode="numeric" disabled={off} value={cap} onChange={(e) => setCap(e.target.value.replace(/\D/g, '').slice(0, 1))} style={{ maxWidth: '8rem' }} {...fieldErr(problems, 'cap', 'remind')} />
+            <FieldMsg errors={problems} k="cap" idBase="remind" />
           </Field>
         </div>
         <label className="flex items-center gap-2">
@@ -355,11 +412,11 @@ function SelfServeSeats({ s: settings, mayChange, onSaved }) {
   const changed = on !== saved.on || Number(max) !== saved.maxPerChange || Number(daysToPay) !== saved.payDays;
   const save = async (e) => {
     e.preventDefault();
-    const wrong = [];
-    if (!/^\d{1,3}$/.test(max) || Number(max) < 1 || Number(max) > 500) wrong.push('At most at a time: a number from 1 to 500.');
-    if (!/^\d{1,2}$/.test(daysToPay) || Number(daysToPay) < 3 || Number(daysToPay) > 30) wrong.push('Days to pay: a number from 3 to 30.');
+    const wrong = {};
+    if (!/^\d{1,3}$/.test(max) || Number(max) < 1 || Number(max) > 500) wrong.max = 'At most at a time: a number from 1 to 500.';
+    if (!/^\d{1,2}$/.test(daysToPay) || Number(daysToPay) < 3 || Number(daysToPay) > 30) wrong.days = 'Days to pay: a number from 3 to 30.';
     setProblems(wrong);
-    if (wrong.length) return;
+    if (Object.keys(wrong).length) return;
     setBusy(true);
     try {
       await opsSaveSelfServe({ on, maxPerChange: Number(max), payDays: Number(daysToPay) });
@@ -384,10 +441,12 @@ function SelfServeSeats({ s: settings, mayChange, onSaved }) {
         </label>
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))' }}>
           <Field id="seats-max" label="At most at a time" hint="From 1 to 500. More than this is a request to CLOR.">
-            <input id="seats-max" className="ui-input ui-num" inputMode="numeric" disabled={off} value={max} onChange={(e) => setMax(e.target.value.replace(/\D/g, '').slice(0, 3))} style={{ maxWidth: '8rem' }} />
+            <input id="seats-max" className="ui-input ui-num" inputMode="numeric" disabled={off} value={max} onChange={(e) => setMax(e.target.value.replace(/\D/g, '').slice(0, 3))} style={{ maxWidth: '8rem' }} {...fieldErr(problems, 'max', 'seats')} />
+            <FieldMsg errors={problems} k="max" idBase="seats" />
           </Field>
           <Field id="seats-days" label="Days to pay" hint="From 3 to 30. Then the seats come off.">
-            <input id="seats-days" className="ui-input ui-num" inputMode="numeric" disabled={off} value={daysToPay} onChange={(e) => setDaysToPay(e.target.value.replace(/\D/g, '').slice(0, 2))} style={{ maxWidth: '8rem' }} />
+            <input id="seats-days" className="ui-input ui-num" inputMode="numeric" disabled={off} value={daysToPay} onChange={(e) => setDaysToPay(e.target.value.replace(/\D/g, '').slice(0, 2))} style={{ maxWidth: '8rem' }} {...fieldErr(problems, 'days', 'seats')} />
+            <FieldMsg errors={problems} k="days" idBase="seats" />
           </Field>
         </div>
         <Problems list={problems} />
@@ -409,6 +468,9 @@ function BooksConnector({ s, mayChange, onSaved }) {
   const [picking, setPicking] = useState(!b.orgId);
   const [search, setSearch] = useState('');
   const [found, setFound] = useState([]);
+  const [lookedFor, setLookedFor] = useState(null);
+  const [lookError, setLookError] = useState('');
+  const [lookAgain, setLookAgain] = useState(0);
   const [pick, setPick] = useState({ accountId: b.accountId || '', orgId: b.orgId || '', branchId: b.branchId || '' });
   const [busy, setBusy] = useState('');
   const [test, setTest] = useState(null);
@@ -417,16 +479,22 @@ function BooksConnector({ s, mayChange, onSaved }) {
   useEffect(() => {
     if (!picking) return undefined;
     let live = true;
+    const asked = search.trim();
     const t = setTimeout(() => {
-      opsBooksChoices(search.trim())
-        .then((r) => live && setFound(r.accounts))
-        .catch(() => {});
+      opsBooksChoices(asked)
+        .then((r) => {
+          if (!live) return;
+          setLookError('');
+          setFound(r.accounts || []);
+          setLookedFor(asked);
+        })
+        .catch((e) => live && setLookError(errorWords(e, 'look up the accounts')));
     }, 250);
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [search, picking]);
+  }, [search, picking, lookAgain]);
 
   const save = async (body, message) => {
     setBusy('save');
@@ -469,7 +537,11 @@ function BooksConnector({ s, mayChange, onSaved }) {
             <Field id="books-search" label="CLOR’s account" hint="Type the account’s name, its company’s name or its account ID.">
               <input id="books-search" className="ui-input" autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} />
             </Field>
-            {found.length ? (
+            {lookError ? (
+              <Err onRetry={() => setLookAgain((n) => n + 1)}>{lookError}</Err>
+            ) : lookedFor !== search.trim() && !found.length ? (
+              search.trim() ? <span className="ws-item-sub" role="status">Looking…</span> : null
+            ) : found.length ? (
               <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))' }}>
                 <Field id="books-account" label="Account">
                   <select id="books-account" className="ui-input" value={pick.accountId} onChange={(e) => setPick({ accountId: e.target.value, orgId: '', branchId: '' })}>
@@ -504,7 +576,7 @@ function BooksConnector({ s, mayChange, onSaved }) {
                 </Field>
               </div>
             ) : search.trim() ? (
-              <span className="ws-item-sub">No account matches.</span>
+              <span className="ws-item-sub" role="status">No account matches.</span>
             ) : null}
             <div className="flex gap-2">
               <button type="button" className="ws-btn ws-btn--quiet" disabled={!pick.branchId || busy === 'save'} onClick={() => save(pick, 'Books company chosen. Test the connection, then switch it on.')}>

@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ opsAnnouncements: vi.fn(), opsAnnouncementSave: vi.fn(), opsAnnouncementPublish: vi.fn(), opsAnnouncementEnd: vi.fn(), opsAnnouncementDelete: vi.fn() }));
 vi.mock('./api', () => Object.fromEntries(Object.keys(api).map((k) => [k, (...a) => api[k](...a)])));
-vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() } }));
+const ask = vi.hoisted(() => vi.fn());
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: (o) => ask(o) }));
 
 import { Announcements } from './Announcements';
 
@@ -61,6 +62,22 @@ describe('operator console: announcements', () => {
     await waitFor(() =>
       expect(api.opsAnnouncementSave).toHaveBeenCalledWith(undefined, { title: 'Payslips are slow', body: 'We are fixing it; payslips may take an hour.', kind: 'incident', apps: ['payroll'], audience: 'everyone', endsAt: null, startsAt: null }),
     );
+  });
+
+  it('asks before updating a live announcement, naming who sees the change', async () => {
+    api.opsAnnouncements.mockResolvedValue(list([A()]));
+    api.opsAnnouncementSave.mockResolvedValue({ announcement: A() });
+    ask.mockReset();
+    ask.mockResolvedValueOnce(false).mockResolvedValue(true);
+    render(<Announcements me={{ role: 'SUPPORT' }} />);
+    const row = within(await screen.findByRole('list', { name: 'Announcements' })).getAllByRole('listitem')[0];
+    fireEvent.click(within(row).getByRole('button', { name: 'Change' }));
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Payroll is down for twenty minutes at 11 pm.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Update live announcement' }));
+    await waitFor(() => expect(ask).toHaveBeenCalledWith(expect.objectContaining({ title: 'Update the live announcement?', message: expect.stringContaining('Everyone using Payroll see the new wording') })));
+    expect(api.opsAnnouncementSave).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Update live announcement' }));
+    await waitFor(() => expect(api.opsAnnouncementSave).toHaveBeenCalledWith('n1', expect.objectContaining({ body: 'Payroll is down for twenty minutes at 11 pm.' })));
   });
 
   it('read-only staff can look but not write', async () => {

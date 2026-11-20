@@ -67,6 +67,12 @@
   --gap-col: clamp(var(--s-6), 5vw, var(--s-8));
   --gap-head: clamp(var(--s-6), 4vw, var(--s-7));
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* Motion (DESIGN.md): hover and focus 120ms, menus 150ms, dialogs 180ms, all ease-out. */
+  --dur-hover: 120ms;
+  --dur-menu: 150ms;
+  --dur-dialog: 180ms;
+  /* The sticky header's height: the phone menu opens right under it. */
+  --nav-h: 72px;
   color-scheme: light;
 }
 
@@ -128,7 +134,7 @@ h4 {
   outline-offset: 3px;
   border-radius: 4px;
 }
-/* An in-page target clears the 72px sticky bar (and a little air). */
+/* An in-page target clears the sticky bar (--nav-h) (and a little air). */
 [id] {
   scroll-margin-top: 92px;
 }
@@ -244,7 +250,7 @@ main:focus {
   font: 600 var(--t-sm) / 1 var(--font-text);
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), transform 0.12s var(--ease);
+  transition: background-color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease), transform var(--dur-hover) var(--ease);
   white-space: nowrap;
 }
 .btn:active {
@@ -359,7 +365,7 @@ main:focus {
   display: flex;
   align-items: center;
   gap: var(--s-6);
-  height: 68px;
+  height: var(--nav-h);
 }
 .logo {
   display: inline-flex;
@@ -395,14 +401,14 @@ main:focus {
   font: 500 var(--t-sm) / 1 var(--font-text);
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.15s var(--ease);
+  transition: background-color var(--dur-hover) var(--ease);
 }
 .nav-trigger:hover,
 .nav-trigger[aria-expanded='true'] {
   background: var(--surface-2);
 }
 .nav-trigger svg {
-  transition: transform 0.2s var(--ease);
+  transition: transform var(--dur-menu) var(--ease);
   color: var(--ink-3);
 }
 .nav-trigger[aria-expanded='true'] svg {
@@ -428,7 +434,7 @@ main:focus {
   place-items: center;
 }
 
-/* Mega menus: they open beneath their trigger and appear with a short drop. */
+/* Mega menus: they open beneath their trigger in one short 150ms drop; the items inside do not move on their own. */
 .mega-wrap {
   position: absolute;
   top: 100%;
@@ -437,27 +443,12 @@ main:focus {
   opacity: 0;
   visibility: hidden;
   transform: translateY(-6px);
-  transition: opacity 0.18s var(--ease), transform 0.22s var(--ease), visibility 0.18s;
+  transition: opacity var(--dur-menu) var(--ease), transform var(--dur-menu) var(--ease), visibility var(--dur-menu);
 }
 .mega-wrap.is-open {
   opacity: 1;
   visibility: visible;
   transform: none;
-}
-.mega-wrap .mega-item {
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.25s var(--ease), transform 0.3s var(--ease), background-color 0.15s var(--ease);
-}
-.mega-wrap.is-open .mega-item {
-  opacity: 1;
-  transform: none;
-}
-.mega-wrap.is-open li:nth-child(2) .mega-item {
-  transition-delay: 40ms, 40ms, 0s;
-}
-.mega-wrap.is-open li:nth-child(3) .mega-item {
-  transition-delay: 80ms, 80ms, 0s;
 }
 .mega {
   background: var(--surface);
@@ -563,7 +554,7 @@ main:focus {
 .mobile {
   position: fixed;
   z-index: 49;
-  inset: 72px 0 0;
+  inset: var(--nav-h) 0 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--bg);
@@ -1229,6 +1220,11 @@ main:focus {
 .plan--lead {
   border-top: 2px solid var(--accent);
 }
+/* Pricing shows one billing period; html[data-period] is set by period.js before paint and by the switch after. */
+html:not([data-period='yearly']) .when-yearly,
+html[data-period='yearly'] .when-monthly {
+  display: none;
+}
 .plan-price {
   margin-top: var(--s-2);
   display: flex;
@@ -1443,6 +1439,26 @@ main:focus {
 .demo-thanks:focus {
   outline: none;
 }
+/* After Write the email: the address and the message to copy, for webmail users whose computer has no email app. */
+.contact-sent {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+}
+.contact-sent:focus {
+  outline: none;
+}
+.contact-sent .body {
+  margin: 0;
+}
+.contact-sent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  margin: 0;
+}
 .contact-aside {
   padding-left: clamp(0px, 3vw, var(--s-7));
   border-left: 1px solid var(--line);
@@ -1538,7 +1554,6 @@ main:focus {
   border-radius: 4px;
 }
 
-
 /* Two product marks joined by the Clor connector: a hairline ending in the dot. */
 .links-wire {
   position: relative;
@@ -1581,7 +1596,6 @@ main:focus {
 .contact-mail dd {
   margin: 0;
 }
-
 
 /* ================================================================ home, product and solution pages
  * One white ground with hairlines between sections. No eyebrows, gradients,
@@ -1787,22 +1801,10 @@ main:focus {
   }
 }
 
-/* The home hero: the line and buttons centred, then one wide team photo with Books' screen on its corner. */
-.home-hero {
-  display: grid;
-  justify-items: center;
-  text-align: center;
-}
-.home-hero .hero-copy {
-  justify-items: center;
-  max-width: 52rem;
-}
 .hero--home .h-hero {
   max-width: 20ch;
 }
-.home-hero .actions {
-  justify-content: center;
-}
+
 .hero-caption {
   margin-top: var(--s-3);
   text-align: center;
@@ -1810,76 +1812,6 @@ main:focus {
 .hero--home {
   border-bottom: 0;
   padding-bottom: 0;
-}
-
-/* The hero's 3D stack: three screens on a tilted plane, the front one lifted. */
-.deck {
-  --rx: 0deg;
-  --ry: 0deg;
-  margin: clamp(var(--s-7), 6vw, var(--s-9)) auto 0;
-  max-width: 1040px;
-  perspective: 1800px;
-  padding: 0 0 var(--s-6);
-}
-.deck-obj {
-  position: relative;
-  height: clamp(280px, 28vw, 360px);
-  transform-style: preserve-3d;
-  transform: rotateX(calc(14deg + var(--rx))) rotateY(var(--ry));
-  transition: transform 600ms var(--ease);
-  animation: deck-in 1000ms var(--ease) both;
-}
-.deck-card {
-  position: absolute;
-  width: min(54%, 500px);
-  border-radius: var(--r-panel);
-  box-shadow: 0 30px 60px -30px rgba(15, 23, 42, 0.35), 0 2px 4px rgba(15, 23, 42, 0.06);
-}
-.deck-card .win {
-  --win-fs: clamp(10px, 1vw, 14px);
-}
-.deck-card--front {
-  left: 50%;
-  top: 4%;
-  transform: translateX(-50%) translateZ(60px);
-  z-index: 3;
-}
-.deck-card--back-l {
-  left: 0;
-  top: 18%;
-  width: min(42%, 400px);
-  transform: translateZ(-40px) rotateZ(-4deg);
-  z-index: 1;
-}
-.deck-card--back-r {
-  right: 0;
-  top: 14%;
-  width: min(40%, 380px);
-  transform: translateZ(-20px) rotateZ(4deg);
-  z-index: 2;
-}
-@keyframes deck-in {
-  from { opacity: 0; transform: rotateX(30deg) translateY(40px); }
-  to { opacity: 1; }
-}
-@media (max-width: 720px) {
-  .deck-obj {
-    height: auto;
-    transform: none;
-    display: grid;
-  }
-  .deck-card {
-    position: relative;
-    width: 100%;
-    left: auto;
-    right: auto;
-    top: auto;
-    transform: none;
-  }
-  .deck-card--back-l,
-  .deck-card--back-r {
-    display: none;
-  }
 }
 
 /* The four products in one row, each a mark, its name and its line, under one hairline. */
@@ -1919,12 +1851,7 @@ main:focus {
   background: #fff;
   border: 1px solid var(--line);
   box-shadow: 0 1px 0 var(--line), 0 2px 0 var(--line), 0 3px 0 var(--line), 0 4px 0 var(--line-strong), 0 14px 22px -12px rgba(15, 23, 42, 0.3);
-  transition: transform 220ms var(--ease), box-shadow 220ms var(--ease);
   margin-bottom: var(--s-2);
-}
-.suite-link:hover .tile {
-  transform: translateY(-3px);
-  box-shadow: 0 1px 0 var(--line), 0 2px 0 var(--line), 0 3px 0 var(--line), 0 4px 0 var(--line), 0 5px 0 var(--line), 0 6px 0 var(--line), 0 7px 0 var(--line-strong), 0 20px 28px -14px rgba(15, 23, 42, 0.32);
 }
 @media (max-width: 900px) {
   .suite {
@@ -1934,59 +1861,6 @@ main:focus {
 @media (max-width: 520px) {
   .suite {
     grid-template-columns: 1fr;
-  }
-}
-
-/* A product's screen standing in 3D, turned toward its words, two blank sheets behind. */
-.stage {
-  margin: 0;
-  perspective: 1400px;
-  padding: var(--s-5) var(--s-5) var(--s-7);
-}
-.stage-obj {
-  position: relative;
-  transform-style: preserve-3d;
-  transform: rotateY(-12deg) rotateX(6deg);
-  transition: transform 700ms var(--ease);
-}
-.stage--flip .stage-obj {
-  transform: rotateY(12deg) rotateX(6deg);
-}
-.stage:hover .stage-obj {
-  transform: rotateY(-4deg) rotateX(3deg);
-}
-.stage--flip:hover .stage-obj {
-  transform: rotateY(4deg) rotateX(3deg);
-}
-.stage-win {
-  position: relative;
-  border-radius: var(--r-panel);
-  box-shadow: 0 30px 50px -28px rgba(15, 23, 42, 0.35), 0 2px 4px rgba(15, 23, 42, 0.06);
-  transform: translateZ(40px);
-}
-.stage-win .win {
-  --win-fs: clamp(12px, 1.05vw, 15px);
-}
-.stage-sheet {
-  position: absolute;
-  inset: 0;
-  border-radius: var(--r-panel);
-  background: #fff;
-  border: 1px solid var(--line);
-}
-.stage-sheet--1 {
-  transform: translate(14px, 14px) translateZ(0);
-  background: #fafafa;
-}
-.stage-sheet--2 {
-  transform: translate(28px, 28px) translateZ(-40px);
-  background: var(--accent-soft);
-  border-color: transparent;
-}
-@media (max-width: 900px) {
-  .stage-obj,
-  .stage--flip .stage-obj {
-    transform: none;
   }
 }
 
@@ -2038,98 +1912,7 @@ main:focus {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s-5);
 }
-.app-card {
-  position: relative;
-  overflow: hidden;
-  min-height: 320px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-panel);
-  background: var(--surface);
-  isolation: isolate;
-  transition: transform 260ms var(--ease), box-shadow 260ms var(--ease);
-}
-.app-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lift);
-}
-.app-card::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  right: -18%;
-  bottom: -30%;
-  width: 78%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--app) 16%, transparent), transparent);
-}
-.app-card-copy {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  gap: var(--s-4);
-  align-content: start;
-  justify-items: start;
-  width: 56%;
-  padding: var(--s-6);
-}
-.app-card-copy .body {
-  color: var(--ink-2);
-  font-size: var(--t-sm);
-}
-.app-card-name {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-}
-.app-card-name .h-3 {
-  margin: 0 0 var(--s-1);
-  white-space: nowrap;
-}
-.app-card .status {
-  white-space: nowrap;
-}
-.app-card--scene .app-card-copy {
-  width: 60%;
-}
-.app-card-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  white-space: nowrap;
-  min-height: 40px;
-  padding: 0 var(--s-4);
-  border-radius: var(--r-control);
-  font-weight: 600;
-  font-size: var(--t-sm);
-  color: var(--ink);
-  background: color-mix(in srgb, var(--app) 9%, #fff);
-  text-decoration: none;
-}
-.app-card-btn:hover {
-  background: color-mix(in srgb, var(--app) 15%, #fff);
-}
-.app-card-pic {
-  position: absolute;
-  z-index: 1;
-  right: 0;
-  bottom: 0;
-  height: 80%;
-  width: auto;
-  max-width: 46%;
-  object-fit: contain;
-  object-position: right bottom;
-  pointer-events: none;
-}
-.app-card--scene .app-card-pic {
-  height: 100%;
-  width: 40%;
-  max-width: none;
-  object-fit: cover;
-  object-position: 30% center;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 55%);
-  mask-image: linear-gradient(90deg, transparent 0%, #000 55%);
-}
+
 @media (max-width: 1080px) {
   .apps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2139,26 +1922,9 @@ main:focus {
   .apps {
     grid-template-columns: 1fr;
   }
-  .app-card-copy {
-    width: 62%;
-    padding: var(--s-5);
-  }
+  
 }
 
-/* The home hero, split: the line and buttons on the left, the accountant at his laptop on the right (owner, 10 Nov 2026). */
-.home-hero--split {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  align-items: center;
-  justify-items: stretch;
-  gap: clamp(var(--s-6), 4vw, var(--s-9));
-  text-align: left;
-}
-.home-hero--split .hero-copy {
-  justify-items: start;
-}
-.home-hero--split .actions {
-  justify-content: flex-start;
-}
 .hero-photo {
   margin: 0;
 }
@@ -2175,40 +1941,13 @@ main:focus {
 .app-sec-photo {
   margin: 0;
 }
-@media (max-width: 900px) {
-  .home-hero--split {
-    grid-template-columns: 1fr;
-  }
-}
-.hero--home:has(.home-hero--split) {
-  padding-bottom: clamp(var(--s-7), 6vw, var(--s-9));
-}
-.home-hero--split {
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr);
-}
-.hero--home .home-hero--split .h-hero {
-  max-width: 16ch;
-  font-size: clamp(2.25rem, 1.2rem + 2.6vw, 3.5rem);
-  line-height: 1.08;
-}
-@media (max-width: 900px) {
-  .home-hero--split {
-    grid-template-columns: 1fr;
-  }
-}
+
 /* The laptop is cut from a photo, so its table's square edges fade into the page. */
 .app-sec-photo img {
   -webkit-mask-image: linear-gradient(to top, transparent 0, #000 22%), linear-gradient(to right, transparent 0, #000 12%);
   -webkit-mask-composite: source-in;
   mask-image: linear-gradient(to top, transparent 0, #000 22%), linear-gradient(to right, transparent 0, #000 12%);
   mask-composite: intersect;
-}
-/* Attendance's photo keeps the reader (with CLOR's punch screen) in view: the fade ends before it. */
-.app-card--scene.app-card--attendance .app-card-pic,
-.app-card--attendance .app-card-pic {
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 13%);
-  mask-image: linear-gradient(90deg, transparent 0%, #000 13%);
-  object-position: left center;
 }
 /* Photos with a CLOR screen on the device: a content surface, 12px corners. The Books laptop stays a cut-out. */
 .app-sec-photo:not(.app-sec-photo--books) img {
@@ -2434,49 +2173,27 @@ main:focus {
 .text-link {
   background: linear-gradient(currentColor, currentColor) 0 100% / 0 1.5px no-repeat;
   padding-bottom: 2px;
-  transition: background-size 280ms var(--ease);
+  transition: background-size var(--dur-hover) var(--ease);
 }
 .text-link:hover {
   text-decoration: none;
   background-size: 100% 1.5px;
 }
 
-/* Buttons lift a pixel; the arrow in a card button nudges forward. */
+/* Buttons change colour on hover and do not lift. */
 .btn {
-  transition: background-color 180ms var(--ease), color 180ms var(--ease), border-color 180ms var(--ease), transform 180ms var(--ease), box-shadow 180ms var(--ease);
-}
-.btn--primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -8px rgba(255, 84, 0, 0.55);
-}
-.btn--primary:active {
-  transform: none;
-  box-shadow: none;
-}
-.app-card-btn span {
-  display: inline-block;
-  transition: transform 220ms var(--ease);
-}
-.app-card:hover .app-card-btn span,
-.app-card-btn:hover span {
-  transform: translateX(3px);
-}
-.app-card-pic {
-  transition: transform 600ms var(--ease);
-}
-.app-card:hover .app-card-pic {
-  transform: scale(1.03);
+  transition: background-color var(--dur-hover) var(--ease), color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease), transform var(--dur-hover) var(--ease);
 }
 
 /* The header gains a hairline shadow once the page has scrolled. */
 .nav {
-  transition: box-shadow 200ms var(--ease);
+  transition: box-shadow var(--dur-hover) var(--ease);
 }
 html.is-scrolled .nav {
   box-shadow: 0 1px 0 var(--line), 0 6px 18px -14px rgba(15, 23, 42, 0.25);
 }
 
-/* Hero: the words rise in, then the photo, once on load. */
+/* Hero: the words rise in once on load, in 180ms; the photo is there from the first paint (it is the page's main image). */
 @keyframes rise {
   from {
     opacity: 0;
@@ -2487,34 +2204,17 @@ html.is-scrolled .nav {
     transform: none;
   }
 }
-@keyframes settle {
-  from {
-    opacity: 0;
-    transform: scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.home-hero .hero-copy > *,
 .sol-hero-split > :first-child > *,
-.p-hero .wrap > * {
-  animation: rise 700ms var(--ease) both;
+.p-hero .hero-copy > * {
+  animation: rise var(--dur-dialog) var(--ease) both;
 }
-.home-hero .hero-copy > :nth-child(2),
 .sol-hero-split > :first-child > :nth-child(2),
-.p-hero .wrap > :nth-child(2) {
-  animation-delay: 80ms;
+.p-hero .hero-copy > :nth-child(2) {
+  animation-delay: 20ms;
 }
-.home-hero .hero-copy > :nth-child(3),
 .sol-hero-split > :first-child > :nth-child(3),
-.p-hero .wrap > :nth-child(3) {
-  animation-delay: 160ms;
-}
-.hero-photo,
-.sol-hero-photo {
-  animation: settle 900ms var(--ease) 120ms both;
+.p-hero .hero-copy > :nth-child(3) {
+  animation-delay: 40ms;
 }
 
 /* Scroll reveal: set by App.jsx only on blocks below the first screen, and only with motion allowed. */
@@ -2525,17 +2225,12 @@ html.is-scrolled .nav {
 .rv.rv-in {
   opacity: 1;
   transform: none;
-  transition: opacity 500ms var(--ease), transform 500ms var(--ease);
-  transition-delay: calc(var(--rv-i, 0) * 30ms);
+  transition: opacity var(--dur-dialog) var(--ease), transform var(--dur-dialog) var(--ease);
+  transition-delay: calc(var(--rv-i, 0) * 20ms);
 }
 @media (prefers-reduced-motion: reduce) {
   .rv {
     opacity: 1;
-    transform: none;
-  }
-  .app-card:hover,
-  .app-card:hover .app-card-pic,
-  .btn--primary:hover {
     transform: none;
   }
 }
@@ -2598,7 +2293,7 @@ html.is-scrolled .nav {
 }
 .nav-trigger {
   border-radius: var(--r-control);
-  transition: background-color 160ms var(--ease), color 160ms var(--ease);
+  transition: background-color var(--dur-hover) var(--ease), color var(--dur-hover) var(--ease);
 }
 .nav-trigger:hover,
 .nav-trigger[aria-expanded='true'] {
@@ -2623,20 +2318,6 @@ html.is-scrolled .nav {
 .section--tint + .section,
 .section + .section--tint {
   border-top: 0;
-}
-.section--tint .app-card {
-  border-color: rgba(15, 23, 42, 0.06);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -24px rgba(15, 23, 42, 0.25);
-}
-/* Each card carries its product colour as a thin line along the top. */
-.app-card::after {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: var(--app);
-  opacity: 0.9;
-  z-index: 3;
 }
 
 /* Product sections: the label in the product's colour. */
@@ -2757,7 +2438,7 @@ html.is-scrolled .nav {
 }
 .mega-item {
   position: relative;
-  transition: background-color 0.15s var(--ease);
+  transition: background-color var(--dur-hover) var(--ease);
 }
 .mega-item:hover {
   background: var(--accent-soft);
@@ -3019,17 +2700,20 @@ html.is-scrolled .nav {
   grid-row: span 2;
 }
 
-/* The wire between two marks: a dot runs along it. */
+/* The wire between two marks: a dot runs along it once, when the wire comes on screen (App.jsx holds it with data-play until then). */
 .links-wire::after {
-  animation: wire-run 2.6s var(--ease) infinite;
+  animation: wire-run 1.6s var(--ease) 1 both;
 }
 @keyframes wire-run {
-  0% { right: 100%; opacity: 0; }
-  15% { opacity: 1; }
-  70%, 100% { right: -4px; opacity: 1; }
+  0% { transform: translateX(-40px); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+.links-wire[data-play='wait']::after {
+  animation-play-state: paused;
 }
 
-/* ---- Setting up: three steps, each a small looping picture over its words */
+/* ---- Setting up: three steps, each a small picture that plays once, when it comes on screen, and rests on its finished state */
 .setup {
   list-style: none;
   margin: 0;
@@ -3110,7 +2794,7 @@ html.is-scrolled .nav {
   overflow: hidden;
   border-right: 1.5px solid var(--accent);
   clip-path: inset(0 100% 0 0);
-  animation: sf-type 8s steps(13) infinite;
+  animation: sf-type 6s steps(13) 1 both;
 }
 .sf-type--2 {
   animation-name: sf-type-2;
@@ -3118,13 +2802,11 @@ html.is-scrolled .nav {
 }
 @keyframes sf-type {
   0%, 6% { clip-path: inset(0 100% 0 0); }
-  30%, 92% { clip-path: inset(0 0 0 0); }
-  100% { clip-path: inset(0 100% 0 0); }
+  30%, 100% { clip-path: inset(0 0 0 0); }
 }
 @keyframes sf-type-2 {
   0%, 34% { clip-path: inset(0 100% 0 0); }
-  55%, 92% { clip-path: inset(0 0 0 0); }
-  100% { clip-path: inset(0 100% 0 0); }
+  55%, 100% { clip-path: inset(0 0 0 0); }
 }
 .sf-ok {
   justify-self: end;
@@ -3138,12 +2820,11 @@ html.is-scrolled .nav {
   font-weight: 700;
   font-size: 11px;
   opacity: 0;
-  animation: sf-ok 8s var(--ease) infinite;
+  animation: sf-ok 6s var(--ease) 1 both;
 }
 @keyframes sf-ok {
   0%, 58% { opacity: 0; transform: translateY(4px); }
-  64%, 92% { opacity: 1; transform: none; }
-  100% { opacity: 0; }
+  64%, 100% { opacity: 1; transform: none; }
 }
 
 /* Step 2: products switch on one by one. */
@@ -3175,7 +2856,7 @@ html.is-scrolled .nav {
   height: 18px;
   border-radius: 999px;
   background: var(--line-strong);
-  animation: sw-bg 8s var(--ease) infinite;
+  animation: sw-bg 6s var(--ease) 1 both;
   animation-delay: calc(var(--i) * 0.7s);
 }
 .sw-toggle span {
@@ -3187,18 +2868,16 @@ html.is-scrolled .nav {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
-  animation: sw-knob 8s var(--ease) infinite;
+  animation: sw-knob 6s var(--ease) 1 both;
   animation-delay: calc(var(--i) * 0.7s);
 }
 @keyframes sw-bg {
   0%, 12% { background: var(--line-strong); }
-  18%, 90% { background: var(--app); }
-  100% { background: var(--line-strong); }
+  18%, 100% { background: var(--app); }
 }
 @keyframes sw-knob {
   0%, 12% { transform: none; }
-  18%, 90% { transform: translateX(14px); }
-  100% { transform: none; }
+  18%, 100% { transform: translateX(14px); }
 }
 
 /* Step 3: the team arrives, each with a tick. */
@@ -3220,7 +2899,7 @@ html.is-scrolled .nav {
   border-radius: 10px;
   box-shadow: 0 8px 18px -14px rgba(15, 23, 42, 0.35);
   opacity: 0;
-  animation: tm-in 8s var(--ease) infinite;
+  animation: tm-in 6s var(--ease) 1 both;
   animation-delay: calc(var(--i) * 0.8s);
 }
 .tm-av {
@@ -3249,8 +2928,15 @@ html.is-scrolled .nav {
 }
 @keyframes tm-in {
   0%, 6% { opacity: 0; transform: translateY(10px) scale(0.96); }
-  14%, 88% { opacity: 1; transform: none; }
-  96%, 100% { opacity: 0; transform: translateY(-6px); }
+  14%, 100% { opacity: 1; transform: none; }
+}
+/* Held still until the pictures come on screen. */
+.setup[data-play='wait'] .sf-type,
+.setup[data-play='wait'] .sf-ok,
+.setup[data-play='wait'] .sw-toggle,
+.setup[data-play='wait'] .sw-toggle span,
+.setup[data-play='wait'] .tm li {
+  animation-play-state: paused;
 }
 @media (max-width: 900px) {
   .setup {
@@ -3419,13 +3105,7 @@ html.is-scrolled .nav {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s-5);
 }
-.app-card {
-  min-height: 300px;
-}
-.app-card-pic {
-  object-fit: contain;
-  object-position: right bottom;
-}
+
 @media (max-width: 760px) {
   .apps {
     grid-template-columns: minmax(0, 1fr);

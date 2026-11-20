@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ opsAccount: vi.fn(), opsInvoices: vi.fn(), opsTickets: vi.fn(), opsTicket: vi.fn(), opsTicketReply: vi.fn(), opsTicketChange: vi.fn(), opsSavedReplies: vi.fn() }));
+const ask = vi.hoisted(() => vi.fn(() => Promise.resolve(true)));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: (...a) => ask(...a) }));
 vi.mock('./api', () => ({
   opsAccount: (...a) => api.opsAccount(...a),
   opsInvoices: (...a) => api.opsInvoices(...a),
@@ -76,6 +78,45 @@ describe('operator console: tickets', () => {
     await waitFor(() => expect(api.opsTicketChange).toHaveBeenCalledWith('t1', { assignedOperatorId: 'op1' }));
     fireEvent.click(screen.getByRole('button', { name: 'Look up this request ID' }));
     expect(lookUp).toHaveBeenCalledWith('req_7Hk2mQ9xLp3vT8wZ');
+  });
+
+  it('asks before closing a ticket, and keeps it open when told no', async () => {
+    api.opsTicket.mockResolvedValue(T());
+    api.opsTicketChange.mockResolvedValue(T({ status: 'CLOSED' }));
+    render(<TicketPage id="t1" me={me} back={() => {}} openCustomer={() => {}} lookUp={() => {}} />);
+    const status = await screen.findByLabelText('Status');
+    ask.mockResolvedValueOnce(false);
+    fireEvent.change(status, { target: { value: 'CLOSED' } });
+    await waitFor(() => expect(ask).toHaveBeenCalledWith(expect.objectContaining({ title: 'Close T-1001?', confirmLabel: 'Close ticket' })));
+    expect(api.opsTicketChange).not.toHaveBeenCalled();
+    fireEvent.change(status, { target: { value: 'CLOSED' } });
+    await waitFor(() => expect(api.opsTicketChange).toHaveBeenCalledWith('t1', { status: 'CLOSED' }));
+    /* Other statuses change straight away. */
+    ask.mockClear();
+    api.opsTicketChange.mockResolvedValue(T({ status: 'WAITING' }));
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'WAITING' } });
+    await waitFor(() => expect(api.opsTicketChange).toHaveBeenLastCalledWith('t1', { status: 'WAITING' }));
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it('keeps the newest search when an older answer comes late, and offers Try again on a failure', async () => {
+    let slow;
+    api.opsTickets
+      .mockReturnValueOnce(new Promise((r) => { slow = r; }))
+      .mockResolvedValueOnce({ counts: { open: 1, waiting: 0, mine: 0 }, tickets: [T({ subject: 'Newest answer' })] })
+      .mockRejectedValueOnce(new Error('down'))
+      .mockResolvedValue({ counts: { open: 0, waiting: 0, mine: 0 }, tickets: [] });
+    render(<Tickets openTicket={() => {}} me={me} />);
+    await waitFor(() => expect(api.opsTickets).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText('Find a ticket'), { target: { value: 'pay' } });
+    expect(await screen.findByText('Newest answer')).toBeInTheDocument();
+    slow({ counts: { open: 1, waiting: 0, mine: 0 }, tickets: [T({ subject: 'Old answer' })] });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText('Old answer')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Solved' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('No solved tickets yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('shows who is asking: plan, apps, unpaid invoices and the account’s other open tickets', async () => {

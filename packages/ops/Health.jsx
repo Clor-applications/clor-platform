@@ -32,7 +32,7 @@ export function Health({ go, request = '' }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   const load = useCallback(() => {
-    opsHealth().then(setD).catch((e) => setError(errorWords(e, 'load the background jobs')));
+    opsHealth().then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'load the background jobs')));
   }, []);
   useEffect(load, [load]);
 
@@ -51,7 +51,7 @@ export function Health({ go, request = '' }) {
           </button>
         }
       />
-      <Err>{error}</Err>
+      <Err onRetry={() => { setError(''); load(); }}>{error}</Err>
       {!d ? (
         error ? null : <Loading />
       ) : (
@@ -173,7 +173,7 @@ export function BooksCheck({ openAccount }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   const load = useCallback(() => {
-    opsBooksCheck().then(setD).catch((e) => setError(errorWords(e, 'run the Books check')));
+    opsBooksCheck().then((r) => (setD(r), setError(''))).catch((e) => setError(errorWords(e, 'run the Books check')));
   }, []);
   useEffect(load, [load]);
   return (
@@ -182,7 +182,7 @@ export function BooksCheck({ openAccount }) {
       <p className="ws-card-blurb">
         Until 17 Nov 2026, changing a bill, expense, credit note, debit note or invoice a second time could put its first amount back in the ledger. New changes are safe. These companies still carry such amounts; tell engineering before the customer closes a period or files a return.
       </p>
-      <Err>{error}</Err>
+      <Err onRetry={() => { setError(''); load(); }}>{error}</Err>
       {!d ? (
         error ? null : <Loading />
       ) : d.companies.length ? (

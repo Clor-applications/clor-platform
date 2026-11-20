@@ -42,8 +42,11 @@ export function EmailAddresses({ role }) {
   const owner = role === 'SUPER_ADMIN';
   const canTest = may(role, 'SALES', 'SUPPORT', 'BILLING');
 
+  const [formStart, setFormStart] = useState('');
   const open = (s) => {
-    setForm({ name: s.name || 'CLOR', email: s.email || `${s.purpose}@clor.in`, replyTo: s.replyTo || '' });
+    const start = { name: s.name || 'CLOR', email: s.email || `${s.purpose}@clor.in`, replyTo: s.replyTo || '' };
+    setForm(start);
+    setFormStart(JSON.stringify(start));
     setEdit(s);
   };
   const save = async (reason) => {
@@ -66,7 +69,7 @@ export function EmailAddresses({ role }) {
   return (
     <>
       <PageHead crumbs={['Platform']} title="Email addresses" />
-      <Err>{error}</Err>
+      <Err onRetry={load}>{error}</Err>
       {d && !d.sending ? (
         <p className="ws-notice" role="status">This server has no mail server set up, so messages are recorded in the log but not delivered. Engineering sets that up.</p>
       ) : null}
@@ -124,6 +127,7 @@ export function EmailAddresses({ role }) {
         what={edit ? `Used for: ${edit.uses.toLowerCase()}. The address must be one the mail service is allowed to send from; Send test checks it.` : ''}
         confirmLabel="Save address"
         ready={form.name.trim().length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())}
+        dirty={Boolean(edit) && JSON.stringify(form) !== formStart}
         onClose={() => setEdit(null)}
         onConfirm={save}
       >
@@ -167,7 +171,7 @@ export function EmailTemplates({ role }) {
         <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
         <input className="ui-input" style={{ paddingLeft: '2.25rem' }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find an email" />
       </label>
-      <Err>{error}</Err>
+      <Err onRetry={load}>{error}</Err>
       {!d ? (
         error ? null : <Loading />
       ) : list.length === 0 ? (
@@ -246,6 +250,7 @@ function TemplateEditor({ template: t, role, onClose, onSaved }) {
       <WsDrawer
         open={Boolean(t) && !confirm}
         onClose={onClose}
+        dirty={Boolean(dirty)}
         title={t?.label || ''}
         widthClass="w-[min(48rem,96vw)]"
         actions={
@@ -352,7 +357,7 @@ export function EmailLog({ role, initialStatus = 'all', openCustomer }) {
           <option value="SUPPRESSED">Not sent on purpose</option>
         </select>
       </div>
-      <Err>{error}</Err>
+      <Err onRetry={load}>{error}</Err>
       {!d ? (
         error ? null : <Loading />
       ) : d.messages.length === 0 ? (

@@ -88,7 +88,7 @@ function ClaimDetail({ claim: c, advance, monthTotal, canCut, onSaved }) {
         {canCut && !cutting ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setCutting(true)}>Allow less on a bill</button> : null}
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="ui-table w-full">
           <thead>
             <tr className="ui-t-label text-left">
               <th className="py-1.5 pr-3 font-semibold">Bill</th>

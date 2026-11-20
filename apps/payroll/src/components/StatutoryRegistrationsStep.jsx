@@ -366,7 +366,8 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
   );
 }
 
-const warnStyle = { background: "rgb(var(--warn-soft))", color: "rgb(var(--warn-ink))" };
+/* A note on the page's white ground with a hairline; the icon carries the status ink (DESIGN.md: never a tinted panel). */
+const warnStyle = { background: "rgb(var(--surface))", border: "1px solid rgb(var(--border))", color: "rgb(var(--fg))" };
 
 /**
  * The pay run screen's line: which returns cannot be filed yet, in the
@@ -377,7 +378,7 @@ export function RegistrationNotice({ gaps }) {
   return (
     <section className="ui-card p-3 text-sm flex flex-wrap items-start justify-between gap-3" role="status" style={warnStyle} aria-label="Registrations still to add">
       <div className="flex items-start gap-2 min-w-0 max-w-3xl">
-        <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+        <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: "rgb(var(--warn-ink))" }} />
         <ul className="space-y-0.5">
           {gaps.map((g) => (
             <li key={`${g.scheme}-${g.state || ""}`}>{g.message}</li>

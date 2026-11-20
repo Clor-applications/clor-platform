@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { Loading, errorWords } from './kit';
+import { Err, Loading, errorWords } from './kit';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
 import { opsBuildSample, opsEndPass, opsExplorePasses, opsResendPass, opsSampleCompany } from './api';
@@ -18,7 +18,6 @@ import { opsBuildSample, opsEndPass, opsExplorePasses, opsResendPass, opsSampleC
 const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');
-const Err = ({ children }) => (children ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p> : null);
 const seconds = (a, b) => (a && b ? Math.max(1, Math.round((new Date(b) - new Date(a)) / 1000)) : null);
 
 /* The build's steps, as a person would say them (server: services/sampleCompanyData.ts). */
@@ -47,9 +46,12 @@ export function BuildLine({ build }) {
   if (!build) return <p className="ws-card-blurb">It has not been built from here yet.</p>;
   if (build.state === 'running') {
     const done = (build.done || []).map((s) => STEP[s] || s);
+    /* Progress as a count a person can follow: the step being worked on, of all of them. */
+    const total = Math.max(Number(build.total) || Object.keys(STEP).length, done.length);
+    const at = Math.min(done.length + 1, total);
     return (
       <div role="status" className="grid gap-1">
-        <p>Building now. This takes about a minute; you can leave this page.</p>
+        <p>Building now: step {at} of {total}. This takes about a minute; you can leave this page.</p>
         <p className="ws-card-blurb">{done.length ? `Done so far: ${done.join(', ')}.` : `Started ${ago(build.startedAt)}.`}</p>
       </div>
     );
@@ -159,7 +161,7 @@ export function SampleCompany({ role, openLinks }) {
         description="The made-up company that Explore links open, read-only, for people who asked for a demo."
         actions={primary}
       />
-      <Err>{error}</Err>
+      <Err onRetry={d ? null : load}>{error}</Err>
       {!d ? (
         error ? null : <Loading />
       ) : (
@@ -275,9 +277,9 @@ export function ExploreLinks({ role, openRequest }) {
           ))}
         </select>
       </div>
-      <Err>{error}</Err>
+      <Err onRetry={data ? null : () => setTick((n) => n + 1)}>{error}</Err>
       {!data ? (
-        <Loading />
+        error ? null : <Loading />
       ) : data.passes.length === 0 ? (
         <div className="ws-empty">
           <p>{view.state === 'all' ? 'No Explore link has been sent yet. Each demo request from clor.in/demo sends one.' : 'No link with this state.'}</p>

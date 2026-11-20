@@ -46,7 +46,7 @@ export function AppCatalogue({ role }) {
   return (
     <>
       <PageHead crumbs={['Billing and setup']} title="App catalogue" />
-      <Err>{error}</Err>
+      <Err onRetry={load}>{error}</Err>
       {!d ? (
         error ? null : <Loading />
       ) : (
@@ -77,6 +77,7 @@ export function AppCatalogue({ role }) {
         what="How clor.in and the app switcher list this app."
         confirmLabel="Save listing"
         ready={form.blurb.trim().length >= 3 && form.blurb.length <= 160}
+        dirty={Boolean(edit) && (form.status !== edit.status || form.blurb !== edit.blurb)}
         onClose={() => setEdit(null)}
         onConfirm={save}
       >
@@ -96,9 +97,19 @@ export function AppCatalogue({ role }) {
         <div className="grid gap-1">
           <label className="grid gap-1">
             <span className="text-sm font-semibold">One line</span>
-            <input className="ui-input" maxLength={160} value={form.blurb} onChange={(e) => setForm((f) => ({ ...f, blurb: e.target.value }))} />
+            <input
+              className="ui-input"
+              maxLength={160}
+              value={form.blurb}
+              onChange={(e) => setForm((f) => ({ ...f, blurb: e.target.value }))}
+              aria-describedby="ops-app-blurb-count"
+              aria-invalid={form.blurb.trim().length < 3 || undefined}
+            />
           </label>
-          <span className="ws-card-blurb tabular-nums">{form.blurb.length} of 160 characters</span>
+          <span id="ops-app-blurb-count" className="ws-card-blurb tabular-nums">
+            {form.blurb.trim().length < 3 ? 'Write at least 3 characters. ' : ''}
+            {form.blurb.length} of 160 characters
+          </span>
         </div>
       </ReasonDrawer>
     </>

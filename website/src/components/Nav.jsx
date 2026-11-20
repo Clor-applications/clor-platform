@@ -106,6 +106,10 @@ export default function Nav() {
       setOpen(key);
     },
     onMouseLeave: () => setOpen(null),
+    /* Tab moving past the menu closes it: focus left the item and its panel. */
+    onBlur: (e) => {
+      if (!e.currentTarget.contains(e.relatedTarget)) setOpen((cur) => (cur === key ? null : cur));
+    },
   });
   /* The control that opened a menu, so Escape can hand focus back to it. */
   const opener = useRef(null);
@@ -156,7 +160,10 @@ export default function Nav() {
     if (!mobile) return undefined;
     const behind = [document.getElementById('main'), document.querySelector('body > #root > footer, footer.footer')].filter(Boolean);
     behind.forEach((el) => (el.inert = true));
-    document.body.style.overflow = 'hidden';
+    /* iOS Safari ignores overflow on body: pin the body in place and put the reader back on close. */
+    const y = window.scrollY;
+    const body = document.body.style;
+    Object.assign(body, { position: 'fixed', top: `-${y}px`, left: '0', right: '0', overflow: 'hidden' });
     const items = () => [burger.current, ...panel.current.querySelectorAll('a[href], button')].filter(Boolean);
     items()[1]?.focus();
     const onTab = (e) => {
@@ -170,7 +177,8 @@ export default function Nav() {
     document.addEventListener('keydown', onTab);
     return () => {
       behind.forEach((el) => (el.inert = false));
-      document.body.style.overflow = '';
+      Object.assign(body, { position: '', top: '', left: '', right: '', overflow: '' });
+      window.scrollTo({ top: y });
       document.removeEventListener('keydown', onTab);
     };
   }, [mobile]);
@@ -193,11 +201,11 @@ export default function Nav() {
                 </li>
               ) : (
                 <li key={m.key} {...hover(m.key)}>
-                  <button type="button" className={`nav-trigger${section(m.key) ? ' is-current' : ''}`} aria-expanded={open === m.key} onClick={toggle(m.key)}>
+                  <button type="button" className={`nav-trigger${section(m.key) ? ' is-current' : ''}`} aria-expanded={open === m.key} aria-controls={`menu-${m.key}`} onClick={toggle(m.key)}>
                     {m.label}
                     <CaretDown size={14} weight="bold" aria-hidden="true" />
                   </button>
-                  <div className={`mega-wrap${open === m.key ? ' is-open' : ''}`}>{m.key === 'products' ? <ProductsMenu onPick={close} /> : <ListMenu items={m.items} onPick={close} />}</div>
+                  <div id={`menu-${m.key}`} className={`mega-wrap${open === m.key ? ' is-open' : ''}`}>{m.key === 'products' ? <ProductsMenu onPick={close} /> : <ListMenu items={m.items} onPick={close} />}</div>
                 </li>
               )
             )}

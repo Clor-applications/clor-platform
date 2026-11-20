@@ -126,7 +126,7 @@ it('pay cost reads in rupees, in tabular figures', async () => {
   api.listHrReports.mockResolvedValue({ ...CATALOGUE, reports: [...CATALOGUE.reports, { id: 'branches', group: 'Workforce', name: 'Branches side by side', description: 'x', dates: 'months', by: false }] });
   api.runHrReport.mockResolvedValue(BRANCHES);
   render(<HrReport params={{ report: 'branches' }} updateParams={() => {}} />);
-  const cell = await screen.findByText('₹12,34,567');
+  const cell = await screen.findByText('₹12,34,567.00');
   expect(cell.className).toContain('tabular-nums');
 });
 

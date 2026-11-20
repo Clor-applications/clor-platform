@@ -1,16 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { AlertTriangle, ArrowRight } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { getPayrollOverview } from '../api/payrollOverview';
 import { getPayrollSetup } from '../api/payrollSetup';
-import { wholeRupees as money, moneyCell } from '@ui/utils/money';
+import { rupees as money, moneyCell } from '@ui/utils/money';
 import PayCalendarStrip from '../components/PayCalendarStrip';
 import { todayIst, dateWords } from '@ui/utils/dates';
 import StatutoryDues from '../components/StatutoryDues';
 import { MonthTodo } from '../components/round59';
 import { MinimumWageReminder } from '../components/MinimumWagesSection';
 import { errorWords } from '@ui/utils/errorWords';
+import { FormPart } from '@ui/components/ui/FormPart';
+import { Figures } from '../components/Figure';
+import Notice from '../components/Notice';
 
 /**
  * Where payroll is this month, and what is in the way.
@@ -71,9 +75,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
       <div className="space-y-3">
         <PageHeader entity="payroll" title="Overview" description="Where this month is, and what is in the way." />
         <div className="px-5 lg:px-7 pb-8 space-y-4">
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
+        <LoadFailed message={error} onRetry={load} />
         </div>
       </div>
     );
@@ -138,21 +140,21 @@ export default function PayrollOverview({ onOpen = () => {} }) {
         * them look alike.
         */}
       {notReady ? (
-        <div className="ui-card p-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="ui-sec-head">Payroll is not ready to run yet</div>
-            <p className="ui-caption">
-              {setup.done} of {setup.total} steps done
-              {setup.nextStep ? ` · next: ${setup.nextStep.title}: ${setup.nextStep.detail}` : ''}
-            </p>
-          </div>
-          {/* The header's primary already says "Finish setting up" unless a run is open: one button for one job. */}
-          {currentRun ? (
-            <button type="button" className="ui-btn ui-btn-secondary shrink-0 !ps-4 !pe-3.5" onClick={() => onOpen('payrollSetup')}>
-              Finish setting up <ArrowRight size={16} aria-hidden="true" />
-            </button>
-          ) : null}
-        </div>
+        <Notice
+          tone="warn"
+          word="Not ready to run"
+          action={
+            /* The header's primary already says "Finish setting up" unless a run is open: one button for one job. */
+            currentRun ? (
+              <button type="button" className="ui-btn ui-btn-secondary shrink-0 !ps-4 !pe-3.5" onClick={() => onOpen('payrollSetup')}>
+                Finish setting up <ArrowRight size={16} aria-hidden="true" />
+              </button>
+            ) : null
+          }
+        >
+          {setup.done} of {setup.total} setup steps done
+          {setup.nextStep ? ` · next: ${setup.nextStep.title}: ${setup.nextStep.detail}` : ''}
+        </Notice>
       ) : null}
 
       {/* While setup is unfinished the strip above already says what is next; a second "No open payroll
@@ -172,45 +174,45 @@ export default function PayrollOverview({ onOpen = () => {} }) {
 
       {/* This month, first, because it is the question. */}
       {currentRun ? (
-        <div className="ui-card overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
-            <div className="flex items-center gap-2">
-              <div className="ui-sec-head">{currentRun.number}</div>
-              <span className={`ui-pill ${['PAID', 'POSTED'].includes(currentRun.status) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                {currentRun.stage}
-              </span>
-            </div>
+        /* A heading over a rule, not a box; the stage is said in words, not a tag (it is never an exception). */
+        <FormPart
+          id="this-month"
+          title={currentRun.number}
+          description={currentRun.stage}
+          action={
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => onOpen('payrollRuns')}>
               Open
             </button>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x" style={{ borderColor: 'rgb(var(--border))' }}>
-            <Cell label="People" value={String(currentRun.employeeCount)} />
-            <Cell label="Gross" value={money(currentRun.gross)} />
-            <Cell label="Net pay" value={money(currentRun.net)} />
-            <Cell label="Company pays" value={money(currentRun.employerCost)} />
-          </div>
-        </div>
+          }
+        >
+          <Figures
+            label="This month's payroll"
+            items={[
+              { label: 'People', value: String(currentRun.employeeCount), raw: currentRun.employeeCount },
+              { label: 'Gross', value: moneyCell(currentRun.gross, { zero: true }), raw: currentRun.gross },
+              { label: 'Net pay', value: moneyCell(currentRun.net, { zero: true }), raw: currentRun.net },
+              { label: 'Company pays', value: moneyCell(currentRun.employerCost, { zero: true }), raw: currentRun.employerCost },
+            ]}
+          />
+        </FormPart>
       ) : currentPeriod ? (
-        <div className="ui-card p-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="ui-sec-head">{currentPeriod.name} has not been run</div>
-            <p className="ui-caption">
-              {people.inPayroll} {people.inPayroll === 1 ? 'person is' : 'people are'} in payroll and waiting to be paid.
-              {notReady ? ' It can run once setup is finished.' : ''}
-            </p>
-          </div>
-          {/* The header carries the main action; this one only repeats it, quietly. */}
-          <button
-            type="button"
-            className="ui-btn ui-btn-secondary"
-            onClick={() => onOpen('payrollRuns')}
-            disabled={notReady}
-            title={notReady ? 'Finish setting up payroll first' : undefined}
-          >
-            Run payroll
-          </button>
-        </div>
+        <FormPart
+          id="this-month"
+          title={`${currentPeriod.name} has not been run`}
+          description={`${people.inPayroll} ${people.inPayroll === 1 ? 'person is' : 'people are'} in payroll and waiting to be paid.${notReady ? ' It can run once setup is finished.' : ''}`}
+          action={
+            /* The header carries the main action; this one only repeats it, quietly. */
+            <button
+              type="button"
+              className="ui-btn ui-btn-secondary"
+              onClick={() => onOpen('payrollRuns')}
+              disabled={notReady}
+              title={notReady ? 'Finish setting up payroll first' : undefined}
+            >
+              Run payroll
+            </button>
+          }
+        />
       ) : null}
 
       {/* Round 59 monthflow C: the month as a short to-do list. */}
@@ -282,9 +284,3 @@ export default function PayrollOverview({ onOpen = () => {} }) {
   );
 }
 
-const Cell = ({ label, value }) => (
-  <div className="px-4 py-3">
-    <div className="ui-caption">{label}</div>
-    <div className="ui-amount mt-1 text-[1.375rem] leading-7 font-semibold tabular-nums">{value}</div>
-  </div>
-);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormPart } from '@ui/components/ui/FormPart';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlertTriangle, ArrowLeft, Ban, Check, Download, Plus, Wallet, X } from '@ui/components/ui/lineIcons';
@@ -7,7 +7,10 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
+import Drawer from '../components/EditDrawer';
+import { Figures } from '../components/Figure';
+import Notice from '../components/Notice';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayrollRuns } from '../api/payrollRuns';
 import { paymentAccounts } from '../api/payrollAccounting';
@@ -186,8 +189,10 @@ export default function PayrollPayments({ menuLabel } = {}) {
       statusCounts={counts}
       onStatusChange={setStatus}
       tabsLabel="Payment status"
-      above={
-        starting ? (
+    >
+      {/* Started in a drawer, so the list page keeps one primary button. */}
+      <Drawer open={starting} onClose={() => setStarting(false)} title="New payment" description="Who is owed on an approved payroll, previewed before anything goes to the bank.">
+        {starting ? (
           <StartPayment
             runs={runs}
             banks={banks}
@@ -197,9 +202,8 @@ export default function PayrollPayments({ menuLabel } = {}) {
               setOpenId(payment.id);
             }}
           />
-        ) : null
-      }
-    >
+        ) : null}
+      </Drawer>
       <LoadFailed message={error} onRetry={load} />
       {!payments ? (
         error ? null : <SkeletonCard lines={4} />
@@ -310,6 +314,7 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
 
   const save = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     try {
       onCreated(
@@ -330,9 +335,9 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
 
   return (
     <form className="space-y-4" onSubmit={save}>
-      <FormPart title="New payment" id="new-payment">
+      <FormPart title="Payment" id="new-payment">
         <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="ui-label" htmlFor="pay-run">Payroll</label>
               <select id="pay-run" className="ui-select w-full" value={form.runId} onChange={(e) => set({ runId: e.target.value })} required>
@@ -402,9 +407,9 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
 
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={saving || !form.runId || !preview?.payable?.length}>
+        <Button type="submit" variant="primary" loading={saving} disabled={!form.runId || !preview?.payable?.length}>
           {saving ? 'Starting…' : 'Start payment'}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -416,14 +421,18 @@ const PaymentDetail = ({ paymentId, onBack }) => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [failing, setFailing] = useState(null);
+  /* A failed load says so with a way to try again, not a blank page. */
+  const [loadError, setLoadError] = useState('');
+  const busyRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
       const row = await getPayrollPayment(paymentId);
       setPayment(row);
+      setLoadError('');
       setPosting(await previewPaymentPosting(paymentId).catch(() => null));
     } catch (e) {
-      notify.error(errorWords(e, 'load that payment'));
+      setLoadError(errorWords(e, 'load that payment'));
     } finally {
       setLoading(false);
     }
@@ -439,16 +448,34 @@ const PaymentDetail = ({ paymentId, onBack }) => {
   const settled = !posted && payment?.status !== 'CANCELLED';
 
   const settle = async (results, done) => {
+    if (busyRef.current) return false;
+    busyRef.current = true;
     setBusy('settle');
     try {
       await settlePaymentLines(paymentId, results);
       notify.success(done);
       load();
+      return true;
     } catch (e) {
       notify.error(errorWords(e, 'record the bank’s answer'));
+      return false;
     } finally {
+      busyRef.current = false;
       setBusy('');
     }
+  };
+
+  /* One line marked paid is still money recorded as gone: asked first, by name and amount. */
+  const markOnePaid = async (l) => {
+    if (busy) return;
+    const ok = await confirmDialog({
+      title: `Mark ${l.employeeName} paid, ${money(l.amount)}?`,
+      message: 'This records that the bank paid them. A line marked paid is not paid again.',
+      confirmLabel: 'Mark paid',
+      tone: 'default',
+    });
+    if (!ok) return;
+    settle([{ lineId: l.id, status: 'PAID' }], `${l.employeeName} marked paid.`);
   };
 
   /* Fetched and built here rather than linked, so the account numbers never
@@ -479,6 +506,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
   };
 
   const post = async () => {
+    if (busy) return;
     const ok = await confirmDialog({
       title: 'Post this payment to accounts?',
       message: `${money(posting?.totalDebit || 0)} comes out of the bank and off what was owed. Only the lines marked paid are included.`,
@@ -499,24 +527,46 @@ const PaymentDetail = ({ paymentId, onBack }) => {
   };
 
   const callOff = async () => {
+    if (busy) return;
     const ok = await confirmDialog({
-      title: 'Cancel this payment?',
-      message: 'Everybody in it goes back to being owed, and appears in the next payment.',
+      title: `Cancel ${payment.number}?`,
+      message: `${money(payment.totalAmount)} to ${lines.length} ${lines.length === 1 ? 'person' : 'people'} goes back to being owed, and appears in the next payment.`,
       confirmLabel: 'Cancel payment',
       cancelLabel: 'Keep it',
+      tone: 'danger',
     });
     if (!ok) return;
+    setBusy('cancel');
     try {
       await cancelPayrollPayment(paymentId);
       notify.success('Payment cancelled.');
       load();
     } catch (e) {
       notify.error(errorWords(e, 'cancel that payment'));
+    } finally {
+      setBusy('');
     }
   };
 
   if (loading) return <SkeletonCard lines={6} />;
-  if (!payment) return null;
+  if (!payment) {
+    return (
+      <div className="space-y-3">
+        <PageHeader
+          entity="payment"
+          title="Payment"
+          actions={
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={onBack}>
+              <ArrowLeft size={16} aria-hidden="true" /> Back
+            </button>
+          }
+        />
+        <div className="px-5 lg:px-7 pb-8">
+          <LoadFailed message={loadError || 'That payment could not be found.'} onRetry={load} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -532,21 +582,24 @@ const PaymentDetail = ({ paymentId, onBack }) => {
               <ArrowLeft size={16} aria-hidden="true" /> Back
             </button>
             {posted ? null : (
-              <button type="button" className="ui-btn ui-btn-primary" onClick={post} disabled={busy === 'post' || Boolean(posting?.problems?.length)}>
+              <Button variant="primary" onClick={post} loading={busy === 'post'} disabled={(Boolean(busy) && busy !== 'post') || Boolean(posting?.problems?.length)}>
                 {busy === 'post' ? 'Posting…' : 'Post to accounts'}
-              </button>
+              </Button>
             )}
           </div>
         }
       />
 
       <div className="px-5 lg:px-7 pb-8 space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Figure label="In this payment" value={money(payment.totalAmount)} />
-        <Figure label="Paid" value={money(payment.paidAmount)} />
-        <Figure label="Rejected" value={String(payment.failedCount || 0)} />
-        <Figure label="Still waiting" value={String(pending.length)} />
-      </div>
+      <Figures
+        label="Payment totals"
+        items={[
+          { label: 'In this payment', value: moneyCell(payment.totalAmount, { zero: true }), raw: payment.totalAmount },
+          { label: 'Paid', value: moneyCell(payment.paidAmount, { zero: true }), raw: payment.paidAmount },
+          { label: 'Rejected', value: String(payment.failedCount || 0), raw: payment.failedCount },
+          { label: 'Still waiting', value: String(pending.length), raw: pending.length },
+        ]}
+      />
 
       {posted ? (
         <p className="ui-caption">
@@ -554,19 +607,13 @@ const PaymentDetail = ({ paymentId, onBack }) => {
           not an edit to this one.
         </p>
       ) : posting?.problems?.length ? (
-        <div className="ui-card p-3 space-y-1">
-          <div className="flex items-start gap-2">
-            <AlertTriangle size={15} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
-            <div>
-              <p className="text-sm">This cannot be posted to accounts yet.</p>
-              <ul className="ui-caption mt-1 space-y-0.5">
-                {posting.problems.map((p) => (
-                  <li key={p.code}>{p.message}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
+        <Notice tone="warn" word="Not ready to post">
+          <ul className="ui-caption mt-1 space-y-0.5">
+            {posting.problems.map((p) => (
+              <li key={p.code}>{p.message}</li>
+            ))}
+          </ul>
+        </Notice>
       ) : posting?.lines?.length ? (
         <div className="ui-list-surface overflow-hidden">
           <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
@@ -585,8 +632,8 @@ const PaymentDetail = ({ paymentId, onBack }) => {
                 {posting.lines.map((l) => (
                   <tr key={l.ledgerAccountId}>
                     <td className="ui-col-entity">{l.ledgerName}</td>
-                    <td className="ui-col-amount">{l.debit ? money(l.debit) : '—'}</td>
-                    <td className="ui-col-amount">{l.credit ? money(l.credit) : '—'}</td>
+                    <td className="ui-col-amount">{moneyCell(l.debit)}</td>
+                    <td className="ui-col-amount">{moneyCell(l.credit)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -606,8 +653,9 @@ const PaymentDetail = ({ paymentId, onBack }) => {
               <button
                 type="button"
                 className="ui-btn ui-btn-secondary ui-btn-sm"
-                disabled={busy === 'settle'}
+                disabled={Boolean(busy)}
                 onClick={async () => {
+                  if (busy) return;
                   const total = pending.reduce((t, l) => t + (Number(l.amount) || 0), 0);
                   const ok = await confirmDialog({
                     title: `Mark ${pending.length} ${pending.length === 1 ? 'person' : 'people'} paid, ${money(total)}?`,
@@ -626,9 +674,9 @@ const PaymentDetail = ({ paymentId, onBack }) => {
               </button>
             ) : null}
             {settled && !payment.paidCount ? (
-              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={callOff}>
-                <Ban size={14} aria-hidden="true" /> Cancel payment
-              </button>
+              <Button variant="danger" size="sm" icon={Ban} onClick={callOff} loading={busy === 'cancel'} disabled={Boolean(busy) && busy !== 'cancel'}>
+                {busy === 'cancel' ? 'Cancelling…' : 'Cancel payment'}
+              </Button>
             ) : null}
           </div>
         </div>
@@ -669,8 +717,8 @@ const PaymentDetail = ({ paymentId, onBack }) => {
                           type="button"
                           className="ui-icon-btn"
                           aria-label={`Mark ${l.employeeName} paid`}
-                          disabled={busy === 'settle' || l.status === 'PAID'}
-                          onClick={() => settle([{ lineId: l.id, status: 'PAID' }], `${l.employeeName} marked paid.`)}
+                          disabled={Boolean(busy) || l.status === 'PAID'}
+                          onClick={() => markOnePaid(l)}
                         >
                           <Check size={16} aria-hidden="true" />
                         </button>
@@ -678,7 +726,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
                           type="button"
                           className="ui-icon-btn"
                           aria-label={`Record that the bank rejected ${l.employeeName}`}
-                          disabled={busy === 'settle'}
+                          disabled={Boolean(busy)}
                           onClick={() => setFailing(l)}
                         >
                           <X size={16} aria-hidden="true" />
@@ -693,64 +741,71 @@ const PaymentDetail = ({ paymentId, onBack }) => {
         </div>
       </div>
 
-      {failing ? (
-        <RejectLine
-          line={failing}
-          onCancel={() => setFailing(null)}
-          onSave={(reason) => {
-            setFailing(null);
-            settle([{ lineId: failing.id, status: 'FAILED', failureReason: reason }], `${failing.employeeName} recorded as rejected.`);
-          }}
-        />
-      ) : null}
+      <RejectLine
+        line={failing}
+        busy={busy === 'settle'}
+        onCancel={() => setFailing(null)}
+        onSave={async (reason) => {
+          const ok = await settle([{ lineId: failing.id, status: 'FAILED', failureReason: reason }], `${failing.employeeName} recorded as rejected.`);
+          if (ok) setFailing(null);
+        }}
+      />
       </div>
     </div>
   );
 };
-
-const Figure = ({ label, value }) => (
-  <div className="ui-card p-3">
-    <div className="ui-caption">{label}</div>
-    <div className="ui-amount mt-0.5">{value}</div>
-  </div>
-);
 
 /**
  * Why the bank sent one back.
  *
  * Asked for rather than assumed, because the reason is what somebody uses to
  * fix the account before the next batch. "Failed" with no reason means opening
- * the bank's own file to find out.
+ * the bank's own file to find out. Asked in a drawer, over the list it is about.
  */
-const RejectLine = ({ line, onCancel, onSave }) => {
+const RejectLine = ({ line, busy, onCancel, onSave }) => {
   const [reason, setReason] = useState('');
+  const [forLine, setForLine] = useState(line?.id || null);
+  /* A new line: a fresh reason (set while rendering, not in an effect). */
+  if ((line?.id || null) !== forLine) {
+    setForLine(line?.id || null);
+    setReason('');
+  }
   return (
-    <form
-      className="ui-card p-4 space-y-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave(reason.trim());
+    <Drawer
+      open={Boolean(line)}
+      onClose={() => {
+        if (!busy) onCancel();
       }}
+      title={line ? `The bank rejected ${line.employeeName}` : 'Record a rejection'}
+      description={line ? `${money(line.amount)} stays owed and appears in the next payment.` : ''}
+      dirty={Boolean(reason.trim()) && !busy}
     >
-      <div className="ui-sec-head">The bank rejected {line.employeeName}</div>
-      <div>
-        <label className="ui-label" htmlFor="reject-reason">What did it say?</label>
-        <input
-          id="reject-reason"
-          className="ui-input w-full"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Account closed, name mismatch, wrong IFSC…"
-          autoFocus
-        />
-        <span className="ui-caption">
-          {money(line.amount)} stays owed and appears in the next payment.
-        </span>
-      </div>
-      <div className="flex items-center justify-end gap-2">
-        <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary">Record rejection</button>
-      </div>
-    </form>
+      {line ? (
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (busy) return;
+            onSave(reason.trim());
+          }}
+        >
+          <div>
+            <label className="ui-label" htmlFor="reject-reason">What did it say?</label>
+            <input
+              id="reject-reason"
+              className="ui-input w-full"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Account closed, name mismatch, wrong IFSC…"
+              autoFocus
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={busy}>Cancel</button>
+            <Button type="submit" variant="primary" loading={busy}>{busy ? 'Recording…' : 'Record rejection'}</Button>
+          </div>
+        </form>
+      ) : null}
+    </Drawer>
   );
 };

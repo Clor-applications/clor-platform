@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useSearch } from '../router.jsx';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useLeaveGuard, useSearch } from '../router.jsx';
 import { SITE, productBySlug } from '../site.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
@@ -427,9 +427,48 @@ export function About() {
 const SALES_TOPICS = new Set(['pricing', 'projects', 'timesheet', 'firm']);
 const TOPICS = { general: 'A question about CLOR', pricing: 'Pricing for my company', projects: 'CLOR Projects, when it’s ready', timesheet: 'CLOR Timesheet, when it’s ready', firm: 'CLOR for my accounting firm' };
 
+/* What a contact message needs before it can go; the field order is the order focus looks for a wrong one. */
+const CONTACT_ORDER = ['name', 'email', 'message'];
+function checkContact(f) {
+  const e = {};
+  if (f.name.trim().length < 2) e.name = 'Enter your name.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) e.email = f.email.trim() ? 'Enter an email address like name@company.in.' : 'Enter your email.';
+  if (f.message.trim().length < 2) e.message = 'Write your message.';
+  return e;
+}
+
+/** A copy button that says so when it has copied. */
+function CopyButton({ text, label }) {
+  const [said, setSaid] = useState('');
+  useEffect(() => {
+    if (!said) return undefined;
+    const t = setTimeout(() => setSaid(''), 2500);
+    return () => clearTimeout(t);
+  }, [said]);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setSaid('Copied');
+    } catch {
+      setSaid('Select the text and copy it');
+    }
+  };
+  return (
+    <button type="button" className="btn btn--text" onClick={copy}>
+      <span aria-live="polite">{said || label}</span>
+    </button>
+  );
+}
+
 export function Contact() {
   const [about, setAbout] = useState('general');
   const [form, setForm] = useState({ name: '', company: '', email: '', message: '' });
+  const [errors, setErrors] = useState({});
+  /* After the email app was asked to open: the address it went to, shown with a copy button for webmail users. */
+  const [opened, setOpened] = useState('');
+  const [busy, setBusy] = useState(false);
+  const formRef = useRef(null);
+  const noteRef = useRef(null);
   /* The query comes from the router, so an in-page link to another ?about= is heard too. */
   const search = useSearch();
   useEffect(() => {
@@ -440,25 +479,54 @@ export function Contact() {
     const frame = requestAnimationFrame(() => setAbout(topic));
     return () => cancelAnimationFrame(frame);
   }, [search]);
-  /* No form backend yet: the message opens in the visitor's own email app, addressed to us. */
-  const mailto = () => {
-    const body = `${form.message}\n\nName: ${form.name}\nCompany: ${form.company}\nEmail: ${form.email}`;
-    const to = SALES_TOPICS.has(about) ? SITE.salesEmail : SITE.contactEmail;
-    return `mailto:${to}?subject=${encodeURIComponent(TOPICS[about])}&body=${encodeURIComponent(body)}`;
+  useEffect(() => {
+    if (!busy) return undefined;
+    const t = setTimeout(() => setBusy(false), 1200);
+    return () => clearTimeout(t);
+  }, [busy]);
+  useEffect(() => {
+    if (opened) noteRef.current?.focus();
+  }, [opened]);
+  /* Words typed and not yet handed to the email app: an in-site link asks first. */
+  useLeaveGuard(!opened && Object.values(form).some((v) => v.trim()));
+  /*
+   * No contact inbox on the API yet (the demo form has its own, server/src/routes/demoRequests.ts):
+   * the message opens in the visitor's own email app, addressed to us. Webmail users, whose
+   * computer has no email app, get the address and the message to copy.
+   */
+  const to = SALES_TOPICS.has(about) ? SITE.salesEmail : SITE.contactEmail;
+  const body = `${form.message}\n\nName: ${form.name}\nCompany: ${form.company}\nEmail: ${form.email}`;
+  const mailto = () => `mailto:${to}?subject=${encodeURIComponent(TOPICS[about])}&body=${encodeURIComponent(body)}`;
+  const set = (k) => (e) => {
+    setForm({ ...form, [k]: e.target.value });
+    if (errors[k]) setErrors(({ [k]: _gone, ...rest }) => rest);
   };
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const a = (k) => ({ 'aria-invalid': errors[k] ? true : undefined, 'aria-describedby': errors[k] ? `contact-${k}-error` : undefined });
+  const err = (k) =>
+    errors[k] ? (
+      <span className="field-error" id={`contact-${k}-error`}>
+        {errors[k]}
+      </span>
+    ) : null;
+  const submit = (e) => {
+    e.preventDefault();
+    const errs = checkContact(form);
+    setErrors(errs);
+    const first = CONTACT_ORDER.find((k) => errs[k]);
+    if (first) {
+      formRef.current?.querySelector(`#contact-${first}`)?.focus();
+      return;
+    }
+    setBusy(true);
+    setOpened(to);
+    window.location.href = mailto();
+  };
   return (
     <>
       <PageHead eyebrow="Contact" title="Talk to us" intro="Tell us about your business and what you need." />
       <section className="section">
         <div className="wrap contact">
-          <form
-            className="form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              window.location.href = mailto();
-            }}
-          >
+          <form ref={formRef} className="form" onSubmit={submit} noValidate>
             <label className="field">
               <span>What it’s about</span>
               <select
@@ -481,29 +549,43 @@ export function Contact() {
               </select>
             </label>
             <div className="field-row">
-              <label className="field">
-                <span>Your name</span>
-                <input name="name" autoComplete="name" value={form.name} onChange={set('name')} required />
-              </label>
-              <label className="field">
-                <span>Company</span>
-                <input name="organization" autoComplete="organization" value={form.company} onChange={set('company')} />
-              </label>
+              <div className="field">
+                <label htmlFor="contact-name">Your name</label>
+                <input id="contact-name" name="name" autoComplete="name" value={form.name} onChange={set('name')} maxLength={120} {...a('name')} />
+                {err('name')}
+              </div>
+              <div className="field">
+                <label htmlFor="contact-company">Company (optional)</label>
+                <input id="contact-company" name="organization" autoComplete="organization" value={form.company} onChange={set('company')} maxLength={160} />
+              </div>
             </div>
-            <label className="field">
-              <span>Email</span>
-              <input name="email" type="email" autoComplete="email" spellCheck={false} value={form.email} onChange={set('email')} required />
-            </label>
-            <label className="field">
-              <span>Message</span>
-              <textarea name="message" rows={5} value={form.message} onChange={set('message')} />
-            </label>
+            <div className="field">
+              <label htmlFor="contact-email">Email</label>
+              <input id="contact-email" name="email" type="email" autoComplete="email" spellCheck={false} value={form.email} onChange={set('email')} maxLength={200} {...a('email')} />
+              {err('email')}
+            </div>
+            <div className="field">
+              <label htmlFor="contact-message">Message</label>
+              <textarea id="contact-message" name="message" rows={5} value={form.message} onChange={set('message')} maxLength={4000} {...a('message')} />
+              {err('message')}
+            </div>
             <div className="actions">
-              <button type="submit" className="btn btn--primary">
-                Write the email
+              <button type="submit" className="btn btn--primary" disabled={busy}>
+                {busy ? 'Opening your email app…' : 'Write the email'}
               </button>
               <p className="small">Opens your email app with this filled in.</p>
             </div>
+            {opened ? (
+              <div className="contact-sent" ref={noteRef} tabIndex={-1} role="status">
+                <p className="body">
+                  Your email app should open with the message ready to send. Nothing opened? Write to <a href={`mailto:${opened}`}>{opened}</a> from your own email and paste the message in.
+                </p>
+                <p className="contact-sent-actions">
+                  <CopyButton text={opened} label="Copy the address" />
+                  <CopyButton text={body} label="Copy the message" />
+                </p>
+              </div>
+            ) : null}
           </form>
           <aside className="contact-aside stack">
             <h2 className="h-3">Or write to us directly</h2>

@@ -27,7 +27,7 @@ vi.mock('./api', () => ({
   opsTax: () => api.tax(),
   opsSaveTax: (b) => api.saveTax(b),
 }));
-vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, confirmDialog: () => Promise.resolve(true) }));
 
 import { Pricing } from './Pricing';
 import { Settings } from './Settings';
@@ -131,9 +131,56 @@ describe('Pricing in the operator console', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
-    expect(await screen.findByText(/Its plans and prices go on clor.in/)).toBeInTheDocument();
+    expect(await screen.findByText(/Its 1 plan goes on clor.in/)).toBeInTheDocument();
+    expect(screen.getByText(/every plan here is new/)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: 'Publish' }).at(-1));
     await waitFor(() => expect(api.publish).toHaveBeenCalledWith('b2'));
+  });
+
+  it('asks before replacing plans with the sample prices, and says when they fail to load', async () => {
+    api.list.mockResolvedValue({ books: [draft], tax, apps });
+    api.one.mockResolvedValue({ book: draft });
+    api.sample.mockRejectedValue(new Error('down'));
+    render(<Pricing role="BILLING" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open the draft' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Replace with sample prices' }));
+    expect(api.sample).not.toHaveBeenCalled();
+    expect(await screen.findByText('Replace 1 plan with the sample prices?')).toBeInTheDocument();
+    expect(screen.getByText(/nothing goes on clor.in until you publish/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Replace plans' }));
+    await waitFor(() => expect(api.sample).toHaveBeenCalled());
+    expect(await screen.findByText(/The sample prices did not load/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Books Starter' })).toBeInTheDocument();
+  });
+
+  it('lists each price that changes against the live version before publishing', async () => {
+    const live = { id: 'b1', version: 1, status: 'PUBLISHED', note: null, plans: [starter, { ...starter, code: 'books-old', name: 'Books Old' }] };
+    const cheaper = { ...draft, plans: [{ ...starter, prices: [{ period: 'MONTHLY', basePrice: 34950, extraUnitPrice: 30000 }, starter.prices[1]] }] };
+    api.list.mockResolvedValue({ books: [cheaper, { id: 'b1', version: 1, status: 'PUBLISHED', planCount: 2 }], tax, apps });
+    api.one.mockImplementation((id) => Promise.resolve({ book: id === 'b1' ? live : cheaper }));
+    render(<Pricing role="BILLING" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open the draft' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Publish' }));
+    const changes = await screen.findByRole('list', { name: 'Price changes' });
+    expect(within(changes).getByText('Monthly: ₹300 + ₹300 per extra user → ₹349.50 + ₹300 per extra user')).toBeInTheDocument();
+    expect(within(changes).getByText('Books Old')).toBeInTheDocument();
+    expect(within(changes).getByText(/Removed/)).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('shows every problem with a plan at once', async () => {
+    api.list.mockResolvedValue({ books: [draft], tax, apps });
+    api.one.mockResolvedValue({ book: draft });
+    render(<Pricing role="BILLING" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open the draft' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a plan' }));
+    fireEvent.change(await screen.findByLabelText('Monthly price, ₹'), { target: { value: 'abc' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add to draft' }));
+    expect(await screen.findAllByText('Give the plan a name.')).toHaveLength(2);
+    expect(screen.getAllByText('Choose at least one app.')).toHaveLength(2);
+    expect(screen.getAllByText(/The monthly price is an amount in rupees/)).toHaveLength(2);
+    expect(screen.getByLabelText('Name')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Name')).toHaveAttribute('aria-describedby', 'ops-plan-name-err');
   });
 
   it('shows a support operator the prices without the buttons that change them', async () => {

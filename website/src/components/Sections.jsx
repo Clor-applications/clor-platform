@@ -41,7 +41,8 @@ const TEAM = [
 /**
  * How a company gets going, as three small moving pictures: the company form
  * filling itself in, the products switching on one by one, the team arriving.
- * Each plays in a loop; under reduced motion each shows its finished state.
+ * Each plays once when it comes on screen (App.jsx) and rests on its finished
+ * state; under reduced motion each shows that state at once.
  */
 export function SettingUp() {
   return (

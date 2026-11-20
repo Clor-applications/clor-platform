@@ -6,7 +6,7 @@ import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
-import Drawer from '@ui/components/ui/Drawer';
+import Drawer from '../components/EditDrawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayGroups, createPayGroup, updatePayGroup, deletePayGroup } from '../api/payrollCalendar';
 import LoadFailed from '@ui/components/ui/LoadFailed';
@@ -313,7 +313,7 @@ const PayGroupForm = ({ initial, onClose, onSaved }) => {
             <label className="ui-label" htmlFor="paygroup-payment-day">Paid on day</label>
             <input
               id="paygroup-payment-day"
-              type="number"
+              type="text" inputMode="decimal"
               min="1"
               max="31"
               className="ui-input ui-num w-full"

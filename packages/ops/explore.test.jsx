@@ -47,6 +47,7 @@ describe('Sample company in the operator console', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Build sample company' }));
       await waitFor(() => expect(api.build).toHaveBeenCalledWith(false));
       expect(await screen.findByText('Done so far: departments and employees.')).toBeInTheDocument();
+      expect(screen.getByText(/Building now: step 2 of 6\./)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Building…' })).toBeDisabled();
       await act(async () => {
         vi.advanceTimersByTime(2100);

@@ -170,7 +170,7 @@ export function PersonPolicies({ employeeId, openScreen }) {
           {rows.map((p) => (
             <li key={p.versionId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
               <span className="min-w-0 flex-1">
-                {openScreen ? <button type="button" className="ui-link font-medium text-left" onClick={() => openScreen('policies', { id: p.policyId })}>{p.title}</button> : <span>{p.title}</span>}
+                {openScreen ? <button type="button" className="ui-link font-semibold text-left" onClick={() => openScreen('policies', { id: p.policyId })}>{p.title}</button> : <span>{p.title}</span>}
                 <span className="block ui-caption">{p.categoryLabel} · version {p.version} · from <span className="tabular-nums">{day(p.effectiveFrom)}</span></span>
               </span>
               {p.acceptedAt ? <span className="ui-pill ui-pill-pos">Accepted {onDay(p.acceptedAt)}</span>

@@ -85,7 +85,7 @@ export default function Interviews({ params = {} }) {
 
 /** Which candidate, then the interview form their page uses. */
 function ScheduleInterview({ onClose, onSaved }) {
-  const req = useRequest(() => listCandidates({ stage: 'open', limit: 500 }).then((r) => r?.rows || []).catch(() => []), []);
+  const req = useRequest(() => listCandidates({ stage: 'open', limit: 500 }).then((r) => r?.rows || []), []);
   const [picked, setPicked] = useState('');
   const rows = req.data || [];
   const candidate = rows.find((c) => c.id === picked);
@@ -95,7 +95,8 @@ function ScheduleInterview({ onClose, onSaved }) {
       footer={<button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>}>
       {/* Choosing the candidate opens the form at once; there is nothing else to say before it. */}
       <div className="grid gap-4">
-        {req.loading ? <p className="ui-muted text-sm" aria-busy="true">Loading candidates…</p>
+        {req.loading ? <div className="ui-skel h-9 w-full" aria-busy="true" aria-label="Loading candidates" />
+          : req.error ? <ErrorState error={req.error} onRetry={req.reload} compact />
           : !rows.length ? <p className="ui-muted text-sm" role="status">Nobody is in the running. Add a candidate under Hiring › Candidates first.</p>
             : <PopupSelect label="Candidate" alwaysSearch value={picked} onChange={(v) => setPicked(v || '')} placeholder="Choose a candidate"
                 options={rows.map((c) => ({ value: c.id, label: c.name, subtext: [c.openingTitle, word(STAGES, c.stage)].filter(Boolean).join(' · ') }))} />}

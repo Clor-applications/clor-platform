@@ -25,10 +25,14 @@ import { FormError, Footer, Pill, SHEET, WIDE_SHEET, day, staffOptions, tabItems
  */
 const TABS = [['', 'Current'], ['PLANNED', 'Planned'], ['DONE', 'Done'], ['CANCELLED', 'Cancelled'], ['expiring', 'Expiring certificates']];
 const KINDS = [['INTERNAL', 'In-house'], ['EXTERNAL', 'Outside provider'], ['ONLINE', 'Online']];
-const STATUS = { PLANNED: ['Planned', 'ui-pill-info'], DONE: ['Done', 'ui-pill-pos'], CANCELLED: ['Cancelled', 'ui-pill-neutral'] };
-const SEAT = { ASSIGNED: ['Assigned', 'ui-pill-info'], COMPLETED: ['Completed', 'ui-pill-pos'], MISSED: ['Missed', 'ui-pill-neg'] };
+const STATUS = { PLANNED: ['Planned', 'ui-pill-neutral'], DONE: ['Done', 'ui-pill-pos'], CANCELLED: ['Cancelled', 'ui-pill-neutral'] };
+const SEAT = { ASSIGNED: ['Assigned', 'ui-pill-neutral'], COMPLETED: ['Completed', 'ui-pill-pos'], MISSED: ['Missed', 'ui-pill-neg'] };
 const kindWord = (k) => KINDS.find((x) => x[0] === k)?.[1] || k;
 const months = (n) => (n ? `${n} month${n === 1 ? '' : 's'}` : 'Does not lapse');
+/* A planned training whose last day has gone without being marked done is the one exception a row shows; planned,
+   done and cancelled read as plain words. "Must do" is a fact about the training, not a state, so it is a word too. */
+const pastDue = (t) => t.status === 'PLANNED' && (t.endDate || t.startDate) && String(t.endDate || t.startDate).slice(0, 10) < todayIst();
+const statusTag = (t) => <ExceptionTag label={pastDue(t) ? 'Not marked done' : ''} normal={STATUS[t.status]?.[0] || t.status} />;
 const Lapse = ({ seat }) => (seat.expired ? <span className="ui-pill ui-pill-neg">Lapsed {day(seat.expiresOn)}</span> : seat.expiringSoon ? <span className="ui-pill ui-pill-warn">Lapses {day(seat.expiresOn)}</span> : seat.expiresOn ? <span className="tabular-nums">{day(seat.expiresOn)}</span> : <span className="ui-muted">—</span>);
 
 export default function Trainings({ params = {} }) {
@@ -68,7 +72,7 @@ export default function Trainings({ params = {} }) {
     { key: 'people', label: 'Assigned', align: 'right', render: (t) => <span className="tabular-nums">{seatsOf(t)}</span> },
     { key: 'completed', label: 'Completed', render: (t) => (seatsOf(t) ? <Meter value={(t.completed / seatsOf(t)) * 100} text={`${t.completed} · ${Math.round((t.completed / seatsOf(t)) * 100)}%`} /> : <span className="ui-muted">Nobody yet</span>) },
     { key: 'valid', label: 'Certificate', render: (t) => months(t.validMonths) },
-    { key: 'status', label: 'Status', render: (t) => <span className="inline-flex flex-wrap gap-1.5"><ExceptionTag label={t.status === 'DONE' ? '' : STATUS[t.status]?.[0] || t.status} normal={STATUS[t.status]?.[0]} pill={`${STATUS[t.status]?.[1] || 'ui-pill-neutral'}`} />{t.mandatory ? <span className="ui-pill ui-pill-warn">Must do</span> : null}</span> },
+    { key: 'status', label: 'Status', render: (t) => <span className="inline-flex flex-wrap items-center gap-1.5">{pastDue(t) ? statusTag(t) : <span className="ui-muted">{STATUS[t.status]?.[0] || t.status}</span>}{t.mandatory ? <span className="ui-caption">Must do</span> : null}</span> },
   ];
   return (
     <div className="space-y-6">
@@ -90,7 +94,7 @@ export default function Trainings({ params = {} }) {
           card={(r) => (expiring ? (
             <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{r.employee?.name}</span><Lapse seat={r} /></span><span className="block truncate ui-caption">{r.trainingTitle}</span></span>
           ) : (
-            <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{r.title}</span><ExceptionTag label={r.status === 'DONE' ? '' : STATUS[r.status]?.[0] || r.status} normal={STATUS[r.status]?.[0]} pill={`${STATUS[r.status]?.[1] || 'ui-pill-neutral'}`} /></span><span className="block truncate ui-caption">{[r.startDate ? day(r.startDate) : null, `${r.completed} of ${r.assigned + r.completed + r.missed} completed`].filter(Boolean).join(' · ')}</span></span>
+            <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{r.title}</span>{statusTag(r)}</span><span className="block truncate ui-caption">{[r.startDate ? day(r.startDate) : null, `${r.completed} of ${r.assigned + r.completed + r.missed} completed`].filter(Boolean).join(' · ')}</span></span>
           ))}
           empty={expiring ? <EmptyState title="Nothing lapsing" description="No certificate lapses in the next 60 days." />
             : q || tab ? <EmptyState kind="filtered" title="No trainings match" description="Nothing here matches the search or the tab." />

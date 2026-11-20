@@ -57,6 +57,7 @@ export function headFor(path) {
   return [
     `<link rel="preload" href="${fontUrl}" as="font" type="font/woff2" crossorigin />`,
     ...(api === new URL(SITE.url).origin ? [] : [`<link rel="preconnect" href="${api}" crossorigin />`]),
+    ...(r.path === '/pricing' ? ['<script src="/period.js"></script>'] : []),
     `<title>${esc(title)}</title>`,
     `<meta name="description" content="${esc(r.description)}" />`,
     r.noindex ? '<meta name="robots" content="noindex" />' : `<link rel="canonical" href="${url}" />`,

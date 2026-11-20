@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
-import { Loading, errorWords } from './kit';
-import { notify } from '@ui/components/ui/notify';
+import { Err, ErrorSummary, Loading, errorWords } from './kit';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsSaveTax, opsTax } from './api';
@@ -18,6 +18,28 @@ const STATES = Object.entries(GST_STATE_BY_CODE)
   .sort((a, b) => a[1].localeCompare(b[1]));
 const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
 
+/**
+ * The tax change in words, old against new, and where it applies, for the confirm before saving.
+ * The server works GST out again when a draft is issued (billing/invoices.ts issueInvoice), so drafts
+ * take the new settings too; invoices already issued keep theirs. Null when nothing changed.
+ */
+export function taxChangeWords(before, after) {
+  const stateName = (c) => (c ? GST_STATE_BY_CODE[c] || c : 'none');
+  const show = (v) => (v === '' || v == null ? 'none' : String(v));
+  const changes = [];
+  if (Boolean(before.registered) !== Boolean(after.registered)) changes.push(`GST registered: ${before.registered ? 'yes' : 'no'} → ${after.registered ? 'yes' : 'no'}`);
+  if (Number(before.ratePercent) !== Number(after.ratePercent)) changes.push(`Rate: ${before.ratePercent}% → ${after.ratePercent}%`);
+  if (show(before.gstin) !== show(after.gstin)) changes.push(`GSTIN: ${show(before.gstin)} → ${show(after.gstin)}`);
+  if (show(before.legalName) !== show(after.legalName)) changes.push(`Legal name: ${show(before.legalName)} → ${show(after.legalName)}`);
+  if (show(before.state) !== show(after.state)) changes.push(`State: ${stateName(before.state)} → ${stateName(after.state)}`);
+  if (show(before.sac) !== show(after.sac)) changes.push(`SAC code: ${show(before.sac)} → ${show(after.sac)}`);
+  if (!changes.length) return null;
+  const effect = after.registered
+    ? `From now on every quote and every invoice issued adds GST at ${after.ratePercent}%, drafts included: their tax is worked out again when they are issued.`
+    : 'From now on no quote or invoice carries GST, drafts included: their tax is worked out again when they are issued.';
+  return { changes, message: `${changes.join('. ')}. ${effect} Invoices already issued keep the GST they were issued with.` };
+}
+
 export function Settings({ role }) {
   const [tax, setTax] = useState(null);
   const [rates, setRates] = useState([0, 5, 12, 18, 28]);
@@ -33,11 +55,12 @@ export function Settings({ role }) {
         setF({ registered: r.tax.registered, gstin: r.tax.gstin || '', legalName: r.tax.legalName || '', state: r.tax.stateCode || '', sac: r.tax.sac || '', ratePercent: r.tax.ratePercent });
       })
       .catch((e) => setError(errorWords(e, 'load the tax settings')));
+  const saved = tax ? { registered: tax.registered, gstin: tax.gstin || '', legalName: tax.legalName || '', state: tax.stateCode || '', sac: tax.sac || '', ratePercent: tax.ratePercent } : null;
   useEffect(() => {
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!f) return error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error} If it keeps failing, tell engineering.</p> : <Loading />;
+  if (!f) return error ? <Err onRetry={() => (setError(''), load())}>{`${error} If it keeps failing, tell engineering.`}</Err> : <Loading />;
   const mayChange = may(role, 'BILLING');
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   /* The state follows the GSTIN's first two digits as it is typed. */
@@ -47,6 +70,19 @@ export function Settings({ role }) {
   };
   const save = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    const change = taxChangeWords(saved, f);
+    if (!change) {
+      notify.info('Nothing changed.');
+      return;
+    }
+    const ok = await confirmDialog({
+      title: 'Change CLOR’s GST settings?',
+      message: change.message,
+      confirmLabel: 'Save tax settings',
+      tone: 'primary',
+    });
+    if (!ok) return;
     setBusy(true);
     setProblems([]);
     try {
@@ -136,13 +172,7 @@ export function Settings({ role }) {
               <span className="ws-card-blurb">18% for software subscriptions.</span>
             </div>
           </div>
-          {problems.length ? (
-            <ul role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))', paddingLeft: 18, listStyle: 'disc' }}>
-              {problems.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-          ) : null}
+          <ErrorSummary errors={Object.fromEntries(problems.map((p, i) => [`p${i}`, p]))} />
           {!mayChange ? <p className="ws-card-blurb">Only Finance can change this.</p> : <p className="ws-card-blurb">Saving asks for a code from your authenticator app.</p>}
         </form>
       </Panel>

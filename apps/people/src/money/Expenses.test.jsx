@@ -15,6 +15,8 @@ const api = vi.hoisted(() => ({
   recordClaim: vi.fn(), readBill: vi.fn(),
 }));
 vi.mock('../api/money', () => api);
+const notifyMock = vi.hoisted(() => ({ confirmDialog: vi.fn(async () => true), notify: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('@ui/components/ui/notify', () => notifyMock);
 vi.mock('@ui/personnel/PickPersonDrawer', () => ({ default: ({ title, onPick }) => <div role="dialog" aria-label={title}><button type="button" onClick={() => onPick({ id: 'e1', name: 'Asha Nair', code: 'E-1' })}>Pick Asha</button></div> }));
 const perms = { current: new Set(['PEOPLE::Expenses::VIEW', 'PEOPLE::Expenses::EDIT']) };
 vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => ({ isAdmin: false, permissions: perms.current }) }));
@@ -56,4 +58,27 @@ it('someone who may only see expenses gets no Record a claim', async () => {
   render(<Expenses params={{}} updateParams={() => {}} />);
   await screen.findByText('Nothing to pay');
   expect(screen.queryByRole('button', { name: 'Record a claim' })).toBeNull();
+});
+
+it('Send to Payroll asks first, names the person and amount, and runs once while busy', async () => {
+  api.listSalaryAdvances.mockResolvedValue([{ id: 'sa1', employeeName: 'Asha Nair', employeeCode: 'E-1', amount: 30000, months: 3, emi: 10000, reason: 'Rent', status: 'APPROVED', statusLabel: 'Approved', loan: null }]);
+  let finish;
+  api.sendToPayroll.mockImplementation(() => new Promise((r) => { finish = r; }));
+  notifyMock.confirmDialog.mockResolvedValueOnce(false);
+  render(<Expenses params={{ tab: 'salary' }} updateParams={() => {}} />);
+  const send = await screen.findByRole('button', { name: 'Send to Payroll' });
+  fireEvent.click(send);
+  await waitFor(() => expect(notifyMock.confirmDialog).toHaveBeenCalledTimes(1));
+  const asked = notifyMock.confirmDialog.mock.calls[0][0];
+  expect(asked.title).toMatch(/Asha Nair/);
+  expect(asked.title).toMatch(/30,000/);
+  expect(api.sendToPayroll).not.toHaveBeenCalled();
+  /* Second time the person says yes; the link turns busy and a second click sends nothing. */
+  fireEvent.click(screen.getByRole('button', { name: 'Send to Payroll' }));
+  const busy = await screen.findByRole('button', { name: 'Sending…' });
+  expect(busy.disabled).toBe(true);
+  fireEvent.click(busy);
+  expect(api.sendToPayroll).toHaveBeenCalledTimes(1);
+  finish({ number: 'LN-1' });
+  await waitFor(() => expect(notifyMock.notify.success).toHaveBeenCalledWith('Payroll loan LN-1 made.'));
 });
