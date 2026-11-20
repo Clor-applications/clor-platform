@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Download } from 'lucide-react';
 import { emoji } from '@ui/components/ui/emoji';
 
@@ -52,9 +52,17 @@ export function invoiceFigures(invoices, now = new Date()) {
   };
 }
 
-export default function Invoices() {
+export default function Invoices({ params }) {
   const viewer = useInvoices();
   const { invoices, failed, reload, payOnline, openInvoice } = viewer;
+  /* From the search bar: an invoice found by its number opens here, once the list is in. */
+  const wanted = typeof params?.invoice === 'string' ? params.invoice : '';
+  const opened = useRef('');
+  useEffect(() => {
+    if (!wanted || opened.current === wanted || !invoices?.some((i) => i.id === wanted)) return;
+    opened.current = wanted;
+    openInvoice(wanted);
+  }, [wanted, invoices, openInvoice]);
   const f = invoices ? invoiceFigures(invoices) : null;
   const fy = fyStart();
   const fyName = `FY ${fy.getFullYear()}–${String(fy.getFullYear() + 1).slice(2)}`;

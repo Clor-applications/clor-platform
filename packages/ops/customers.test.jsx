@@ -45,11 +45,24 @@ describe('Customers', () => {
     expect(screen.getByText('Trial', { selector: '.ws-pill' })).toBeInTheDocument();
     expect(screen.getByText('Never')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'overdue' } });
-    await waitFor(() => expect(api.opsAccounts).toHaveBeenLastCalledWith({ q: '', status: 'overdue', page: 0 }));
+    await waitFor(() => expect(api.opsAccounts).toHaveBeenLastCalledWith({ q: '', status: 'overdue', page: 0, sort: 'created' }));
     fireEvent.change(screen.getByPlaceholderText('Name, account ID or owner email'), { target: { value: 'asha@' } });
-    await waitFor(() => expect(api.opsAccounts).toHaveBeenLastCalledWith({ q: 'asha@', status: 'overdue', page: 0 }));
+    await waitFor(() => expect(api.opsAccounts).toHaveBeenLastCalledWith({ q: 'asha@', status: 'overdue', page: 0, sort: 'created' }));
     fireEvent.click(screen.getByRole('button', { name: 'Rao Textiles' }));
     expect(open).toHaveBeenCalledWith('a1');
+  });
+
+  it('tags a customer only when something is wrong, with the reason, and lists the worst first on request', async () => {
+    const risk = { level: 'risk', reasons: [{ key: 'payment', level: 'risk', text: '1 invoice is past the due date', action: 'Send the invoice again and call the owner' }, { key: 'support', level: 'good', text: 'No ticket waiting', action: null }, { key: 'usage', level: 'good', text: 'Used today', action: null }] };
+    const good = { level: 'good', reasons: [{ key: 'payment', level: 'good', text: 'Nothing overdue', action: null }] };
+    api.opsAccounts.mockResolvedValue({ total: 2, page: 0, pageSize: 25, accounts: [{ ...row, id: 'a1', health: risk }, { ...row, id: 'a2', title: 'Well Co', name: 'Well Co', health: good }] });
+    render(<Customers openCustomer={() => {}} />);
+    expect(await screen.findByText('At risk')).toBeInTheDocument();
+    expect(screen.getByText('1 invoice is past the due date')).toBeInTheDocument();
+    /* Doing well: no tag, only a word for a screen reader. */
+    expect(screen.getByText('Good').className).toBe('sr-only');
+    fireEvent.change(screen.getByLabelText('Order'), { target: { value: 'health' } });
+    await waitFor(() => expect(api.opsAccounts).toHaveBeenLastCalledWith({ q: '', status: 'all', page: 0, sort: 'health' }));
   });
 
   it('calls a trial that has run out overdue', () => {
@@ -66,6 +79,30 @@ describe('a customer’s page', () => {
     expect(screen.getByText('asha@rao.in')).toBeInTheDocument();
     expect(screen.getByText(/Branches: Head office \(Karnataka\)/)).toBeInTheDocument();
     expect(screen.getByText('Nobody has signed in yet')).toBeInTheDocument();
+  });
+
+  it('says how the customer is doing: the word, each reason, and what to do next', async () => {
+    api.opsAccount.mockResolvedValue(detail({
+      health: { level: 'risk', reasons: [
+        { key: 'payment', level: 'risk', text: '1 invoice is past the due date', action: 'Send the invoice again and call the owner' },
+        { key: 'support', level: 'watch', text: '1 ticket is waiting for CLOR', action: 'Answer the ticket' },
+        { key: 'usage', level: 'good', text: 'Used today', action: null },
+      ] },
+    }));
+    render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    const panel = within(await screen.findByRole('region', { name: 'How this customer is doing' }));
+    expect(panel.getByText('At risk')).toBeInTheDocument();
+    expect(panel.getByText('1 invoice is past the due date')).toBeInTheDocument();
+    expect(panel.getByText('Send the invoice again and call the owner')).toBeInTheDocument();
+    expect(panel.getByText('Answer the ticket')).toBeInTheDocument();
+    expect(panel.getByText('Used today')).toBeInTheDocument();
+  });
+
+  it('shows no health panel for an account that is not judged', async () => {
+    api.opsAccount.mockResolvedValue(detail({ health: null }));
+    render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    await screen.findByRole('heading', { name: 'Rao Textiles' });
+    expect(screen.queryByRole('region', { name: 'How this customer is doing' })).toBeNull();
   });
 
   it('shows seats per app, the entitlement rule and recent access denials on Overview', async () => {
