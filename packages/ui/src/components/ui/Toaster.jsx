@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X } from '@ui/components/ui/lineIcons';
 import { Toaster as SonnerToaster, toast as sonnerToast } from 'sonner';
 
 import { EXPLORE_READ_ONLY_TEXT, subscribeConfirms, subscribeToasts } from './notify';
+import { useLayer } from './layerStack';
 
 /**
  * The one place notifications become pixels: a toast stack bottom-right and
@@ -14,17 +14,33 @@ import { EXPLORE_READ_ONLY_TEXT, subscribeConfirms, subscribeToasts } from './no
  *
  * Confirm: replaces window.confirm. Escape cancels, the danger action is a
  * real ui-btn-danger, and focus starts on Cancel so a stray Enter cannot
- * delete anything.
+ * delete anything. Both prompts sit on the shared layer stack: Tab stays
+ * inside, Escape closes only them (never the dialog that opened them), and
+ * focus goes back where it was. A confirm given an `action` stays open while
+ * it runs and cannot be cancelled half way; the code prompt stays open,
+ * saying it is checking, until the server answers.
  */
+
+const restoreFocus = (el) => {
+  if (el && typeof el.focus === 'function' && document.contains(el)) el.focus();
+};
 
 export default function Toaster() {
 
   const books = typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
   const [confirm, setConfirm] = useState(null);
+  /* The confirm's own request (an `action` passed to confirmDialog) is running. */
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
   const cancelRef = useRef(null);
+  const confirmPanelRef = useRef(null);
   /* An authenticator code asked for by @platform/http (step-up). */
   const [codeAsk, setCodeAsk] = useState(null);
   const [code, setCode] = useState('');
+  /* Sent, and the server has not answered yet. */
+  const [checking, setChecking] = useState(false);
+  const codePanelRef = useRef(null);
+  const codeInputRef = useRef(null);
 
   useEffect(() => {
     window.__clorStepUpHost = (Number(window.__clorStepUpHost) || 0) + 1;
@@ -32,7 +48,16 @@ export default function Toaster() {
       /* Two Toasters can be mounted (shell and an app); one answers. */
       if (e.detail.taken) return;
       e.detail.taken = true;
+      /* How the server answered the code (from @platform/http): a wrong one is asked for again in the
+         same dialog; anything else closes it. Set here, on the event, not on the state. */
+      const asked = e.detail;
+      asked.settle = (outcome) => {
+        setChecking(false);
+        if (outcome === 'again') return;
+        setCodeAsk((cur) => (cur === asked ? null : cur));
+      };
       setCode('');
+      setChecking(false);
       setCodeAsk(e.detail);
     };
     window.addEventListener('clor:step-up', onAsk);
@@ -41,9 +66,17 @@ export default function Toaster() {
       window.removeEventListener('clor:step-up', onAsk);
     };
   }, []);
+
   const answer = (value) => {
-    codeAsk?.resolve(value);
-    setCodeAsk(null);
+    if (!codeAsk) return;
+    if (!value) {
+      codeAsk.resolve(null);
+      setCodeAsk(null);
+      return;
+    }
+    /* Kept open, checking, until the server answers (settle, set when the ask arrived). */
+    setChecking(true);
+    codeAsk.resolve(value);
   };
 
   useEffect(() => {
@@ -51,36 +84,67 @@ export default function Toaster() {
       /* An error lingers: it usually carries an instruction, and four seconds
          is not long enough to read one and act on it. */
       const opts = { duration: t.kind === 'error' ? 7000 : 4000 };
+      /* A toast can carry one action, such as Undo. */
+      if (t.action) opts.action = t.action;
       /* Explore: the shell and the screen that tried may both say the sample refused a change; one toast. */
       if (t.message === EXPLORE_READ_ONLY_TEXT) opts.id = 'explore-read-only';
       if (t.kind === 'success') sonnerToast.success(t.message, opts);
       else if (t.kind === 'error') sonnerToast.error(t.message, opts);
       else sonnerToast(t.message, opts);
     });
-    const offConfirms = subscribeConfirms((req) => setConfirm(req));
+    const offConfirms = subscribeConfirms((req) => {
+      setConfirmBusy(false);
+      setConfirmError('');
+      setConfirm(req);
+    });
     return () => {
       offToasts();
       offConfirms();
     };
   }, []);
 
+  /* Focus goes to Cancel (or Stay) on open, and back to whatever had it on close. */
   useEffect(() => {
     if (!confirm) return undefined;
+    const back = document.activeElement;
     cancelRef.current?.focus();
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        confirm.resolve(false);
-        setConfirm(null);
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => restoreFocus(back);
   }, [confirm]);
+  useEffect(() => {
+    if (!codeAsk) return undefined;
+    const back = document.activeElement;
+    codeInputRef.current?.focus();
+    return () => restoreFocus(back);
+  }, [codeAsk]);
 
-  const settle = (ok) => {
-    confirm?.resolve(ok);
+  const settle = async (ok) => {
+    if (!confirm || confirmBusy) return;
+    if (ok && typeof confirm.action === 'function') {
+      setConfirmBusy(true);
+      setConfirmError('');
+      try {
+        await confirm.action();
+      } catch (err) {
+        /* Stays open with the reason, so it can be tried again or cancelled. */
+        setConfirmBusy(false);
+        setConfirmError(err?.message || 'That did not go through. Try again.');
+        return;
+      }
+      setConfirmBusy(false);
+    }
+    confirm.resolve(ok);
     setConfirm(null);
   };
+
+  /* A code asked for by a confirmed action opens over the confirm, so it is pushed after it. */
+  useLayer(Boolean(confirm), { kind: 'dialog', onEscape: () => settle(false), trap: () => confirmPanelRef.current });
+  useLayer(Boolean(codeAsk), {
+    kind: 'dialog',
+    onEscape: () => {
+      if (!checking) answer(null);
+    },
+    trap: () => codePanelRef.current,
+  });
 
   return (
     <>
@@ -115,6 +179,8 @@ export default function Toaster() {
          * dialog that caused it, and the command palette outranks the toast.
          */
         style={{ zIndex: 'var(--z-toast)' }}
+        /* Every toast can be put away by hand, not only by waiting or swiping. */
+        closeButton
         toastOptions={{
           duration: 4000,
           classNames: {
@@ -129,7 +195,7 @@ export default function Toaster() {
       {confirm ? (
         <div
           className="fixed inset-0 flex items-center justify-center p-4"
-      style={{ zIndex: 'var(--z-toast)' }}
+          style={{ zIndex: 'var(--z-toast)' }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-title"
@@ -140,31 +206,40 @@ export default function Toaster() {
             onClick={() => settle(false)}
             aria-hidden="true"
           />
-          <div className="ui-card ui-confirm ui-in-pop relative w-full max-w-sm p-5" style={{ boxShadow: 'var(--shadow-pop)' }}>
+          <div
+            ref={confirmPanelRef}
+            tabIndex={-1}
+            aria-busy={confirmBusy || undefined}
+            className="ui-card ui-confirm ui-in-pop relative w-full max-w-sm p-5"
+            style={{ boxShadow: 'var(--shadow-pop)' }}
+          >
             <h2 id="confirm-title" className="ui-t-sec">{confirm.title}</h2>
             {confirm.message ? <p className="ui-muted mt-2 text-sm leading-relaxed">{confirm.message}</p> : null}
+            {confirmError ? <p className="ui-field-error mt-2" role="alert">{confirmError}</p> : null}
             <div className="ui-confirm-actions mt-5 flex justify-end gap-2">
               {confirm.stayFirst ? (
                 <>
                   {/* Staying is the main button; leaving is the quiet one beside it. Focus starts on Stay. */}
-                  <button type="button" onClick={() => settle(true)} className="ui-btn ui-btn-secondary">
+                  <button type="button" onClick={() => settle(true)} className="ui-btn ui-btn-secondary" disabled={confirmBusy}>
                     {confirm.confirmLabel}
                   </button>
-                  <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-primary">
+                  <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-primary" disabled={confirmBusy}>
                     {confirm.cancelLabel || 'Cancel'}
                   </button>
                 </>
               ) : (
                 <>
-                  <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-secondary">
+                  <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-secondary" disabled={confirmBusy}>
                     {confirm.cancelLabel || 'Cancel'}
                   </button>
                   <button
                     type="button"
                     onClick={() => settle(true)}
+                    disabled={confirmBusy}
+                    aria-busy={confirmBusy || undefined}
                     className={`ui-btn ${confirm.tone === 'danger' ? 'ui-btn-danger' : 'ui-btn-primary'}`}
                   >
-                    {confirm.confirmLabel}
+                    {confirmBusy ? 'Working…' : confirm.confirmLabel}
                   </button>
                 </>
               )}
@@ -176,22 +251,29 @@ export default function Toaster() {
       {/* --- authenticator code (step-up) --- */}
       {codeAsk ? (
         <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 'var(--z-toast)' }} role="dialog" aria-modal="true" aria-labelledby="code-title">
-          <div className="absolute inset-0" style={{ backgroundColor: 'rgb(0 0 0 / 0.45)' }} onClick={() => answer(null)} aria-hidden="true" />
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: 'rgb(0 0 0 / 0.45)' }}
+            onClick={() => {
+              if (!checking) answer(null);
+            }}
+            aria-hidden="true"
+          />
           <form
+            ref={codePanelRef}
+            tabIndex={-1}
+            aria-busy={checking || undefined}
             className="ui-card ui-confirm ui-in-pop relative w-full max-w-sm p-5"
             style={{ boxShadow: 'var(--shadow-pop)' }}
             onSubmit={(e) => {
               e.preventDefault();
-              answer(code.trim() || null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') answer(null);
+              if (!checking && code.trim()) answer(code.trim());
             }}
           >
             <h2 id="code-title" className="ui-t-sec">Enter your authenticator code</h2>
             <p className="ui-muted mt-2 text-sm leading-relaxed">{codeAsk.message}</p>
             <input
-              autoFocus
+              ref={codeInputRef}
               className="ui-input ui-num mt-3 w-full text-center tracking-widest"
               inputMode="numeric"
               autoComplete="one-time-code"
@@ -199,12 +281,15 @@ export default function Toaster() {
               aria-label="Code from your authenticator app"
               placeholder="123456"
               value={code}
+              readOnly={checking}
               onChange={(e) => setCode(e.target.value)}
             />
             <p className="ui-caption mt-2">Lost your phone? A recovery code works once instead.</p>
             <div className="ui-confirm-actions mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => answer(null)} className="ui-btn ui-btn-secondary">Cancel</button>
-              <button type="submit" className="ui-btn ui-btn-primary" disabled={!code.trim()}>Confirm code</button>
+              <button type="button" onClick={() => answer(null)} className="ui-btn ui-btn-secondary" disabled={checking}>Cancel</button>
+              <button type="submit" className="ui-btn ui-btn-primary" disabled={checking || !code.trim()} aria-busy={checking || undefined}>
+                {checking ? 'Checking…' : 'Confirm code'}
+              </button>
             </div>
           </form>
         </div>

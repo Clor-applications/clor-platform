@@ -15,11 +15,11 @@ import { prefersReducedMotion, resolveTokenColor, tooltipStyle, useChartTheme } 
  */
 
 const common = (t) => ({
-  animation: !prefersReducedMotion(),
+  animation: t.books && !prefersReducedMotion(),
   animationDuration: 520,
   animationEasing: 'cubicOut',
   tooltip: { ...tooltipStyle(t), trigger: 'item' },
-  textStyle: { fontFamily: "'Inter Variable', Inter, sans-serif" },
+  textStyle: { fontFamily: t.font },
 });
 
 /**
@@ -100,7 +100,7 @@ export function DonutChart({ data = [], centerLabel, centerValue, height = 230, 
 export function RadialGauge({ value = 0, label, height = 230, tone, centerText = null }) {
   const t = useChartTheme();
   const pct = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
-  const color = tone === 'pos' ? t.pos : tone === 'neg' ? t.neg : t.brand;
+  const color = tone === 'pos' ? t.pos : tone === 'neg' ? t.neg : t.series;
 
   const option = useMemo(
     () => ({
@@ -122,11 +122,11 @@ export function RadialGauge({ value = 0, label, height = 230, tone, centerText =
           splitLine: { show: false },
           axisLabel: { show: false },
           detail: {
-            valueAnimation: !prefersReducedMotion(),
+            valueAnimation: t.books && !prefersReducedMotion(),
             offsetCenter: [0, '4%'],
             fontSize: centerText ? 26 : 34,
             fontWeight: 700,
-            fontFamily: "'Inter Variable', Inter, sans-serif",
+            fontFamily: t.font,
             color: t.fg,
             formatter: () => centerText || `${pct}%`,
           },
@@ -163,7 +163,7 @@ export function CompositionPie({ data = [], height = 230, maxSlices = 5, palette
   const t = useChartTheme();
 
   const rows = useMemo(() => {
-    const colors = palette || [t.brand, t.info, t.pos, t.warn, t.neg];
+    const colors = palette || [t.series, t.info, t.pos, t.warn, t.neg];
     const sorted = [...data].sort((a, b) => b.value - a.value);
     const head = sorted.slice(0, maxSlices);
     const tail = sorted.slice(maxSlices);
@@ -250,9 +250,9 @@ export function ChartLegend({ rows = [], total, formatter }) {
  */
 export function PeriodBars({ data = [], height = 240, formatter, tone = 'brand' }) {
   const t = useChartTheme();
-  // Money-in charts keep the brand orange; money-out charts take the deeper
+  // Ink by default outside Books (the app colour only with tone="app"); Books keeps its brand. Money-out takes the deeper
   // accent so two bar charts on one dashboard never read as the same series.
-  const barColor = tone === 'deep' ? t.brandDeep : t[tone] || t.brand;
+  const barColor = tone === 'deep' ? t.brandDeep : tone === 'app' ? t.brand : tone === 'brand' ? t.series : t[tone] || t.series;
 
   const option = useMemo(
     () => ({
@@ -334,7 +334,7 @@ export function RankedBars({ data = [], height = 240, formatter }) {
           type: 'bar',
           data: rows.map((d) => d.value),
           barMaxWidth: 18,
-          itemStyle: { color: t.brand, borderRadius: [0, 6, 6, 0] },
+          itemStyle: { color: t.series, borderRadius: [0, 6, 6, 0] },
           label: {
             show: true,
             position: 'right',
@@ -445,8 +445,8 @@ export function SeriesBars({
           smooth: false,
           symbol: 'circle',
           symbolSize: 7,
-          lineStyle: { color: t.brand, width: 2 },
-          itemStyle: { color: t.brand },
+          lineStyle: { color: t.series, width: 2 },
+          itemStyle: { color: t.series },
         },
       ],
     }),

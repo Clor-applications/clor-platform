@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CornerDownLeft, History, Search } from '@ui/components/ui/lineIcons';
 import { recentSearches, rememberSearch } from '@ui/components/ui/recents';
+import { useLayer } from './layerStack';
 
 /**
  * Spotlight-style command palette (⌘K / Ctrl+K).
@@ -87,11 +88,20 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
     return merged.sort((a, b) => b._s - a._s).slice(0, 40);
   }, [items, query, searchRecords, loaded, recent]);
 
-  // Focus lands in the input on mount; nothing else needs synchronising.
+  // Focus lands in the input on mount, and goes back to whatever opened the
+  // palette (the search button, usually) when it closes.
   useEffect(() => {
+    const back = document.activeElement;
     const t = setTimeout(() => inputRef.current?.focus(), 10);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      if (back && back !== document.body && typeof back.focus === 'function' && document.contains(back)) back.focus();
+    };
   }, []);
+
+  /* On the shared layer stack: Escape from anywhere in the palette closes it, and Tab stays inside. */
+  const dialogRef = useRef(null);
+  useLayer(true, { kind: 'dialog', onEscape: () => onClose?.(), trap: () => dialogRef.current });
 
   const active = highlight.q === query ? highlight.i : 0;
   const setActive = (next) =>
@@ -139,6 +149,7 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 flex items-start justify-center px-4 pt-[12vh]"
       style={{ zIndex: 'var(--z-palette)' }}
       role="dialog"

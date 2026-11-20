@@ -6,12 +6,11 @@ import { OverlayLayerContext } from './overlayLayer';
 import { confirmDialog } from './notify';
 import useSheetDrag from './useSheetDrag';
 import { openingFocus } from '@ui/picks/round61';
+import { useLayer } from './layerStack';
 
 /* Safari shows :active on a touch only when the page listens for touches: the press feedback needs it. */
 if (typeof document !== 'undefined') document.addEventListener('touchstart', () => {}, { passive: true });
 
-/* An Escape that belongs to a popup inside the drawer (a date grid, a list of options, a menu) closes that popup, not the drawer. */
-const INNER_POPUP = '.ui-datepicker-pop, [role="listbox"], [role="menu"], [aria-expanded="true"]';
 
 /**
  * A panel that slides in from the right, over whatever is behind it.
@@ -35,7 +34,7 @@ const INNER_POPUP = '.ui-datepicker-pop, [role="listbox"], [role="menu"], [aria-
  * Save); `dirty` means unsaved edits — the scrim then does not close it, and
  * Escape or × asks before discarding. Focus goes back to whatever opened it.
  */
-export default function Drawer({ open, onClose, title, description = '', actions = null, footer = null, dirty = false, children, widthClass = 'ui-form-drawer' }) {
+export default function Drawer({ open, onClose, title, description = '', actions = null, footer = null, dirty = false, busy = false, children, widthClass = 'ui-form-drawer' }) {
   /* Slid in over 200ms and vanished in one frame; it leaves the way it came,
      toward the edge it lives on. Same machinery as Modal. */
   const [closing, setClosing] = useState(false);
@@ -44,7 +43,20 @@ export default function Drawer({ open, onClose, title, description = '', actions
   useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
   /* Owner's round 14 pick: outside Books a panel closes from a Back arrow at the top left. */
   const backClose = typeof document !== 'undefined' && document.documentElement.dataset.palette !== 'indigo';
+  /* `busy`: a request sent from the drawer is still running; it stays until that answers. */
+  const busyRef = useRef(busy);
+  useEffect(() => { busyRef.current = busy; }, [busy]);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  /* The exit timer and `animationend` both arrive; the caller hears one close per opening. */
+  const closedRef = useRef(false);
+  const finishClose = useCallback(() => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    onCloseRef.current?.();
+  }, []);
   const beginClose = useCallback(async () => {
+    if (busyRef.current) return;
     if (dirtyRef.current && !(await confirmDialog({ title: 'Discard your changes?', message: 'What you entered here has not been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', stayFirst: true }))) return;
     setClosing(true);
   }, []);
@@ -56,9 +68,9 @@ export default function Drawer({ open, onClose, title, description = '', actions
     /* A sheet that was dragged holds its own inline animation and place; closing hands it back to the exit animation. */
     const panel = panelRef.current;
     if (panel) { panel.style.animation = ''; panel.style.transform = ''; }
-    const t = setTimeout(() => onClose?.(), 140);
+    const t = setTimeout(finishClose, 140);
     return () => clearTimeout(t);
-  }, [closing, onClose]);
+  }, [closing, finishClose]);
   /* Reset while rendering the reopen, not in an effect after it — an effect
      here sets state during the commit and costs a second render. */
   const [wasOpen, setWasOpen] = useState(open);
@@ -66,57 +78,34 @@ export default function Drawer({ open, onClose, title, description = '', actions
     setWasOpen(open);
     if (open && closing) setClosing(false);
   }
+  useEffect(() => {
+    if (open) closedRef.current = false;
+  }, [open]);
   const scrimRef = useRef(null);
   const returnFocusRef = useRef(null);
   /* On a phone a sheet can be dragged down to put it away; it is already off screen when it closes, so no exit animation follows. */
-  const drag = useSheetDrag({ panelRef, scrimRef, dirtyRef, onDismiss: () => onClose?.(), onAskToClose: beginClose });
+  const drag = useSheetDrag({ panelRef, scrimRef, dirtyRef, onDismiss: finishClose, onAskToClose: beginClose });
 
   useEffect(() => {
     if (!open) return undefined;
     returnFocusRef.current = document.activeElement;
-
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        if (e.target?.closest?.(INNER_POPUP) && panelRef.current?.contains(e.target)) return;
-        e.stopPropagation();
-        beginClose();
-        return;
-      }
-      if (e.key !== 'Tab') return;
-      // Keep Tab inside the drawer; the form behind it is still focusable and
-      // tabbing into it would edit a document the user cannot currently see.
-      const panel = panelRef.current;
-      if (!panel) return;
-      const focusables = panel.querySelectorAll(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (!focusables.length) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
 
     /* `onClose` is commonly declared inline by the screen that owns the
        drawer. Including it here made this effect run after every controlled
        input change and focused the panel again, stealing focus from the field
        after the first character. Opening is the only event that should move
        focus into the drawer. */
-    window.addEventListener('keydown', onKey, true);
     /* Round 61 "focusfirst" A: whatever asks with data-autofocus, else the first empty field (not on a touch phone), else the panel. */
     const wants = openingFocus(panelRef.current);
     (wants || panelRef.current)?.focus();
     return () => {
-      window.removeEventListener('keydown', onKey, true);
       const back = returnFocusRef.current;
       if (back && typeof back.focus === 'function' && document.contains(back)) back.focus();
     };
   }, [open, beginClose]);
+
+  /* Escape and the Tab trap: the shared layer stack, so a dialog or confirm opened from this drawer closes alone. */
+  useLayer(open, { kind: 'dialog', onEscape: () => beginClose(), trap: () => panelRef.current });
 
   if (!open) return null;
 
@@ -141,7 +130,7 @@ export default function Drawer({ open, onClose, title, description = '', actions
         tabIndex={-1}
         className={`ui-surface h-full ${widthClass} max-w-full flex flex-col ${closing ? 'ui-out-edge' : 'ui-in-right'}`}
         onAnimationEnd={(e) => {
-          if (closing && e.target === e.currentTarget) onClose?.();
+          if (closing && e.target === e.currentTarget) finishClose();
         }}
         /* A floating surface takes the token shadow, which dark mode redefines (DESIGN.md: no Tailwind shadow utilities). */
         style={{ borderInlineStart: '1px solid rgb(var(--border))', boxShadow: 'var(--shadow-pop)' }}
@@ -154,7 +143,7 @@ export default function Drawer({ open, onClose, title, description = '', actions
         >
           <span className="ui-sheet-grabber" aria-hidden="true" />
           {backClose ? (
-            <button type="button" onClick={beginClose} className="ui-icon-btn ui-sheet-back shrink-0" aria-label="Close">
+            <button type="button" onClick={beginClose} className="ui-icon-btn ui-sheet-back shrink-0" aria-label="Close" disabled={busy}>
               <ArrowLeft size={18} aria-hidden="true" />
             </button>
           ) : null}
@@ -165,7 +154,7 @@ export default function Drawer({ open, onClose, title, description = '', actions
           <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
             {actions}
             {backClose ? null : (
-              <button type="button" onClick={beginClose} className="ui-icon-btn shrink-0" aria-label="Close">
+              <button type="button" onClick={beginClose} className="ui-icon-btn shrink-0" aria-label="Close" disabled={busy}>
                 <X size={18} />
               </button>
             )}

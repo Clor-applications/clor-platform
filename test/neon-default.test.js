@@ -36,14 +36,10 @@ describe('the neon default', () => {
     ]);
   });
 
-  it('Attendance is violet (R&D, 14 Nov 2026) and Payroll is cyan, neither red', () => {
-    const blaze = block(":root[data-palette='blaze'],\n[data-palette='blaze'] {");
-    expect(blaze).toMatch(/--brand: var\(--act\);/);
-    expect(blaze).toMatch(/--on-brand: 255 255 255;/);
-    expect(blaze).not.toMatch(/234 179 8|133 77 14/);
-    const payroll = block(":root[data-palette='payroll'],\n[data-palette='payroll'] {");
-    expect(payroll).toMatch(/--brand: 0 121 191;/);
-    for (const b of [blaze, payroll]) expect(b).not.toMatch(/200 16 46|165 13 38|92 10 22/);
+  /* The blaze and payroll palette blocks were dead (no code sets either palette; each app's
+     colour is set per data-app in rnd.css) and were removed in the 21 Nov 2026 audit. */
+  it('keeps no dead blaze or payroll palette block', () => {
+    expect(css).not.toMatch(/^:root\[data-palette='(blaze|payroll)'\]/m);
   });
 
   it('the sign-in page reads the platform tokens, not the red brand', () => {

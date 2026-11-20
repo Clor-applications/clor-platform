@@ -257,7 +257,8 @@ export default function DataTable({
           </thead>
           <tbody className="ui-rows">
             {loading && loadsWithSpinner() ? (
-              <tr aria-hidden="true"><td colSpan={cols.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} className="ui-loading-cell"><LoadingSpinner /></td></tr>
+              /* In the height of the rows it waits for (44px each, up to a page of six), so nothing jumps when they land. */
+              <tr aria-hidden="true"><td colSpan={cols.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} className="ui-loading-cell" style={{ height: `${Math.min(Math.max(pageSize || 6, 1), 6) * 2.75}rem` }}><LoadingSpinner /></td></tr>
             ) : loading ? Array.from({ length: 6 }, (_, i) => (
               <tr key={`sk${i}`} aria-hidden="true">
                 {selectable ? <td /> : null}

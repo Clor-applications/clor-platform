@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * Validation that lands on the field, not in the corner.
@@ -36,12 +36,25 @@ import { useCallback, useRef, useState } from 'react';
  *
  *     <input {...v.props('customerId')} />
  *     <FieldError error={v.error('customerId')} id={v.errorId('customerId')} />
+ *
+ * Leaving a field that has an error checks it again rather than wiping the
+ * message: give the rule as `rules` (field -> () => message, '' when fine) and
+ * blur sets or clears the error from it. A field with no rule keeps its
+ * message until it is edited. (Books keeps its own clear-on-blur.)
+ *
+ *     const v = useFieldErrors('signup', { email: () => (form.email.includes('@') ? '' : 'Enter your email') });
  */
-export function useFieldErrors(formId = 'f') {
+const booksPalette = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
+
+export function useFieldErrors(formId = 'f', rules = null) {
   const [errors, setErrors] = useState({});
   // Collected during a synchronous validation pass, before state catches up.
   const pending = useRef({});
   const nodes = useRef({});
+  const rulesRef = useRef(rules);
+  useEffect(() => {
+    rulesRef.current = rules;
+  });
 
   const reset = useCallback(() => {
     pending.current = {};
@@ -115,6 +128,28 @@ export function useFieldErrors(formId = 'f') {
     });
   }, []);
 
+  /** Set one field's error from outside a pass (a server answer, a blur check); '' clears it. */
+  const setField = useCallback(
+    (field, message) => {
+      if (!message) {
+        clearField(field);
+        return;
+      }
+      pending.current[field] = String(message);
+      setErrors((prev) => (prev[field] === message ? prev : { ...prev, [field]: String(message) }));
+    },
+    [clearField]
+  );
+
+  /** Run a field's rule again, as when the cursor leaves it. */
+  const revalidate = useCallback(
+    (field) => {
+      const rule = rulesRef.current?.[field];
+      if (typeof rule === 'function') setField(field, rule() || '');
+    },
+    [setField]
+  );
+
   /**
    * Everything a control needs to announce itself as invalid, including to a
    * screen reader — a red border alone says nothing to someone not looking at it.
@@ -127,12 +162,19 @@ export function useFieldErrors(formId = 'f') {
       'aria-invalid': errors[field] ? true : undefined,
       'aria-describedby': errors[field] ? `${formId}-${field}-error` : undefined,
       'data-invalid': errors[field] ? 'true' : undefined,
-      onBlurCapture: () => clearField(field),
+      onBlurCapture: () => {
+        if (!errors[field]) return;
+        if (typeof rulesRef.current?.[field] === 'function') revalidate(field);
+        else if (booksPalette()) clearField(field);
+      },
+      onInputCapture: () => {
+        if (errors[field] && typeof rulesRef.current?.[field] !== 'function' && !booksPalette()) clearField(field);
+      },
     }),
-    [errors, formId, clearField]
+    [errors, formId, clearField, revalidate]
   );
 
-  return { reset, check, require, fail, failed, error, errorId, clearField, props, register, errors };
+  return { reset, check, require, fail, failed, error, errorId, clearField, setField, revalidate, props, register, errors };
 }
 
 export default useFieldErrors;

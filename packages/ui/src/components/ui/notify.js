@@ -15,7 +15,7 @@ const toastListeners = new Set();
 const confirmListeners = new Set();
 let nextId = 0;
 
-const push = (kind, message) => {
+const push = (kind, message, options = {}) => {
   let text = String(message ?? '').trim();
   if (!text) return;
   /* Explore: whatever a screen wraps the refusal in ("Saved on this device only — the server
@@ -25,6 +25,8 @@ const push = (kind, message) => {
     kind = 'info';
   }
   const toast = { id: ++nextId, kind, message: text };
+  /* One action on the toast, such as Undo: `{ label, onClick }`. */
+  if (options?.action?.label && typeof options.action.onClick === 'function') toast.action = options.action;
   toastListeners.forEach((l) => l(toast));
 };
 
@@ -39,9 +41,9 @@ const push = (kind, message) => {
  */
 
 export const notify = {
-  success: (m) => push('success', m),
-  error: (m) => push('error', m),
-  info: (m) => push('info', m),
+  success: (m, o) => push('success', m, o),
+  error: (m, o) => push('error', m, o),
+  info: (m, o) => push('info', m, o),
 };
 
 export const subscribeToasts = (fn) => {
@@ -58,19 +60,23 @@ export const subscribeToasts = (fn) => {
    "Leave without saving?" with Stay as the main button, so a stray click never loses work). */
 /* Every call should name the action in the title and on the button ("Delete 3 files?" / "Delete files").
    The defaults below only keep an unnamed call working; in development it says which call needs words. */
-export const confirmDialog = ({ title, message = '', confirmLabel, tone = 'danger', cancelLabel = 'Cancel', stayFirst = false } = {}) =>
+/* `action`: the request the confirm stands for. Given one, the dialog stays open while it runs (Cancel,
+   Escape and the backdrop wait for it), shows the error if it fails, and resolves true once it is done. */
+export const confirmDialog = ({ title, message = '', confirmLabel, tone = 'danger', cancelLabel = 'Cancel', stayFirst = false, action = null } = {}) =>
   new Promise((resolve) => {
     if ((!title || !confirmLabel) && import.meta.env?.DEV) {
       console.warn('confirm-dialog-unnamed', { title, confirmLabel }); // give it a title and a confirmLabel that name the action
     }
     title = title || 'Continue with this?';
     confirmLabel = confirmLabel || 'Continue';
-    const request = { id: ++nextId, title, message, confirmLabel, tone, cancelLabel, stayFirst, resolve };
+    const request = { id: ++nextId, title, message, confirmLabel, tone, cancelLabel, stayFirst, action, resolve };
     confirmListeners.forEach((l) => l(request));
     // No subscriber mounted (tests, early boot): fall back to the native
     // dialog rather than silently resolving false and eating the action.
     if (confirmListeners.size === 0) {
-      resolve(typeof window !== 'undefined' ? window.confirm(`${title}\n\n${message}`) : false);
+      const ok = typeof window !== 'undefined' ? window.confirm(`${title}\n\n${message}`) : false;
+      if (ok && typeof action === 'function') Promise.resolve(action()).then(() => resolve(true), () => resolve(false));
+      else resolve(ok);
     }
   });
 

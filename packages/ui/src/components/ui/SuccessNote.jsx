@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Check, X } from '@ui/components/ui/lineIcons';
+import { smoothOrInstant } from '@ui/utils/motion';
 
 /**
  * After a big task (payroll locked, payroll approved) the page says so in a green note at the
@@ -11,7 +12,7 @@ import { Check, X } from '@ui/components/ui/lineIcons';
 export default function SuccessNote({ title, children = null, action = null, onClose }) {
   const ref = useRef(null);
   /* Bring it into view: the button that caused it may be far down the page. */
-  useEffect(() => { ref.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }, [title]);
+  useEffect(() => { ref.current?.scrollIntoView?.({ block: 'nearest', behavior: smoothOrInstant() }); }, [title]);
   return (
     <div ref={ref} className="ui-success-note" role="status">
       <span className="ui-success-note-tick" aria-hidden="true"><Check size={14} /></span>

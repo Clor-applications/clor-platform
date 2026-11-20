@@ -4,6 +4,8 @@ import { AlarmClock, Bell, BellOff, Check, X } from '@ui/components/ui/lineIcons
 import { Popover } from '@base-ui/react/popover';
 import { getInbox, getMutes, markAllRead, markRead, setMute, snoozeNotice } from '@ui/api/notifications';
 
+import { notify } from '@ui/components/ui/notify';
+
 import { kindLabel } from './notificationKinds';
 
 /* Books keeps its text cross; every other app draws the Lucide one the rest of the panel uses. */
@@ -36,15 +38,16 @@ const ago = (iso) => {
  * the Inbox never disagree. Unread notices stay the list underneath.
  */
 export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell, waiting = 0, onOpenWaiting }) {
-  const [state, setState] = useState({ key: '', unread: 0, items: [] });
+  /* `failed`: the last read did not arrive. The panel says so, with a retry, instead of "No notifications yet". */
+  const [state, setState] = useState({ key: '', unread: 0, items: [], failed: false });
   const [open, setOpen] = useState(false);
   const [mutes, setMutes] = useState([]);
 
   const load = useCallback(() => {
     if (!tenantKey) return;
     getInbox(30)
-      .then((d) => setState({ key: tenantKey, unread: Number(d?.unread) || 0, items: Array.isArray(d?.notifications) ? d.notifications : [] }))
-      .catch(() => undefined);
+      .then((d) => setState({ key: tenantKey, unread: Number(d?.unread) || 0, items: Array.isArray(d?.notifications) ? d.notifications : [], failed: false }))
+      .catch(() => setState((s) => (s.key === tenantKey ? { ...s, failed: true } : { key: tenantKey, unread: 0, items: [], failed: true })));
   }, [tenantKey]);
 
   useEffect(() => {
@@ -57,9 +60,21 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
     load();
     getMutes().then(setMutes).catch(() => undefined);
   }, [open, load]);
-  const toggleMute = (kind, muted) => setMute(kind, muted).then(setMutes).catch(() => undefined);
+  const toggleMute = (kind, muted) =>
+    setMute(kind, muted)
+      .then((list) => {
+        setMutes(list);
+        /* Muting is one click on a small icon, so it can be taken back from the toast. */
+        if (muted) {
+          notify.info(`${kindLabel(kind)} are not shown to you now.`, {
+            action: { label: 'Undo', onClick: () => setMute(kind, false).then(setMutes).catch(() => notify.error('Could not show them again. Try once more.')) },
+          });
+        }
+      })
+      .catch(() => notify.error(muted ? 'Could not stop showing those. Try again.' : 'Could not show those again. Try again.'));
 
   const items = state.key === tenantKey ? state.items : [];
+  const failed = state.key === tenantKey && state.failed;
   const unread = state.key === tenantKey ? state.unread : 0;
   const waitingN = Number(waiting) || 0;
   /* The badge counts distinct unread notices (the server reads a stacked daily digest as one); what needs this person's action is the first line of the list. */
@@ -71,7 +86,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
     if (!n.readAt) markRead([n.id]).then(load).catch(() => undefined);
     if (n.link && onOpen) onOpen(n.link);
   };
-  const readAll = () => markAllRead().then(load).catch(() => undefined);
+  const readAll = () => markAllRead().then(load).catch(() => notify.error('Could not mark them read. Try again.'));
   const snooze = (n) => {
     /* Gone from the list at once; the server keeps it until 9 AM tomorrow (India time). */
     setState((s) => ({ ...s, items: s.items.filter((x) => x.id !== n.id), unread: n.readAt ? s.unread : Math.max(0, s.unread - 1) }));
@@ -106,7 +121,12 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
               </button>
             ) : null}
           </div>
-          {items.length ? (
+          {failed && !items.length ? (
+            <div className="flex items-center justify-between gap-2 px-2 py-3" role="status">
+              <span className="ui-caption">Could not load your notifications.</span>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={load}>Try again</button>
+            </div>
+          ) : items.length ? (
             <ul className="max-h-[60vh] overflow-auto">
               {items.map((n) => (
                 <li key={n.id}>

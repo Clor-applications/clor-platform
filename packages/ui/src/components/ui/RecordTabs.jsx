@@ -28,8 +28,9 @@ export function useTabIndicator(listRef, activeKey) {
     return () => ro?.disconnect();
   }, [listRef, activeKey]);
   if (!box) return null;
-  /* People (Sky): moved and stretched with transform alone, so the slide never asks for layout; a 100px line scaled to the tab's width. */
-  if (typeof document !== 'undefined' && document.documentElement.dataset.app === 'people') {
+  /* Moved and stretched with transform alone, so the slide never animates layout (width); a 100px line scaled
+     to the tab's width. Every app but Books, which keeps its own (interaction audit 21 Nov 2026). */
+  if (typeof document !== 'undefined' && document.documentElement.dataset.palette !== 'indigo') {
     return <span className="ui-tab-indicator" data-scaled="" aria-hidden="true" style={{ width: 100, transformOrigin: '0 0', transform: `translateX(${box.left}px) scaleX(${box.width / 100})` }} />;
   }
   return <span className="ui-tab-indicator" aria-hidden="true" style={{ transform: `translateX(${box.left}px)`, width: box.width }} />;

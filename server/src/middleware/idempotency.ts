@@ -42,7 +42,10 @@ function personOf(req: Request): string | null {
   }
 }
 
-export const isGuardedWrite = (method: string, path: string) => method === 'POST' && GUARDED.test(path);
+/* The operator console's money writes (audit 21 Nov 2026): a manual payment, an invoice made, issued, marked paid or
+   cancelled, and the renewal run that issues every due invoice. A double click there could bill a customer twice. */
+const GUARDED_OPS = /^\/api\/ops\/(payments\/manual|invoices|invoices\/[^/]+\/(issue|mark-paid|void)|invoicing\/renewals\/run)\/?$/;
+export const isGuardedWrite = (method: string, path: string) => method === 'POST' && (GUARDED.test(path) || GUARDED_OPS.test(path));
 
 export function webIdempotency(req: Request, res: Response, next: NextFunction) {
   const path = req.originalUrl.split('?')[0];

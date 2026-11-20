@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check } from '@ui/components/ui/lineIcons';
+import { Check, PauseCircle, Play } from '@ui/components/ui/lineIcons';
 import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
 import { appFromHost } from './appHosts';
@@ -54,11 +54,15 @@ function CustomerBrand() {
  * the line, who said it. A thin bar fills as the line's time runs; it waits while
  * the pointer is on the card, and holds still for anyone who asks for less motion.
  * No counter and no arrows (owner, 13 Nov 2026): the lines turn on their own.
+ * One small Pause button stops them for good (WCAG 2.2.2: moving content that
+ * starts on its own can be paused), and Play starts them again.
  */
 const QUOTE_MS = 8000;
 function Quotes() {
   const [i, setI] = useState(0);
-  const [held, setHeld] = useState(false);
+  const [hovered, setHeld] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const held = hovered || paused;
   useEffect(() => {
     if (held || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
     const t = setTimeout(() => setI((n) => (n + 1) % QUOTES.length), QUOTE_MS);
@@ -81,6 +85,16 @@ function Quotes() {
       <span className="ui-auth-fact-bar" aria-hidden="true">
         <span key={i} style={{ animationDuration: `${QUOTE_MS}ms` }} />
       </span>
+      <button
+        type="button"
+        className="ui-auth-fact-pause"
+        aria-pressed={paused}
+        aria-label={paused ? 'Play the quotes' : 'Pause the quotes'}
+        title={paused ? 'Play' : 'Pause'}
+        onClick={() => setPaused((v) => !v)}
+      >
+        {paused ? <Play size={14} aria-hidden="true" /> : <PauseCircle size={14} aria-hidden="true" />}
+      </button>
     </figure>
   );
 }

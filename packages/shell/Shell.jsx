@@ -523,6 +523,14 @@ function ShellScreens() {
     setCameFrom((m) => ({ ...m, [next]: from ? { key: from, params: liveParamsRef.current || null, link } : null }));
   };
   const goTo = (key, params, link = false) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key, params, link)); };
+  /* Signing out leaves the page like any other way out: unsaved edits are asked about first. */
+  const signOutAsking = () => {
+    confirmLeave(askLeave).then((ok) => {
+      if (!ok) return;
+      setPublicPage('signin');
+      signOut();
+    });
+  };
   /* `params` open the screen on one thing (a notice about one candidate); a rail click passes none. */
   const goToNow = (key, params = null, link = false) => {
     /* Round 57 filtermemory A: note where this screen is scrolled to; going back to where it was opened from finds the same place. */
@@ -1419,7 +1427,7 @@ function ShellScreens() {
                     ))}
                   </div>
                 )}
-                <MenuItem className="min-h-11 gap-2 px-2" onClick={() => { setPublicPage('signin'); signOut(); }}>
+                <MenuItem className="min-h-11 gap-2 px-2" onClick={signOutAsking}>
                   <LogOut size={16} aria-hidden="true" /> Sign out
                 </MenuItem>
               </MenuPanel>
@@ -1428,10 +1436,7 @@ function ShellScreens() {
             <button
               type="button"
               className="ui-icon-btn"
-              onClick={() => {
-                setPublicPage('signin');
-                signOut();
-              }}
+              onClick={signOutAsking}
               aria-label="Sign out"
             >
               <LogOut size={16} />

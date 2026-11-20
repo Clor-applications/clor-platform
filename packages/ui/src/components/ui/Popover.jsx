@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { popoverZIndex, useOverlayLayer } from './overlayLayer';
+import { useLayer } from './layerStack';
 
 /**
  * A panel anchored to the control that opened it.
@@ -128,15 +129,12 @@ const Popover = ({
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  /* Escape: the shared layer stack, so it closes this panel and not the dialog it opened from. */
+  useLayer(true, { kind: 'popup', onEscape: () => onCloseRef.current?.() });
+
   useEffect(() => {
     returnFocusRef.current = document.activeElement;
 
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onCloseRef.current?.();
-      }
-    };
     const onDown = (e) => {
       const panel = panelRef.current;
       const anchor = anchorRef?.current;
@@ -172,11 +170,9 @@ const Popover = ({
 
     const panelNow = panelRef.current;
     panelNow?.addEventListener('focusout', onFocusOut);
-    document.addEventListener('keydown', onKey, true);
     document.addEventListener('pointerdown', onDown, true);
     return () => {
       panelNow?.removeEventListener('focusout', onFocusOut);
-      document.removeEventListener('keydown', onKey, true);
       document.removeEventListener('pointerdown', onDown, true);
       const back = returnFocusRef.current;
       if (!claimedFocusRef.current) return;
