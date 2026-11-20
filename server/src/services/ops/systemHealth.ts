@@ -75,11 +75,11 @@ export async function systemHealth(now = Date.now()) {
     { key: 'emails-failed', label: 'Emails that failed in the last day', count: emailsFailed, screen: 'emails' },
     { key: 'emails-stuck', label: 'Emails waiting more than an hour', count: emailsStuck, screen: 'emails' },
     { key: 'webhooks-failed', label: 'Webhook deliveries that failed in the last day', count: webhooksFailed, screen: null },
-    { key: 'readers-offline', label: 'Attendance readers offline', count: readersOffline, screen: null },
+    { key: 'readers-offline', label: 'Attendance readers offline', count: readersOffline, screen: 'connections' },
     { key: 'reader-alerts', label: 'Open reader alerts', count: readerAlerts, screen: null },
-    { key: 'einvoice-errors', label: 'Companies whose e-invoice connection reports an error', count: einvoiceErrors, screen: null },
-    { key: 'hr-errors', label: 'HR connections reporting an error', count: hrErrors, screen: null },
-    { key: 'sso-errors', label: 'Single sign-on setups reporting an error', count: ssoErrors, screen: null },
+    { key: 'einvoice-errors', label: 'Companies whose e-invoice connection reports an error', count: einvoiceErrors, screen: 'connections' },
+    { key: 'hr-errors', label: 'HR connections reporting an error', count: hrErrors, screen: 'connections' },
+    { key: 'sso-errors', label: 'Single sign-on setups reporting an error', count: ssoErrors, screen: 'connections' },
     { key: 'closures-stuck', label: 'Company deletions that stopped part-way', count: closuresStuck, screen: null },
   ];
   const failing = workers.filter((w) => w.state === 'failing').length;
@@ -87,6 +87,49 @@ export async function systemHealth(now = Date.now()) {
   const problems = signals.filter((s) => s.count > 0).length;
   const overall = failing ? 'down' : late || problems ? 'attention' : 'ok';
   return { at: new Date(now), overall, workers, signals };
+}
+
+/** A reader or agent silent for this long is listed as broken; a shorter gap is a shop shut for the night. */
+export const BROKEN_AFTER_MS = DAY;
+const BROKEN_SHOWN = 300;
+
+export type BrokenConnection = { kind: string; id: string; name: string; accountId: string; customer: string | null; state: 'error' | 'offline'; since: Date | null; error: string | null };
+
+/**
+ * Every customer's connection that is not working, for the console's list: one in error (it tried and
+ * failed), or a reader or site agent that has not called in for a day. Switched-off ones are the
+ * customer's own choice and are left out. Names and errors only; never a customer's records. The same
+ * rules as `accountConnections` below, read across accounts. Callers run this inside outsideTenant.
+ */
+export async function brokenConnections(now = Date.now()) {
+  const silentBefore = new Date(now - BROKEN_AFTER_MS);
+  const silentOrFailed = { isActive: true, OR: [{ lastError: { not: null } }, { lastSeenAt: { lt: silentBefore } }] };
+  const [readers, agents, hr, sso, einv] = await Promise.all([
+    peoplePrisma.attendanceDevice.findMany({ where: silentOrFailed, select: { id: true, accountId: true, name: true, lastSeenAt: true, lastError: true }, take: BROKEN_SHOWN }),
+    peoplePrisma.siteAgent.findMany({ where: silentOrFailed, select: { id: true, accountId: true, name: true, lastSeenAt: true, lastError: true }, take: BROKEN_SHOWN }),
+    peoplePrisma.hrConnection.findMany({ where: { enabled: true, lastError: { not: null } }, select: { id: true, accountId: true, name: true, adapter: true, lastRunAt: true, lastError: true }, take: BROKEN_SHOWN }),
+    platformPrisma.authProvider.findMany({ where: { enabled: true, lastError: { not: null } }, select: { id: true, accountId: true, name: true, kind: true, lastUsedAt: true, lastError: true }, take: BROKEN_SHOWN }),
+    prisma.eInvoiceSetting.findMany({ where: { lastError: { not: null } }, select: { id: true, accountId: true, provider: true, mode: true, verifiedAt: true, lastError: true }, take: BROKEN_SHOWN }),
+  ]);
+  const short = (e: string | null) => (e ? e.slice(0, 200) : null);
+  const rows: Omit<BrokenConnection, 'customer'>[] = [
+    ...readers.map((r) => ({ kind: 'Attendance reader', id: r.id, name: r.name, accountId: r.accountId, state: r.lastError ? ('error' as const) : ('offline' as const), since: r.lastSeenAt, error: short(r.lastError) })),
+    ...agents.map((a) => ({ kind: 'Site agent', id: a.id, name: a.name, accountId: a.accountId, state: a.lastError ? ('error' as const) : ('offline' as const), since: a.lastSeenAt, error: short(a.lastError) })),
+    ...hr.map((h) => ({ kind: 'HR connection', id: h.id, name: `${h.name} (${h.adapter})`, accountId: h.accountId, state: 'error' as const, since: h.lastRunAt, error: short(h.lastError) })),
+    ...sso.map((s) => ({ kind: 'Single sign-on', id: s.id, name: `${s.name} (${s.kind})`, accountId: s.accountId, state: 'error' as const, since: s.lastUsedAt, error: short(s.lastError) })),
+    ...einv.map((e) => ({ kind: 'E-invoice', id: e.id, name: `${e.provider} ${e.mode.toLowerCase()}`, accountId: e.accountId, state: 'error' as const, since: e.verifiedAt, error: short(e.lastError) })),
+  ];
+  const accounts = rows.length ? await platformPrisma.account.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.accountId))] } }, select: { id: true, name: true, suspendedAt: true } }) : [];
+  const by = new Map(accounts.map((a) => [a.id, a]));
+  /* A suspended customer's readers are silent because the customer is: not a fault to chase. Longest broken first. */
+  const items: BrokenConnection[] = rows
+    .filter((r) => by.has(r.accountId) && !by.get(r.accountId)!.suspendedAt)
+    .map((r) => ({ ...r, customer: by.get(r.accountId)!.name }))
+    .sort((a, b) => (a.since?.getTime() ?? 0) - (b.since?.getTime() ?? 0) || a.kind.localeCompare(b.kind))
+    .slice(0, BROKEN_SHOWN);
+  const kinds: Record<string, number> = {};
+  for (const i of items) kinds[i.kind] = (kinds[i.kind] || 0) + 1;
+  return { at: new Date(now), items, kinds, customers: new Set(items.map((i) => i.accountId)).size };
 }
 
 /**

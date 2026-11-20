@@ -67,11 +67,10 @@ describe('Workspace Home', () => {
   it('drops the retired kicker and orange underline', () => {
     expect(adminHome).not.toMatch(/wsh-eyebrow/);
     expect(wsOverviewCss).not.toMatch(/\.wsh-eyebrow|\.wsh-name::after/);
-    expect(adminHome).toMatch(/wsh-wave/);
   });
 
   it('loads in the shape of the attention list it becomes', () => {
-    expect(adminHome).toMatch(/<ul className="wsh-attn" aria-hidden="true">/);
-    expect(adminHome).toMatch(/wsh-attn-row[\s\S]*ui-skel ui-skel-text/);
+    expect(adminHome).toMatch(/<ul className="wsg-acts" aria-hidden="true">/);
+    expect(adminHome).toMatch(/wsg-act"[\s\S]*ui-skel ui-skel-text/);
   });
 });

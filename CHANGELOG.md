@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-81c14c0 - 2026-11-20
+
+API revision `clor-api-00156-c7f`. Previous release `rel-4f8ddd8` (roll back there).
+
+- #401 Ops: a list of every customer's broken connections
+- #407 copy: "needs your action" in the bell, People Home and Admin center Home
+- #405 clor.in home: a proof strip after the hero and a problem section
+- #406 Release record: rel-4f8ddd8
+
+## rel-4f8ddd8 - 2026-11-20
+
+API revision `clor-api-00155-cfk`. Previous release `rel-9788cb0` (roll back there).
+
+- #404 feat: rename Workspace to Admin center
+- #403 feat(admin): Home organised like an admin center
+- #399 Release record: rel-9788cb0
+- #398 style(design): clean-up after the design audit (P3)
+
+## rel-9788cb0 - 2026-11-20
+
+API revision `clor-api-00154-9qg`. Previous release `rel-b1417a9` (roll back there).
+
+- #397 Design audit step 5d: Ops confirmations as dialogs
+- #396 Design audit step 5c: control heights, a payslips total, one primary, ink charts
+- #394 Design audit step 5b: lists on the page ground, forms without boxes
+- #395 Release record: rel-b1417a9
+- #389 Workspace: a member's access in words, and what to hand over before they leave
+- #388 Workspace: two more automations (accountant access ending, people not signing in)
+- #393 Design audit step 5a: every size on the six-step type scale
+
 ## rel-b1417a9 - 2026-11-20
 
 API revision `clor-api-00153-q8l`. Previous release `rel-4f4ccdc` (roll back there).
@@ -73,6 +103,13 @@ API revision `clor-api-00147-n8w`. Previous release `rel-f5a3c97` (roll back the
 
 - #350 Payroll: statutory bonus, minimum wages, weekly wages, extra pay run; Hindi employee app
 
+## rel-f5a3c97 - 2026-11-19
+
+API revision `clor-api-00146-dk7`. Previous release `rel-785a0dc` (roll back there).
+
+- #347 Customers add apps themselves: on at once, prorated invoice, renewals carry it
+- #348 Release record: rel-785a0dc
+
 ## rel-785a0dc - 2026-11-19
 
 API revision `clor-api-00145-twx`. Previous release `rel-644865e` (roll back there).
@@ -90,6 +127,18 @@ API revision `clor-api-00144-zdv`. Previous release `rel-f16a2ae` (roll back the
 - #340 Rounds 46–50 picks (outside Books): documents, approvals, shifts, imports, accessibility and dues
 - #338 Rounds 41–45 picks (outside Books): field staff, leave kinds, employee record, staff money, people reports
 - #336 Rounds 26–40 picks (outside Books): 15 rounds combined
+
+## rel-f16a2ae - 2026-11-18
+
+API revision `clor-api-00143-x2z`. Previous release `rel-c2ab508` (roll back there).
+
+- #324 Lapsed apps still read, sign-up pause covers the app's own page, export reads in pages
+- #323 Books: settlement counts TDS and notes, e-invoice tied to the books, reverse charge sales, TDS/TCS limits
+- #335 Round 25 picks: UAN question, registration days left
+- #334 Round 24 picks: balance below zero, next employee code, split shifts, Today on a screen
+- #333 Round 23 picks: tenure chart, upload limits, half-day sentence
+- #332 Release record: rel-c2ab508
+- #331 Round 22 picks: joined-and-left chart, Copy link, maternity return date
 
 ## rel-c2ab508 - 2026-11-18
 
@@ -120,6 +169,22 @@ API revision `clor-api-00141-vhv`. Previous release `rel-c3389b8` (roll back the
 API revision `clor-api-00140-77z`. Previous release `rel-61e7a5a` (roll back there).
 
 - #311 Invoice numbers without gaps, GSTR-3B without drafts, People routes in the employee app need People
+
+## rel-61e7a5a - 2026-11-17
+
+API revision `clor-api-00139-4vc`. Previous release `rel-f374dd4` (roll back there).
+
+- #310 Sign-in codes by text message, beside the authenticator app
+- #306 CLOR invoices: email on issue, send again, remind, and an automatic schedule; Members sign-in column
+- #312 Round 12 style picks and batch A, except Books
+- #309 Jobs four at a time, seats held to what was bought, a flag for accounts with no end date
+- #305 Books: a draft invoice is not in the ledger; other charges are income
+- #308 Apply the owner's style picks everywhere except Books
+- #307 Books: GST by the issuing branch's state, TDS yearly limit once, currency sent with a foreign invoice
+- #304 Books: reports and GST returns read every page, and say so when they cannot
+- #302 Books: a document whose figures disagree with its lines is refused
+- #298 Security: audit findings of 17 Nov closed, with a test for each
+- #299 Trial sign-up: the owner chooses a password on the setup page
 
 ## rel-f374dd4 - 2026-11-17
 

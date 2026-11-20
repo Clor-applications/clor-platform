@@ -97,7 +97,7 @@ describe('the operator console', () => {
     const nav = screen.getByRole('navigation', { name: 'Staff console' });
     expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Sales', 'Platform', 'Messages', 'Trust', 'Billing', 'Product']);
     expect([...nav.querySelectorAll('.ops-nav-label')].map((b) => b.textContent.trim())).toEqual([
-      'Overview', 'Insights', 'Accounts', 'Companies', 'Users', 'Subscriptions', 'Tickets', 'Saved replies', 'Trials', 'Demo requests', 'Explore links', 'Background jobs', 'Access refused', 'Feature switches', 'Alerts', 'Status page', 'Announcements', 'Email addresses', 'Email templates', 'Email log', 'Text messages', 'Staff audit log', 'Access requests', 'Approvals', 'Data breaches', 'Pricing', 'Custom plans', 'Offers', 'Invoices', 'Proformas', 'TDS certificates', 'Vendor documents', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Forms on clor.in',
+      'Overview', 'Insights', 'Accounts', 'Companies', 'Users', 'Subscriptions', 'Tickets', 'Saved replies', 'Trials', 'Demo requests', 'Explore links', 'Background jobs', 'Broken connections', 'Access refused', 'Feature switches', 'Alerts', 'Status page', 'Announcements', 'Email addresses', 'Email templates', 'Email log', 'Text messages', 'Staff audit log', 'Access requests', 'Approvals', 'Data breaches', 'Pricing', 'Custom plans', 'Offers', 'Invoices', 'Proformas', 'TDS certificates', 'Vendor documents', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Forms on clor.in',
     ]);
     expect(screen.queryByRole('button', { name: /Staff and roles/ })).toBeNull();
     /* There is no Gateways entry: the gateways are the Providers tab of Payments. */

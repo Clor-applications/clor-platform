@@ -285,7 +285,7 @@ billingRouter.post('/billing/plan-change', async (req, res) => {
   if (kind === 'REMOVE_APP' && !access.ownedApps.includes(app!)) return res.status(409).json({ error: `${appName(app)} is not on this plan.` });
   const what = kind === 'ADD_APP' || kind === 'REMOVE_APP' ? `${CHANGE[kind]}: ${appName(app)}` : CHANGE[kind];
   const body = [
-    `Plan change asked from Workspace: ${what}.`,
+    `Plan change asked from the Admin center: ${what}.`,
     `Apps now: ${access.ownedApps.map(appName).join(', ') || 'none'}.`,
     kind === 'UPGRADE_PEOPLE' ? 'People includes everything in Attendance; the Attendance line comes off the bill when People is on.' : '',
     note ? `\nFrom the customer:\n${note}` : '',
@@ -419,7 +419,7 @@ billingRouter.post('/billing/cancel', async (req, res) => {
   await openTicket({
     accountId, orgId: req.tenant?.orgId ?? null, userId: req.auth!.userId, category: 'BILLING', app: null, urgent: false, requestId: null,
     subject: 'Plan stopped: will not renew',
-    body: `The account owner turned renewal off from Workspace.${until ? ` The plan runs until ${until}.` : ''}${reason ? `\n\nWhy:\n${reason}` : ''}`,
+    body: `The account owner turned renewal off from the Admin center.${until ? ` The plan runs until ${until}.` : ''}${reason ? `\n\nWhy:\n${reason}` : ''}`,
   }).catch(() => undefined);
   res.json({ cancelAtPeriodEnd: true, endsAt });
 });

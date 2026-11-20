@@ -339,7 +339,7 @@ export default function SsoSettings() {
         onClose={() => setForm(null)}
         title={form?.id ? `Edit ${form.name || 'provider'}` : 'Add a provider'}
       >
-        {/* The drawer is portalled out of the page, so it carries the Workspace tokens with it. */}
+        {/* The drawer is portalled out of the page, so it carries the Admin center tokens with it. */}
         {form ? (
           <div className="ws" style={DRAWER_WS}>
             <form onSubmit={save} className="grid gap-4" aria-label={form.id ? 'Edit provider' : 'New provider'}>

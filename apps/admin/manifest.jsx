@@ -137,7 +137,7 @@ const NAV = {
  */
 export const adminApp = {
   id: 'admin',
-  name: 'Workspace',
+  name: 'Admin center',
   /* The app's identity mark stays a line glyph on its colour tile; navigation draws in emoji. */
   icon: AppShieldCheck,
   blurb: 'People, roles, sign-in, billing and the audit trail, for every app.',
@@ -245,7 +245,7 @@ export const adminApp = {
     { key: 'credentials', label: 'Credentials', icon: NAV.credentials, permission: 'SETTINGS::Credentials::VIEW' },
     { key: 'securityHome', label: 'Security overview', short: 'Security', icon: NAV.securityHome, permission: 'SETTINGS::Users::VIEW' },
     /* The account itself: its name, its companies and people, and the plan it is on. */
-    { key: 'account', label: 'Workspace settings', icon: NAV.settings, permission: 'SETTINGS::Company Profile::VIEW' },
+    { key: 'account', label: 'Account settings', icon: NAV.settings, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'dataHome', label: 'Data', icon: NAV.data, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'export', label: 'Data export', icon: NAV.export, permission: 'SETTINGS::Company data::EXPORT' },
     { key: 'close', label: 'Close company', icon: NAV.close, permission: 'SETTINGS::Company Profile::VIEW' },

@@ -7,7 +7,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { REQUEST_ID } from '../utils/log.js';
 import { accountsByPhone } from '../services/ops/phoneSearch.js';
-import { accountConnections, systemHealth } from '../services/ops/systemHealth.js';
+import { accountConnections, systemHealth, brokenConnections } from '../services/ops/systemHealth.js';
 import { audit, customerTitle } from './ops.js';
 import { requireOperatorRole } from '../middleware/operator.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
@@ -63,6 +63,9 @@ opsHealthRouter.get('/ops/books-check', (_req, res) =>
     });
   }),
 );
+
+/** Every customer's connection that is not working: in error, or a reader or agent silent for a day. Every staff role reads it. */
+opsHealthRouter.get('/ops/connections/broken', (_req, res) => outsideTenant('ops: broken connections', async () => res.json(await brokenConnections())));
 
 /** One customer's readers, agents, HR and sign-on connections, e-invoice link, and failed mail. */
 opsHealthRouter.get('/ops/accounts/:id/connections', (req, res) =>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 
 import PeopleOverview from './PeopleOverview';
@@ -38,7 +38,7 @@ vi.mock('./HomeSetup', () => ({ default: () => null }));
 
 it('counts the whole inbox in the greeting, with leave as the detail on the Inbox line', async () => {
   render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText('4 things')).toBeTruthy();
+  expect(await screen.findByText('4 items')).toBeTruthy();
   expect(await screen.findByText(/1 leave request among them, next starts/)).toBeTruthy();
 });
 
@@ -56,7 +56,7 @@ it('the card adds up to the subtitle: requests on one line, my tasks on another,
   });
   const openScreen = vi.fn();
   render(<PeopleOverview openScreen={openScreen} />);
-  expect(await screen.findByText('5 things')).toBeTruthy();
+  expect(await screen.findByText('5 items')).toBeTruthy();
   const requests = (await screen.findByText('2 requests wait for you')).closest('button');
   const tasks = screen.getByText('3 tasks are on your name').closest('button');
   /* The two lines are the whole card: 2 + 3 = 5. HR's all-tasks figure sits under "Needs attention", outside the number. */
@@ -70,11 +70,11 @@ it('the card adds up to the subtitle: requests on one line, my tasks on another,
   expect(openScreen).toHaveBeenCalledWith('approvals', { tab: 'tasks' });
 });
 
-it('says "Nothing waits for your answer" only when the server counts nought, and then shows no card rows', async () => {
+it('says "Nothing needs your action" only when the server counts nought, and then shows no card rows', async () => {
   const api = await import('@ui/personnel/api');
   api.getPeopleHome.mockResolvedValueOnce({ todos: [{ key: 'checklists', title: 'Joining and leaving tasks', count: 320, tone: 'urgent', screen: 'checklists' }], waiting: 0, probation: null, week: null, monthClose: null });
   render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText(/Nothing waits for your answer/)).toBeTruthy();
+  expect(await screen.findByText(/Nothing needs your action/)).toBeTruthy();
   expect(screen.getByText('All caught up')).toBeTruthy();
   expect(screen.queryByText(/wait for you$/)).toBeNull();
   expect(screen.getByText('Joining and leaving tasks')).toBeTruthy();
@@ -105,13 +105,21 @@ it('has no To approve figure; Probation due counts probation to decide and opens
 /* Company choices, "leavings: no" (SPEC 3.5): a reader the leavings are kept from gets no On notice figure. */
 it('shows On notice by default, and leaves it out when the company keeps leavings from this reader', async () => {
   const api = await import('@ui/personnel/api');
+  api.getOverview.mockResolvedValueOnce({ headcount: 10, byDepartment: [], byStatus: { ACTIVE: 8, ON_NOTICE: 2 }, joinedThisMonth: [], leftThisMonth: 0 });
   const { unmount } = render(<PeopleOverview openScreen={vi.fn()} />);
   expect(await screen.findByText('On notice')).toBeTruthy();
   unmount();
-  api.getOverview.mockResolvedValueOnce({ headcount: 10, byDepartment: [], byStatus: { ACTIVE: 10 }, joinedThisMonth: [], leftThisMonth: null, leavingsHidden: true });
+  api.getOverview.mockResolvedValueOnce({ headcount: 10, byDepartment: [], byStatus: { ACTIVE: 8, ON_NOTICE: 2 }, joinedThisMonth: [], leftThisMonth: null, leavingsHidden: true });
   render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText('Probation due')).toBeTruthy();
+  expect(await screen.findByText('Headcount')).toBeTruthy();
   expect(screen.queryByText('On notice')).toBeNull();
+});
+
+/* DESIGN.md "Overview pages": a figure never shows at zero; the count line under the title says it. */
+it('leaves out the figures that stand at zero, but never Headcount', async () => {
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  expect(await screen.findByText('Headcount')).toBeTruthy();
+  await waitFor(() => expect(screen.queryByText('On notice')).toBeNull());
 });
 
 /* QA, Team Manager (1 Nov 2026): Home offered Announce, Post one, HR cases and Add an employee, which his role refuses. */
@@ -123,7 +131,7 @@ it('offers only the actions this reader may use', async () => {
     </PermissionContext.Provider>
   );
   const { unmount } = render(as(['PEOPLE::Employees::VIEW', 'ATTENDANCE::Leave Requests::VIEW']));
-  expect(await screen.findByText('Probation due')).toBeTruthy();
+  expect(await screen.findByText('Headcount')).toBeTruthy();
   expect(screen.getByRole('button', { name: /Leave requests/ })).toBeTruthy();
   for (const name of [/Announce/, /Post one/, /Help desk/, /Add an employee/, /All events/]) expect(screen.queryByRole('button', { name })).toBeNull();
   unmount();
@@ -144,7 +152,7 @@ it('never reads a failed list as nothing waiting, and Retry asks both lists agai
   render(<PeopleOverview openScreen={vi.fn()} />);
   expect(await screen.findByText(/Could not load what waits for you/)).toBeTruthy();
   expect(screen.queryByText('All caught up')).toBeNull();
-  expect(screen.getByText(/Could not check what waits for your answer/)).toBeTruthy();
+  expect(screen.getByText(/Could not check what needs your action/)).toBeTruthy();
   expect(api.getPeopleHome).toHaveBeenCalledTimes(1);
   expect(timeOff.listLeaveRequests).toHaveBeenCalledTimes(1);
 
@@ -228,8 +236,8 @@ it('says it is checking, not "Nothing waits", while the inbox and leave are load
   api.getPeopleHome.mockImplementationOnce(() => new Promise(() => {}));
   timeOff.listLeaveRequests.mockImplementationOnce(() => new Promise(() => {}));
   render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText(/Checking what waits for your answer/)).toBeTruthy();
-  expect(screen.queryByText(/Nothing waits for your answer/)).toBeNull();
+  expect(await screen.findByText(/Checking what needs your action/)).toBeTruthy();
+  expect(screen.queryByText(/Nothing needs your action/)).toBeNull();
 });
 
 /* People plan, 8 Nov 2026: Home's waiting number is the inbox's own (help desk included), not a sum of to-do lines. */
@@ -237,7 +245,7 @@ it('shows the waiting number the server counts for the inbox, the one the rail b
   const api = await import('@ui/personnel/api');
   api.getPeopleHome.mockResolvedValueOnce({ todos: [{ key: 'leave', title: 'Leave waiting', count: 1, screen: 'approvals' }], waiting: 3, probation: null, week: null, monthClose: null });
   render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText('3 things')).toBeTruthy();
+  expect(await screen.findByText('3 items')).toBeTruthy();
 });
 
 /* Owner, 8 Nov 2026: approvals live in the Inbox. Home says how many wait and opens it; it lists and approves none. */

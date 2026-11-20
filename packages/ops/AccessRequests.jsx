@@ -59,7 +59,7 @@ export function AccessRequests({ openCustomer }) {
     <>
       <PageHead
         title="Access requests"
-        description="Your requests to look inside a customer’s company. The customer’s owner or an administrator answers each one in Workspace; nobody at CLOR approves their own."
+        description="Your requests to look inside a customer’s company. The customer’s owner or an administrator answers each one in the Admin center; nobody at CLOR approves their own."
       />
       <Tabs
         label="Which requests"

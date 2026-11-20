@@ -221,7 +221,7 @@ export function Announcements({ me }) {
                     <span className="ws-item-sub" style={{ color: 'rgb(var(--ws-ink))' }}>{a.body}</span>
                     <span className="ws-item-sub">
                       {[
-                        `For ${AUDIENCE_WORD[a.audience]} using ${appsWords(a.apps)}${a.apps?.length ? ' (shown in that app and the Workspace)' : ''}`,
+                        `For ${AUDIENCE_WORD[a.audience]} using ${appsWords(a.apps)}${a.apps?.length ? ' (shown in that app and the Admin center)' : ''}`,
                         a.status === 'ended' ? `ended ${when(a.endedAt || a.endsAt)}` : a.status === 'draft' ? null : `from ${when(a.startsAt)}`,
                         a.status !== 'ended' && a.endsAt ? `until ${when(a.endsAt)}` : null,
                         a.closedBy ? `closed by ${a.closedBy} ${a.closedBy === 1 ? 'person' : 'people'}` : null,

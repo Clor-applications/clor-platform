@@ -35,7 +35,7 @@ export const PRODUCT_CONTENT = {
     faq: [
       ['Can I bring my data from Tally?', 'Yes. Masters and opening balances can be imported, and the on-site connector can keep Tally in step while you move.'],
       ['Does it handle more than one branch or GSTIN?', 'Yes. Each branch keeps its own GSTIN, series and stock, and reports can be read per branch or together.'],
-      ['Can my accountant work in it?', 'Yes. Invite them from your Workspace (Access, then Invitations) with their own sign-in; you decide what they can see and change, and can end it at any time.'],
+      ['Can my accountant work in it?', 'Yes. Invite them from your Admin center (Access, then Invitations) with their own sign-in; you decide what they can see and change, and can end it at any time.'],
     ],
   },
   people: {

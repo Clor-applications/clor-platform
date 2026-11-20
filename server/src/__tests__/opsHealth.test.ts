@@ -83,6 +83,41 @@ describe('system health', () => {
     await request(app).get('/api/ops/accounts/nope/connections').set(ro.h).expect(404);
   }, 60_000);
 
+  it('lists every customer’s connection that is not working, longest broken first, and leaves out what is switched off', async () => {
+    const { peoplePrisma } = await import('../utils/peoplePrisma.js');
+    const ro = await staff('READ_ONLY');
+    const c = await company('broken');
+    const off = await company('brokenoff');
+    const DAY = 86_400_000;
+    const tag = `BRK-${Date.now()}`;
+    const reader = (over: Record<string, unknown>) => ({ accountId: c.accountId, orgId: c.orgId, createdByUserId: c.userId, serialNumber: `${tag}-${Math.random().toString(36).slice(2, 8)}`, name: 'Reader', ...over });
+    const [silent, failing] = await db(async () => [
+      await peoplePrisma.attendanceDevice.create({ data: reader({ name: `${tag} gate`, lastSeenAt: new Date(Date.now() - 3 * DAY) }) }),
+      await peoplePrisma.attendanceDevice.create({ data: reader({ name: `${tag} dock`, lastSeenAt: new Date(Date.now() - 3_600_000), lastError: 'Wrong password' }) }),
+      /* Quiet for an hour (a shop shut for lunch), switched off by the customer, and a suspended customer's: none is a fault to chase. */
+      await peoplePrisma.attendanceDevice.create({ data: reader({ name: `${tag} lunch`, lastSeenAt: new Date(Date.now() - 3_600_000) }) }),
+      await peoplePrisma.attendanceDevice.create({ data: reader({ name: `${tag} spare`, isActive: false, lastSeenAt: new Date(Date.now() - 9 * DAY) }) }),
+      await peoplePrisma.attendanceDevice.create({ data: reader({ accountId: off.accountId, orgId: off.orgId, createdByUserId: off.userId, name: `${tag} closed`, lastSeenAt: new Date(Date.now() - 9 * DAY) }) }),
+      await peoplePrisma.hrConnection.create({ data: { accountId: c.accountId, orgId: c.orgId, createdByUserId: c.userId, adapter: 'keka', name: `${tag} HR`, enabled: true, lastRunAt: new Date(Date.now() - 2 * DAY), lastError: 'Token expired' } }),
+      await peoplePrisma.hrConnection.create({ data: { accountId: c.accountId, orgId: c.orgId, createdByUserId: c.userId, adapter: 'keka', name: `${tag} HR off`, enabled: false, lastError: 'Old error' } }),
+    ]);
+    await db(() => platformPrisma.account.update({ where: { id: off.accountId }, data: { suspendedAt: new Date() } }));
+
+    const d = (await request(app).get('/api/ops/connections/broken').set(ro.h).expect(200)).body;
+    const mine = d.items.filter((i: any) => i.name.startsWith(tag));
+    expect(mine.map((i: any) => [i.name, i.state])).toEqual([[`${tag} gate`, 'offline'], [`${tag} HR (keka)`, 'error'], [`${tag} dock`, 'error']]);
+    expect(mine[0]).toMatchObject({ kind: 'Attendance reader', accountId: c.accountId, id: silent.id, error: null });
+    expect(mine[2]).toMatchObject({ id: failing.id, error: 'Wrong password' });
+    expect(mine.every((i: any) => i.customer)).toBe(true);
+    expect(d.kinds['Attendance reader']).toBeGreaterThanOrEqual(2);
+    expect(d.customers).toBeGreaterThanOrEqual(1);
+    /* Background jobs now says where its counts can be opened. */
+    const h = (await request(app).get('/api/ops/health').set(ro.h).expect(200)).body;
+    expect(h.signals.find((s: any) => s.key === 'hr-errors').screen).toBe('connections');
+    /* Staff only. */
+    await request(app).get('/api/ops/connections/broken').set(at(c)).expect(403);
+  }, 90_000);
+
   it('turns a request ID into a Cloud Logging link, and refuses what is not one', async () => {
     const ro = await staff('READ_ONLY');
     const id = '6f1c2a9e-3b4d-4e5f-8a7b-1c2d3e4f5a6b';

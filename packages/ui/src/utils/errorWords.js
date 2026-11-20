@@ -13,8 +13,8 @@
 
 /* Codes the server sends beside its text, in words a person can act on. */
 const CODE_WORDS = {
-  APP_NOT_SUBSCRIBED: 'This app is not on your plan. An owner can add it under Workspace → Billing & seats.',
-  SUBSCRIPTION_LAPSED: 'Your CLOR subscription has ended. An owner can renew it under Workspace → Billing & seats.',
+  APP_NOT_SUBSCRIBED: 'This app is not on your plan. An owner can add it under Admin center → Billing & seats.',
+  SUBSCRIPTION_LAPSED: 'Your CLOR subscription has ended. An owner can renew it under Admin center → Billing & seats.',
   NO_ROLE_GRANT: 'Your role does not allow this. Ask an administrator of this company to change your role.',
   PERMISSION_DENIED: 'Your role does not allow this. Ask an administrator of this company to change your role.',
   MODULE_OFF: 'This feature is switched off for your company.',

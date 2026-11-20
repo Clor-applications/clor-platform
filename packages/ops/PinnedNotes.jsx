@@ -59,7 +59,7 @@ export function PinnedNotes({ id, onOpen }) {
 export function PhoneRule() {
   return (
     <p className="ws-notice" role="note">
-      Asked on a call to change something? CLOR staff do not change an account over the phone. Ask the owner to make the change signed in, or to open a ticket from Workspace, Support.
+      Asked on a call to change something? CLOR staff do not change an account over the phone. Ask the owner to make the change signed in, or to open a ticket from the Admin center, Support.
     </p>
   );
 }

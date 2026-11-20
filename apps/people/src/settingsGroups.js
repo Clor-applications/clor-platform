@@ -89,7 +89,7 @@ export const SETTINGS_GROUPS = [
       ['automations', 'Reminders CLOR sends on its own: probation ending, final pay due, birthdays, leave waiting'],
       ['helpDeskSettings', 'Help desk categories, reply and resolve times, and answer templates'],
       ['companyChoices', 'Who decides attendance requests, withdrawn notices, who sees salary revisions and why someone leaves'],
-      ['emailNotifications', 'Which emails go out, such as a document about to expire or the Monday summary, in Workspace'],
+      ['emailNotifications', 'Which emails go out, such as a document about to expire or the Monday summary, in the Admin center'],
     ],
   },
   {
@@ -98,8 +98,8 @@ export const SETTINGS_GROUPS = [
     note: 'Who signs in, what they may do, and which features are on.',
     items: [
       ['selfService', 'Who can sign in to the employee app'],
-      ['sso', 'Users, sign-in and single sign-on, in Workspace'],
-      ['rolesAccess', 'What each role may do in People, in Workspace'],
+      ['sso', 'Users, sign-in and single sign-on, in the Admin center'],
+      ['rolesAccess', 'What each role may do in People, in the Admin center'],
       ['modules', 'Turn People features on or off'],
     ],
     apps: [

@@ -10,7 +10,7 @@
  * words people search with that the text does not use.
  */
 export const GUIDE_GROUPS = [
-  { key: 'guide-workspace', label: 'Workspace how-to' },
+  { key: 'guide-workspace', label: 'Admin center how-to' },
   { key: 'guide-people', label: 'People how-to' },
   { key: 'guide-time', label: 'Time and attendance how-to' },
 ];
@@ -27,7 +27,7 @@ export const GUIDES = [
       {
         heading: 'Where the lists are',
         points: [
-          'Workspace: the Setup ring at the foot of the left rail. It covers company details, inviting your team, giving access and protecting admin sign-in.',
+          'Admin center: the Setup ring at the foot of the left rail. It covers company details, inviting your team, giving access and protecting admin sign-in.',
           'People: Get started on Home. It covers departments, employees, the working week and holidays, leave types, who approves, the employee app, documents and Payroll.',
           'Attendance: Get started on Today. It covers a shift, the weekly off, holidays, your staff, a reader or phone punch, and the first day recorded.',
         ],
@@ -38,7 +38,7 @@ export const GUIDES = [
           'A step shows Done only when CLOR finds the records behind it. You cannot tick a step yourself.',
           'Set up opens the screen that does the step. Review opens it again after it is done.',
           'A list goes away when every step is done. In People and Attendance you can also choose Hide this list, which hides it for the whole company.',
-          'Only people who can do the steps see the list. The Workspace ring is shown to owners and admins.',
+          'Only people who can do the steps see the list. The Admin center ring is shown to owners and admins.',
         ],
       },
       {
@@ -67,7 +67,7 @@ export const GUIDES = [
       {
         heading: 'Send an invitation',
         steps: [
-          'Go to Workspace › Access › Invitations.',
+          'Go to Admin center › Access › Invitations.',
           'Choose Invite people.',
           'Type their email address.',
           'Choose an account role. Member is right for most people. Administrator can add companies and invite people. Billing admin can see the plan and billing.',
@@ -87,7 +87,7 @@ export const GUIDES = [
       {
         heading: 'Give them a role',
         steps: [
-          'Go to Workspace › Access › Users.',
+          'Go to Admin center › Access › Users.',
           'Open the actions on the person’s row and choose Edit.',
           'Choose a Role, then Save changes.',
           'A person with no role can sign in but opens nothing.',
@@ -118,7 +118,7 @@ export const GUIDES = [
       {
         heading: 'Change what a role may do',
         steps: [
-          'Go to Workspace › Access › Permissions.',
+          'Go to Admin center › Access › Permissions.',
           'Pick the role.',
           'Tick what it may view, create, edit, approve or export in each app.',
           'Choose Save changes.',
@@ -144,7 +144,7 @@ export const GUIDES = [
       {
         heading: 'Company details',
         steps: [
-          'Go to Workspace › Company › Company profile. The page title is your company’s name.',
+          'Go to Admin center › Company › Company profile. The page title is your company’s name.',
           'Fill in the legal name, company PAN, TAN and the registered address.',
           'Under Statutory registrations, add the EPF establishment code, ESIC employer code, Professional Tax and Labour Welfare Fund registrations you have.',
           'Choose Save changes.',
@@ -153,7 +153,7 @@ export const GUIDES = [
       {
         heading: 'Add a branch',
         steps: [
-          'Go to Workspace › Company › Branches.',
+          'Go to Admin center › Company › Branches.',
           'Choose Add branch.',
           'Type a branch code and branch name, the address and the state.',
           'If GST is on for the company, add the branch’s GSTIN. It fills in the state for you.',
@@ -185,7 +185,7 @@ export const GUIDES = [
       {
         heading: 'Turn it on',
         steps: [
-          'Open My profile from the top bar. The same card is on Workspace › Security › Sign-in and sessions.',
+          'Open My profile from the top bar. The same card is on Admin center › Security › Sign-in and sessions.',
           'Under Authenticator app, type your password and choose Set up an authenticator app.',
           'Scan the QR code with the app on your phone. If you cannot scan it, type the key shown under it.',
           'Type the six-digit code the app shows, and choose Turn on.',
@@ -195,7 +195,7 @@ export const GUIDES = [
       {
         heading: 'Make it required',
         points: [
-          'In Workspace › Security › Sign-in and sessions, tick Owners and admins need two-step sign-in, then Save rules.',
+          'In Admin center › Security › Sign-in and sessions, tick Owners and admins need two-step sign-in, then Save rules.',
           'An owner or admin without one is asked to set it up the next time they sign in.',
         ],
       },
@@ -216,7 +216,7 @@ export const GUIDES = [
       {
         heading: 'Raise a ticket',
         steps: [
-          'Go to Workspace › Overview › Help and support.',
+          'Go to Admin center › Overview › Help and support.',
           'Choose New ticket.',
           'Under What is it?, choose the closest kind, such as Something is not working.',
           'Under Which app, choose the app it is about.',
@@ -247,12 +247,12 @@ export const GUIDES = [
     sections: [
       {
         heading: 'Trial',
-        points: ['The Workspace Overview shows when your trial ends. Choose a plan before then to keep your apps open.'],
+        points: ['The Admin center Overview shows when your trial ends. Choose a plan before then to keep your apps open.'],
       },
       {
         heading: 'Pay an invoice',
         steps: [
-          'Go to Workspace › Plan & billing › Billing.',
+          'Go to Admin center › Plan & billing › Billing.',
           'Open the invoice under Invoices.',
           'Pay by UPI using the QR code, or by bank transfer to the account shown.',
           'Put the invoice number in the transfer’s remarks.',
@@ -287,7 +287,7 @@ export const GUIDES = [
       {
         heading: 'Export',
         steps: [
-          'Go to Workspace › Data › Data export.',
+          'Go to Admin center › Data › Data export.',
           'Download data takes the books and their documents. Download configuration takes the settings: branches, roles, numbering and approval rules.',
           'Keep the file somewhere safe. Passwords and API secrets are left out of the configuration.',
         ],
@@ -299,7 +299,7 @@ export const GUIDES = [
       {
         heading: 'Close a company',
         steps: [
-          'Go to Workspace › Data › Close company. Only an administrator of the company can do this.',
+          'Go to Admin center › Data › Close company. Only an administrator of the company can do this.',
           'Choose Download full export. The closure needs an export from the last 24 hours.',
           'Give a reason if you like, and type the company’s name to confirm.',
           'Choose Close company after … days. CLOR may ask for your authenticator code.',
@@ -529,7 +529,7 @@ export const GUIDES = [
         points: [
           'A document that runs out within 30 days shows Expires in N days.',
           'The Expired tab lists documents past their date.',
-          'Emails about documents about to expire are switched on or off in Workspace › Company › Email notifications.',
+          'Emails about documents about to expire are switched on or off in Admin center › Company › Email notifications.',
         ],
       },
       {

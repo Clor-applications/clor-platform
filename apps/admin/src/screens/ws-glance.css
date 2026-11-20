@@ -1,0 +1,334 @@
+/*
+ * Home, organised like the Microsoft 365 admin center (owner, 20 Nov 2026), in CLOR's calm
+ * register (DESIGN.md): white ground, hairlines, six type sizes, 12px on cards, 8px on buttons.
+ * Two bands: At a glance (one card per subject) and Top actions (one card per thing to do).
+ */
+.wsh .wsg-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.wsh .wsg-title {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 700;
+  color: rgb(var(--fg));
+}
+.wsh .wsg-lede {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 4px 0 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-muted));
+}
+
+/* The page's own column puts 32px between the bands (.wsh-inner gap); no margins of their own. */
+.wsh .wsg-band-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.wsh .wsg-band-title {
+  margin: 0 0 12px;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.wsh .wsg-band-head .wsg-band-title {
+  margin: 0;
+}
+.wsh .wsg-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.wsh .wsg-fold:focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+.wsh .wsg-fold-ico {
+  transition: transform 160ms ease;
+}
+.wsh .wsg-fold[aria-expanded='true'] .wsg-fold-ico {
+  transform: rotate(180deg);
+}
+
+/* Cards: white, one hairline, 12px corners; no shadow, no tint. */
+.wsh .wsg-card {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px;
+  background: #fff;
+}
+.wsh .wsg-card-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.wsh .wsg-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.wsh .wsg-glance {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wsh .wsg-label {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-muted));
+}
+.wsh .wsg-figure {
+  margin: 0;
+  text-align: left;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.wsh .wsg-figure small {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: rgb(var(--fg-muted));
+}
+.wsh .wsg-figure-words {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.wsh .wsg-muted {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-muted));
+}
+/* The breakdown takes the room left, so every card's buttons sit on one line at the foot. */
+.wsh .wsg-glance-body {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  margin-top: 12px;
+}
+.wsh .wsg-rows {
+  display: grid;
+  gap: 8px;
+}
+.wsh .wsg-sub-title {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  color: rgb(var(--fg-muted));
+}
+.wsh .wsg-dl {
+  margin: 0;
+}
+.wsh .wsg-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* A short list inside a card: name on the left, its value on the right, one hairline between. */
+.wsh .wsg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wsh .wsg-list > li + li {
+  border-top: 1px solid rgb(var(--border));
+}
+.wsh .wsg-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  color: rgb(var(--fg));
+  text-align: left;
+  text-decoration: none;
+}
+.wsh button.wsg-list-row,
+.wsh a.wsg-list-row {
+  cursor: pointer;
+}
+.wsh button.wsg-list-row:hover,
+.wsh a.wsg-list-row:hover {
+  background: rgb(var(--hover, 247 247 247));
+}
+.wsh .wsg-list-row:focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: -2px;
+}
+.wsh .wsg-list-name {
+  flex: 1;
+  min-width: 0;
+}
+.wsh .wsg-list-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: right;
+}
+.wsh .wsg-list-what {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-muted));
+}
+
+/* Top actions: neutral chips (the app colour has four jobs only), then the cards. */
+.wsh .wsg-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.wsh .wsg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: rgb(var(--fg));
+  cursor: pointer;
+}
+.wsh .wsg-chip .ui-num {
+  color: rgb(var(--fg-muted));
+}
+.wsh .wsg-chip:hover {
+  background: rgb(var(--hover, 247 247 247));
+}
+.wsh .wsg-chip[aria-pressed='true'] {
+  border-color: rgb(var(--fg));
+  font-weight: 600;
+}
+.wsh .wsg-chip:focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+.wsh .wsg-acts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wsh .wsg-act {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wsh .wsg-act-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+}
+.wsh .wsg-act-area {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  color: rgb(var(--fg-muted));
+}
+.wsh .wsg-act-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.wsh .wsg-act-sub {
+  flex: 1;
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-muted));
+}
+.wsh .wsg-act .wsg-foot {
+  margin-top: 8px;
+}
+.wsh .wsg-calm {
+  margin: 0;
+  padding: 16px 0;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted));
+}
+
+/* Activity and help, side by side below. */
+.wsh .wsg-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .wsh .wsg-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .wsh .wsg-head {
+    flex-direction: column;
+  }
+  .wsh .wsg-head .ws-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Meters inside Home's cards: ink on a hairline track (DESIGN.md: charts ink first). */
+.wsh .wsg-card .ws-meter-bar {
+  height: 6px;
+  background: rgb(var(--border));
+}
+.wsh .wsg-card .ws-meter-bar > span {
+  background: rgb(var(--fg));
+}
+.wsh .wsg-dl dd {
+  white-space: nowrap;
+}
+.wsh .wsg-glance-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.wsh .wsg-dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}

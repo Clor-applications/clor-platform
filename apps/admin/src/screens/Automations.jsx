@@ -20,8 +20,8 @@ export default function Automations({ openScreen }) {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Apps', 'Automations']} icon={PAGE_ICON} title="Automations" description="Reminders Workspace sends for this company. Each starts off; switch on the ones you want." />
-        {/* The shared list, dressed for the Workspace: each group one sheet, the page's full width (workspace.css, .ws-autos). */}
+        <PageHead crumbs={['Apps', 'Automations']} icon={PAGE_ICON} title="Automations" description="Reminders the Admin center sends for this company. Each starts off; switch on the ones you want." />
+        {/* The shared list, dressed for the Admin center: each group one sheet, the page's full width (workspace.css, .ws-autos). */}
         {/* The list and, at its right, how these work (owner, 19 Nov 2026: use the right side as the other pages do). */}
         <div className="ws-activity-layout">
           <div className="ws-activity-main ws-autos">

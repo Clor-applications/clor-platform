@@ -107,7 +107,7 @@ describe('the account overview', () => {
   it('says so when the account cannot be read', async () => {
     overview.mockRejectedValue(new Error('no'));
     render(<AccountOverview currentCompany={COMPANY} />);
-    await waitFor(() => expect(screen.getByText('Could not load Workspace settings. Try again.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Could not load Account settings. Try again.')).toBeInTheDocument());
   });
 });
 

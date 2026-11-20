@@ -376,7 +376,7 @@ function SelfServeSeats({ s: settings, mayChange, onSaved }) {
     <Panel title="Seats customers add themselves">
       <form className="grid gap-5" onSubmit={save}>
         <p className="ws-card-blurb">
-          A customer on an active paid plan, priced by the user or the employee, with nothing overdue, adds seats from Workspace. They work at once, and an invoice for the rest of the paid period is issued and emailed. If it is not paid within the days to pay, it is cancelled and those seats come off. Removing seats, apps and refunds stay with CLOR.
+          A customer on an active paid plan, priced by the user or the employee, with nothing overdue, adds seats from the Admin center. They work at once, and an invoice for the rest of the paid period is issued and emailed. If it is not paid within the days to pay, it is cancelled and those seats come off. Removing seats, apps and refunds stay with CLOR.
         </p>
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={on} disabled={!mayChange} onChange={(e) => setOn(e.target.checked)} />

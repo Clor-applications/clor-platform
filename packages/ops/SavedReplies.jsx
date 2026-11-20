@@ -10,7 +10,7 @@ import { APP_NAMES, Empty, Err, Loading, errorWords, may } from './kit';
  * becomes the customer's first name, {ticket} the ticket's code.
  */
 const APPS = ['accounting', 'people', 'attendance', 'payroll', 'workspace'];
-const appWord = (a) => (a === 'workspace' ? 'Workspace' : APP_NAMES[a] || a);
+const appWord = (a) => (a === 'workspace' ? 'Admin center' : APP_NAMES[a] || a);
 
 function Editor({ reply, onClose, onSaved }) {
   const [title, setTitle] = useState(reply?.title || '');

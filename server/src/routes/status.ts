@@ -29,7 +29,7 @@ export async function storeChecks(): Promise<StoreChecks> {
 
 /* What a customer calls each part, in the order the page lists them. Sign-in lives in the platform store. */
 const PARTS: Array<[keyof StoreChecks, string]> = [
-  ['platform', 'Sign-in and Workspace'],
+  ['platform', 'Sign-in and Admin center'],
   ['accounting', 'Books'],
   ['people', 'People and Attendance'],
   ['payroll', 'Payroll'],

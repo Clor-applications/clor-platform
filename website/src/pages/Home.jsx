@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useState } from 'react';
-import { BookOpenText, CaretDown, CaretRight, Headset, MagnifyingGlass } from '@phosphor-icons/react';
+import { ArrowSquareIn, ArrowsSplit, BookOpenText, CalendarX, CaretDown, CaretRight, CloudCheck, Fingerprint, Headset, MagnifyingGlass, Receipt, WarningCircle } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, NAV, PRODUCTS, SITE, productBySlug } from '../site.js';
 import { useProducts } from '../catalogue.js';
@@ -7,7 +7,6 @@ import { BooksWindow, GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { SettingUp } from '../components/Sections.jsx';
 import { Faq } from '../components/Blocks.jsx';
 import { Mark, ProductName, Status } from '../components/Brand.jsx';
-import QuoteBand from '../components/Quotes.jsx';
 
 /*
  * The home page is a run of full-width bands (owner, 13 Nov 2026): a navy hero,
@@ -19,6 +18,7 @@ import QuoteBand from '../components/Quotes.jsx';
  */
 
 const SECTIONS = [
+  ['problem', 'Why CLOR'],
   ['highlights', 'Highlights'],
   ['solutions', 'Solutions'],
   ['products', 'Products'],
@@ -152,7 +152,7 @@ const FAQ = [
   ['Do I have to buy every product?', 'No. Each CLOR product works on its own. Start with the one you need and add others later; they share one sign-in and one list of employees.'],
   ['Is CLOR made for Indian companies?', 'Yes. GST, e-invoices and e-way bills, TDS, PF, ESI, professional tax and Form 16 are part of the products, not add-ons.'],
   ['Where is my data kept?', `In ${SITE.hosting}. Each company’s records are kept apart inside the database itself, not only by the application.`],
-  ['Can my accountant or CA work with me?', 'Yes. Invite them from your Workspace (Access, then Invitations) with their own sign-in, choose what they can see and change, and end it at any time. An account for the firm’s own staff is planned.'],
+  ['Can my accountant or CA work with me?', 'Yes. Invite them from your Admin center (Access, then Invitations) with their own sign-in, choose what they can see and change, and end it at any time. An account for the firm’s own staff is planned.'],
   ['Can I leave with my data?', 'Yes. You can export your company’s data at any time, and closing a company comes with a notice period.'],
 ];
 
@@ -554,6 +554,73 @@ function Connected() {
 }
 
 /** Which section of the page is on screen, for the bar of in-page links. */
+/* --------------------------------------------- proof and the problem (20 Nov 2026)
+ * The homepage review asked for proof after the hero and a problem section before the
+ * solution. CLOR has no customers to quote yet, so the proof is facts that are true today
+ * (CONTENT_CHECKLIST.md: hosting, Indian rules, Tally import, readers) and no counts or
+ * testimonials. The owner writes the final words; these are drafts. */
+const PROOF = [
+  { Icon: CloudCheck, title: 'Google Cloud, Mumbai', text: 'Each company walled off from every other, in the database itself.' },
+  { Icon: Receipt, title: 'Built for Indian rules', text: 'GST, PF, ESI, professional tax and TDS, with the returns and challans.' },
+  { Icon: ArrowSquareIn, title: 'Moves from Tally', text: 'Bring masters and opening balances across instead of typing them again.' },
+  { Icon: Fingerprint, title: 'Works with the reader at the gate', text: 'ZKTeco, eSSL, Hikvision and Matrix readers send punches straight in.' },
+];
+
+function Proof() {
+  return (
+    <section className="fx-proof" aria-label="Why companies can rely on CLOR">
+      <ul className="wrap fx-proof-in">
+        {PROOF.map(({ Icon, title, text }) => (
+          <li key={title}>
+            <Icon size={26} weight="duotone" aria-hidden="true" />
+            <div>
+              <p className="fx-proof-t">{title}</p>
+              <p className="fx-proof-d">{text}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+const PROBLEMS = [
+  { Icon: CalendarX, title: 'Month end takes days', text: 'Attendance is exported from the reader, cleaned in Excel and typed into the salary sheet. Then the salaries are typed into the books.' },
+  { Icon: WarningCircle, title: 'Mistakes reach the payslip', text: 'A missed punch or a wrong loss-of-pay day is found after salaries are paid, and put right by hand next month.' },
+  { Icon: ArrowsSplit, title: 'Nobody has one picture', text: 'HR, accounts and the owner each keep their own list of employees, and the numbers do not agree.' },
+];
+
+function Problem() {
+  return (
+    <section className="fx-band fx-band--plain" id="problem" aria-labelledby="problem-title">
+      <div className="wrap">
+        <p className="fx-eyebrow">The problem</p>
+        <h2 className="fx-h" id="problem-title">
+          One employee, typed in four places
+        </h2>
+        <p className="fx-problem-lede">
+          Most growing companies keep accounts in Tally, attendance in the reader’s software or Excel, salaries in a spreadsheet and staff files in folders. The same person and the same month
+          are entered again at every step.
+        </p>
+        <ul className="fx-problems">
+          {PROBLEMS.map(({ Icon, title, text }) => (
+            <li key={title}>
+              <span className="fx-problem-icon" aria-hidden="true">
+                <Icon size={24} weight="duotone" />
+              </span>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="fx-problem-go">
+          <Go href="#connected" external>See how CLOR joins them up</Go>
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function useSection(ids) {
   const [at, setAt] = useState(null);
   useEffect(() => {
@@ -644,7 +711,11 @@ export default function Home() {
         </div>
       </nav>
 
+      <Proof />
+
       <Finder />
+
+      <Problem />
 
       <section className="fx-band fx-deco fx-deco--tr" id="highlights" aria-labelledby="highlights-title">
         <div className="wrap">
@@ -705,8 +776,6 @@ export default function Home() {
           <Faq items={FAQ} />
         </div>
       </section>
-
-      <QuoteBand />
 
       <section className="fx-band fx-next" aria-labelledby="next-title">
         <div className="wrap">

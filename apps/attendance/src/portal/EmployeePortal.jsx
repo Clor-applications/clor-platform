@@ -4,7 +4,7 @@ import { installFormRules } from '@ui/picks/round56';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import DateNotes from '@ui/timeOff/DateNotes';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from '@ui/components/ui/lineIcons';
+import { CalendarDays, CalendarOff, Camera, Check, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { REASON_CODES, STATUS } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
@@ -1269,7 +1269,8 @@ function Account({ me, guard, onSignOut, language = 'en', onLanguage }) {
         <label className="block"><span className="ui-label">New password</span><PasswordInput className="ui-input w-full" required strength autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} /></label>
         <label className="block"><span className="ui-label">New password again</span><PasswordInput className="ui-input w-full" required autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} /></label>
         {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
-        <button type="submit" className="ui-btn ui-btn-primary w-full">Change password</button>
+        {/* One primary on Me (design audit P3): a password change is rare, so it is a secondary button. */}
+        <button type="submit" className="ui-btn ui-btn-secondary w-full">Change password</button>
       </form>
       <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={onSignOut}>
         <LogOut size={16} aria-hidden="true" /> Sign out
@@ -1301,9 +1302,11 @@ function LanguageChoice({ language, onLanguage }) {
               aria-checked={on}
               lang={l.code}
               data-no-translate=""
-              className={`ui-btn w-full ${on ? 'ui-btn-primary' : 'ui-btn-secondary'}`}
+              className="ui-btn ui-btn-secondary w-full"
+              data-chosen={on || undefined}
               onClick={() => !on && onLanguage(l.code)}
             >
+              {on ? <Check size={16} aria-hidden="true" /> : null}
               {l.name}
             </button>
           );

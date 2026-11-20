@@ -30,3 +30,5 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+/* The chosen language: a secondary button with a tick and the app colour on its border, not a second primary. */
+.ui-btn[data-chosen] { border-color: rgb(var(--act)); color: rgb(var(--act-ink, var(--act))); }
