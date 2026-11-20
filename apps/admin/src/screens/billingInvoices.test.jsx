@@ -111,4 +111,19 @@ describe('the Invoices page’s figures (WS-10)', () => {
     expect(f.paidThisFy).toBe(118000);
     expect(f.next.total).toBe(59000);
   });
+
+  it('opened from search on one invoice: opens that invoice once the list is in', async () => {
+    const { default: Invoices } = await import('./Invoices');
+    fetches.call.mockReset();
+    fetches.call.mockImplementation(async (path) => (path === '/billing/invoices' ? { invoices: [{ ...invoice }] } : path === '/billing/invoices/i1' ? invoice : {}));
+    render(<Invoices params={{ invoice: 'i1' }} />);
+    await waitFor(() => expect(fetches.call).toHaveBeenCalledWith('/billing/invoices/i1'));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    /* An id that is not in the account's list asks for nothing. */
+    fetches.call.mockClear();
+    render(<Invoices params={{ invoice: 'someone-elses' }} />);
+    await waitFor(() => expect(fetches.call).toHaveBeenCalledWith('/billing/invoices'));
+    expect(fetches.call).not.toHaveBeenCalledWith('/billing/invoices/someone-elses');
+  });
 });
+

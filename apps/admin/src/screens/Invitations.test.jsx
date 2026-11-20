@@ -93,4 +93,17 @@ describe('Workspace → Invitations', () => {
     await waitFor(() => expect(api.resendInvitation).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('Sent again to 2 people.')).toBeInTheDocument();
   });
+
+  it('opened from search on one address: shows that invitation alone until "Show all"', async () => {
+    api.listInvitations.mockResolvedValue({ invitations: [
+      { id: 'v1', email: 'meera@x.in', accountRole: 'MEMBER', status: 'PENDING', createdAt: '2026-11-18T06:00:00Z', expiresAt: '2026-11-25T06:00:00Z' },
+      { id: 'v2', email: 'kiran@x.in', accountRole: 'MEMBER', status: 'PENDING', createdAt: '2026-11-18T06:00:00Z', expiresAt: '2026-11-25T06:00:00Z' },
+    ] });
+    render(<Invitations tenant={tenant} companies={companies} params={{ email: 'Meera@x.in' }} />);
+    expect(await screen.findByText('Showing meera@x.in only.', { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText('kiran@x.in')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    expect(screen.getByText('kiran@x.in')).toBeInTheDocument();
+  });
 });
+
