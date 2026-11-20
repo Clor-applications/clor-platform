@@ -240,8 +240,8 @@ export default function Transactions({ title = 'Punches' }) {
                               <MapPin size={14} aria-hidden="true" />{t.siteName || 'Map'}
                             </a>
                             {t.photoId ? (
-                              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Selfie with ${t.employeeName || t.pin}'s punch at ${t.localTime}`} onClick={() => showPhoto(t)}>
-                                <Camera size={14} aria-hidden="true" />
+                              <button type="button" className="ui-icon-btn" aria-label={`Selfie with ${t.employeeName || t.pin}'s punch at ${t.localTime}`} onClick={() => showPhoto(t)}>
+                                <Camera size={16} aria-hidden="true" />
                               </button>
                             ) : null}
                           </span>
@@ -261,7 +261,7 @@ export default function Transactions({ title = 'Punches' }) {
       {photo ? (
         <Modal onClose={() => setPhoto(null)} title="Punch selfie" maxWidthClass="max-w-md">
           <figure className="space-y-2">
-            <img src={photo.src} alt={`Selfie: ${photo.caption}`} className="ui-photo mx-auto max-h-[60vh] rounded-lg-md" />
+            <img src={photo.src} alt={`Selfie: ${photo.caption}`} className="ui-photo mx-auto max-h-[60vh] rounded-lg" />
             <figcaption className="ui-caption text-center">{photo.caption}</figcaption>
           </figure>
         </Modal>

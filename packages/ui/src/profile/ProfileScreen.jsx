@@ -89,7 +89,7 @@ function Avatar({ url, initials, size = 72 }) {
         alt=""
         width={size}
         height={size}
-        className="rounded-full object-cover shrink-0"
+        className="ui-photo rounded-full object-cover shrink-0"
         style={{ width: size, height: size }}
       />
     );

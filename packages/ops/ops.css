@@ -43,6 +43,8 @@ html[data-portal='ops'] {
 }
 html[data-portal='ops'] .ops {
   --ops-bars: 96px;
+  /* Floating layers (menu, phone sheet): DESIGN.md "Elevation & Depth", exact. */
+  --ops-float: 0 8px 24px rgb(28 27 24 / 0.1), 0 1px 3px rgb(28 27 24 / 0.08);
   --ops-hover: rgb(var(--hover, 247 247 247));
   --ops-open: rgb(var(--hover, 247 247 247));
   --ops-press: rgb(var(--heading-hover, 247 247 247));
@@ -219,7 +221,7 @@ html[data-portal='ops'] .ops-search-icon {
   background: rgb(var(--surface));
   border: 1px solid rgb(var(--border-field));
   border-radius: 12px;
-  box-shadow: 0 12px 32px -12px rgb(var(--fg) / 0.25);
+  box-shadow: var(--ops-float);
 }
 .ops-avatar-who {
   display: grid;
@@ -270,6 +272,8 @@ html[data-portal='ops'] .ops-frame {
   height: calc(100dvh - var(--ops-bars));
   padding: 16px 6px;
   overflow-y: auto;
+  /* Scrolling past the rail's end stops there instead of moving the page. */
+  overscroll-behavior: contain;
   /* The rail is the one tinted ground, as in every app's shell (owner, 17 Nov 2026). */
   background: rgb(var(--rail-ground, 246 247 249));
   border-right: 1px solid rgb(var(--border));
@@ -343,6 +347,8 @@ html[data-portal='ops'] .ops-side {
   position: absolute;
   inset: 0;
   overflow-y: auto;
+  /* The panel, and the phone sheet it becomes: its scroll never carries on into the page behind. */
+  overscroll-behavior: contain;
   display: grid;
   align-content: start;
   gap: 12px;
@@ -479,7 +485,7 @@ html[data-portal='ops'] .ops-main .ws > .ws-inner {
   html[data-portal='ops'] .ops-side[data-open] {
     transform: none;
     visibility: visible;
-    box-shadow: 0 12px 32px -12px rgb(var(--fg) / 0.3);
+    box-shadow: var(--ops-float);
   }
   .ops-side-head {
     display: none;

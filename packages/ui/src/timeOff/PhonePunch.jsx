@@ -259,7 +259,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
       {/* The selfie: quieter than the punch itself. */}
       {photo ? (
         <div className="relative inline-block">
-          <img src={photo} alt="Your selfie for this punch" className="h-28 w-28 rounded-xl object-cover" />
+          <img src={photo} alt="Your selfie for this punch" className="ui-photo h-28 w-28 rounded-xl object-cover" />
           <button type="button" className="absolute -right-2 -top-2 rounded-full p-0.5 text-white" style={{ backgroundColor: 'rgb(0 0 0 / 0.6)' }} aria-label="Remove the selfie" onClick={() => setPhoto(null)}>
             <X size={14} aria-hidden="true" />
           </button>

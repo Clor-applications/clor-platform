@@ -179,8 +179,8 @@ export default function MinimumWagesSection() {
                     </span>
                   </td>
                   <td className="text-center" data-phone="act">
-                    <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => remove(r)} aria-label={`Remove the ${r.stateLabel} ${r.skillLabel} rate from ${r.effectiveFrom}`}>
-                      <Trash2 size={14} aria-hidden="true" />
+                    <button type="button" className="ui-icon-btn" onClick={() => remove(r)} aria-label={`Remove the ${r.stateLabel} ${r.skillLabel} rate from ${r.effectiveFrom}`}>
+                      <Trash2 size={16} aria-hidden="true" />
                     </button>
                   </td>
                 </tr>

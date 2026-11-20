@@ -212,7 +212,7 @@ function PlaceSearch({ onPick }) {
         />
       </div>
       {showList ? (
-        <ul id="site-search-list" role="listbox" className="ui-card absolute inset-x-0 top-full z-[var(--z-drawer-popover)] mt-1 max-h-72 overflow-auto p-1 shadow-lg">
+        <ul id="site-search-list" role="listbox" className="ui-card absolute inset-x-0 top-full z-[var(--z-drawer-popover)] mt-1 max-h-72 overflow-auto p-1" style={{ boxShadow: 'var(--shadow-pop)' }}>
           {places.length ? places.map((p, i) => (
             <li
               key={`${p.latitude},${p.longitude},${i}`}

@@ -289,7 +289,7 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
                           ref={menuBox}
                           role="listbox"
                           aria-label="Set the chosen days to"
-                          className="ui-popover ui-menu w-60 text-left"
+                          className="ui-popover ui-menu w-60 rounded-xl text-left"
                           style={menuAt}
                           onMouseDown={(e) => e.stopPropagation()}
                           onDoubleClick={(e) => e.stopPropagation()}

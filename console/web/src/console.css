@@ -88,7 +88,7 @@ div.con-row { border-top: 1px solid rgb(var(--border)); }
 .con-files { list-style: none; margin: 0; padding: 0; columns: 2 320px; font-size: 12px; }
 .con-files code { font-family: inherit; overflow-wrap: anywhere; }
 
-.con-dialog { border: 0; border-radius: 12px; padding: 0; width: min(440px, calc(100vw - 32px)); background: rgb(var(--surface)); color: rgb(var(--fg)); box-shadow: var(--shadow-pop); }
+.con-dialog { border: 0; border-radius: 12px; padding: 0; width: min(440px, calc(100vw - 32px)); background: rgb(var(--surface)); color: rgb(var(--fg)); box-shadow: 0 8px 24px rgb(28 27 24 / 0.1), 0 1px 3px rgb(28 27 24 / 0.08); overscroll-behavior: contain; }
 .con-dialog::backdrop { background: rgb(17 24 39 / 0.4); }
 .con-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 16px 0 20px; }
 .con-dialog-head .con-h2 { margin: 0; font-size: 16px; }

@@ -66,7 +66,7 @@ export default function AttendanceSetup({ openScreen }) {
         entity="settings"
         title="Attendance setup"
         description={done === required.length ? 'Everything needed is in place.' : `${done} of ${required.length} done. Do them in any order; each step checks what is really there.`}
-        actions={next && openScreen ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => openScreen(next.screen)}>{next.title} <ArrowRight size={16} aria-hidden="true" /></button> : null}
+        actions={next && openScreen ? <button type="button" className="ui-btn ui-btn-primary !ps-4 !pe-3.5" onClick={() => openScreen(next.screen)}>{next.title} <ArrowRight size={16} aria-hidden="true" /></button> : null}
       />
       <div className="pb-8 space-y-6 max-w-3xl">
       <ol className="ui-list-surface overflow-hidden divide-y">

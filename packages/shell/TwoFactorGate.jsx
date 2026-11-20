@@ -200,7 +200,7 @@ export default function TwoFactorGate() {
           ) : (
           <form onSubmit={turnOn} className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-start">
             {qr ? (
-              <img src={qr} alt="QR code to scan with your authenticator app" width={176} height={176} className="rounded-xl" style={{ border: '1px solid rgb(229 229 229)' }} />
+              <img src={qr} alt="QR code to scan with your authenticator app" width={176} height={176} className="ui-qr rounded-xl" style={{ border: '1px solid rgb(229 229 229)' }} />
             ) : null}
             <div className="grid gap-3 min-w-0">
               <p className="text-sm">Open Google Authenticator, Microsoft Authenticator or similar, add an account, and scan this. Then type the six-digit code it shows.</p>

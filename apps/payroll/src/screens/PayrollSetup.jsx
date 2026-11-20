@@ -143,7 +143,7 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
             Nothing is paid and nothing reaches the books until you say so. Switching it on just makes it available to set up.
           </p>
           <div>
-            <button type="button" className="ui-btn ui-btn-primary" onClick={start} disabled={starting}>
+            <button type="button" className="ui-btn ui-btn-primary !ps-4 !pe-3.5" onClick={start} disabled={starting}>
               {starting ? 'Switching on…' : 'Start using Payroll'} <ArrowRight size={16} aria-hidden="true" />
             </button>
           </div>
@@ -167,11 +167,11 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
         }
         actions={
           setup.ready ? (
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen('payrollRuns')}>
+            <button type="button" className="ui-btn ui-btn-primary !ps-4 !pe-3.5" onClick={() => onOpen('payrollRuns')}>
               Run payroll <ArrowRight size={16} aria-hidden="true" />
             </button>
           ) : setup.nextStep ? (
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen(setup.nextStep.screen)}>
+            <button type="button" className="ui-btn ui-btn-primary !ps-4 !pe-3.5" onClick={() => onOpen(setup.nextStep.screen)}>
               {setup.nextStep.title} <ArrowRight size={16} aria-hidden="true" />
             </button>
           ) : null

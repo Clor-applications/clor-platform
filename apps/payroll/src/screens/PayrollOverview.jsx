@@ -113,11 +113,11 @@ export default function PayrollOverview({ onOpen = () => {} }) {
         ]}
         actions={
           notReady && !currentRun ? (
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen('payrollSetup')}>
+            <button type="button" className="ui-btn ui-btn-primary !ps-4 !pe-3.5" onClick={() => onOpen('payrollSetup')}>
               Finish setting up <ArrowRight size={16} aria-hidden="true" />
             </button>
           ) : (
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen('payrollRuns')}>
+            <button type="button" className="ui-btn ui-btn-primary !ps-4 !pe-3.5" onClick={() => onOpen('payrollRuns')}>
               {currentRun ? 'Open this payroll' : 'Run payroll'} <ArrowRight size={16} aria-hidden="true" />
             </button>
           )
@@ -148,7 +148,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           </div>
           {/* The header's primary already says "Finish setting up" unless a run is open: one button for one job. */}
           {currentRun ? (
-            <button type="button" className="ui-btn ui-btn-secondary shrink-0" onClick={() => onOpen('payrollSetup')}>
+            <button type="button" className="ui-btn ui-btn-secondary shrink-0 !ps-4 !pe-3.5" onClick={() => onOpen('payrollSetup')}>
               Finish setting up <ArrowRight size={16} aria-hidden="true" />
             </button>
           ) : null}

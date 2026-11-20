@@ -109,7 +109,7 @@ export default function AuthenticatorCard() {
         </form>
       ) : setup ? (
         <form onSubmit={confirm} className="flex flex-wrap items-start gap-4">
-          {qr ? <img src={qr} alt="QR code to scan with your authenticator app" width={192} height={192} className="rounded-xl" /> : null}
+          {qr ? <img src={qr} alt="QR code to scan with your authenticator app" width={192} height={192} className="ui-qr rounded-xl" /> : null}
           <div className="min-w-[12rem] flex-1 space-y-2">
             <p className="text-sm">Scan this with your authenticator app, then type the six-digit code it shows.</p>
             <p className="ui-caption">Can’t scan? Enter this key: <span className="ui-mono break-all">{setup.secret}</span></p>

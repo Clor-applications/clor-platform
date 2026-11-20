@@ -379,7 +379,7 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
 
       {locked ? (
         <div
-          className="flex items-start gap-2 rounded-lg p-3 text-sm"
+          className="ui-card flex items-start gap-2 p-3 text-sm"
           style={{ background: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))' }}
           role="status"
         >

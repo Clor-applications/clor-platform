@@ -25,14 +25,20 @@
 }
 .oc-zoom-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;
-  min-width: 1.875rem; height: 1.875rem; padding: 0 0.5rem; border-radius: 0.5rem;
+  min-width: 1.875rem; height: 1.875rem; padding: 0 0.5rem; border-radius: 6px; /* inside the 8px group, as .ui-seg-btn */
   font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg));
 }
+/* The group's words are 500 weight, so its icons draw at 2px in screen pixels (polish.css gives 1.5px by default). */
+:root .oc .oc-zoom-btn svg.lucide[stroke-width='2'] :is(path, line, polyline, polygon, circle, ellipse, rect) { vector-effect: non-scaling-stroke; stroke-width: 2px; }
 .oc-zoom-btn:hover:not(:disabled) { background: rgb(var(--surface-sunken)); }
 .oc-zoom-btn:disabled { color: rgb(var(--fg-muted) / 0.45); cursor: default; }
 .oc-zoom-btn:focus-visible { outline: 2px solid rgb(var(--sky-ink)); outline-offset: 1px; }
 .oc-zoom-value { min-width: 3rem; text-align: center; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
-.oc-zoom-fit { border-inline-start: 1px solid rgb(var(--border)); border-radius: 0 0.5rem 0.5rem 0; margin-inline-start: 0.125rem; }
+.oc-zoom-fit {
+  border-inline-start: 1px solid rgb(var(--border)); margin-inline-start: 0.125rem;
+  border-start-start-radius: 0; border-end-start-radius: 0;
+  padding-inline-start: calc(0.5rem - 2px); /* the icon side, optically */
+}
 
 /* The frame scrolls; the page never does. */
 .oc-frame {

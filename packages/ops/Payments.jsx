@@ -400,7 +400,7 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
                 <span className="text-sm font-semibold">Your own QR image (optional)</span>
                 <span className="ws-card-blurb">The QR your bank gave you, as a PNG or JPEG under 300 KB. Without one, CLOR draws a QR from the UPI ID.</span>
                 <div className="flex flex-wrap items-center gap-3">
-                  {manual.qrImage ? <img src={manual.qrImage} alt="CLOR’s payment QR" width={96} height={96} style={{ borderRadius: 8, border: '1px solid rgb(var(--ws-line))' }} /> : null}
+                  {manual.qrImage ? <img src={manual.qrImage} alt="CLOR’s payment QR" width={96} height={96} style={{ borderRadius: 8, outline: '1px solid oklch(0 0 0 / 0.1)', outlineOffset: -1 }} /> : null}
                   {mayChange ? (
                     <>
                       <input ref={fileRef} type="file" accept="image/png,image/jpeg" hidden onChange={onQr} aria-label="QR image" />

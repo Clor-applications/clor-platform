@@ -28,8 +28,8 @@ export default function QuoteBand() {
     <section className="fx-quotes" aria-label="Words we work by">
       <figure
         className={`wrap fx-quotes-in${held ? ' is-held' : ''}`}
-        onMouseEnter={() => setHeld(true)}
-        onMouseLeave={() => setHeld(false)}
+        onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHeld(true); }}
+        onPointerLeave={(e) => { if (e.pointerType === 'mouse') setHeld(false); }}
         onFocus={() => setHeld(true)}
         onBlur={() => setHeld(false)}
       >

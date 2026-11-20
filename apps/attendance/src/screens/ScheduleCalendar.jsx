@@ -190,13 +190,13 @@ export default function ScheduleCalendar({ menuLabel } = {}) {
                 <button key={k} type="button" role="tab" className="ui-segment" aria-selected={view === k} onClick={() => { setView(k); setPage(1); }}>{label}</button>
               ))}
             </div>
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={view === 'week' ? 'Previous week' : 'Previous month'} onClick={() => step(-1)}><ChevronLeft size={16} aria-hidden="true" /></button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm !ps-3" aria-label={view === 'week' ? 'Previous week' : 'Previous month'} onClick={() => step(-1)}><ChevronLeft size={16} aria-hidden="true" /></button>
             {view === 'week' ? (
               <WeekPicker value={day} onChange={(d) => { setDay(d); setPage(1); }} />
             ) : (
               <input type="month" className="ui-input ui-ctl-compact !w-auto" value={day.slice(0, 7)} onChange={(e) => { if (e.target.value) { setDay(`${e.target.value}-01`); setPage(1); } }} aria-label="Month" />
             )}
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={view === 'week' ? 'Next week' : 'Next month'} onClick={() => step(1)}><ChevronRight size={16} aria-hidden="true" /></button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm !ps-3" aria-label={view === 'week' ? 'Next week' : 'Next month'} onClick={() => step(1)}><ChevronRight size={16} aria-hidden="true" /></button>
             <select className="ui-select ui-ctl-compact !w-auto" value={filters.departmentId} onChange={setFilter('departmentId')} aria-label="Department">
               <option value="">All departments</option>
               {lists.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}

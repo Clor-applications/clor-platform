@@ -316,7 +316,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
     <>
       <div>
         <button type="button" className="ops-back" onClick={back}>
-          <ArrowLeft size={16} aria-hidden="true" /> Accounts
+          <ArrowLeft size={14} aria-hidden="true" /> Accounts
         </button>
       </div>
       <PageHead
@@ -448,7 +448,7 @@ function Entitlements({ id, d, openDenials, children }) {
   return (
     <>
       <div className="ops-entitlement" data-tone={e.legacyFailOpen ? undefined : 'ok'} role="note">
-        <AlertTriangle size={18} aria-hidden="true" />
+        <AlertTriangle size={16} aria-hidden="true" />
         <strong>{e.legacyFailOpen ? 'Access: older account, every app open' : e.explicit ? 'Access: follows their subscription' : 'Access: no subscription, every app closed'}</strong>
         <span>
           A person can open something only if they belong to the company, their role allows it, the subscription covers it, the feature is on and a seat is free.{' '}

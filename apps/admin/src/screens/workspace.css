@@ -1717,6 +1717,8 @@ button.ws-item:hover {
   gap: 16px;
   height: calc(100dvh - 56px);
   overflow-y: auto;
+  /* A side panel: scrolling past its end never scrolls the page behind it. */
+  overscroll-behavior: contain;
   padding: 16px 12px 24px;
   background: rgb(var(--ws-surface));
   border-right: 1px solid rgb(var(--ws-line));
@@ -3663,3 +3665,9 @@ button.ws-stat:hover {
    the text button's 14px side padding, which left a 2px-wide icon in a 32px box. */
 .ws .ws-btn.ws-btn--icon, .ws-btn.ws-btn--icon:not(#ux1) { padding: 0; width: 36px; min-width: 36px; justify-content: center; }
 .ws-btn.ws-btn--icon svg { flex-shrink: 0; width: 16px; height: 16px; }
+
+/* Optical alignment (better-ui): a trailing icon (the "Go ›" in the setup guide, marked .ws-btn--trail)
+   reads as more inset than a letter, so its side takes 2px less padding. No general rule for leading
+   icons: CSS cannot tell icon-then-word from word-then-icon, so it would trim the wrong side. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn.ws-btn--trail:has(> svg:last-child) { padding-inline-end: 12px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn--small.ws-btn--trail:has(> svg:last-child) { padding-inline-end: 10px; }
