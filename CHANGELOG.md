@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-4f4ccdc - 2026-11-20
+
+API revision `clor-api-00152-7wr`. Previous release `rel-9cfa52c` (roll back there).
+
+- #387 Workspace search finds invoices by number and invitations by address
+- #384 Design audit PR D: shared approval buttons, filter chip, form part, total row, count line
+- #385 Workspace: Usage page (seats per app, people not signing in, each company)
+- #381 Ops: how each customer is doing, with the reasons and the next step
+- #382 Design S7/S8: dates in words and money cells (Payroll first)
+- #380 Design S6: app colour keeps its four jobs (no washes, white bulk and staff bars)
+- #377 Ops Home: quiet paying customers, trials nobody came back to, yesterday in numbers
+- #379 Calm register: shared defaults follow DESIGN.md
+- #378 Release record: rel-9cfa52c
+
 ## rel-9cfa52c - 2026-11-20
 
 API revision `clor-api-00150-ljg`. Previous release `rel-b88dcf3` (roll back there).
