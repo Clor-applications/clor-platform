@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 
 import PeopleOverview from './PeopleOverview';
@@ -105,13 +105,21 @@ it('has no To approve figure; Probation due counts probation to decide and opens
 /* Company choices, "leavings: no" (SPEC 3.5): a reader the leavings are kept from gets no On notice figure. */
 it('shows On notice by default, and leaves it out when the company keeps leavings from this reader', async () => {
   const api = await import('@ui/personnel/api');
+  api.getOverview.mockResolvedValueOnce({ headcount: 10, byDepartment: [], byStatus: { ACTIVE: 8, ON_NOTICE: 2 }, joinedThisMonth: [], leftThisMonth: 0 });
   const { unmount } = render(<PeopleOverview openScreen={vi.fn()} />);
   expect(await screen.findByText('On notice')).toBeTruthy();
   unmount();
-  api.getOverview.mockResolvedValueOnce({ headcount: 10, byDepartment: [], byStatus: { ACTIVE: 10 }, joinedThisMonth: [], leftThisMonth: null, leavingsHidden: true });
+  api.getOverview.mockResolvedValueOnce({ headcount: 10, byDepartment: [], byStatus: { ACTIVE: 8, ON_NOTICE: 2 }, joinedThisMonth: [], leftThisMonth: null, leavingsHidden: true });
   render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText('Probation due')).toBeTruthy();
+  expect(await screen.findByText('Headcount')).toBeTruthy();
   expect(screen.queryByText('On notice')).toBeNull();
+});
+
+/* DESIGN.md "Overview pages": a figure never shows at zero; the count line under the title says it. */
+it('leaves out the figures that stand at zero, but never Headcount', async () => {
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  expect(await screen.findByText('Headcount')).toBeTruthy();
+  await waitFor(() => expect(screen.queryByText('On notice')).toBeNull());
 });
 
 /* QA, Team Manager (1 Nov 2026): Home offered Announce, Post one, HR cases and Add an employee, which his role refuses. */
@@ -123,7 +131,7 @@ it('offers only the actions this reader may use', async () => {
     </PermissionContext.Provider>
   );
   const { unmount } = render(as(['PEOPLE::Employees::VIEW', 'ATTENDANCE::Leave Requests::VIEW']));
-  expect(await screen.findByText('Probation due')).toBeTruthy();
+  expect(await screen.findByText('Headcount')).toBeTruthy();
   expect(screen.getByRole('button', { name: /Leave requests/ })).toBeTruthy();
   for (const name of [/Announce/, /Post one/, /Help desk/, /Add an employee/, /All events/]) expect(screen.queryByRole('button', { name })).toBeNull();
   unmount();
