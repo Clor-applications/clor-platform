@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Search } from '@ui/components/ui/lineIcons';
 
 import { notify } from '@ui/components/ui/notify';
+import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
 import { InvoiceStatus } from '../../apps/admin/src/screens/InvoiceDocument';
 import { inr } from './money';
@@ -89,6 +90,12 @@ export function StatusPill({ status }) {
   return <span className={tone}>{STATUS[status] || status}</span>;
 }
 
+/* An account that is paid up and running is the expected state: no tag on its row (DESIGN.md "Status tags"). */
+const isNormal = (status) => status === 'active' || status === 'legacy';
+function RowStatus({ status }) {
+  return isNormal(status) ? <span className="sr-only">{STATUS[status]}</span> : <StatusPill status={status} />;
+}
+
 const planWords = (a) => (a.plan === 'no-plan' || a.plan === 'legacy' ? '—' : a.interval === 'year' ? 'Yearly' : a.interval === 'month' ? 'Monthly' : a.byHand ? 'Set by hand' : 'Through payments');
 
 /* ------------------------------------------------------------------ list */
@@ -162,7 +169,7 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
               </tr>
             </thead>
             <tbody>
-              {data.accounts.map((a) => {
+              {exceptionsFirst(data.accounts, (a) => !isNormal(customerStatus(a.plan, a.trialEndsAt))).map((a) => {
                 const status = customerStatus(a.plan, a.trialEndsAt);
                 return (
                   <tr key={a.id}>
@@ -188,7 +195,7 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
                     <td className="num hidden sm:table-cell">{a.companies}</td>
                     <td className="num hidden sm:table-cell">{a.users}</td>
                     <td className="hidden md:table-cell tabular-nums">{a.plan === 'trialing' ? day(a.trialEndsAt) : a.renewsAt ? day(a.renewsAt) : '—'}</td>
-                    <td><StatusPill status={status} /></td>
+                    <td><RowStatus status={status} /></td>
                     <td className="hidden xl:table-cell">{a.lastActiveAt ? ago(a.lastActiveAt) : 'Never'}</td>
                   </tr>
                 );

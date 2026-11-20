@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import RangePresets from '@ui/components/ui/RangePresets';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlarmClock, CalendarCheck, CheckCheck, FileSearch, FileSpreadsheet, HelpCircle, Plus, Timer, UserX, Upload, Wand2, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -280,7 +281,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                       <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
                       <td className="hidden min-[1800px]:table-cell">{r.department || <span className="ui-caption">—</span>}</td>
                       <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
-                      <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
+                      <td className="ui-col-h-center">{r.checkOutTime || (r.checkIn && r.date < todayIst() ? <ExceptionTag label="No out punch" tone="warn" /> : '—')}</td>
                       <td className="ui-num hidden md:table-cell">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
                       <td className="ui-num hidden md:table-cell">{r.lateMinutes ? <span className="ui-late-tag">Late {r.lateMinutes}m</span> : '—'}</td>
                       <td className="ui-num hidden 2xl:table-cell">{r.earlyOutMinutes ? <EarlyGoTag minutes={r.earlyOutMinutes} /> : '—'}</td>
@@ -307,12 +308,14 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                           </span>
                         ) : '—'}
                       </td>
+                      {/* The day register keeps its day tag (owner, 20 Nov 2026). Everything else tags only exceptions (DESIGN.md
+                          "Status tags"): no out punch on a past day and a reader day to check; validated and trusted are plain. */}
                       <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span></td>
                       <td className="ui-col-meta hidden 2xl:table-cell">{SOURCE[r.source] || enumWords(r.source) || '—'}</td>
-                      <td className="ui-col-h-center hidden 2xl:table-cell">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
+                      <td className="ui-col-h-center hidden 2xl:table-cell">{r.validated ? 'Yes' : <span className="ui-caption">—</span>}</td>
                       {readerTrust ? (
                         <td className="ui-col-h-center" title={Array.isArray(r.trustReasons) ? r.trustReasons.map((x) => x.text).join(' ') : ''}>
-                          {TRUST[r.trust] ? <span className={`ui-pill ${TRUST[r.trust].pill}`}>{TRUST[r.trust].label}</span> : <span className="ui-caption">—</span>}
+                          {r.trust === 'CHECK' ? <ExceptionTag label={TRUST.CHECK.label} pill={TRUST.CHECK.pill} /> : TRUST[r.trust] ? TRUST[r.trust].label : <span className="ui-caption">—</span>}
                         </td>
                       ) : null}
                       <td onClick={(e) => e.stopPropagation()}>

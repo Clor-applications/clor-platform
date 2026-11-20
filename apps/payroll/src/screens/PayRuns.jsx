@@ -510,12 +510,13 @@ const RunWorkflow = ({ runId, onBack }) => {
       <StatutoryGapsPanel run={run} gaps={data.statutoryGaps} canWaive={data.canWaiveStatutory} onSaved={load} />
       {/* Returns this payroll cannot be filed under yet: the registration numbers setup asks for. */}
       <RegistrationNotice gaps={data.registrationGaps} />
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      {/* The run's totals as figures on the page, not four cards (DESIGN.md "figure"; design audit step 2). */}
+      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
         <Tile label="People" value={run.employeeCount} />
-        <Tile label="Gross" value={money(run.grossTotal)} />
-        <Tile label="Deductions" value={money(run.deductionTotal)} />
-        <Tile label="Net pay" value={money(run.netTotal)} strong />
-      </div>
+        <Tile label="Gross" value={moneyCell(run.grossTotal, { zero: true })} />
+        <Tile label="Deductions" value={moneyCell(run.deductionTotal, { zero: true })} />
+        <Tile label="Net pay" value={moneyCell(run.netTotal, { zero: true })} />
+      </dl>
       {/* Round 32: how many payslips the bank has paid. */}
       <PaidCount slips={data.slips} status={run.status} />
       {/* Round 66: paid after the legal date, and one person's pay held with a reason. */}
@@ -876,12 +877,10 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
   return null;
 };
 
-const Tile = ({ label, value, strong = false }) => (
-  <div className="ui-card p-3">
-    <div className="ui-card-label">{label}</div>
-    <div className={`ui-num ${strong ? "text-lg font-medium" : "text-lg"}`}>
-      {value}
-    </div>
+const Tile = ({ label, value }) => (
+  <div className="min-w-0">
+    <dt className="ui-t-label">{label}</dt>
+    <dd className="ui-num m-0 text-[1.375rem] leading-7 font-semibold tabular-nums">{value}</dd>
   </div>
 );
 

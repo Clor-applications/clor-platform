@@ -272,41 +272,28 @@ export function Subscriptions({ openCustomer }) {
     URL.revokeObjectURL(url);
   };
 
-  const tiles = sum
+  /* Totals as a count line under the title, never figure tiles on a list page (DESIGN.md; design audit step 2).
+     Zero clauses drop out; an exception clause takes the warning or red figure and filters the list. */
+  const counts = sum
     ? [
-        ['MRR', inr(sum.mrr), 1, `${sum.activeCount ?? 0} active, before GST`],
-        ['Overdue', String(sum.pastDue), 4, sum.pastDue ? `${inr(sum.pastDueAtRisk)} at risk` : 'Nobody is late', sum.pastDue ? 'warn' : null],
-        ['Trials ending this week', String(sum.trialsEndingThisWeek), 3, 'In the next seven days'],
-        ['Older accounts, no plan', String(sum.legacyFailOpen), 8, sum.legacyFailOpen ? 'Every app open: move each to a plan' : 'Every account is on a plan', sum.legacyFailOpen ? 'neg' : null],
+        { key: 'mrr', label: `MRR from ${sum.activeCount ?? 0} active, before GST`, value: sum.mrr ? inr(sum.mrr) : 0 },
+        { key: 'overdue', label: sum.pastDue ? `overdue (${inr(sum.pastDueAtRisk)} at risk)` : 'overdue', value: sum.pastDue, tone: 'warn', onClick: () => { setD((v) => (v ? { ...v, subscriptions: null } : v)); setTab('past_due'); }, active: tab === 'past_due' },
+        { key: 'trials', label: 'trials end this week', value: sum.trialsEndingThisWeek },
+        { key: 'legacy', label: 'older accounts with no plan (every app open)', value: sum.legacyFailOpen, tone: 'neg' },
       ]
-    : [];
+    : null;
   return (
     <>
       <PageHead
         title="Subscriptions"
         description="Plans, apps and renewals, before GST. Change one from the customer’s Subscription tab; customers see the change the next time they load a page."
+        counts={counts}
         actions={
           <button type="button" className="ws-btn ws-btn--quiet" onClick={exportCsv} disabled={!d?.subscriptions?.length}>
             Export
           </button>
         }
       />
-      {tiles.length ? (
-        <div className="ops-kpis">
-          {tiles.map(([label, value, cat, note, state]) => (
-            <div key={label} className="ops-kpi" style={{ '--kpi': `var(--cat-${cat})` }}>
-              <span className="ops-kpi-chip" aria-hidden="true">
-                <span className="ops-kpi-dot" />
-              </span>
-              <span className="ops-kpi-label">{label}</span>
-              <span className="ops-kpi-value" data-state={state || undefined}>
-                {value}
-              </span>
-              <span className="ops-kpi-note">{note}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
       <Tabs
         label="Which subscriptions"
         value={tab}

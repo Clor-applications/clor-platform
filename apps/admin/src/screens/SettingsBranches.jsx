@@ -10,6 +10,7 @@ import { gstinError } from '@ui/utils/gstinValidation';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
 import { hasApp, platformContext } from '@platform/context';
+import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { Empty, FilterSelect, Loading, PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-home.css';
@@ -116,7 +117,11 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
   }, [load]);
 
   const all = useMemo(() => branches || [], [branches]);
-  const rows = useMemo(() => branchRows(all, view).filter((b) => !stateFilter || b.state === stateFilter), [all, view, stateFilter]);
+  /* Rows with a tag (inactive, or missing the GSTIN that GST asks for) come first. */
+  const rows = useMemo(
+    () => exceptionsFirst(branchRows(all, view).filter((b) => !stateFilter || b.state === stateFilter), (b) => b.isActive === false || (!b.gstin && gstEnabled)),
+    [all, view, stateFilter, gstEnabled],
+  );
   const statesHere = useMemo(() => [...new Set(all.map((b) => b.state).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [all]);
   const active = all.filter((b) => b.isActive !== false).length;
   const noGstin = all.filter((b) => !b.gstin).length;
@@ -268,7 +273,8 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
                       ) : !b.gstin && gstEnabled ? (
                         <span className="ws-state" data-tone="warn">Needs GSTIN</span>
                       ) : (
-                        <span className="ws-state" data-tone="ok">Active</span>
+                        /* The expected state wears no tag (DESIGN.md "Status tags"); a screen reader still hears it. */
+                        <span className="sr-only">Active</span>
                       )}
                     </td>
                     <td className="ws-td-menu">

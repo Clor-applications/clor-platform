@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { ArrowLeft, Ban, Check, HandCoins, Plus, RotateCcw, SkipForward, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -45,6 +45,14 @@ const STATUS = {
   COMPLETED: { label: 'Repaid', tone: 'ui-pill-neutral' },
   CANCELLED: { label: 'Cancelled', tone: 'ui-pill-neutral' },
 };
+
+/*
+ * Tags only on exceptions (DESIGN.md "Status tags"): a draft waiting for approval, and a loan whose employee
+ * asked to skip the next instalment. Approved, being recovered, repaid and cancelled are where a loan should
+ * be, so they show no tag (the status is still read out, and the tabs and the export keep every status).
+ * Exceptions sort first.
+ */
+const isLoanException = (l) => l.status === 'DRAFT' || Boolean(l.skipAsk);
 
 const INSTALLMENT = {
   PENDING: { label: 'Due', tone: 'ui-pill-neutral' },
@@ -136,7 +144,7 @@ export default function PayrollLoans() {
   );
   const search = useListSearch(inTab, ['number', 'employeeName', 'employeeCode']);
   const filters = useColumnFilters();
-  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const rows = exceptionsFirst(filters.applyFilters(search.filtered, COLUMNS), isLoanException);
 
   if (openId) {
     return (
@@ -250,9 +258,9 @@ export default function PayrollLoans() {
                     <td className="ui-num">{l.installmentAmount ? money(l.installmentAmount) : '—'}</td>
                     <td className="ui-num">{moneyCell(l.outstandingBalance, { zero: true })}</td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${STATUS[l.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[l.status]?.label || l.status}</span>
+                      <ExceptionTag label={l.status === 'DRAFT' ? STATUS.DRAFT.label : ''} normal={STATUS[l.status]?.label || l.status} tone="warn" />
                       {/* The employee asked in the employee app to skip the next instalment (picks round 54). */}
-                      {l.skipAsk ? <span className="ui-pill ui-pill-warn ml-1">Asked to skip</span> : null}
+                      {l.skipAsk ? <span className={l.status === 'DRAFT' ? 'ml-1' : ''}><ExceptionTag label="Asked to skip" tone="warn" /></span> : null}
                     </td>
                   </tr>
                 ))

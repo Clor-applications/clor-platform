@@ -1,5 +1,6 @@
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
+import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { ArrowLeft, Plus } from '@ui/components/ui/lineIcons';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -30,13 +31,17 @@ const NEXT = {
   CALIBRATING: ['SHARED', 'Share with each person', 'Each person sees their final rating and their manager’s words in the employee app.'],
   SHARED: ['CLOSED', 'Close the cycle', 'Nothing more is written in this cycle.'],
 };
+/* Tags only on exceptions (DESIGN.md "Status tags"): a cycle in calibration waits on HR to set the final
+ * ratings and share them. A draft, an open, a shared or a closed cycle is where it should be: no tag,
+ * the status still read out. Calibrating cycles sort first; the detail panel keeps the full status. */
+const cycleTag = (c) => <ExceptionTag label={c.status === 'CALIBRATING' ? CYCLE_STATUS.CALIBRATING[0] : ''} normal={CYCLE_STATUS[c.status]?.[0] || c.status} pill={CYCLE_STATUS[c.status]?.[1]} />;
 const of = (counts, n) => <span className="tabular-nums">{counts}<span className="ui-muted"> / {n}</span></span>;
 
 export default function Reviews({ params = {} }) {
   const [open, setOpen] = useParamState(params?.id);
   const [creating, setCreating] = useState(false);
   const req = useRequest(() => listCycles(), []);
-  const cycles = req.data?.cycles || [];
+  const cycles = exceptionsFirst(req.data?.cycles || [], (c) => c.status === 'CALIBRATING');
   const hr = Boolean(req.data?.hr);
   if (open) return <Cycle id={open} hr={hr} onBack={() => { setOpen(null); req.reload(); }} />;
   const columns = [
@@ -46,7 +51,7 @@ export default function Reviews({ params = {} }) {
     { key: 'manager', label: 'Manager reviews', render: (c) => of(c.counts.manager, c.counts.people) },
     { key: 'final', label: 'Final ratings', render: (c) => of(c.counts.final, c.counts.people) },
     { key: 'read', label: 'Read', render: (c) => of(c.counts.read, c.counts.people) },
-    { key: 'status', label: 'Status', render: (c) => <Pill map={CYCLE_STATUS} value={c.status} /> },
+    { key: 'status', label: 'Status', render: (c) => cycleTag(c) },
   ];
   return (
     <div className="space-y-6">
@@ -61,7 +66,7 @@ export default function Reviews({ params = {} }) {
           onRowClick={(c) => setOpen(c.id)}
           card={(c) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{c.name}</span><Pill map={CYCLE_STATUS} value={c.status} /></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{c.name}</span>{cycleTag(c)}</span>
               <span className="block truncate ui-caption tabular-nums">{day(c.periodFrom)} – {day(c.periodTo)} · {c.counts.people} people</span>
             </span>
           )}

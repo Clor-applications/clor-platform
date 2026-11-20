@@ -1,4 +1,4 @@
-import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -12,7 +12,7 @@ import { rupees } from '@ui/referrals/words';
 import { bonusForfeit, bonusPaid, getReferrerRule, listOpenings, listReferrals, referralReport, saveReferrerRule, sendBonus } from '../api/talent';
 import CandidateDrawer from './CandidateDrawer';
 import Drawer from '@ui/components/ui/Drawer';
-import { Footer, FormError, Pill, ReasonDrawer, STAGES, day, tabItems, useParamState, usePerm } from './shared';
+import { Footer, FormError, ReasonDrawer, STAGES, day, tabItems, useParamState, usePerm, word } from './shared';
 
 /**
  * Referrals (A20): every referral with who made it, where the candidate is and the bonus; and
@@ -30,6 +30,17 @@ const BONUS = {
   PAID: ['Paid', 'ui-pill-pos'],
   FORFEITED: ['Not payable', 'ui-pill-neutral'],
 };
+/*
+ * Tags only on exceptions (DESIGN.md "Status tags"): an offer out (waiting on the candidate) and a bonus
+ * due or with Payroll (waiting to be paid). The stage is the referral's progress, so every other stage
+ * reads as plain words; a bonus not yet earned, paid or not payable shows no tag. Exceptions sort first.
+ */
+const BONUS_WAITING_ON = ['DUE', 'SENT'];
+const stageCell = (stage) => (stage === 'OFFER'
+  ? <ExceptionTag label={word(STAGES, stage)} pill="ui-pill-warn" />
+  : <span className="whitespace-nowrap">{word(STAGES, stage)}</span>);
+const bonusTag = (r) => <ExceptionTag label={BONUS_WAITING_ON.includes(r.bonusStatus) ? BONUS[r.bonusStatus]?.[0] || r.bonusStatus : ''} normal={BONUS[r.bonusStatus]?.[0] || r.bonusStatus} pill={BONUS[r.bonusStatus]?.[1] || 'ui-pill-neutral'} />;
+const isException = (r) => r.stage === 'OFFER' || (r.hasBonus && BONUS_WAITING_ON.includes(r.bonusStatus));
 
 export default function Referrals({ params = {}, openScreen }) {
   const allowed = usePerm();
@@ -44,7 +55,7 @@ export default function Referrals({ params = {}, openScreen }) {
   const report = status === 'report';
   const openings = useRequest(() => listOpenings({ status: 'all' }).catch(() => []), []);
   const req = useRequest(() => (report ? referralReport() : listReferrals({ status, openingId: opening, q })), [status, opening, q, report]);
-  const rows = report ? [] : req.data?.rows || [];
+  const rows = report ? [] : exceptionsFirst(req.data?.rows || [], isException);
   const counts = req.data?.counts || {};
   const money = Boolean(req.data?.money);
 
@@ -54,13 +65,13 @@ export default function Referrals({ params = {}, openScreen }) {
   const bonusCell = (r) => (!r.hasBonus ? <span className="ui-muted">—</span> : (
     <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
       {money && r.bonusAmount != null ? <span className="tabular-nums">{rupees(r.bonusAmount)}</span> : null}
-      <ExceptionTag label={r.bonusStatus === 'PAID' ? '' : BONUS[r.bonusStatus]?.[0] || r.bonusStatus} normal={BONUS[r.bonusStatus]?.[0]} pill={`${BONUS[r.bonusStatus]?.[1] || 'ui-pill-neutral'}`} />
+      {bonusTag(r)}
     </span>
   ));
   const columns = [
     { key: 'candidate', label: 'Candidate', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.candidate}</span><span className="block truncate ui-caption">{r.job}</span></span> },
     { key: 'referrer', label: 'Referred by', render: (r) => <span className="min-w-0"><span className="block truncate">{r.referrer}{r.referrerLeft ? <span className="ui-muted"> (left)</span> : null}</span><span className="block truncate ui-caption">{r.via === 'LINK' ? 'Through their link' : r.relation || 'Referred in the app'}</span></span> },
-    { key: 'stage', label: 'Stage', render: (r) => <Pill map={STAGES} value={r.stage} /> },
+    { key: 'stage', label: 'Stage', render: (r) => stageCell(r.stage) },
     { key: 'when', label: 'Referred', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.referredAt)}</span> },
     { key: 'bonus', label: 'Bonus', align: 'right', render: (r) => <span className="block text-right">{bonusCell(r)}{r.bonusStatus === 'WAITING' && r.bonusDueOn ? <span className="block ui-caption tabular-nums">due {day(r.bonusDueOn)}</span> : null}<BonusNote r={r} /></span> },
   ];
@@ -98,9 +109,9 @@ export default function Referrals({ params = {}, openScreen }) {
           onRowClick={(r) => setOpen(r.candidateId)} rowActions={rowActions}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.candidate}</span><Pill map={STAGES} value={r.stage} /></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.candidate}</span>{stageCell(r.stage)}</span>
               <span className="block truncate ui-caption">{[r.job, `by ${r.referrer}`].join(' · ')}</span>
-              {r.hasBonus ? <span className="mt-1 flex items-center gap-1.5 text-sm">{money && r.bonusAmount != null ? <span className="tabular-nums">{rupees(r.bonusAmount)}</span> : null}<ExceptionTag label={r.bonusStatus === 'PAID' ? '' : BONUS[r.bonusStatus]?.[0] || r.bonusStatus} normal={BONUS[r.bonusStatus]?.[0]} pill={`${BONUS[r.bonusStatus]?.[1] || 'ui-pill-neutral'}`} /></span> : null}
+              {r.hasBonus ? <span className="mt-1 flex items-center gap-1.5 text-sm">{money && r.bonusAmount != null ? <span className="tabular-nums">{rupees(r.bonusAmount)}</span> : null}{bonusTag(r)}</span> : null}
             </span>
           )}
           empty={q || opening || status !== 'all'

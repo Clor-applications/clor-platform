@@ -31,12 +31,15 @@ export function Insights() {
     <div className="ws">
       <div className="ws-inner">
         <PageHead crumbs={['Overview']} title="Insights" description="Revenue and customers, from the subscriptions and invoices CLOR holds." counts={`As of ${when(d.asOf)}`} />
-        <div className="ws-stats">
-          <Stat icon={ICON.payments} label="Monthly recurring revenue" value={inr(d.mrr)} note={`${inr(d.arr)} a year at this rate`} />
-          <Stat icon={ICON.companies} label="Paying customers" value={d.paying} note={d.paying ? `${inr(d.averagePerCustomer)} a month on average` : 'No priced subscription yet'} />
-          <Stat icon={ICON.plan} tone={d.trialsEndingSoon ? 'warn' : null} label="Trial" value={d.byState.trialing || 0} note={d.trialsEndingSoon ? `${d.trialsEndingSoon} end in the next 7 days` : 'None end this week'} />
-          <Stat icon={ICON.warning} tone={d.byState.past_due ? 'warn' : null} label="Overdue" value={d.byState.past_due || 0} note={`${d.byState.cancelled || 0} cancelled in all`} />
-        </div>
+        {/* At most four figures, and none at zero (DESIGN.md "Layout"; design audit step 2). */}
+        {d.mrr || d.paying || d.byState.trialing || d.byState.past_due ? (
+          <div className="ws-stats">
+            {d.mrr ? <Stat icon={ICON.payments} label="Monthly recurring revenue" value={inr(d.mrr)} note={`${inr(d.arr)} a year at this rate`} /> : null}
+            {d.paying ? <Stat icon={ICON.companies} label="Paying customers" value={d.paying} note={`${inr(d.averagePerCustomer)} a month on average`} /> : null}
+            {d.byState.trialing ? <Stat icon={ICON.plan} tone={d.trialsEndingSoon ? 'warn' : null} label="Trial" value={d.byState.trialing} note={d.trialsEndingSoon ? `${d.trialsEndingSoon} end in the next 7 days` : 'None end this week'} /> : null}
+            {d.byState.past_due ? <Stat icon={ICON.warning} tone="warn" label="Overdue" value={d.byState.past_due} note={`${d.byState.cancelled || 0} cancelled in all`} /> : null}
+          </div>
+        ) : null}
 
         <Panel title="By app">
           {!d.byApp.length ? (

@@ -107,7 +107,9 @@ describe('Payments', () => {
     expect(openCustomer).toHaveBeenCalledWith('a1');
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(api.retry).toHaveBeenCalledWith('e1'));
-    expect((await screen.findAllByText('Applied', { selector: '.ws-pill' })).length).toBeGreaterThan(0);
+    /* Applied is the expected state: no tag, the word kept for screen readers (DESIGN.md "Status tags"). */
+    expect((await screen.findAllByText('Applied', { selector: '.sr-only' })).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('Applied', { selector: '.ws-pill' })).toHaveLength(0);
 
     fireEvent.click(screen.getByRole('button', { name: 'Record a payment' }));
     /* The log row behind the drawer names the same account, so pick inside the drawer. */

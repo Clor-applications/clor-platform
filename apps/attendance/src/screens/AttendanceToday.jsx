@@ -33,19 +33,6 @@ const weekday = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { 
 const longDate = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 
 /** One of today's figures (R&D KPI tile): the tile's colour on its top edge and chip; a state figure takes its ink when `on`. */
-function Kpi({ k, label, value, note = null, on = false }) {
-  return (
-    <li className="att-kpi" data-k={k} data-on={on || undefined}>
-      <span className="att-kpi-head">
-        <span className="att-kpi-chip" aria-hidden="true" />
-        <span className="att-kpi-label">{label}</span>
-      </span>
-      <span className="att-kpi-value">{value}</span>
-      {note ? <span className="att-kpi-note">{note}</span> : null}
-    </li>
-  );
-}
-
 /** One plain sentence for the day: who is in, who is late, who is away. */
 function daySentence(data, isToday) {
   const inn = data.present + data.halfDay;
@@ -156,6 +143,16 @@ export default function AttendanceToday({ openScreen }) {
         entity="attendance"
         title="Today"
         description={data?.holiday ? `Holiday: ${data.holiday}` : 'Attendance at a glance.'}
+        /* The day's figures as one count line, not six tiles (DESIGN.md "Page header"; design audit step 2).
+           Zero clauses drop out; late, absent and not marked are the ones that need someone. */
+        counts={data ? [
+          { key: 'headcount', label: data.headcount === 1 ? 'person' : 'people', value: data.headcount },
+          { key: 'present', label: data.halfDay ? `present (${data.halfDay} half day)` : 'present', value: data.present + data.halfDay },
+          { key: 'late', label: 'late', value: data.late.length, tone: 'warn' },
+          { key: 'absent', label: 'absent', value: data.absent, tone: 'neg' },
+          { key: 'leave', label: 'on leave', value: data.onLeave },
+          { key: 'unmarked', label: 'not marked', value: data.notMarked, tone: 'warn' },
+        ] : null}
         actions={
           <>
             {data ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOnScreen(true)}>Show on a screen</button> : null}
@@ -209,15 +206,6 @@ export default function AttendanceToday({ openScreen }) {
           {/* A company still setting up: six steps read from its records (components/GetStarted.jsx). */}
           <GetStarted openScreen={openScreen} />
 
-          <ul className="att-kpis" aria-label="Today in figures">
-            <Kpi k="headcount" label="Headcount" value={data.headcount} />
-            <Kpi k="present" label="Present" value={data.present + data.halfDay} on={data.present + data.halfDay > 0} note={data.halfDay ? `${data.halfDay} half day` : data.headcount ? `${Math.round(((data.present + data.halfDay) / data.headcount) * 100)}% of headcount` : null} />
-            <Kpi k="late" label="Late" value={data.late.length} on={data.late.length > 0} />
-            {/* Red only when there is something to see: "0 absent" is good news, not an alarm. */}
-            <Kpi k="absent" label="Absent" value={data.absent} on={data.absent > 0} />
-            <Kpi k="leave" label="On leave" value={data.onLeave} />
-            <Kpi k="unmarked" label="Not marked" value={data.notMarked} />
-          </ul>
 
           <div className="grid items-stretch gap-4 xl:grid-cols-3">
             <section className={`att-chart ${readers ? 'xl:col-span-2' : 'xl:col-span-3'}`} aria-labelledby="week-h">

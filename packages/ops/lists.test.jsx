@@ -58,8 +58,9 @@ describe('the lists across every account', () => {
     expect(row).toHaveTextContent('App not on their plan · Projects');
     expect(row).not.toHaveTextContent('402');
     expect(row).toHaveTextContent('c-7f2b04');
-    expect(screen.getByRole('button', { name: /Refused today/ })).toHaveTextContent('7');
-    fireEvent.click(screen.getByRole('button', { name: /^App not on their plan/ }));
+    // Today's counts are a count line under the title (design audit step 2); a reason filters the list.
+    expect(screen.getByLabelText('Figures')).toHaveTextContent('7 refused today · 5 app not on their plan');
+    fireEvent.click(screen.getByRole('button', { name: /5 app not on their plan/ }));
     await waitFor(() => expect(api.opsDenials).toHaveBeenLastCalledWith(expect.objectContaining({ code: 'APP_NOT_SUBSCRIBED' })));
   });
 

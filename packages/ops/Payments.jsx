@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
+import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsActivateProvider, opsPaymentAccounts, opsPaymentEvents, opsPayments, opsProviderMode, opsRecordPayment, opsRetryPaymentEvent, opsSaveProvider, opsTestProvider } from './api';
 import { inr, toPaise } from './money';
@@ -68,6 +69,12 @@ const HELP = {
   manual: { lines: 'Customers pay by UPI or bank transfer; you mark each payment as paid.' },
 };
 
+/* In the list, a provider that is simply on wears no tag (DESIGN.md "Status tags"): only the one customers pay
+   through, and one switched off, are marked. The drawer keeps the full pill for its one provider. */
+function RowStatus({ p }) {
+  if (p.enabled && !p.active) return <span className="sr-only">On</span>;
+  return <StatusPill p={p} />;
+}
 function StatusPill({ p }) {
   if (p.active) return <span className="ws-pill ws-pill--ok">Active</span>;
   if (p.enabled) return <span className="ws-pill">On</span>;
@@ -144,7 +151,7 @@ export function Payments({ role, openCustomer }) {
                 </tr>
               </thead>
               <tbody>
-                {data.providers.map((p) => (
+                {exceptionsFirst(data.providers, (p) => !p.enabled).map((p) => (
                   <tr key={p.code}>
                     <td style={{ whiteSpace: 'normal' }}>
                       <button type="button" className="ws-name-link" onClick={() => setEditing(p.code)}>
@@ -153,7 +160,7 @@ export function Payments({ role, openCustomer }) {
                       <div className="ws-item-sub">{HELP[p.code].lines}</div>
                     </td>
                     <td>
-                      <StatusPill p={p} />
+                      <RowStatus p={p} />
                     </td>
                     <td>{p.code === 'manual' ? <span className="ws-item-sub">—</span> : <ModePill mode={p.mode} />}</td>
                     <td style={{ whiteSpace: 'normal', maxWidth: 360 }}>
@@ -521,6 +528,12 @@ const EVENT_STATUS = {
   REJECTED: ['Refused', 'ws-pill ws-pill--warn'],
 };
 const GATEWAY = { cashfree: 'Cashfree', razorpay: 'Razorpay', manual: 'By hand' };
+/* An event applied to its account wears no tag; one only recorded (nothing changed yet), failed or refused does
+   (DESIGN.md "Status tags"). The log stays newest first: it is a record of what happened, not a work list. */
+function EventStatus({ status }) {
+  const [word, pill] = EVENT_STATUS[status] || [status, 'ws-pill'];
+  return status === 'APPLIED' ? <span className="sr-only">{word}</span> : <span className={pill}>{word}</span>;
+}
 
 function PaymentsLog({ mayChange, openCustomer }) {
   const [status, setStatus] = useState('');
@@ -602,7 +615,7 @@ function PaymentsLog({ mayChange, openCustomer }) {
                     {e.detail ? <div className="ws-item-sub">{e.detail}</div> : null}
                     {/* On a phone the three columns after this one fold in here. */}
                     <div className="sm:hidden flex flex-wrap items-center gap-2" style={{ marginTop: 6 }}>
-                      <span className={EVENT_STATUS[e.status]?.[1] || 'ws-pill'}>{EVENT_STATUS[e.status]?.[0] || e.status}</span>
+                      <EventStatus status={e.status} />
                       {e.amount != null ? <span className="tabular-nums">{inr(e.amount)}</span> : null}
                       {e.accountName ? <span className="ws-item-sub">{e.accountName}</span> : null}
                     </div>
@@ -617,7 +630,7 @@ function PaymentsLog({ mayChange, openCustomer }) {
                   </td>
                   <td className="num hidden sm:table-cell">{e.amount != null ? inr(e.amount) : '—'}</td>
                   <td className="hidden sm:table-cell">
-                    <span className={EVENT_STATUS[e.status]?.[1] || 'ws-pill'}>{EVENT_STATUS[e.status]?.[0] || e.status}</span>
+                    <EventStatus status={e.status} />
                   </td>
                   <td>
                     {mayChange && e.canRetry ? (

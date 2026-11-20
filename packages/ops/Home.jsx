@@ -110,9 +110,12 @@ function Kpis({ d, error, go, has }) {
       open: () => go('customers'),
     },
   ];
+  /* An overview shows at most four figures and never one at zero (DESIGN.md "Layout"; design audit step 2). */
+  const shown = tiles.filter((t) => Number(t.value) > 0);
+  if (!shown.length) return null;
   return (
     <div className="ops-kpis">
-      {tiles.map((t) => {
+      {shown.map((t) => {
         const Icon = KI[t.k];
         return (
           <button key={t.k} type="button" className="ops-kpi" onClick={t.open}>

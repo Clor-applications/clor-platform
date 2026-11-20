@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link2, Pencil, Plus, Trash2, UserX } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
@@ -61,6 +61,13 @@ export default function IdMapping({ openScreen, menuLabel }) {
         entity="reader"
         title={menuLabel || 'Employee ID mapping'}
         description="Reader IDs against employees: what matches nobody, who has left but is still on a reader, who has no ID."
+        /* The four counts as a count line, not tiles (DESIGN.md "Page header"; design audit step 2). */
+        counts={data ? [
+          { key: 'unmatched', label: 'unknown IDs with punches', value: data.counts.unmatched, tone: 'neg' },
+          { key: 'stale', label: 'left, still on a reader', value: data.counts.stale, tone: 'warn' },
+          { key: 'orphan', label: 'on a reader with no employee', value: data.counts.orphan },
+          { key: 'nopin', label: data.counts.noPin === 1 ? 'employee with no reader ID' : 'employees with no reader ID', value: data.counts.noPin },
+        ] : null}
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({})}><Plus size={16} aria-hidden="true" /> Add ID at a site</button>}
       />
       <div className="pb-8 space-y-6">
@@ -81,13 +88,6 @@ export default function IdMapping({ openScreen, menuLabel }) {
         error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <StatTile label="Unknown IDs with punches" value={data.counts.unmatched} tone={data.counts.unmatched ? 'neg' : 'neutral'} />
-            <StatTile label="Left, still on a reader" value={data.counts.stale} tone={data.counts.stale ? 'warn' : 'neutral'} />
-            <StatTile label="On a reader, no employee" value={data.counts.orphan} />
-            <StatTile label="Employees with no reader ID" value={data.counts.noPin} />
-          </div>
-
           <section className="ui-card overflow-hidden" aria-labelledby="unk-h">
             <h2 id="unk-h" className="ui-t-sec px-4 pt-4 pb-2">Unknown reader IDs with punches</h2>
             {data.unmatched.length ? (

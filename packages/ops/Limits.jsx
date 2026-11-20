@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
+import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { Panel } from '../../apps/admin/src/screens/wsKit';
 import { Err, Loading, ReasonDrawer, may, errorWords } from './kit';
 import { opsCustomerLimits, opsSetCustomerFeature, opsSetCustomerLimits } from './api';
@@ -67,7 +68,9 @@ export function Limits({ id, name, role }) {
    * Most modules simply follow the plan; what CLOR changed is what staff come
    * here for. The rest stay one click away.
    */
-  const changed = d.features.filter((f) => f.state === 'on' || f.state === 'off' || f.offWithParent);
+  /* Within each app, what CLOR changed comes first (DESIGN.md "Status tags"); only it wears a tag. */
+  const isChanged = (f) => f.state === 'on' || f.state === 'off' || f.offWithParent;
+  const changed = d.features.filter(isChanged);
   const direct = changed.filter((f) => f.state === 'on' || f.state === 'off').length;
   const shown = all ? d.features : changed;
   /* Modules by app, in the order the catalog lists them. */
@@ -140,7 +143,7 @@ export function Limits({ id, name, role }) {
             <div key={g.app} className="grid gap-1">
               {byApp.length > 1 ? <h3 className="ws-item-sub" style={{ fontWeight: 600, marginTop: 8 }}>{g.name}</h3> : null}
               <ul className="ws-list" aria-label={`${g.name} features`}>
-                {g.list.map((f) => (
+                {exceptionsFirst(g.list, isChanged).map((f) => (
                   <li key={f.key}>
                     <div className="ws-item ws-item--wrap">
                       <span className="ws-item-text">
@@ -148,8 +151,9 @@ export function Limits({ id, name, role }) {
                         <span className="ws-item-sub">
                           {f.offWithParent ? (
                             `Closed while ${f.needs} is off.`
-                          ) : f.state === 'plan' ? (
-                            STATE.plan[0]
+                          ) : f.state === 'plan' || f.state === 'not-in-plan' ? (
+                            /* Following the plan, on or off, is the expected state: words, no tag. */
+                            STATE[f.state][0]
                           ) : (
                             <span className={STATE[f.state][1]}>{STATE[f.state][0]}</span>
                           )}

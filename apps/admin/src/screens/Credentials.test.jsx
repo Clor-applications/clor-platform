@@ -46,7 +46,8 @@ describe('the list', () => {
     });
     render(<Credentials />);
     await waitFor(() => expect(screen.getByText('Tally bridge')).toBeTruthy());
-    expect(screen.getByText('Active')).toBeTruthy();
+    /* A working credential wears no tag (DESIGN.md "Status tags"); its word stays for screen readers. */
+    expect(screen.getByText('Active').className).toBe('sr-only');
     expect(screen.getByText('Blocked')).toBeTruthy();
     expect(screen.getByText('Switched off where it is set up')).toBeTruthy();
     expect(screen.getByText('Paused')).toBeTruthy();
