@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-4f8ddd8 - 2026-11-20
+
+API revision `clor-api-00155-cfk`. Previous release `rel-9788cb0` (roll back there).
+
+- #404 feat: rename Workspace to Admin center
+- #403 feat(admin): Home organised like an admin center
+- #399 Release record: rel-9788cb0
+- #398 style(design): clean-up after the design audit (P3)
+
 ## rel-9788cb0 - 2026-11-20
 
 API revision `clor-api-00154-9qg`. Previous release `rel-b1417a9` (roll back there).
