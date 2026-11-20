@@ -36,11 +36,14 @@
   border-bottom: 1px solid rgb(var(--border));
   color: rgb(var(--fg-muted));
 }
-.ui-chip-search input {
+/* The shared field class, drawn as a search line inside the menu rather than a box on a form. */
+.ui-chip-search .ui-chip-search-input {
   flex: 1;
   min-width: 0;
   height: 30px;
-  border: 0;
+  border: 0 !important;
+  border-radius: 0;
+  padding: 0;
   background: transparent;
   font: inherit;
   font-size: 0.8125rem;

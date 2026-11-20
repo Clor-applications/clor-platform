@@ -43,6 +43,7 @@ export function FilterSelect({ label, value, options, onChange, ariaLabel, width
           <div className="ui-chip-search">
             <Search size={14} aria-hidden="true" />
             <input
+              className="ui-input ui-chip-search-input"
               type="search"
               value={query}
               placeholder={`Find ${String(label).toLowerCase()}`}
