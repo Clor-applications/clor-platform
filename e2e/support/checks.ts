@@ -151,8 +151,8 @@ export async function auditScreen(page: Page, testInfo: TestInfo, opts: { title?
     const lit = await page.locator('nav:not([aria-label="Breadcrumb"]):not([aria-label$="quick navigation"]) [aria-current="page"]:visible').first().textContent({ timeout: 300 }).catch(() => null);
     const h1 = await page.locator('main h1:visible').first().textContent({ timeout: 300 }).catch(() => null);
     /* Home greets the person by name instead ("Good afternoon, Rahul"), by design. */
-    /* A lit item may carry a count ("Employees10"), and the settings hub's item reads "All settings". */
-    const litLabel = lit ? lit.trim().replace(/\s*\d+\+?$/, '').replace(/^All settings$/, 'Settings') : lit;
+    /* A lit item may carry a count ("Employees10"). The settings hub's title follows its item, "All settings". */
+    const litLabel = lit ? lit.trim().replace(/\s*\d+\+?$/, '') : lit;
     /* A list title may carry its row count too ("Employees (12)", round 40 pick). */
     const h1Label = h1 ? h1.trim().replace(/\s*\(\d[\d,]*\)$/, '') : h1;
     if (litLabel && h1 && litLabel !== 'Home' && litLabel !== h1Label) report(problems, key, 'title-is-menu-label', `the page title "${h1.trim()}" is not the menu label "${litLabel}"`, device);
