@@ -131,7 +131,7 @@ export function Firms() {
     ['GST and TDS where the work is', 'Returns come from the client’s own invoices and bills, so the month’s work is review, not re-entry.'],
   ];
   const steps = [
-    ['Your client invites you', 'From their Workspace, under Access and then Invitations, with your email and the role you need.'],
+    ['Your client invites you', 'From their Admin center, under Access and then Invitations, with your email and the role you need.'],
     ['You accept with your sign-in', 'One CLOR sign-in for you, however many clients you have.'],
     ['Work in their books', 'Switch between clients from the company menu; each keeps its own records.'],
     ['They stay in control', 'The client sees what you changed, and can change your role or end your access.'],
@@ -185,7 +185,7 @@ export function Firms() {
         </div>
       </section>
 
-      <Closing title="Working with clients on CLOR already?" text="Ask your client to invite you from their Workspace, under Access and then Invitations. Or ask us for a demo of how firms work in CLOR." />
+      <Closing title="Working with clients on CLOR already?" text="Ask your client to invite you from their Admin center, under Access and then Invitations. Or ask us for a demo of how firms work in CLOR." />
     </>
   );
 }
@@ -585,7 +585,7 @@ export function Security() {
  * Is CLOR working (clor.in/status). The page is static, so it loads even when the API does not; the browser then asks
  * the API (GET /api/public/status) and asks again every minute. An answer that never comes is itself the answer.
  */
-const STATUS_PARTS = ['Sign-in and Workspace', 'Books', 'People and Attendance', 'Payroll'];
+const STATUS_PARTS = ['Sign-in and Admin center', 'Books', 'People and Attendance', 'Payroll'];
 const clock = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
 export function ServiceStatus() {
@@ -670,7 +670,7 @@ const POST_STATE = {
   IN_PROGRESS: 'Under way',
   COMPLETED: 'Done',
 };
-const PART_WORD = { platform: 'Sign-in and Workspace', accounting: 'Books', people: 'People and Attendance', payroll: 'Payroll' };
+const PART_WORD = { platform: 'Sign-in and Admin center', accounting: 'Books', people: 'People and Attendance', payroll: 'Payroll' };
 const stamp = (iso) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 function StatusPosts({ title, posts }) {

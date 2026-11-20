@@ -91,7 +91,7 @@ export function AppCatalogue({ role }) {
               </span>
             </label>
           ))}
-          {edit?.code === 'workspace' ? <span className="ws-card-blurb">Workspace is where every customer runs their account, so it is always available.</span> : null}
+          {edit?.code === 'workspace' ? <span className="ws-card-blurb">Admin center is where every customer runs their account, so it is always available.</span> : null}
         </fieldset>
         <div className="grid gap-1">
           <label className="grid gap-1">

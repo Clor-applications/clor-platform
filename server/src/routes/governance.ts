@@ -603,7 +603,7 @@ async function approvalDocumentDate(accountId: string, orgId: string, docType: s
   return undefined;
 }
 
-const ACCOUNTING_NOT_OWNED = { error: 'Books is not on this account’s subscription. An owner can add it under Workspace → Billing.', app: 'accounting', code: 'APP_NOT_SUBSCRIBED' };
+const ACCOUNTING_NOT_OWNED = { error: 'Books is not on this account’s subscription. An owner can add it under Admin center → Billing.', app: 'accounting', code: 'APP_NOT_SUBSCRIBED' };
 
 governanceRouter.post('/orgs/:orgId/approvals/:requestId/decide', async (req, res) => {
   if (!orgOk(req, res)) return;

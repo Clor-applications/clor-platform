@@ -279,7 +279,7 @@ You will be asked to set your own password on first sign-in.`,
   {
     key: 'account.invited',
     label: 'Invitation to an account',
-    description: 'Sent when an owner or administrator invites someone into the account (Workspace → Invitations).',
+    description: 'Sent when an owner or administrator invites someone into the account (Admin center → Invitations).',
     subject: '{{inviterName}} invited you to {{accountName}} on {{appName}}',
     body: `Hello,
 

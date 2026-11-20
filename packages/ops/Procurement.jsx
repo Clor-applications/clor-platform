@@ -124,12 +124,12 @@ export function Proformas({ role, openInvoice }) {
   return (
     <>
       <PageHead crumbs={['Billing and setup']} title="Proformas" counts={rows ? (rows.length ? `${rows.length} ${rows.length === 1 ? 'proforma' : 'proformas'}` : null) : null} />
-      <p className="ws-card-blurb r67-lede">Customers make a proforma in Workspace, Billing: the plan with GST, valid 15 days, for their accounts team to pay against. When the money comes, make the tax invoice from it here.</p>
+      <p className="ws-card-blurb r67-lede">Customers make a proforma in the Admin center, Billing: the plan with GST, valid 15 days, for their accounts team to pay against. When the money comes, make the tax invoice from it here.</p>
       <Err>{error}</Err>
       {!rows ? (
         error ? null : <Loading />
       ) : !rows.length ? (
-        <Empty>No proformas yet. One shows here when a customer makes a proforma in Workspace, Billing.</Empty>
+        <Empty>No proformas yet. One shows here when a customer makes a proforma in the Admin center, Billing.</Empty>
       ) : (
         <div className="ws-table-wrap">
           <table className="ws-table">
@@ -240,7 +240,7 @@ export function VendorDocuments({ role }) {
           ) : null
         }
       />
-      <p className="ws-card-blurb r67-lede">CLOR’s own papers that a customer’s purchase team asks for before they can pay a new vendor. Every customer’s billing people can download these from Workspace, Billing.</p>
+      <p className="ws-card-blurb r67-lede">CLOR’s own papers that a customer’s purchase team asks for before they can pay a new vendor. Every customer’s billing people can download these from the Admin center, Billing.</p>
       <Err>{error}</Err>
       {!rows ? (
         error ? null : <Loading />

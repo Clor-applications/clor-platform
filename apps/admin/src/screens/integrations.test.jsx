@@ -30,7 +30,7 @@ describe('Workspace Integrations', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Manage On-site connectors in People' }));
     expect(openApp).toHaveBeenCalledWith('people', 'integrations', {});
-    fireEvent.click(screen.getByRole('button', { name: 'Manage API keys in Workspace' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Manage API keys in Admin center' }));
     expect(openScreen).toHaveBeenCalledWith('credentials');
     expect(screen.queryByRole('button', { name: /Manage E-mail/ })).toBeNull();
   });

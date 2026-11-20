@@ -689,7 +689,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
             <span className="font-semibold">{inv.emailTo ? `Email it to ${inv.emailTo}` : 'Email it to the customer'}</span>
             <span id="issue-email-note" className="ws-card-blurb" style={{ display: 'block' }}>
               {inv.emailTo
-                ? `The email carries the invoice and how to pay ${inr(inv.total)}. Either way, ${inv.account?.name || 'the customer'} sees it in Workspace, Billing.`
+                ? `The email carries the invoice and how to pay ${inr(inv.total)}. Either way, ${inv.account?.name || 'the customer'} sees it in the Admin center, Billing.`
                 : 'No email on this invoice and no owner to send to. Add the customer’s email to the draft first.'}
             </span>
           </span>

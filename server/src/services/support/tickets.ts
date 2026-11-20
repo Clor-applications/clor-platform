@@ -186,7 +186,7 @@ export async function staffReply(t: { id: string; number: number; subject: strin
       transactional: true,
       relatedType: 'SupportTicket',
       relatedId: t.id,
-      data: { userName: u.fullName || '', ticket: ticketCode(t.number), subject: t.subject, reply: body, ticketUrl: `${APP_URL()}/?app=admin&open=support&ticket=${t.id}`, solved: solve ? 'We think this is solved. If it is not, reply and the ticket opens again.' : 'Reply from the Workspace (Help and support) if you need anything else.' },
+      data: { userName: u.fullName || '', ticket: ticketCode(t.number), subject: t.subject, reply: body, ticketUrl: `${APP_URL()}/?app=admin&open=support&ticket=${t.id}`, solved: solve ? 'We think this is solved. If it is not, reply and the ticket opens again.' : 'Reply from the Admin center (Help and support) if you need anything else.' },
     }).catch(() => null);
     return { told: sent?.status === 'SENT' };
   });

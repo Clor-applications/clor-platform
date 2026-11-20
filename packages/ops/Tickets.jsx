@@ -34,7 +34,7 @@ function RowPriority({ priority }) {
   return priority === 'HIGH' || priority === 'URGENT' ? <span className={`ws-pill ${pill}`}>{word}</span> : <span className="sr-only">{word || 'Normal'}</span>;
 }
 const CATEGORY = { QUESTION: 'Question', PROBLEM: 'Problem', BILLING: 'Plan or billing', DATA: 'Data', OTHER: 'Other' };
-const appName = (a) => (a === 'workspace' ? 'Workspace' : APP_NAMES[a] || a);
+const appName = (a) => (a === 'workspace' ? 'Admin center' : APP_NAMES[a] || a);
 
 export function Tickets({ initialStatus = 'active', openTicket, me }) {
   const [status, setStatus] = useState(initialStatus);
@@ -58,7 +58,7 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
         <PageHead
           crumbs={['Customers and sales']}
           title="Tickets"
-          description="Questions and problems customers sent from their Workspace. The one waiting longest is at the top."
+          description="Questions and problems customers sent from their Admin center. The one waiting longest is at the top."
           counts={d ? countLine([[d.counts.open, (k) => `${k} ${k === 1 ? 'needs' : 'need'} an answer`], [d.counts.waiting, 'waiting on customers']], 'No open tickets') : null}
         />
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -179,7 +179,7 @@ export function TicketPage({ id, back, openCustomer, openTicket, lookUp, me }) {
       setBody('');
       setSavedReplyId('');
       return r;
-    }, internal ? 'Note added. The customer does not see it.' : (r) => (r.told ? 'Sent. The customer has it by email.' : 'Saved on the ticket. The email did not go; the customer sees it in their Workspace.'));
+    }, internal ? 'Note added. The customer does not see it.' : (r) => (r.told ? 'Sent. The customer has it by email.' : 'Saved on the ticket. The email did not go; the customer sees it in their Admin center.'));
 
   if (!t) return <div className="ws"><div className="ws-inner">{error ? <Err>{error}</Err> : <Loading />}</div></div>;
   const mineNow = t.assignedTo?.id === me?.user?.id;

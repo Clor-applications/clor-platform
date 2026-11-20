@@ -52,7 +52,7 @@ export default function AskSupport({ onClose }) {
         urgent,
       });
       notify.success(
-        "Sent to CLOR support. The answer comes by email; follow it in Workspace → Help and support.",
+        "Sent to CLOR support. The answer comes by email; follow it in Admin center → Help and support.",
       );
       onClose();
     } catch (err) {

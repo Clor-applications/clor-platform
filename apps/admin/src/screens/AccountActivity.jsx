@@ -98,7 +98,7 @@ export const metaRows = (meta) => {
 };
 export const actionText = (a) => ACTION_WORDS[a] || (a ? enumWords(a) : 'Made a change');
 
-const scopeOf = (e) => e?.metadata?.orgName || e?.metadata?.companyName || e?.metadata?.company || 'Workspace';
+const scopeOf = (e) => e?.metadata?.orgName || e?.metadata?.companyName || e?.metadata?.company || 'Admin center';
 const detailOf = (e) => [e.targetName, e.message && e.message !== ACTION_WORDS[e.action] ? e.message : ''].filter(Boolean).join(' · ') || '—';
 
 export default function AccountActivity() {
@@ -241,7 +241,7 @@ export default function AccountActivity() {
                         </span>
                       </td>
                       <td className="ws-sec-wrap">{detailOf(e)}</td>
-                      <td>{scopeOf(e) === 'Workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : scopeOf(e)}</td>
+                      <td>{scopeOf(e) === 'Admin center' ? <span className="ws-tag ws-tag--workspace">Admin center</span> : scopeOf(e)}</td>
                     </tr>
                     {open === e.id ? (
                       <tr className="ws-sec-detail">

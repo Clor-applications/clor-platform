@@ -36,7 +36,7 @@ export const appOfEntity = (entity) => {
   if (COMPANY_NAMED.has(e)) return 'workspace';
   return 'accounting';
 };
-const APP_WORDS = { people: 'People', attendance: 'Attendance', payroll: 'Payroll', workspace: 'Workspace', accounting: 'Books' };
+const APP_WORDS = { people: 'People', attendance: 'Attendance', payroll: 'Payroll', workspace: 'Admin center', accounting: 'Books' };
 /* The server files People and Attendance under one filter; a company has one or the other (People replaces Attendance), so it is named for the one it has. */
 const offered = () => AUDIT_APPS
   .filter((a) => a.id === 'company' || hasApp(a.id) || (a.id === 'attendance' && hasApp('people')))
@@ -427,7 +427,7 @@ export default function AuditTrail({ tenant, menuLabel } = {}) {
                           </span>
                         </td>
                         <td className="ws-mid">
-                          {app === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={app} />}
+                          {app === 'workspace' ? <span className="ws-tag ws-tag--workspace">Admin center</span> : <AppTag app={app} />}
                         </td>
                         <td className="ws-sec-wrap">
                           {/* One line: what happened, its action, the record, and Details at the end; opened, the details take the full width under it. */}
@@ -495,7 +495,7 @@ export default function AuditTrail({ tenant, menuLabel } = {}) {
               <ul className="ws-activity-list">
                 {summary.apps.map((a) => (
                   <li key={a.id}>
-                    {a.id === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={a.id} />}
+                    {a.id === 'workspace' ? <span className="ws-tag ws-tag--workspace">Admin center</span> : <AppTag app={a.id} />}
                     <span className="ws-activity-bar-n ui-num">{a.n}</span>
                   </li>
                 ))}

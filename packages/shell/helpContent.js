@@ -13,7 +13,7 @@ import { GUIDES, GUIDE_GROUPS } from './helpGuides';
 
 export const HELP_GROUPS = [
   { key: 'start', label: 'Getting started' },
-  { key: 'workspace', label: 'Workspace' },
+  { key: 'workspace', label: 'Admin center' },
   ...GUIDE_GROUPS,
   { key: 'apps', label: 'Apps' },
   { key: 'integrations', label: 'Integrations' },
@@ -24,12 +24,12 @@ const OVERVIEWS = [
     key: 'welcome',
     group: 'start',
     title: 'Welcome to CLOR',
-    summary: 'One sign-in for your books, people, payroll and attendance. The Workspace runs the account; each app does its own work.',
+    summary: 'One sign-in for your books, people, payroll and attendance. The Admin center runs the account; each app does its own work.',
     sections: [
       {
         heading: 'How CLOR is laid out',
         points: [
-          'The Workspace is where the account is run: companies, who has access, sign-in rules, the plan and your data.',
+          'The Admin center is where the account is run: companies, who has access, sign-in rules, the plan and your data.',
           'Books, Payroll, People and Attendance are the apps. Each company switches on the apps it uses.',
           'The rail on the left lists the sections of the app you are in; each opens its own page.',
         ],
@@ -49,7 +49,7 @@ const OVERVIEWS = [
     key: 'setup',
     group: 'start',
     title: 'Set up your company',
-    summary: 'Four things make a new company ready to use. The Setup ring at the foot of the Workspace rail shows how far you are.',
+    summary: 'Four things make a new company ready to use. The Setup ring at the foot of the Admin center rail shows how far you are.',
     sections: [
       {
         heading: 'The four steps',
@@ -86,7 +86,7 @@ const OVERVIEWS = [
     sections: [
       {
         heading: 'Where',
-        points: ['Workspace › Company › Companies.'],
+        points: ['Admin center › Company › Companies.'],
       },
       {
         heading: 'Common tasks',
@@ -176,7 +176,7 @@ const OVERVIEWS = [
     sections: [
       {
         heading: 'Where',
-        points: ['Workspace › Plan › Subscription for the plan and usage.', 'Plan › Billing holds invoices and payment details once billing starts; nothing is charged before then.'],
+        points: ['Admin center › Plan › Subscription for the plan and usage.', 'Plan › Billing holds invoices and payment details once billing starts; nothing is charged before then.'],
       },
     ],
     open: { app: 'admin', screen: 'account', label: 'Open Subscription' },

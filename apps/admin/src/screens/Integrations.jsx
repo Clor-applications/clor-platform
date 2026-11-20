@@ -24,7 +24,7 @@ const STATUS = {
   attention: ['Needs a look', 'danger'],
   off: ['Not in use', 'off'],
 };
-const WHERE = { people: 'People', attendance: 'Attendance', admin: 'Workspace' };
+const WHERE = { people: 'People', attendance: 'Attendance', admin: 'Admin center' };
 
 function State({ status }) {
   const [label, tone] = STATUS[status] || STATUS.off;
@@ -156,7 +156,7 @@ export default function Integrations({ openApp, openScreen }) {
                               <strong style={{ fontWeight: 600 }}>{a.label}</strong>
                               <div className="ws-card-blurb">{a.about}</div>
                             </td>
-                            <td>{a.manage.app === 'admin' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={a.manage.app}>{WHERE[a.manage.app] || a.manage.app}</AppTag>}</td>
+                            <td>{a.manage.app === 'admin' ? <span className="ws-tag ws-tag--workspace">Admin center</span> : <AppTag app={a.manage.app}>{WHERE[a.manage.app] || a.manage.app}</AppTag>}</td>
                             <td className="ws-mid"><span className="ws-state" data-tone="off">Not set up</span></td>
                             <td className="num">
                               <button type="button" className="ws-row-link" onClick={() => manage(a.manage)} aria-label={`Set up ${a.label} in ${WHERE[a.manage.app] || a.manage.app}`}>

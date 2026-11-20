@@ -47,7 +47,7 @@ export function SupportAccess({ id, companies, role }) {
     setBusy(true);
     try {
       await opsAskSupportGrant(id, { orgId, reason, ticketRef: ticketRef || undefined, scope: change ? 'READ_WRITE' : 'READ_ONLY' });
-      notify.success('Asked. The customer answers in Workspace.');
+      notify.success('Asked. The customer answers in the Admin center.');
       setReason('');
       setTicketRef('');
       setChange(false);

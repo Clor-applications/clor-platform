@@ -122,7 +122,7 @@ export async function authorize(
       if (lapsed) return { status: 402, body: { error: lapsed, app: apps[0], code: 'SUBSCRIPTION_LAPSED' } };
       return {
         status: 402,
-        body: { error: `${appByCode(apps[0])?.name || apps[0]} is not on this account’s subscription. An owner can add it under Workspace → Billing.`, app: apps[0], code: 'APP_NOT_SUBSCRIBED' },
+        body: { error: `${appByCode(apps[0])?.name || apps[0]} is not on this account’s subscription. An owner can add it under Admin center → Billing.`, app: apps[0], code: 'APP_NOT_SUBSCRIBED' },
       };
     }
     /* GAP-006: and, for a person from another account, an app the company let them use. */
