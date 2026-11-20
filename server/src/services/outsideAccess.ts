@@ -1,5 +1,6 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
+import { dateWords } from '../utils/istDate.js';
 
 /**
  * GAP-006: a person from another account — the accountant a client brings in,
@@ -26,7 +27,7 @@ export function refusalOf(row: NonNullable<Row> | null, now = new Date()) {
   if (!row) return { code: 'OUTSIDE_ACCESS_ENDED', error: 'Your access to this company was not granted by it, or has ended. Ask the company to add you again.' };
   if (row.status === 'REVOKED') return { code: 'OUTSIDE_ACCESS_ENDED', error: 'This company has ended your access.' };
   if (row.status === 'SUSPENDED') return { code: 'OUTSIDE_ACCESS_SUSPENDED', error: 'This company has paused your access.' };
-  if (row.expiresAt && row.expiresAt <= now) return { code: 'OUTSIDE_ACCESS_EXPIRED', error: `Your access to this company ended on ${row.expiresAt.toISOString().slice(0, 10)}.` };
+  if (row.expiresAt && row.expiresAt <= now) return { code: 'OUTSIDE_ACCESS_EXPIRED', error: `Your access to this company ended on ${dateWords(row.expiresAt)}. Ask the company to add you again.` };
   return null;
 }
 

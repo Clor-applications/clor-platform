@@ -21,6 +21,8 @@ import {
   updateRotation,
 } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const PERIODS = { 7: 'a week', 14: 'two weeks', 1: 'a day' };
 const TABS = [
@@ -47,7 +49,7 @@ export default function Rotations() {
   const [crew, setCrew] = useState(null);
   const [status, setStatus] = useState('');
   const load = useCallback(() => {
-    listRotations().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load rotations.')));
+    listRotations().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load rotations')));
   }, []);
   useEffect(() => {
     load();
@@ -74,18 +76,17 @@ export default function Rotations() {
       description="Repeating shift patterns. Each step lasts a week (or a day); crews on the same pattern can start at different steps."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search rotations…', label: 'Search rotations' }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" disabled={shifts.length < 1} onClick={create}>
           <Plus size={16} aria-hidden="true" /> New rotation
         </button>
       }
-      cards={[
+      countLine={countItems([
         { label: 'Rotations', value: counts[''], count: true, tone: 'all', Icon: Repeat },
         { label: 'Active', value: counts.ACTIVE, count: true, tone: 'paid', Icon: CheckCircle2, onSelect: () => setStatus('ACTIVE') },
         { label: 'People on them', value: people, count: true, tone: 'sent', Icon: Users },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -166,7 +167,7 @@ function RotationForm({ initial, shifts, onClose, onSaved }) {
       notify.success('Rotation saved.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     }
   };
   const remove = async () => {
@@ -175,7 +176,7 @@ function RotationForm({ initial, shifts, onClose, onSaved }) {
       await deleteRotation(form.id);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not deleted.'));
+      notify.error(errorWords(err, 'delete it'));
     }
   };
   return (
@@ -254,7 +255,7 @@ function RotationCrew({ rotation, name, onClose }) {
       setForm((f) => ({ ...f, employeeIds: [] }));
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     }
   };
   return (
@@ -299,7 +300,7 @@ function RotationCrew({ rotation, name, onClose }) {
                   <td>{r.startsOn}</td>
                   <td>{r.endsOn || '—'}</td>
                   <td className="text-end">
-                    <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Take ${r.employeeName} off the rotation`} onClick={async () => { try { await removeRotationAssignment(r.id); load(); } catch (err) { notify.error(String(err?.message || 'Not removed.')); } }}>
+                    <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Take ${r.employeeName} off the rotation`} onClick={async () => { try { await removeRotationAssignment(r.id); load(); } catch (err) { notify.error(errorWords(err, 'remove it')); } }}>
                       <Trash2 size={14} aria-hidden="true" />
                     </button>
                   </td>

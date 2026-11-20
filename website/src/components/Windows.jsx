@@ -155,7 +155,7 @@ export function PeopleWindow(props) {
         </div>
         <span className="w-pill w-pill--ok">Active</span>
       </div>
-      <Tiles items={[['Employee ID', 'E042'], ['Joined', '3 June 2024'], ['Manager', 'Rohit Anand']]} />
+      <Tiles items={[['Employee ID', 'E042'], ['Joined', '3 Jun 2024'], ['Manager', 'Rohit Anand']]} />
       <div className="w-progress">
         <div className="w-row w-between">
           <span className="w-k">Joining checklist</span>
@@ -282,10 +282,10 @@ export function GstrWindow(props) {
       slug="books"
       at={3}
       title="GSTR-1, October 2026"
-      action="File return"
+      action="Review return"
       pops={
         <>
-          <Pop where="tr" icon={CheckCircle} title="Ready to file" text="Built from the invoices you raised" />
+          <Pop where="tr" icon={CheckCircle} title="Return prepared" text="Built from the invoices you raised" />
           <Pop where="bl" tone="app" icon={Receipt} title={`${rows.reduce((s, [, n]) => s + n, 0)} documents`} text="Nothing typed in again" />
         </>
       }
@@ -296,7 +296,7 @@ export function GstrWindow(props) {
           <p className="w-v">Anand Traders</p>
           <p className="w-k">GSTIN 27AAKFA4821L1Z3</p>
         </div>
-        <span className="w-pill w-pill--ok">Ready to file</span>
+        <span className="w-pill w-pill--ok">Prepared</span>
       </div>
       <Tiles items={[['Taxable value', rupees(taxable)], ['Tax, CGST + SGST + IGST', rupees(Math.round(taxable * 0.18)), true]]} />
       <ul className="w-bars">

@@ -10,7 +10,7 @@ beforeEach(() => {
   accountAudit.mockReset().mockResolvedValue({
     events: [
       { id: 'e2', at: '2026-10-25T10:00:00Z', action: 'MEMBER_SUSPENDED', result: 'OK', actor: { id: 'u1', name: 'Rohit' }, targetName: 'Kavya', message: 'Suspended in the account' },
-      { id: 'e1', at: '2026-10-25T09:00:00Z', action: 'ACCESS_DENIED', result: 'DENIED', actor: { id: 'u2', name: 'Kavya' }, message: 'refused', metadata: { code: 'ACCOUNT_ROLE_REQUIRED' } },
+      { id: 'e1', at: '2026-10-25T09:00:00Z', action: 'ACCESS_DENIED', result: 'DENIED', actor: { id: 'u2', name: 'Kavya' }, message: 'refused', metadata: { code: 'ACCOUNT_ROLE_REQUIRED', email: 'kavya@x.in' } },
     ],
     next: 'e1',
   });
@@ -40,6 +40,9 @@ describe('Workspace → Audit log', () => {
   it('shows the details of one event when opened', async () => {
     render(<AccountActivity />);
     fireEvent.click(await screen.findByRole('button', { name: /Refused: needs an account role/ }));
-    expect(screen.getByText('{"code":"ACCOUNT_ROLE_REQUIRED"}')).toBeInTheDocument();
+    /* Known keys as labelled rows; codes and raw JSON stay off the page. */
+    expect(screen.getByText('Email')).toBeInTheDocument();
+    expect(screen.getByText('kavya@x.in')).toBeInTheDocument();
+    expect(screen.queryByText(/ACCOUNT_ROLE_REQUIRED/)).toBeNull();
   });
 });

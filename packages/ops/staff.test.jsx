@@ -14,7 +14,7 @@ const list = {
   operators: [{ userId: 'u2', email: 'meena@clor.in', name: 'Meena', role: 'SUPPORT', active: true, authenticator: false, lastLoginAt: null }],
   invites: [{ id: 'i1', email: 'new@clor.in', role: 'SALES', since: '2026-11-09T00:00:00Z' }],
 };
-const reason = (text) => fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: text } });
+const reason = (text) => fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: text } });
 
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());

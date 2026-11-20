@@ -27,8 +27,8 @@ describe('App catalogue', () => {
     fireEvent.click(screen.getByRole('radio', { name: /Hidden/ }));
     fireEvent.change(screen.getByLabelText('One line'), { target: { value: 'Time against projects.' } });
     expect(screen.getByText('22 of 160 characters')).toBeInTheDocument();
-    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Not this year' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the Staff audit log'), { target: { value: 'Not this year' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save listing' }));
     await waitFor(() => expect(api.opsSaveApp).toHaveBeenCalledWith('timesheet', { status: 'HIDDEN', blurb: 'Time against projects.', reason: 'Not this year' }));
   });
 

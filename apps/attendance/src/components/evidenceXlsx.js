@@ -1,5 +1,6 @@
 import { notify } from '@ui/components/ui/notify';
 import { getEvidence } from '../api/attendance';
+import { errorWords, dayText, monthText, enumWords } from '@ui/utils/errorWords';
 
 /**
  * Everything behind one person's days for a period, as one workbook: the
@@ -29,17 +30,17 @@ export async function downloadEvidence(employeeId, from, to) {
       ['Employee', `${e.employee.name}${e.employee.code ? ` (${e.employee.code})` : ''}`],
       ['Reader ID', e.employee.devicePin || ''],
       ['Department', e.employee.department || ''],
-      ['Period', `${e.period.from} to ${e.period.to}`],
+      ['Period', `${dayText(e.period.from)} to ${dayText(e.period.to)}`],
       ['Days recorded', String(e.days.length)],
       ['Punches', String(e.punches.length)],
       ['Corrections', String(e.corrections.length)],
       ['Changes to days', String(e.history.length)],
-      ['Months closed', e.monthsClosed.map((m) => `${m.month} (${when(m.at)}, ${m.by})`).join('; ') || 'None'],
+      ['Months closed', e.monthsClosed.map((m) => `${monthText(m.month)} (${when(m.at)}, ${m.by})`).join('; ') || 'None'],
       ['Generated', when(e.generatedAt)],
     ];
     const sheets = [
       { sheet: 'Summary', columns: [{ width: 22 }, { width: 60 }], data: [[{ value: 'Attendance evidence', type: String, fontWeight: 'bold', fontSize: 14 }], ...summary.map(([k, v]) => [head(k), cell(v)])] },
-      sheet('Days', [['date', 'Date'], [(r) => STATUS[r.status] || r.status, 'Status'], ['in', 'In'], ['out', 'Out'], [(r) => mins(r.workedMinutes), 'Worked'], ['lateMinutes', 'Late (min)'], ['earlyOutMinutes', 'Early out (min)'], [(r) => mins(r.overtimeMinutes), 'Overtime'], [(r) => (r.overtimeApproved ? 'Yes' : 'No'), 'Overtime approved'], ['source', 'Set by'], [(r) => (r.validated ? `Yes, ${r.validatedBy || ''}` : 'No'), 'Validated'], ['note', 'Note', 30]], e.days),
+      sheet('Days', [['date', 'Date'], [(r) => STATUS[r.status] || enumWords(r.status), 'Status'], ['in', 'In'], ['out', 'Out'], [(r) => mins(r.workedMinutes), 'Worked'], ['lateMinutes', 'Late (min)'], ['earlyOutMinutes', 'Early out (min)'], [(r) => mins(r.overtimeMinutes), 'Overtime'], [(r) => (r.overtimeApproved ? 'Yes' : 'No'), 'Overtime approved'], ['source', 'Set by'], [(r) => (r.validated ? `Yes, ${r.validatedBy || ''}` : 'No'), 'Validated'], ['note', 'Note', 30]], e.days),
       sheet('Punches', [['local', 'Time', 20], ['kind', 'Direction'], ['source', 'Where'], ['readerId', 'Reader ID'], ['shiftDate', 'Shift day'], [(r) => (r.latitude != null ? `${r.latitude}, ${r.longitude}` : ''), 'Location', 24]], e.punches),
       sheet('Corrections', [['date', 'Day'], [(r) => `${r.before.in || '—'}–${r.before.out || '—'}`, 'Before'], [(r) => `${r.requested.in || '—'}–${r.requested.out || '—'}`, 'Asked for'], ['reason', 'Reason', 36], ['status', 'Decision'], ['askedBy', 'Asked by'], [(r) => when(r.askedAt), 'Asked on', 20], ['managerApprovedBy', 'Manager'], ['decidedBy', 'Decided by'], [(r) => when(r.decidedAt), 'Decided on', 20], ['note', 'Note', 30]], e.corrections),
       sheet('History', [['date', 'Day'], [(r) => when(r.at), 'When', 20], ['action', 'What'], ['by', 'By'], [(r) => r.changes.map((c) => `${c.field}: ${c.before ?? '—'} → ${c.after ?? '—'}`).join('; '), 'Changes', 60], ['reason', 'Why', 40]], e.history),
@@ -50,6 +51,6 @@ export async function downloadEvidence(employeeId, from, to) {
     await book.toFile(`Attendance evidence ${e.employee.code || e.employee.name} ${from} to ${to}.xlsx`);
     notify.success('Evidence workbook downloaded.');
   } catch (err) {
-    notify.error(String(err?.message || 'Could not build the evidence workbook.'));
+    notify.error(errorWords(err, 'build the evidence workbook'));
   }
 }

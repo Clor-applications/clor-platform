@@ -6,12 +6,13 @@ import { listRoles, updateRole } from '@platform/admin/admin';
 import { expandPreset, getPermissionCatalog, getRolePermissions, setRolePermissions } from '@ui/api/permissions';
 import { Spinner } from '@ui/components/ui/Primitives';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import { hasApp, orgId as platformOrgId } from '@platform/context';
+import { hasApp, orgId as platformOrgId, requestOpenScreen } from '@platform/context';
 import PermissionMatrix from './PermissionMatrix';
 import TemplateDrift from './TemplateDrift';
 import { PERMISSION_APPS, catalogKeys, moduleKeys, visibleModules } from './permissionKeys';
 import { Empty, Loading, Meter, PageHead, Panel } from './wsKit';
 import './workspace.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('passport-control');
@@ -63,7 +64,7 @@ export const RolePermissionManager = () => {
         setRoles(list);
         setRoleId((prev) => prev || String(list[0]?.id || ''));
       } catch (e) {
-        if (!cancelled) setError(String(e?.message || e));
+        if (!cancelled) setError(errorWords(e, 'load the roles'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -87,7 +88,7 @@ export const RolePermissionManager = () => {
         setBaseline(new Set(set));
         setLevels(res?.levels || {});
       } catch (e) {
-        if (!cancelled) setError(String(e?.message || e));
+        if (!cancelled) setError(errorWords(e, 'load this role’s permissions'));
       }
     })();
     return () => {
@@ -151,7 +152,7 @@ export const RolePermissionManager = () => {
       // The editor may have just changed their own role.
       reloadMyPermissions();
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'save the permissions'));
     } finally {
       setSaving(false);
     }
@@ -168,7 +169,7 @@ export const RolePermissionManager = () => {
       const meta = catalog.presets.find((p) => p.key === preset);
       if (meta) setOwnDocs(Boolean(meta.ownDocumentsOnly));
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'apply the template'));
     }
   };
 
@@ -210,7 +211,7 @@ export const RolePermissionManager = () => {
         {loading ? (
           <Loading shape="card" rows={3} label="Loading roles and permissions…" />
         ) : !roles.length ? (
-          <Empty icon={EMPTY_ICON} compact>No roles yet. Create one under Roles.</Empty>
+          <Empty icon={EMPTY_ICON} compact action={{ label: 'Open Roles', onClick: () => requestOpenScreen('roles') }}>No roles yet. Permissions are set on a role.</Empty>
         ) : (
           <div className="ws-layout">
             <div className="grid gap-4 min-w-0">
@@ -240,7 +241,7 @@ export const RolePermissionManager = () => {
               />
 
               <p className="ws-card-blurb">
-                Record visibility comes from branches, set under Users.
+                Which records a person sees comes from their branches, set under Company users.
               </p>
             </div>
 

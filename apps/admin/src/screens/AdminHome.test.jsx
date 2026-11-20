@@ -71,7 +71,7 @@ describe('the Workspace overview', () => {
     const me = ['accounting'];
     expect(appState(CATALOG[1], tenant, me).label).toBe('Active');
     expect(appState(CATALOG[2], tenant, me).label).toBe('Access not assigned');
-    expect(appState(CATALOG[3], tenant, me).label).toBe('Subscription required');
+    expect(appState(CATALOG[3], tenant, me).label).toBe('Not in plan');
     expect(appState(CATALOG[4], tenant, me).label).toBe('Coming soon');
     expect(appState(CATALOG[3], { subscriptions: [], billing: null }).label).toBe('Not switched on');
   });
@@ -81,8 +81,9 @@ describe('the Workspace overview', () => {
     render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={openScreen} openApp={() => {}} accountName="Neev Group" />);
     /* The hero greets the reader by name with no retired kicker above it; the account's facts sit on one line. */
     expect(screen.queryByText('Welcome to CLOR Workspace')).toBeNull();
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Good (morning|afternoon|evening), Kavya$/);
-    expect(await screen.findByText('Account Owner')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Home$/);
+    expect(screen.getByText(/^Hello, Kavya/)).toBeInTheDocument();
+    expect(await screen.findByText('Owner')).toBeInTheDocument();
     /* The account's name only: the counts are said once, in the figures row below. */
     expect(await screen.findByText('Neev Group')).toBeInTheDocument();
     expect(screen.queryByText(/1 company · 2 of 3 apps/)).toBeNull();
@@ -125,7 +126,7 @@ describe('the Workspace overview', () => {
     /* Urgent first: the sync problem sits above the invitation. */
     const titles = attention.getAllByRole('listitem').map((li) => li.textContent);
     expect(titles.findIndex((t) => t.includes('sync problem'))).toBeLessThan(titles.findIndex((t) => t.includes('pending invitation')));
-    const sub = within(screen.getByRole('region', { name: 'Subscription' }));
+    const sub = within(screen.getByRole('region', { name: 'Plan' }));
     expect(sub.getByText('₹2,499')).toBeInTheDocument();
     expect(sub.getByText('Renews')).toBeInTheDocument();
     expect(sub.getByText('Nothing')).toBeInTheDocument();
@@ -167,7 +168,7 @@ describe('the Workspace overview', () => {
     expect(attention.getByText('Your trial ends in 5 days')).toBeInTheDocument();
     fireEvent.click(attention.getByRole('button', { name: /CLOR invoice overdue/ }));
     expect(openScreen).toHaveBeenCalledWith('billing');
-    const sub = within(screen.getByRole('region', { name: 'Subscription' }));
+    const sub = within(screen.getByRole('region', { name: 'Plan' }));
     expect(sub.getByText('Trial')).toBeInTheDocument();
     expect(sub.getByText('Trial ends')).toBeInTheDocument();
     expect(sub.getByText('Not priced yet (Payroll)')).toBeInTheDocument();
@@ -202,10 +203,10 @@ describe('the Workspace overview', () => {
     render(<AdminHome tenant={tenant} catalog={CATALOG} navItems={[{ key: 'home' }]} openApp={() => {}} />);
     expect(await screen.findByText('No app access yet')).toBeInTheDocument();
     expect(screen.getByText('Member', { selector: '.ws-pill' })).toBeInTheDocument();
-    expect(screen.queryByText('Account Owner')).toBeNull();
+    expect(screen.queryByText('Owner')).toBeNull();
     expect(screen.queryByText('Companies')).toBeNull();
     expect(screen.queryByText('Team')).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Subscription' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Plan' })).toBeNull();
     expect(screen.queryByRole('region', { name: 'Quick actions' })).toBeNull();
     expect(screen.queryByRole('region', { name: 'Company overview' })).toBeNull();
     expect(screen.queryByRole('region', { name: 'Team and access' })).toBeNull();
@@ -218,7 +219,7 @@ describe('the Workspace overview', () => {
   it('a billing administrator sees the subscription, not the team', async () => {
     api.getAccountMe.mockResolvedValue({ role: 'BILLING_ADMIN', apps: [] });
     render(<AdminHome tenant={tenant} catalog={CATALOG} navItems={NAV} openApp={() => {}} />);
-    expect(await screen.findByRole('region', { name: 'Subscription' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Plan' })).toBeInTheDocument();
     expect(screen.queryByText('Team')).toBeNull();
     expect(screen.queryByRole('button', { name: /Invite people/ })).toBeNull();
     expect(api.memberDirectory).not.toHaveBeenCalled();

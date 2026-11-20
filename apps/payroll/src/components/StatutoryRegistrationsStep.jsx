@@ -6,6 +6,7 @@ import SuggestInput from "@ui/components/ui/SuggestInput";
 import { requestOpenScreen } from "@platform/context";
 import { getStatutoryRegistrations, saveStatutoryRegistrations } from "../api/payrollSetup";
 import { WHERE, problemOf } from "./statutoryRegistrationText";
+import { errorWords } from "@ui/utils/errorWords";
 
 /**
  * The numbers each statutory return is filed under (roadmap 15).
@@ -169,7 +170,7 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
   useEffect(() => {
     getStatutoryRegistrations()
       .then(fill)
-      .catch((e) => setFailed(String(e?.message || "Could not read the registrations.")));
+      .catch((e) => setFailed(errorWords(e, "read the registrations")));
   }, []);
 
   useEffect(() => {
@@ -211,7 +212,7 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
       notify.success(next.missing.length ? `Saved. Still to add: ${next.missing.map((m) => m.short).join(", ")}.` : "Statutory registrations saved.");
       if (onSaved) onSaved();
     } catch (e) {
-      notify.error(String(e?.message || "Could not save the registrations."));
+      notify.error(errorWords(e, "save the registrations"));
     } finally {
       setSaving(false);
     }
@@ -241,13 +242,13 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
 
       {!open ? (
         <p className="ui-caption" role="status">
-          {skipped ? "Skipped. You can add this later in Settings › Statutory › Compliance." : summary}
+          {skipped ? "Skipped. You can add this later in Settings → Compliance." : summary}
         </p>
       ) : (
         <div className="space-y-6">
           {/* Provident fund */}
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">Provident fund</legend>
+            <legend className="text-sm font-medium">Provident fund (PF)</legend>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="ui-checkbox mt-0.5" checked={form.pf.applies} onChange={(e) => set("pf", { applies: e.target.checked })} />
               <span>
@@ -277,7 +278,7 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
 
           {/* ESI */}
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">Employee State Insurance</legend>
+            <legend className="text-sm font-medium">Employees’ State Insurance (ESI)</legend>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="ui-checkbox mt-0.5" checked={form.esi.applies} onChange={(e) => set("esi", { applies: e.target.checked })} />
               <span>
@@ -292,7 +293,7 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
 
           {/* Professional tax */}
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">Professional tax</legend>
+            <legend className="text-sm font-medium">Professional tax (PT)</legend>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="ui-checkbox mt-0.5" checked={form.pt.applies} onChange={(e) => set("pt", { applies: e.target.checked })} />
               <span>
@@ -357,7 +358,7 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
             >
               Skip for now
             </button>
-            <span className="ui-caption">You can add this later in Settings › Statutory › Compliance.</span>
+            <span className="ui-caption">You can add this later in Settings → Compliance.</span>
           </div>
         </div>
       )}

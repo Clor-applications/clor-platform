@@ -120,7 +120,7 @@ billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireA
   const account = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { id: true } });
   if (!account) return res.status(404).json({ error: 'No such account' });
   const parsed = setSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Invalid subscription', details: parsed.error.flatten() });
+  if (!parsed.success) return res.status(400).json({ error: 'Some of the subscription details are not right. Check them and try again.', details: parsed.error.flatten() });
   const grant: PlanGrant = { route: 'plan', body: parsed.data };
   /*
    * Apps given away for good, or for less than the customer pays now, over

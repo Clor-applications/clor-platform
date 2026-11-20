@@ -12,6 +12,7 @@ import { hasApp } from '@platform/context';
 import { OWNER_WORD, leavingExtras, leavingPreview, startPlan } from './api';
 import { TaskDrawer, readerWords } from './shared';
 import LeavingSections, { FinalPayBanner } from './LeavingExtras';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * One person's joining or leaving plan, from the Joining and Leaving lists:
@@ -49,7 +50,7 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
       plan.reload();
       onChanged?.();
     } catch (e) {
-      notify.error(String(e?.message || 'Not started.'));
+      notify.error(errorWords(e, 'start the plan'));
     } finally {
       setStarting(false);
     }

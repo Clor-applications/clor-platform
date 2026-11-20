@@ -29,7 +29,7 @@ async function call(path, { method = 'GET', body } = {}) {
     setPortalToken('');
     throw new SignedOut(data.error);
   }
-  if (!res.ok) throw Object.assign(new Error(data?.error || `Something went wrong (${res.status}).`), { code: data?.code, status: res.status });
+  if (!res.ok) throw Object.assign(new Error(data?.error || `Request failed (${res.status})`), { code: data?.code, status: res.status });
   return data;
 }
 

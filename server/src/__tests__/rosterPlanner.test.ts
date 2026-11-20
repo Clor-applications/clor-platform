@@ -118,8 +118,8 @@ describe('painting the draft in one request', () => {
     const theirs = await shift(other, 'Theirs', 'T');
     const stranger = await person(other, 'X1');
     const before = await drafts(c);
-    expect((await att(c).post('/roster/draft', { employeeIds: [a.id], dates: ['2026-12-15'], kind: 'SHIFT', shiftId: theirs.id }).expect(400)).body.error).toBe('That shift is not in this organisation.');
-    expect((await att(c).post('/roster/draft', { employeeIds: [a.id, stranger.id], dates: ['2026-12-15'], kind: 'OFF' }).expect(400)).body.error).toBe('Someone chosen is not in this organisation.');
+    expect((await att(c).post('/roster/draft', { employeeIds: [a.id], dates: ['2026-12-15'], kind: 'SHIFT', shiftId: theirs.id }).expect(400)).body.error).toBe('That shift is not in this company.');
+    expect((await att(c).post('/roster/draft', { employeeIds: [a.id, stranger.id], dates: ['2026-12-15'], kind: 'OFF' }).expect(400)).body.error).toBe('Someone chosen is not in this company.');
     await att(c).post('/roster/draft', { employeeIds: [a.id], dates: ['2026-12-15'], kind: 'SHIFT' }).expect(400);
     await att(c).post('/roster/draft', { employeeIds: [a.id], dates: ['15 Dec'], kind: 'OFF' }).expect(400);
     await att(c).post('/roster/draft', { employeeIds: [], dates: ['2026-12-15'], kind: 'OFF' }).expect(400);

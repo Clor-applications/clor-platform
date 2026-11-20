@@ -22,7 +22,7 @@ const SECTIONS = [
   ['highlights', 'Highlights'],
   ['solutions', 'Solutions'],
   ['products', 'Products'],
-  ['apps', 'Inside each app'],
+  ['apps', 'Inside each product'],
   ['connected', 'How they connect'],
 ];
 
@@ -36,7 +36,7 @@ const HIGHLIGHTS = [
     title: 'Punches from the reader at the gate',
     text: 'ZKTeco, eSSL, Hikvision and Matrix readers send punches as they happen.',
     href: '/products/attendance',
-    go: 'See Attendance',
+    go: 'See CLOR Attendance',
   },
   {
     img: 'payroll-payslip',
@@ -47,7 +47,7 @@ const HIGHLIGHTS = [
     title: 'Payslips on the employee’s phone',
     text: 'Each payslip shows earnings, PF, ESI, professional tax and TDS, and arrives when the run is locked.',
     href: '/products/payroll',
-    go: 'See Payroll',
+    go: 'See CLOR Payroll',
   },
   {
     img: 'people-hr',
@@ -58,7 +58,7 @@ const HIGHLIGHTS = [
     title: 'One record for every employee',
     text: 'Personal, job and statutory details with a dated history of every change.',
     href: '/products/people',
-    go: 'See People',
+    go: 'See CLOR People',
   },
 ];
 
@@ -69,9 +69,9 @@ const SOLUTIONS = [
     img: ['business-workspace', 1400, 788, 'A business owner with her CLOR workspace open on a laptop'],
     link: ['/solutions/businesses', 'CLOR for businesses'],
     items: [
-      ['File GST returns', 'File GSTR-1 and GSTR-3B from the invoices you already raised.'],
-      ['Move from Tally', 'Import masters and opening balances from Tally.'],
-      ['Reconcile the bank', 'Reconcile the bank statement against Books.'],
+      ['Prepare GST returns', 'GSTR-1 and GSTR-3B are prepared from the invoices you already raised.'],
+      ['Move from Tally', 'Bring your masters and opening balances across.'],
+      ['Reconcile the bank', 'Match the bank statement against your books.'],
     ],
   },
   {
@@ -80,9 +80,9 @@ const SOLUTIONS = [
     img: ['hero-books-soft', 1400, 835, 'An accountant at his desk with the CLOR Books dashboard open'],
     link: ['/solutions/accounting-firms', 'CLOR for accounting firms'],
     items: [
-      ['Your own login', 'Your client invites you with your own login and decides what you may see and change.'],
-      ['Many clients, one sign-in', 'You switch between clients from the company menu without signing out.'],
-      ['Access the client controls', 'The client chooses what you can see and change, and can end it whenever they like.'],
+      ['Your own sign-in', 'Your client invites you by email; you never use their password.'],
+      ['Many clients, one sign-in', 'Switch between clients from the company menu without signing out.'],
+      ['The client controls your access', 'They choose what you can see and change, and can end it at any time.'],
     ],
   },
   {
@@ -91,9 +91,9 @@ const SOLUTIONS = [
     img: ['books-invoice', 980, 620, 'A GST invoice open in CLOR Books on a laptop'],
     link: ['/products/books', 'CLOR Books'],
     items: [
-      ['Journals post themselves', 'Invoices, bills and the salary run post their own journals.'],
-      ['Approval above an amount', 'Invoices above an amount wait for approval before they go out.'],
-      ['A second person for bank details', 'A change to bank details needs a second person.'],
+      ['Journals post themselves', 'Invoices, bills and the pay run post their own journals.'],
+      ['Approval above an amount', 'Invoices over a limit you set wait for approval before they go out.'],
+      ['A second person for bank details', 'Changing salary bank details can need a second person’s approval.'],
     ],
   },
   {
@@ -102,9 +102,9 @@ const SOLUTIONS = [
     img: ['demo-team-3d', 1120, 747, 'A team gathered around a laptop'],
     link: ['/products/people', 'CLOR People'],
     items: [
-      ['Joining and exit checklists', 'Joining and exit checklists that HR, IT and the manager each tick off.'],
-      ['Documents that remind you', 'Documents remind you before they expire.'],
-      ['One record per person', 'One record per person, from offer letter to final settlement.'],
+      ['Joining and leaving checklists', 'HR, IT and the manager each tick off their own tasks.'],
+      ['Documents that remind you', 'You get a reminder before an ID or certificate expires.'],
+      ['One record per person', 'From the offer letter to the final settlement.'],
     ],
   },
 ];
@@ -114,7 +114,7 @@ const APPS = [
     slug: 'books',
     title: 'GST invoices, returns and books in one place.',
     lines: [
-      'Raise GST invoices, e-invoices and e-way bills, and file GSTR-1 and GSTR-3B from what you raised.',
+      'Raise GST invoices, e-invoices and e-way bills, and prepare GSTR-1 and GSTR-3B from what you raised.',
       'Import masters and opening balances from Tally, and reconcile the bank statement against your books.',
       'Invoices above an amount wait for approval before they go out.',
     ],
@@ -133,7 +133,7 @@ const APPS = [
     title: 'One record for every employee.',
     lines: [
       'Personal, job and statutory details with a dated history of every change, and documents that remind you before they expire.',
-      'Leave balances and requests from the employee app, approved by the manager.',
+      'Leave requests from the employee app, approved by the manager, with CLOR Attendance.',
       'Joining and leaving checklists for HR, IT and the manager, ending in the final settlement for Payroll.',
     ],
   },
@@ -149,10 +149,10 @@ const APPS = [
 ];
 
 const FAQ = [
-  ['Do I have to buy every product?', 'No. Each CLOR product works on its own. Start with the one you need and add others later; they share one login and one list of employees.'],
+  ['Do I have to buy every product?', 'No. Each CLOR product works on its own. Start with the one you need and add others later; they share one sign-in and one list of employees.'],
   ['Is CLOR made for Indian companies?', 'Yes. GST, e-invoices and e-way bills, TDS, PF, ESI, professional tax and Form 16 are part of the products, not add-ons.'],
   ['Where is my data kept?', `In ${SITE.hosting}. Each company’s records are kept apart inside the database itself, not only by the application.`],
-  ['Can my accountant or CA work with me?', 'Yes. Invite them from your Workspace (Access, then Invitations) with their own login, choose what they can see and change, and end it whenever you like. A workspace for the firm’s own staff is planned.'],
+  ['Can my accountant or CA work with me?', 'Yes. Invite them from your Workspace (Access, then Invitations) with their own sign-in, choose what they can see and change, and end it at any time. An account for the firm’s own staff is planned.'],
   ['Can I leave with my data?', 'Yes. You can export your company’s data at any time, and closing a company comes with a notice period.'],
 ];
 
@@ -311,7 +311,7 @@ function Finder() {
                 ))
               ) : (
                 <li className="fx-find-none">
-                  Nothing by that name. <Link href="/contact">Ask us</Link>
+                  Nothing by that name. <Link href="/contact">Write to us</Link>
                 </li>
               )}
             </ul>
@@ -358,9 +358,6 @@ function Solutions() {
                 {open === i ? (
                   <div className="fx-acc-body">
                     <p>{text}</p>
-                    <Link className="fx-under" href={s.link[0]}>
-                      {s.link[1]}
-                    </Link>
                   </div>
                 ) : null}
               </div>
@@ -370,14 +367,14 @@ function Solutions() {
             <Photo name={s.img[0]} w={s.img[1]} h={s.img[2]} alt={s.img[3]} />
           </figure>
         </div>
-        <Go href="/solutions/businesses">See all solutions</Go>
+        <Go href={s.link[0]}>{s.link[1]}</Go>
       </div>
     </section>
   );
 }
 
 const CATS = [
-  ['all', 'Featured'],
+  ['all', 'All'],
   ['Finance', 'Finance'],
   ['HR', 'HR'],
   ['Operations', 'Operations'],
@@ -415,7 +412,7 @@ function ProductCard({ p, feature }) {
         ))}
       </ul>
       <Link className={feature ? 'btn fx-btn-light' : 'fx-under'} href={`/products/${p.slug}`}>
-        Explore the product
+        See <ProductName name={p.name} />
       </Link>
     </li>
   );
@@ -430,7 +427,7 @@ function ProductsBand() {
       <div className="wrap">
         <p className="fx-eyebrow">Products</p>
         <h2 className="fx-h" id="products-title">
-          Choose the apps your company needs
+          Choose the products your company needs
         </h2>
         <Tabs label="Product group" id="prod" tabs={CATS} current={cat} pick={setCat} />
         <div role="tabpanel" id="prod-panel" aria-labelledby={`prod-tab-${cat}`}>
@@ -440,8 +437,8 @@ function ProductsBand() {
           ))}
           {cat === 'all' ? (
             <li className="fx-pcard fx-pcard--brand">
-              <h3>One login for every app</h3>
-              <p>Books, People, Payroll and Attendance share one list of employees and one set of books.</p>
+              <h3>One sign-in for every product</h3>
+              <p>Add products as you need them. Each one joins the same employees and the same books.</p>
               <ul className="fx-brand-marks" aria-hidden="true">
                 {['books', 'people', 'payroll', 'attendance'].map((sl) => (
                   <li key={sl}>
@@ -472,12 +469,12 @@ function AppsBand() {
     <section className="fx-band fx-band--mint" id="apps" aria-labelledby="apps-title">
       <div className="wrap">
         <div className="fx-center">
-          <p className="fx-eyebrow">Inside each app</p>
+          <p className="fx-eyebrow">Inside each product</p>
           <h2 className="fx-h" id="apps-title">
-            See the work each app does
+            See the work each product does
           </h2>
         </div>
-        <Tabs kind="line" label="App" id="app" tabs={APPS.map((x) => [x.slug, productBySlug(x.slug).name])} current={slug} pick={setSlug} />
+        <Tabs kind="line" label="Product" id="app" tabs={APPS.map((x) => [x.slug, productBySlug(x.slug).name])} current={slug} pick={setSlug} />
         <div className="fx-app" role="tabpanel" id="app-panel" aria-labelledby={`app-tab-${slug}`} data-p={slug}>
           <div className="fx-app-copy">
             <p className="fx-app-name">
@@ -489,7 +486,7 @@ function AppsBand() {
                 <li key={x}>{x}</li>
               ))}
             </ul>
-            <Go href={`/products/${slug}`}>More about <ProductName name={p.name} /></Go>
+            <Go href={`/products/${slug}`}>See <ProductName name={p.name} /></Go>
           </div>
           <div className="fx-app-win" key={slug} aria-hidden="true">
             <Win />
@@ -514,7 +511,7 @@ function Connected() {
           <div>
             <p className="fx-eyebrow">How they connect</p>
             <h2 className="fx-h" id="connected-title">
-              Attendance feeds payroll. Payroll posts to Books.
+              Attendance feeds Payroll. Payroll posts to Books.
             </h2>
           </div>
           <Link className="btn fx-btn-line" href="/products">
@@ -534,7 +531,7 @@ function Connected() {
             <p>{c.text}</p>
             <p className="fx-story-note">Bought together, the four products read the same employees and post to the same books, so nobody exports a spreadsheet in between.</p>
             <Link className="btn btn--primary" href={`/products/${c.to}`}>
-              Explore {to.name}
+              See <ProductName name={to.name} />
             </Link>
           </div>
           <div className="fx-story-art" key={at} aria-hidden="true">
@@ -589,7 +586,7 @@ export default function Home() {
             <p className="fx-eyebrow">CLOR. One back office.</p>
             <h1 id="hero-title">Accounts, payroll and HR for growing Indian companies.</h1>
             <p className="fx-hero-lede">
-              GST accounting in CLOR Books, salaries with PF, ESI, PT and TDS in Payroll, every employee’s record in People, and punches from the gate in Attendance. One login, one list of
+              GST accounting in CLOR Books, salaries with PF, ESI, PT and TDS in Payroll, every employee’s record in People, and punches from the gate in Attendance. One sign-in, one list of
               employees, one set of books.
             </p>
             <div className="actions">
@@ -714,7 +711,7 @@ export default function Home() {
       <section className="fx-band fx-next" aria-labelledby="next-title">
         <div className="wrap">
           <h2 className="fx-h fx-center" id="next-title">
-            Take the next step
+            Start with CLOR
           </h2>
           <div className="fx-next-grid">
             <div className="fx-next-main">
@@ -733,7 +730,7 @@ export default function Home() {
               <span className="fx-next-icon" aria-hidden="true">
                 <Headset size={28} weight="duotone" />
               </span>
-              <h3>See it with your own figures</h3>
+              <h3>See it doing work like yours</h3>
               <p>Tell us what you use today for accounts, attendance and salaries, and we will show you the same month’s work in CLOR.</p>
               <Go href={SITE.demoUrl}>Request a demo</Go>
             </div>
@@ -741,7 +738,7 @@ export default function Home() {
               <span className="fx-next-icon" aria-hidden="true">
                 <BookOpenText size={28} weight="duotone" />
               </span>
-              <h3>Learn at your own pace</h3>
+              <h3>Read the setup guides</h3>
               <p>Guides for setting up readers, the on-site connector, Tally, HR tools and sign-in.</p>
               <Go href="/resources">Read the guides</Go>
             </div>

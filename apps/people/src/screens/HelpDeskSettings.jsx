@@ -56,8 +56,8 @@ export default function HelpDeskSettings() {
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : tab === 'categories' ? (
         <DataTable label="Categories" columns={catColumns} rows={cats} rowKey={(c) => c.key} loading={req.loading} refreshing={req.refreshing}
           total={cats.length} pageSize={Math.max(25, cats.length)} noun="categories" onRowClick={(c) => setEditingCat(c)}
-          card={(c) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{c.label}</span>{c.isActive ? null : <span className="ui-pill ui-pill-neutral">Off</span>}</span><span className="block truncate ui-caption">{[c.queue, `reply in ${c.replyHours} h`, `resolve in ${c.resolveDays} days`].join(' · ')}</span></span>}
-          empty={<EmptyState title="No categories" description="Categories come with the help desk; reload if this stays empty." />} />
+          card={(c) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{c.label}</span>{c.isActive ? null : <span className="ui-pill ui-pill-neutral">Off</span>}</span><span className="block truncate ui-caption">{[c.queue, `reply in ${c.replyHours} ${c.replyHours === 1 ? 'hour' : 'hours'}`, `resolve in ${c.resolveDays} days`].join(' · ')}</span></span>}
+          empty={<EmptyState title="No categories yet" description="Categories come with the help desk. Reload the page; if this stays empty, write to support@clor.in." />} />
       ) : (
         <DataTable label="Answer templates" columns={tplColumns} rows={templates} loading={req.loading} refreshing={req.refreshing}
           total={templates.length} pageSize={Math.max(25, templates.length)} noun="templates"
@@ -101,7 +101,7 @@ function CategoryDrawer({ value, users, queues, onClose, onDone }) {
         <div className="sm:col-span-2">
           {users.length
             ? <PopupSelect showValueSubtext={false} label="Queue lead" value={form.leadUserId} placeholder="Nobody" alwaysSearch={users.length > 8} onChange={(v) => set('leadUserId', v || '')} options={[{ value: '', label: 'Nobody' }, ...users.map((u) => ({ value: u.id, label: u.fullName || u.name || u.email }))]} />
-            : <p className="text-sm ui-muted">Choosing a lead needs the Users grant.</p>}
+            : <p className="text-sm ui-muted">Only someone who can see the user list can choose a lead. Ask an admin.</p>}
         </div>
         <label className="block"><span className="ui-label">Reply within (hours) *</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={form.replyHours} onChange={(e) => set('replyHours', e.target.value.replace(/\D/g, ''))} /></label>
         <label className="block"><span className="ui-label">Resolve within (working days) *</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={form.resolveDays} onChange={(e) => set('resolveDays', e.target.value.replace(/\D/g, ''))} /></label>

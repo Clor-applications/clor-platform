@@ -112,18 +112,18 @@ const demoBody = z.object({
       return p || '';
     }),
   city: text('your city', 2, 80),
-  companySize: z.enum(COMPANY_SIZES, { error: 'Choose how many people work there.' }),
+  companySize: z.enum(COMPANY_SIZES, { error: 'Choose the number of employees.' }),
   users: z.coerce
     .number({ error: 'Enter how many people will sign in.' })
     .int('Enter a whole number.')
     .min(1, 'At least one person signs in.')
     .max(100_000, 'Enter a smaller number.'),
   apps: z
-    .array(z.string(), { error: 'Tick at least one app.' })
+    .array(z.string(), { error: 'Tick at least one product.' })
     .default([])
     .transform((list, ctx) => {
       const codes = [...new Set(list.map((a) => APP_OF[String(a).toLowerCase()]).filter(Boolean))];
-      if (!codes.length) ctx.addIssue({ code: 'custom', message: 'Tick at least one app.' });
+      if (!codes.length) ctx.addIssue({ code: 'custom', message: 'Tick at least one product.' });
       return codes;
     }),
   message: z.string().trim().max(2000, 'Keep the message under 2,000 characters.').optional().nullable(),
@@ -274,7 +274,7 @@ const PAGE = 25;
 opsDemoRequestsRouter.get('/ops/demo-requests', (req, res) =>
   outsideTenant('ops: demo requests', async () => {
     const parsed = listQuery.safeParse(req.query);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
+    if (!parsed.success) return res.status(400).json({ error: 'Those filters are not right. Clear them and try again.' });
     const { status = 'all', page = 0, view = 'all', source } = parsed.data;
     const me = req.auth!.userId;
     const dueBy = endOfTodayIst();

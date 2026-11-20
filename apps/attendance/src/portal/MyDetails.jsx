@@ -4,6 +4,7 @@ import { confirmDialog } from '@ui/components/ui/notify';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { maritalNextStep } from '@ui/personnel/round43';
 import { SignedOut, acceptItem, answerMyRequest, askDetailsChange, getLeaving, getMyDetails, getPolicies, getPolicy, shrinkPhoto, withdrawMyRequest } from './portalApi';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * People self-service in the employee app (server: routes/peoplePortal.ts):
@@ -17,7 +18,7 @@ import { SignedOut, acceptItem, answerMyRequest, askDetailsChange, getLeaving, g
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const longDate = (d) => { const [y, m, dd] = String(d || '').slice(0, 10).split('-'); return y && m && dd ? `${Number(dd)} ${MONTHS[Number(m) - 1]} ${y}` : ''; };
 const shortDate = (v) => (v ? longDate(new Date(new Date(v).getTime() + 330 * 60_000).toISOString()) : '');
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 
 const GENDER = [['', 'Not said'], ['MALE', 'Male'], ['FEMALE', 'Female'], ['NON_BINARY', 'Non-binary'], ['OTHER', 'Other'], ['PREFER_NOT_TO_SAY', 'Prefer not to say']];
 const MARITAL = [['', 'Not said'], ['SINGLE', 'Single'], ['MARRIED', 'Married'], ['DIVORCED', 'Divorced'], ['WIDOWED', 'Widowed']];
@@ -43,7 +44,7 @@ export function MyDetails({ guard, refreshKey }) {
   const load = useCallback(() => {
     guard(getMyDetails())
       .then((r) => { setD(r); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not load your details.')));
+      .catch((e) => setFailed(errText(e, 'load your details')));
     /* Where a resignation stands, shown under My job; a failure here only hides that line. */
     guard(getLeaving()).then(setLeaving).catch(() => setLeaving(null));
   }, [guard]);
@@ -119,7 +120,7 @@ function PersonalDetails({ d, guard, reload }) {
       setEditing(false);
       reload();
     } catch (err) {
-      const text = errText(err, 'Not sent.');
+      const text = errText(err, 'send it');
       if (text) setNote({ ok: false, text });
     } finally {
       setBusy(false);
@@ -186,12 +187,12 @@ function MyRequests({ requests, guard, reload }) {
       await guard(answerMyRequest(r.id, answer[r.id] || ''));
       setAnswer((a) => ({ ...a, [r.id]: '' }));
       reload();
-    } catch (e) { setFailed(errText(e, 'Not sent.')); }
+    } catch (e) { setFailed(errText(e, 'send it')); }
   };
   const pull = async (r) => {
     if (!(await confirmDialog({ title: 'Withdraw this request?', message: 'HR will no longer decide it. You can ask again later.', confirmLabel: 'Withdraw' }))) return;
     setFailed('');
-    try { await guard(withdrawMyRequest(r.id)); reload(); } catch (e) { setFailed(errText(e, 'Not withdrawn.')); }
+    try { await guard(withdrawMyRequest(r.id)); reload(); } catch (e) { setFailed(errText(e, 'withdraw it')); }
   };
   return (
     <section className="ui-card p-5" aria-labelledby="my-asks-h">
@@ -233,7 +234,7 @@ export function Policies({ guard }) {
   const load = useCallback(() => {
     guard(getPolicies())
       .then((r) => { setRows(r?.policies || []); setLoadFailed(''); })
-      .catch((e) => setLoadFailed(errText(e, 'Could not load the company policies.')));
+      .catch((e) => setLoadFailed(errText(e, 'load the company policies')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
   if (loadFailed) return <LoadFailed message={loadFailed} onRetry={load} />;
@@ -243,11 +244,11 @@ export function Policies({ guard }) {
     try {
       const full = (await guard(getPolicy(p.versionId))).policy;
       setReading((r) => ({ ...r, [p.versionId]: full }));
-    } catch (e) { setFailed(errText(e, 'Could not open.')); }
+    } catch (e) { setFailed(errText(e, 'open it')); }
   };
   const accept = async (p) => {
     setFailed('');
-    try { await guard(acceptItem(p.acknowledgementId)); load(); } catch (e) { setFailed(errText(e, 'Not accepted.')); }
+    try { await guard(acceptItem(p.acknowledgementId)); load(); } catch (e) { setFailed(errText(e, 'accept it')); }
   };
   return (
     <section className="ui-card p-5" aria-labelledby="policies-h">

@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Camera, Check, ChevronDown } from '@ui/components/ui/lineIcons';
 
@@ -209,7 +210,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
       updateParams?.({ draft: d.id });
       notify.success('Draft saved. Only you can see it; it is kept for 30 days.');
     } catch (e) {
-      notify.error(String(e?.message || 'Draft not saved. Your entries are still here.'));
+      notify.error(`${errorWords(e, 'save the draft')} Your entries are still here.`);
     } finally {
       setBusy(false);
     }
@@ -222,7 +223,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   };
   const discardDraft = async () => {
     if (!(await confirmDialog({ title: 'Delete the saved draft?', confirmLabel: 'Delete draft' }))) return;
-    try { await deleteDraft(draftId); setDraftId(null); updateParams?.({ draft: null }); notify.success('Draft deleted.'); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
+    try { await deleteDraft(draftId); setDraftId(null); updateParams?.({ draft: null }); notify.success('Draft deleted.'); } catch (e) { notify.error(errorWords(e, 'delete it')); }
   };
   const create = async (again = false) => {
     for (const [k] of STEPS.slice(0, 3)) {
@@ -271,7 +272,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     }
   };
 
-  if (!can(perms, 'PEOPLE::Employees::CREATE')) return <ErrorState kind="forbidden" body="Adding employees needs the Employees create permission." />;
+  if (!can(perms, 'PEOPLE::Employees::CREATE')) return <ErrorState kind="forbidden" body="You do not have access to add employees. Ask an admin to allow it in Roles & permissions." />;
   if (loading || !lists) return <div className="space-y-4" aria-busy="true"><SkeletonCard lines={2} /><SkeletonCard lines={8} /></div>;
 
   const opts = (arr) => [{ value: '', label: 'Not set' }, ...arr.map((x) => ({ value: x.id, label: x.name }))];
@@ -291,7 +292,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
       field('departmentId').onChange(item.id);
       notify.success(`${item.name} added to departments.`);
     } catch (e) {
-      notify.error(String(e?.message || 'The department was not added.'));
+      notify.error(errorWords(e, 'add the department'));
     }
   };
   const errorList = Object.entries(errors).map(([k, message]) => ({ field: k, message }));
@@ -509,7 +510,7 @@ function PhotoField({ value, onChange, name }) {
           const f = e.target.files?.[0];
           e.target.value = '';
           if (!f) return;
-          try { onChange(await shrinkPhoto(f)); } catch (err) { notify.error(String(err?.message || 'Could not use that photo.')); }
+          try { onChange(await shrinkPhoto(f)); } catch (err) { notify.error(errorWords(err, 'use that photo')); }
         }} />
       </div>
     </div>

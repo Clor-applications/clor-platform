@@ -41,7 +41,7 @@ async function appLiveIn(accountId: string, orgId: string, app: string): Promise
   if (await closing(orgId)) return { status: 403, error: 'This company is being closed; its connections are switched off.', code: 'COMPANY_CLOSING' };
   /* Only an app with an on/off switch of its own (Payroll, Attendance, People) can be switched off; Accounting is its subscription. */
   const featureKey = APP_CATALOG.find((x) => x.code === app)?.featureKey;
-  if (featureKey && !(await isFeatureEnabled(accountId, orgId, featureKey))) return { status: 403, error: `${app[0].toUpperCase()}${app.slice(1)} is not switched on for this organisation.`, code: 'APP_DISABLED' };
+  if (featureKey && !(await isFeatureEnabled(accountId, orgId, featureKey))) return { status: 403, error: `${app[0].toUpperCase()}${app.slice(1)} is not switched on for this company.`, code: 'APP_DISABLED' };
   if (!(await isAppEntitled(accountId, app))) return { status: 402, error: `The ${app} app is not on this account's subscription.`, code: 'APP_NOT_SUBSCRIBED' };
   return null;
 }

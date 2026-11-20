@@ -48,7 +48,7 @@ describe('operator console: tickets', () => {
     expect(within(row).getByText('Needs an answer')).toBeInTheDocument();
     expect(within(row).getByText('Urgent')).toBeInTheDocument();
     expect(within(row).getByText('Nobody yet')).toBeInTheDocument();
-    expect(screen.getByText('1 need an answer · 0 waiting on customers')).toBeInTheDocument();
+    expect(screen.getByText('1 needs an answer')).toBeInTheDocument();
     fireEvent.click(within(row).getByRole('button', { name: 'T-1001' }));
     expect(open).toHaveBeenCalledWith('t1');
     fireEvent.click(screen.getByRole('tab', { name: /Mine/ }));
@@ -74,7 +74,7 @@ describe('operator console: tickets', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Take it' }));
     await waitFor(() => expect(api.opsTicketChange).toHaveBeenCalledWith('t1', { assignedOperatorId: 'op1' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Look up this error code' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Look up this request ID' }));
     expect(lookUp).toHaveBeenCalledWith('req_7Hk2mQ9xLp3vT8wZ');
   });
 

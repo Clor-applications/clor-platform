@@ -56,7 +56,7 @@ const APP_KEYS = ['people', 'attendance', 'payroll'] as const;
 opsListsRouter.get('/ops/organisations', (req, res) =>
   outsideTenant('ops: organisations', async () => {
     const parsed = orgQuery.safeParse(req.query);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
+    if (!parsed.success) return res.status(400).json({ error: 'Those filters are not right. Clear them and try again.' });
     const { q = '', account, status = 'all', page: p = 0 } = parsed.data;
     const where: any = {};
     if (account) where.accountId = account;
@@ -146,7 +146,7 @@ const ROLE_RANK = ['OWNER', 'ADMIN', 'BILLING_ADMIN', 'MEMBER'];
 opsListsRouter.get('/ops/users', (req, res) =>
   outsideTenant('ops: users', async () => {
     const parsed = userQuery.safeParse(req.query);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
+    if (!parsed.success) return res.status(400).json({ error: 'Those filters are not right. Clear them and try again.' });
     const { q = '', account, status = 'all', signIn = 'all', page: p = 0 } = parsed.data;
     const now = new Date();
     const and: any[] = [];
@@ -248,7 +248,7 @@ const denialQuery = z.object({
 opsListsRouter.get('/ops/denials', (req, res) =>
   outsideTenant('ops: entitlement denials', async () => {
     const parsed = denialQuery.safeParse(req.query);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
+    if (!parsed.success) return res.status(400).json({ error: 'Those filters are not right. Clear them and try again.' });
     const { q = '', code, app, since = 'day', account, page: p = 0 } = parsed.data;
     const now = Date.now();
     await pruneDenials(now);
@@ -317,7 +317,7 @@ const switchQuery = z.object({ q: text, app: z.string().trim().max(32).optional(
 opsListsRouter.get('/ops/feature-switches', (req, res) =>
   outsideTenant('ops: feature switches', async () => {
     const parsed = switchQuery.safeParse(req.query);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
+    if (!parsed.success) return res.status(400).json({ error: 'Those filters are not right. Clear them and try again.' });
     const { q = '', app, changed = 'all', page: p = 0 } = parsed.data;
     const [rows, settings] = await Promise.all([
       platformPrisma.accountEntitlement.findMany({ where: { OR: [{ extraFeatures: { not: '' } }, { removedFeatures: { not: '' } }] }, select: { accountId: true, extraFeatures: true, removedFeatures: true } }),

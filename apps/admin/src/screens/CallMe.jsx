@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Phone } from 'lucide-react';
 
 import { openTicket } from '@platform/admin/account';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Round 35 pick kickoff B (owner, 18 Nov 2026): setting up is helped by a
@@ -58,7 +59,7 @@ export function CallMe() {
       const t = await openTicket(callTicket(phone));
       setDone(t?.code || 'sent');
     } catch (err) {
-      setError(String(err?.message || 'Could not send. Try again.'));
+      setError(errorWords(err, 'ask for the call'));
       setBusy(false);
     }
   };

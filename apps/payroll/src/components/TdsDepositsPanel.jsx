@@ -8,6 +8,7 @@ import { formatDateIn } from '@ui/utils/dates';
 import { wholeRupees as money } from '@ui/utils/money';
 import { addTdsChallan, getTdsChallans, removeTdsChallan } from '../api/payrollReports';
 import { leftWords } from './filingChecks';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Salary TDS deposits (round 27 pick): a row per month of the year with the
@@ -41,21 +42,21 @@ function Panel({ fy, onClose }) {
         setData(r);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load the deposits.')));
+      .catch((e) => setError(errorWords(e, 'load the deposits')));
   }, [fy]);
   useEffect(() => {
     load();
   }, [load]);
 
   const remove = async (c) => {
-    const ok = await confirmDialog({ title: 'Remove this challan?', message: `Challan ${c.bsrCode} / ${c.challanSerial} of ${formatDateIn(c.depositDate)} comes off ${monthWords(c.month)}.`, confirmLabel: 'Remove', tone: 'danger' });
+    const ok = await confirmDialog({ title: 'Remove this challan?', message: `Challan ${c.bsrCode} / ${c.challanSerial} of ${formatDateIn(c.depositDate)} comes off ${monthWords(c.month)}.`, confirmLabel: 'Remove challan', tone: 'danger' });
     if (!ok) return;
     try {
       await removeTdsChallan(c.id);
       notify.success('Challan removed.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not remove that challan.'));
+      notify.error(errorWords(e, 'remove that challan'));
     }
   };
 
@@ -162,7 +163,7 @@ function ChallanForm({ fy, month, amount, onCancel, onSaved }) {
       notify.success(`Challan added to ${monthWords(month)}.`);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not add that challan.'));
+      notify.error(errorWords(err, 'add that challan'));
     } finally {
       setBusy(false);
     }

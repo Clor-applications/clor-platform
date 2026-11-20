@@ -28,10 +28,10 @@ const COPY = {
   offline: { Icon: WifiOff, title: 'No connection', body: 'Check your connection and try again. Anything you entered is still here.' },
   unavailable: { Icon: AlertCircle, title: 'Something went wrong on our side', body: 'Nothing was changed. Try again in a moment.' },
   signedOut: { Icon: Lock, title: 'You were signed out', body: 'Sign in again to carry on. What you typed is kept on this page.' },
-  forbidden: { Icon: Lock, title: 'You don’t have access to this', body: 'Ask an admin if you need it.' },
-  notFound: { Icon: SearchX, title: 'Not found', body: 'It may have been removed, or the link is out of date.' },
+  forbidden: { Icon: Lock, title: 'You don’t have access to this', body: 'Ask an administrator of this company if you need it.' },
+  notFound: { Icon: SearchX, title: 'This is no longer here', body: 'It may have been removed, or the link is out of date.' },
   conflict: { Icon: RefreshCw, title: 'Someone else changed this', body: 'Reload to see their changes, then make yours again. Nothing was overwritten.' },
-  tooMany: { Icon: Clock, title: 'Too many requests', body: 'Wait a minute, then try again.' },
+  tooMany: { Icon: Clock, title: 'Too many tries', body: 'Wait a minute, then try again.' },
   failed: { Icon: AlertCircle, title: 'That didn’t work', body: '' },
   slow: { Icon: Clock, title: 'Taking longer than usual', body: 'Still working on it. This can take a few more seconds.' },
 };

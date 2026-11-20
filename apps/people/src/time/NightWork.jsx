@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -83,7 +84,7 @@ export default function NightWork() {
             <span className="block ui-caption tabular-nums">{r.nightDays ? `${r.nightDays} night shifts in the next 30 days` : 'No night shifts ahead'}</span>
           </span>
         )}
-        empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState title="No women on the books" description="Consent is asked of women whose gender is recorded as female." />}
+        empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState title="No women employees recorded" description="Consent is asked of women whose gender is recorded as female." />}
       />
       {open ? <ConsentDrawer row={open} canEdit={Boolean(d?.canEdit)} onClose={() => setOpen(null)} onDone={() => { setOpen(null); req.reload(); }} /> : null}
     </div>
@@ -104,7 +105,7 @@ function ConsentDrawer({ row, canEdit, onClose, onDone }) {
     try {
       setFile({ name: f.name, mime: f.type, data: await readFile(f) });
     } catch (e) {
-      notify.error(String(e?.message || 'Could not read the file.'));
+      notify.error(errorWords(e, 'read the file'));
     }
     return null;
   };
@@ -116,7 +117,7 @@ function ConsentDrawer({ row, canEdit, onClose, onDone }) {
       notify.success(status === 'GIVEN' ? 'Consent recorded.' : 'Withdrawal recorded.');
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setBusy(false);
     }

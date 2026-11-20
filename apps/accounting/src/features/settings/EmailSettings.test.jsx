@@ -35,7 +35,7 @@ describe('notifications tab', () => {
   it('lists the emails by app and saves a switch', async () => {
     render(<EmailSettings />);
     fireEvent.click(await screen.findByRole('tab', { name: 'Notifications' }));
-    const accounting = screen.getByRole('region', { name: 'Accounting' });
+    const accounting = screen.getByRole('region', { name: 'Books' });
     expect(screen.getByRole('region', { name: 'People' })).toBeInTheDocument();
     fireEvent.click(within(accounting).getByRole('checkbox', { name: /Approval decided/ }));
     fireEvent.click(screen.getByRole('button', { name: /Save/ }));

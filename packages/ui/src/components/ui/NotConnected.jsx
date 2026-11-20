@@ -25,7 +25,7 @@ export const NotConnected = ({ what, sample = false, children }) => (
   >
     <PlugZap size={18} aria-hidden="true" className="mt-0.5 shrink-0" />
     <div className="text-sm">
-      <div className="font-semibold">Preview — {what} is not connected yet.</div>
+      <div className="font-semibold">Preview: {what} is not connected yet.</div>
       <div className="mt-0.5">
         {sample ? 'The figures below are sample data, not this account. ' : ''}
         {children}

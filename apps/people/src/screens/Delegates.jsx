@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 
@@ -75,7 +76,7 @@ export default function Delegates() {
       notify.success('Delegate removed.');
       reload();
     } catch (err) {
-      notify.error(String(err?.message || 'Not removed.'));
+      notify.error(errorWords(err, 'remove it'));
     }
   };
 
@@ -96,7 +97,7 @@ export default function Delegates() {
         title="Delegates"
         actions={namesLeave || seesApprovals ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Add delegate</button> : null}
       />
-      {error ? <Alert tone="neg" title="Part of this list could not be loaded" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={reload}>Retry</button>}>{(leave.error || mine.error)?.message || 'Try again.'}</Alert> : null}
+      {error ? <Alert tone="neg" title="Part of this list could not be loaded" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={reload}>Retry</button>}>{errorWords(leave.error || mine.error, 'load the delegates')}</Alert> : null}
       <DataTable
         label="Delegates"
         columns={columns}
@@ -117,7 +118,7 @@ export default function Delegates() {
             </span>
           );
         }}
-        empty={<EmptyState title="No delegates" description="While a manager is away, someone else can decide their team's leave and other approvals." />}
+        empty={<EmptyState title="No delegates" description="While a manager is away, someone else can decide their team's leave and other approvals." action={namesLeave || seesApprovals ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}>Add delegate</button> : null} />}
       />
       {adding ? (
         <AddDelegate wholeCompany={wholeCompany} namesLeave={namesLeave} namesApprovals={seesApprovals} selfEmployeeId={selfEmployeeId}
@@ -166,7 +167,7 @@ function AddDelegate({ wholeCompany, namesLeave, namesApprovals, selfEmployeeId,
       notify.success(`${name} decides ${scopeWords(requestTypes).toLowerCase()} from ${formatDate(form.fromDate)} to ${formatDate(form.toDate)}.`);
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setSaving(false);
     }

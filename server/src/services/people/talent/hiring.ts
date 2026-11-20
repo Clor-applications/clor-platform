@@ -220,7 +220,7 @@ function candidateInput(raw: any, partial = false) {
   const name = text(raw?.name, 120);
   if (!partial && !name) throw new TalentError('Give the candidate’s name.');
   const email = text(raw?.email, 200);
-  if (email && !EMAIL.test(email)) throw new TalentError('That e-mail address does not look right.');
+  if (email && !EMAIL.test(email)) throw new TalentError('That email address does not look right.');
   const phone = text(raw?.phone, 40);
   if (phone && !/^\+?[\d\s\-()]{7,20}$/.test(phone)) throw new TalentError('That phone number does not look right.');
   const source = raw?.source === undefined ? undefined : (SOURCES as readonly string[]).includes(raw.source) ? raw.source : 'OTHER';
@@ -725,7 +725,7 @@ export async function openingByToken(token: string) {
 export async function applyFromLink(opening: { id: string; accountId: string; orgId: string; title: string; status: string; applyOpen: boolean; screeningQuestions?: unknown }, raw: any) {
   if (!opening.applyOpen || opening.status !== 'OPEN') throw new TalentError('This job is no longer taking applications.', 410);
   const data = candidateInput({ ...raw, source: 'APPLY_LINK' }) as any;
-  if (!data.email && !data.phone) throw new TalentError('Give an e-mail address or a phone number, so the company can reach you.');
+  if (!data.email && !data.phone) throw new TalentError('Give an email address or a phone number, so the company can reach you.');
   const resumeUrl = text(raw?.resumeUrl, 500);
   if (resumeUrl && !/^https:\/\//i.test(resumeUrl)) throw new TalentError('A résumé link starts with https://');
   const note = text(raw?.note, 2000);

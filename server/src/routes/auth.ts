@@ -47,6 +47,8 @@ import { grantedCompanies } from '../services/supportGrants.js';
 import { operatorRole } from '../middleware/operator.js';
 import { closedForOutsider } from '../services/outsideAccess.js';
 import { exploreInfo } from '../services/explore.js';
+import { SIGNED_OUT_TEXT } from '../utils/companyWords.js';
+import { countWords } from '../utils/istDate.js';
 
 /* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
 /** The one answer a refused sign-in gets, whatever the reason (W-12.5). */
@@ -71,7 +73,7 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
     ])
     .safeParse(req.body);
 
-  if (!parsed.success) return res.status(400).json({ error: 'Invalid login payload' });
+  if (!parsed.success) return res.status(400).json({ error: 'Enter your email and password.' });
 
   const body = parsed.data;
   const rawIdentity = 'emailOrUsername' in body ? body.emailOrUsername : body.email;
@@ -294,13 +296,17 @@ authRouter.post('/login/two-factor/sms', ...codeLimiter, async (req: Request, re
   if (!user || !user.isActive) return res.status(401).json({ error: 'Enter your password again.', code: 'CHALLENGE_EXPIRED' });
   if (!user.smsTwoFactorEnabledAt || !user.smsPhone) return res.status(400).json({ error: 'Codes by text message are not on for you. Use your authenticator app or a recovery code.', code: 'SMS_NOT_ON' });
   const lockedFor = lockoutRemainingMs(user.lockedUntil);
-  if (lockedFor > 0) return res.status(429).json({ error: `Too many failed attempts. Try again in ${Math.ceil(lockedFor / 60000)} minute(s).` });
+  if (lockedFor > 0) return res.status(429).json({ error: `Too many wrong tries. Try again in ${countWords(Math.ceil(lockedFor / 60000), 'minute')}.` });
   try {
     const sent = await issueSmsCode(user.id, user.smsPhone, 'LOGIN');
     res.json({ sent: true, phone: maskPhone(user.smsPhone), ...sent });
   } catch (e) {
     if (e instanceof SmsLimitError) return res.status(429).json({ error: e.message, code: 'SMS_HELD', retryAfter: e.retryAfterS });
-    if (e instanceof SmsError) return res.status(503).json({ error: `${e.message} Use your authenticator app or a recovery code.`, code: 'SMS_NOT_SENT' });
+    if (e instanceof SmsError) {
+      /* The provider's reason is for CLOR staff (the log, and Ops' own test send), not for the person signing in. */
+      console.error('[auth] sign-in code not sent:', e.message);
+      return res.status(503).json({ error: 'We could not send the code by text message. Use your authenticator app or a recovery code.', code: 'SMS_NOT_SENT' });
+    }
     throw e;
   }
 });
@@ -327,7 +333,7 @@ authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: R
   const lockedFor = lockoutRemainingMs(user.lockedUntil);
   if (lockedFor > 0) {
     await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: 'LOCKED_OUT', ip, userAgent });
-    return res.status(429).json({ error: `Too many failed attempts. Try again in ${Math.ceil(lockedFor / 60000)} minute(s).` });
+    return res.status(429).json({ error: `Too many wrong tries. Try again in ${countWords(Math.ceil(lockedFor / 60000), 'minute')}.` });
   }
 
   const code = String(req.body?.code || '').trim();
@@ -348,7 +354,7 @@ authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: R
     const policy = await policyForUser(user.accountId, user.id);
     const result = await registerFailedLogin(user.id, policy.maxFailedLogins, policy.lockoutMinutes);
     await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: result.locked ? 'LOCKED_OUT' : 'LOGIN_FAILED', ip, userAgent, detail: 'Wrong second-step code' });
-    if (result.locked) return res.status(429).json({ error: `Too many failed attempts. Try again in ${policy.lockoutMinutes} minute(s).` });
+    if (result.locked) return res.status(429).json({ error: `Too many wrong tries. Try again in ${countWords(policy.lockoutMinutes, 'minute')}.` });
     return res.status(400).json({ error: 'That code is not right, or has been used. Wait for the next one.', code: 'BAD_CODE' });
   }
   if (used === 'RECOVERY') {
@@ -360,7 +366,7 @@ authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: R
 /** Exchange a refresh token for a new pair. The old one is retired. */
 authRouter.post('/refresh', refreshLimiter, async (req: Request, res: Response) => {
   const presented = refreshTokenFrom(req);
-  if (presented.length < 10) return res.status(400).json({ error: 'Missing refresh token' });
+  if (presented.length < 10) return res.status(400).json({ error: SIGNED_OUT_TEXT });
 
   try {
     const rotated = await rotateSession(presented, {
@@ -447,7 +453,7 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
       lastLoginAt: true,
     },
   });
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!user) return res.status(401).json({ error: SIGNED_OUT_TEXT });
   const ownAccount = await platformPrisma.account.findUnique({ where: { id: user.accountId }, select: { code: true } });
 
   /* Same rule as login: every company this person can open. */
@@ -683,11 +689,19 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
   if (weak) return res.status(400).json({ error: weak, code: 'WEAK_PASSWORD' });
 
   const email = body.email.trim().toLowerCase();
-  const existing = await platformPrisma.user.findFirst({ where: { email }, select: { id: true } });
-  if (existing) return res.status(409).json({ error: 'User already exists. Please login.' });
-
   const rounds = Number(process.env.BCRYPT_ROUNDS || 12);
   const passwordHash = await bcrypt.hash(body.password, rounds);
+  const existing = await platformPrisma.user.findFirst({ where: { email }, select: { id: true } });
+  if (existing) {
+    /*
+     * The same as clor.in's trial form (routes/signup.ts): the address is told by email that it already
+     * signs in, and the page answers with "check your email" rather than a sentence about the address
+     * (UX copy audit, 20 Nov 2026). No session is made.
+     */
+    await sendTemplate({ templateKey: 'signup.already', to: email, relatedType: 'User', relatedId: existing.id, transactional: true, data: { signInUrl: `${process.env.APP_URL || 'http://localhost:5173'}/` } }).catch(() => {});
+    await recordAuthEvent({ email, eventType: 'LOGIN_FAILED', ip: clientIp(req), detail: 'Sign-up with an address that already signs in' });
+    return res.json({ checkEmail: true, emailVerificationSent: true, message: 'Check your email to continue.' });
+  }
 
   /*
    * Provision identity and commercial access atomically, through the one
@@ -773,7 +787,7 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
 
   const stateName = String(body.state || '').trim();
   if (!deriveStateCodeFromInput(stateName)) {
-    return res.status(400).json({ error: `Unknown state: ${stateName}` });
+    return res.status(400).json({ error: `Choose a state from the list. “${stateName}” is not one of them.` });
   }
 
   const gstin = String(body.gstin || '').trim().toUpperCase();
@@ -823,12 +837,12 @@ authRouter.post('/forgot-password', resetLimiter, async (req: Request, res: Resp
 
   const user = await platformPrisma.user.findFirst({
     where: { email },
-    select: { id: true, accountId: true, isActive: true },
+    select: { id: true, accountId: true, isActive: true, fullName: true },
   });
 
   // Always the same answer, so this endpoint cannot be used to discover which
   // addresses have accounts.
-  const generic = { message: 'If an account exists, a reset link has been sent to your email.' };
+  const generic = { message: 'If this email signs in to CLOR, a reset link is on its way. It works once, for 30 minutes.' };
 
   if (!user || !user.isActive) {
     await recordAuthEvent({ email, eventType: 'PASSWORD_RESET_REQUESTED', ip, detail: 'No such active user' });
@@ -843,7 +857,8 @@ authRouter.post('/forgot-password', resetLimiter, async (req: Request, res: Resp
     to: email,
     accountId: user.accountId,
     data: {
-      userName: email,
+      /* The person's name, never their address; with no name the greeting is a plain "Hello," (services/mailer.ts). */
+      userName: user.fullName || '',
       resetUrl: `${process.env.APP_URL || 'http://localhost:5173'}/?reset=${token}`,
     },
     relatedType: 'User',
@@ -898,7 +913,7 @@ authRouter.post('/reset-password', resetLimiter, async (req: Request, res: Respo
     detail: 'All sessions revoked',
   });
 
-  return res.json({ message: 'Password reset successfully. Please sign in again.' });
+  return res.json({ message: 'Your password is changed. Sign in with the new one.' });
 });
 
 /** Confirms an address from the emailed link. */
@@ -928,7 +943,7 @@ authRouter.post('/resend-verification', resetLimiter, requireLiveAuth, async (re
     where: { id: auth.userId, accountId: auth.accountId },
     select: { id: true, accountId: true, email: true, fullName: true, emailVerifiedAt: true },
   });
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!user) return res.status(401).json({ error: SIGNED_OUT_TEXT });
   if (user.emailVerifiedAt) return res.json({ ok: true, alreadyVerified: true });
 
   const token = await issueEmailVerificationToken(user);
@@ -1009,7 +1024,7 @@ authRouter.get('/me/export', requireLiveAuth, async (req: Request, res: Response
       updatedAt: true,
     },
   });
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user) return res.status(404).json({ error: SIGNED_OUT_TEXT });
 
   const memberships = await platformPrisma.userOrgMembership.findMany({
     where: { userId },

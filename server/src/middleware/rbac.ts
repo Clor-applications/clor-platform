@@ -2,6 +2,8 @@ import type { Request, Response, NextFunction } from 'express';
 import { PermissionAction, type PermissionAction as PermissionActionType } from '../constants/enums.js';
 import { resolveAccess, resolveGrantAccess } from '../services/access.js';
 import { appStanding } from '../services/subscriptions.js';
+import { appByCode } from '../constants/appCatalog.js';
+import { CHOOSE_COMPANY_TEXT, NO_ROLE_TEXT, ROLE_DOES_NOT_ALLOW_TEXT, SIGNED_OUT_TEXT } from '../utils/companyWords.js';
 
 // DB-stored RBAC:
 // - UserRoleAssignment can be org-wide (branchId null) or branch-scoped
@@ -85,8 +87,8 @@ export async function authorize(
   const orgId = String(req.tenant?.orgId || '').trim();
   const branchId = String(req.tenant?.branchId || '').trim();
 
-  if (!accountId || !userId) return { status: 401, body: { error: 'Missing auth context' } };
-  if (!orgId || !branchId) return { status: 400, body: { error: 'Missing tenant context' } };
+  if (!accountId || !userId) return { status: 401, body: { error: SIGNED_OUT_TEXT } };
+  if (!orgId || !branchId) return { status: 400, body: { error: CHOOSE_COMPANY_TEXT } };
 
   /*
    * A role says what a user may do inside an app; it must never grant the app
@@ -120,13 +122,13 @@ export async function authorize(
       if (lapsed) return { status: 402, body: { error: lapsed, app: apps[0], code: 'SUBSCRIPTION_LAPSED' } };
       return {
         status: 402,
-        body: { error: `The ${apps[0]} app is not on this account's subscription.`, app: apps[0], code: 'APP_NOT_SUBSCRIBED' },
+        body: { error: `${appByCode(apps[0])?.name || apps[0]} is not on this account’s subscription. An owner can add it under Workspace → Billing.`, app: apps[0], code: 'APP_NOT_SUBSCRIBED' },
       };
     }
     /* GAP-006: and, for a person from another account, an app the company let them use. */
     const ceiling = req.tenant?.outsideApps;
     if (ceiling && !apps.some((a) => ceiling.includes(a))) {
-      return { status: 403, body: { error: `This company has not given you access to ${apps[0]}.`, app: apps[0], code: 'APP_NOT_IN_ENGAGEMENT' } };
+      return { status: 403, body: { error: `This company has not given you access to ${appByCode(apps[0])?.name || apps[0]}. Ask the company to add it to your access.`, app: apps[0], code: 'APP_NOT_IN_ENGAGEMENT' } };
     }
   }
 
@@ -148,7 +150,7 @@ export async function authorize(
    * their next click. A company left with no administrator at all is repaired
    * by scripts/backfillOwnerPermissions.ts, which every deploy runs, not here.
    */
-  if (access.roleIds.length === 0) return { status: 403, body: { error: 'No roles assigned' } };
+  if (access.roleIds.length === 0) return { status: 403, body: { error: NO_ROLE_TEXT } };
 
   const allowed = access.permissions;
   req.permissions = allowed;
@@ -172,7 +174,7 @@ export async function authorize(
      * `scripts/backfillOwnerPermissions.ts` tops up the ones created before
      * that. Neither happens here, while a request is being decided.
      */
-    return { status: 403, body: { error: 'Permission denied', permission: { module: m, subModule: sm || null, action } } };
+    return { status: 403, body: { error: ROLE_DOES_NOT_ALLOW_TEXT, permission: { module: m, subModule: sm || null, action } } };
   }
 
   return null;
@@ -194,7 +196,7 @@ export async function authorizeAny(req: Request, options: Array<[string, Permiss
   return (
     other || {
       status: 403,
-      body: { error: 'Permission denied', anyOf: options.map(([module, action, subModule]) => ({ module, subModule: subModule || null, action })) },
+      body: { error: ROLE_DOES_NOT_ALLOW_TEXT, anyOf: options.map(([module, action, subModule]) => ({ module, subModule: subModule || null, action })) },
     }
   );
 }

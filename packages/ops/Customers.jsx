@@ -11,7 +11,7 @@ import { SupportAccess } from './SupportAccess';
 import { CustomerNotes } from './CustomerNotes';
 import { PhoneRule, PinnedNotes } from './PinnedNotes';
 import { DealDrawer } from './Deals';
-import { APP_NAMES, Empty, Err, Loading, Pager, REASON, ReasonDrawer, SELLABLE, Tabs, appsText, day, may, when } from './kit';
+import { APP_NAMES, Empty, Err, Loading, Pager, REASON, ReasonDrawer, SELLABLE, Tabs, appsText, day, errorWords, may, reasonShort, when } from './kit';
 import {
   opsAccount,
   opsAccountEntitlements,
@@ -105,7 +105,7 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
     const t = setTimeout(() => {
       opsAccounts(view.tag ? view : { q: view.q, status: view.status, page: view.page })
         .then((r) => live && (setData(r), setError('')))
-        .catch((e) => live && setError(String(e?.message || e)));
+        .catch((e) => live && setError(errorWords(e, 'load this account')));
     }, 200);
     return () => {
       live = false;
@@ -124,7 +124,7 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
         <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 460 }}>
           <span className="sr-only">Search customers</span>
           <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
-          <input className="ui-input" style={{ paddingLeft: '2.25rem' }} value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value, page: 0 }))} placeholder="Name, company ID or owner email" />
+          <input className="ui-input" style={{ paddingLeft: '2.25rem' }} value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value, page: 0 }))} placeholder="Name, account ID or owner email" />
         </label>
         <select className="ui-select" style={{ width: 'auto' }} aria-label="Status" value={view.status} onChange={(e) => setView((v) => ({ ...v, status: e.target.value, page: 0 }))}>
           {FILTERS.map(([k, label]) => (
@@ -230,7 +230,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
   const load = useCallback(() => {
     opsAccount(id)
       .then((r) => (setD(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load this account')));
   }, [id]);
   useEffect(load, [load]);
   /* The account's invoices, fetched once when the page opens: the line under the name says what is unpaid, and the Invoices and payments tab lists the same rows. */
@@ -239,7 +239,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
     let live = true;
     opsInvoices({ accountId: id })
       .then((r) => live && setInv({ forId: id, invoices: r?.invoices || [], hasMore: Boolean(r?.hasMore) }))
-      .catch((e) => live && setInv({ forId: id, error: String(e?.message || e) }));
+      .catch((e) => live && setInv({ forId: id, error: errorWords(e, 'load the invoices') }));
     return () => {
       live = false;
     };
@@ -289,7 +289,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         <StatusPill status={plan} />
         {s?.apps?.length ? <span className="ws-pill">{appsText(s.apps)}</span> : null}
         {cancelling ? <span className="ws-pill ws-pill--warn">Cancels at period end{s.currentPeriodEnd ? `, ${day(s.currentPeriodEnd)}` : ''}</span> : null}
-        {a.legacyUnrestrictedAt && !s ? <span className="ws-pill ws-pill--warn">Fail-open: every app</span> : null}
+        {a.legacyUnrestrictedAt && !s ? <span className="ws-pill ws-pill--warn">No plan: every app open</span> : null}
       </div>
       {s?.status === 'active' && !s.currentPeriodEnd && !a.suspendedAt ? (
         <p className="ws-notice" role="status">
@@ -349,7 +349,7 @@ const SUPPORT_JOBS = [
 const NEAR_SEATS = 0.9;
 const APP_INITIAL = { accounting: 'B', people: 'P', payroll: '₹', attendance: 'A', projects: 'Pr' };
 function seatStanding(a) {
-  if (!a.owned) return ['402 if called', 'ws-pill ws-pill--off'];
+  if (!a.owned) return ['Not on their plan', 'ws-pill ws-pill--off'];
   if (a.standing === 'lapsed') return ['Lapsed', 'ws-pill ws-pill--danger'];
   if (a.seatsBought && a.seatsUsed != null && a.seatsUsed >= a.seatsBought) return ['At seat limit', 'ws-pill ws-pill--danger'];
   if (a.seatsBought && a.seatsUsed != null && a.seatsUsed >= a.seatsBought * NEAR_SEATS) return ['Near seats', 'ws-pill ws-pill--warn'];
@@ -370,7 +370,7 @@ function Entitlements({ id, d, openDenials, children }) {
     let live = true;
     Promise.resolve(opsAccountEntitlements(id))
       .then((r) => live && r && setE(r))
-      .catch((err) => live && setError(String(err?.message || err)));
+      .catch((err) => live && setError(errorWords(err, 'load what this account can open')));
     return () => {
       live = false;
     };
@@ -388,14 +388,14 @@ function Entitlements({ id, d, openDenials, children }) {
     <>
       <div className="ops-entitlement" data-tone={e.legacyFailOpen ? undefined : 'ok'} role="note">
         <AlertTriangle size={18} aria-hidden="true" />
-        <strong>{e.legacyFailOpen ? 'Entitlement: legacy fail-open' : e.explicit ? 'Entitlement: explicit subscription' : 'Entitlement: no subscription'}</strong>
+        <strong>{e.legacyFailOpen ? 'Access: older account, every app open' : e.explicit ? 'Access: follows their subscription' : 'Access: no subscription, every app closed'}</strong>
         <span>
-          Effective access = membership ∩ role ∩ subscription ∩ module switch ∩ seats.{' '}
+          A person can open something only if they belong to the company, their role allows it, the subscription covers it, the feature is on and a seat is free.{' '}
           {e.legacyFailOpen
             ? 'This older account has no plan, so every app is open to it until it moves to one.'
             : e.explicit
-              ? 'Not on the legacy fail-open rule.'
-              : 'Without a subscription every app is refused (402).'}
+              ? 'Apps open and close with the subscription.'
+              : 'Without a subscription, nobody in this account can open any app.'}
         </span>
         {openDenials ? (
           <button type="button" className="ops-link" onClick={() => openDenials(d.account.id)}>
@@ -430,7 +430,7 @@ function Entitlements({ id, d, openDenials, children }) {
                       </span>
                     </td>
                     <td className="hidden md:table-cell">
-                      {!a.owned ? <span className="ws-item-sub">Not owned</span> : e.legacyFailOpen ? 'Legacy, every app' : [plan || 'Set by hand', a.tier ? `${TIER[a.tier] || a.tier} tier` : null].filter(Boolean).join(' · ')}
+                      {!a.owned ? <span className="ws-item-sub">Not owned</span> : e.legacyFailOpen ? 'Older account, every app' : [plan || 'Set by hand', a.tier ? `${TIER[a.tier] || a.tier} tier` : null].filter(Boolean).join(' · ')}
                     </td>
                     <td className="num" title={a.app !== 'accounting' && a.owned ? 'Employees are counted inside the app, not here' : undefined}>
                       {!a.owned ? '—' : a.seatsBought ? `${a.seatsUsed ?? '—'} / ${a.seatsBought}` : a.seatsUsed != null ? `${a.seatsUsed} ${a.seatsUsed === 1 ? 'user' : 'users'}` : 'Not metered'}
@@ -447,7 +447,7 @@ function Entitlements({ id, d, openDenials, children }) {
       </section>
       {children}
       <section className="ops-section" aria-labelledby="ops-denials">
-        <h2 id="ops-denials" className="ops-h2">Recent access denials</h2>
+        <h2 id="ops-denials" className="ops-h2">Recently refused</h2>
         {e.denials.length ? (
           <div className="ws-table-wrap">
             <table className="ws-table">
@@ -456,8 +456,8 @@ function Entitlements({ id, d, openDenials, children }) {
                 <tr>
                   <th>When</th>
                   <th>Who</th>
-                  <th>Reason code</th>
-                  <th className="hidden md:table-cell">Correlation ID</th>
+                  <th>Reason</th>
+                  <th className="hidden md:table-cell">Request ID</th>
                 </tr>
               </thead>
               <tbody>
@@ -466,7 +466,7 @@ function Entitlements({ id, d, openDenials, children }) {
                     <td className="tabular-nums" title={when(x.at)}>{ago2(x.at)}</td>
                     <td>{x.who?.name || x.who?.email || 'Someone signed in'}</td>
                     <td title={REASON[x.code] || undefined}>
-                      <span className="ops-code">{x.code}</span>
+                      <span>{reasonShort(x.code)}</span>
                     </td>
                     <td className="hidden md:table-cell tabular-nums ops-clip" style={{ maxWidth: 200 }}>{x.requestId || '—'}</td>
                   </tr>
@@ -492,7 +492,7 @@ function Overview({ d, plan, setTab = () => {}, role, openDenials, openOrgs }) {
         <Entitlements id={d.account.id} d={d} openDenials={openDenials}>
           <section className="ops-section" aria-labelledby="ops-companies">
             <div className="ops-section-head">
-              <h2 id="ops-companies" className="ops-h2">Organizations ({d.companies.length})</h2>
+              <h2 id="ops-companies" className="ops-h2">Companies ({d.companies.length})</h2>
               {openOrgs && d.companies.length ? (
                 <button type="button" className="ops-link" onClick={() => openOrgs(d.account.id)}>
                   GSTIN and apps →
@@ -502,11 +502,11 @@ function Overview({ d, plan, setTab = () => {}, role, openDenials, openOrgs }) {
             {d.companies.length ? (
               <div className="ws-table-wrap">
                 <table className="ws-table">
-                  <caption className="sr-only">Organizations</caption>
+                  <caption className="sr-only">Companies</caption>
                   <thead>
                     <tr>
-                      <th>Organization</th>
-                      <th className="hidden md:table-cell">Org ID</th>
+                      <th>Company</th>
+                      <th className="hidden md:table-cell">Company ID</th>
                       <th className="num">Members</th>
                       <th className="hidden md:table-cell">Since</th>
                     </tr>
@@ -531,7 +531,7 @@ function Overview({ d, plan, setTab = () => {}, role, openDenials, openOrgs }) {
             ) : (
               <p className="ws-card-blurb">No company yet. The owner makes one when they first sign in.</p>
             )}
-            <p className="ws-card-blurb">Row-level security: every row of this account’s data carries its organization’s ID, and the database refuses rows from any other organization.</p>
+            <p className="ws-card-blurb">Each company’s data is kept apart: nobody in one company can read another’s.</p>
           </section>
         </Entitlements>
       </div>
@@ -727,6 +727,7 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
         title={action ? ACTIONS[action].title : ''}
         what={action ? what[action] : ''}
         confirmLabel={action ? ACTIONS[action].confirm : ''}
+        cancelLabel={action === 'cancel' ? 'Keep subscription' : 'Cancel'}
         tone={action ? ACTIONS[action].tone : 'primary'}
         ready={(action !== 'apps' && action !== 'plan') || apps.size > 0}
         onClose={() => setAction(null)}
@@ -797,7 +798,7 @@ function Money({ id, inv, setInv, openInvoice }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    opsCustomerPayments(id).then(setD).catch((e) => setError(String(e?.message || e)));
+    opsCustomerPayments(id).then(setD).catch((e) => setError(errorWords(e, 'load the invoices and payments')));
   }, [id]);
   const rows = inv?.invoices || [];
   const owed = unpaidOf(rows);
@@ -808,7 +809,7 @@ function Money({ id, inv, setInv, openInvoice }) {
       const r = await opsInvoices({ accountId: id, before: rows[rows.length - 1].createdAt });
       setInv({ forId: id, invoices: [...rows, ...(r?.invoices || [])], hasMore: Boolean(r?.hasMore) });
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(errorWords(e, 'load older invoices'));
     } finally {
       setBusy(false);
     }
@@ -895,8 +896,8 @@ function Money({ id, inv, setInv, openInvoice }) {
                   <tr key={p.id}>
                     <td className="tabular-nums">{when(p.at)}</td>
                     <td>{p.gateway}</td>
-                    <td>{p.type.replace(/[._]/g, ' ')}</td>
-                    <td>{p.applied ? <span className="ws-pill ws-pill--ok">Yes</span> : <span className="ws-pill ws-pill--danger">Not applied</span>}</td>
+                    <td>{paymentEventWord(p.type)}</td>
+                    <td>{p.applied ? <span className="ws-pill ws-pill--ok">Applied</span> : <span className="ws-pill ws-pill--danger">Not applied</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -909,6 +910,26 @@ function Money({ id, inv, setInv, openInvoice }) {
 }
 
 /* --------------------------------------------------------------- requests */
+/* What a payment gateway told CLOR, in words (Cashfree and Razorpay event names). */
+const PAYMENT_EVENT_WORD = {
+  'payment.captured': 'Payment received',
+  'payment.authorized': 'Payment authorised',
+  'payment.failed': 'Payment failed',
+  'order.paid': 'Payment received',
+  'refund.processed': 'Refund made',
+  'refund.created': 'Refund started',
+  'subscription.activated': 'Subscription started',
+  'subscription.charged': 'Subscription charged',
+  'subscription.cancelled': 'Subscription cancelled',
+  'subscription.halted': 'Subscription stopped after failed payments',
+  'subscription.paused': 'Subscription paused',
+  'subscription.resumed': 'Subscription resumed',
+  PAYMENT_SUCCESS_WEBHOOK: 'Payment received',
+  PAYMENT_FAILED_WEBHOOK: 'Payment failed',
+  MANUAL: 'Recorded by hand',
+};
+const paymentEventWord = (t) => PAYMENT_EVENT_WORD[t] || String(t || '').replace(/[._]/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+
 const DEMO_WORDS = { NEW: 'New', CONTACTED: 'Contacted', DEMO_DONE: 'Demo done', ACCOUNT_CREATED: 'Account created', NOT_A_FIT: 'Not a fit' };
 
 const TICKET_WORDS = { OPEN: 'Needs an answer', WAITING: 'Waiting on customer', SOLVED: 'Solved', CLOSED: 'Closed' };
@@ -917,7 +938,7 @@ function Requests({ id, openDemo, openLink }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   useEffect(() => {
-    opsCustomerRequests(id).then(setD).catch((e) => setError(String(e?.message || e)));
+    opsCustomerRequests(id).then(setD).catch((e) => setError(errorWords(e, 'load the requests')));
   }, [id]);
   if (!d) return error ? <Err>{error}</Err> : <Loading />;
   return (
@@ -988,7 +1009,7 @@ function Users({ id, role }) {
   const [error, setError] = useState('');
   const [act, setAct] = useState(null); // { kind, user | invitation }
   const load = useCallback(() => {
-    opsCustomerUsers(id).then(setD).catch((e) => setError(String(e?.message || e)));
+    opsCustomerUsers(id).then(setD).catch((e) => setError(errorWords(e, 'load the users')));
   }, [id]);
   useEffect(load, [load]);
   const support = may(role, 'SUPPORT');
@@ -1046,7 +1067,7 @@ function Users({ id, role }) {
                   <div className="ws-item-sub">{u.email}{u.emailConfirmed ? '' : ' · email not confirmed'}</div>
                 </td>
                 <td className="hidden sm:table-cell" data-label="Role">{ACCOUNT_ROLE[u.role] || u.role}</td>
-                <td className="hidden md:table-cell" data-label="Authenticator">{u.authenticator ? 'Yes' : 'No'}</td>
+                <td className="hidden md:table-cell" data-label="Authenticator">{u.authenticator ? 'Set up' : 'Not yet'}</td>
                 <td className="hidden md:table-cell" data-label="Last sign-in">{u.lastLoginAt ? ago(u.lastLoginAt) : 'Never'}</td>
                 <td className="hidden lg:table-cell tabular-nums" data-label="Signed in on">{u.signedInOn ? `${u.signedInOn} ${u.signedInOn === 1 ? 'device' : 'devices'}` : '—'}</td>
                 {support ? (
@@ -1082,7 +1103,7 @@ function Users({ id, role }) {
             ))}
           </ul>
         ) : (
-          <p className="ws-card-blurb">None waiting.</p>
+          <p className="ws-card-blurb">No invitation is waiting to be accepted.</p>
         )}
       </Panel>
       <ReasonDrawer
@@ -1117,7 +1138,7 @@ function Connections({ id, role }) {
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(false);
   const load = useCallback(() => {
-    opsCustomerConnections(id).then(setD).catch((e) => setError(String(e?.message || e)));
+    opsCustomerConnections(id).then(setD).catch((e) => setError(errorWords(e, 'load the connections')));
   }, [id]);
   useEffect(load, [load]);
 
@@ -1249,7 +1270,7 @@ function Timeline({ id, openLink }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    opsCustomerActivity(id).then(setD).catch((e) => setError(String(e?.message || e)));
+    opsCustomerActivity(id).then(setD).catch((e) => setError(errorWords(e, 'load the timeline')));
   }, [id]);
   const older = async () => {
     setBusy(true);
@@ -1258,7 +1279,7 @@ function Timeline({ id, openLink }) {
       const next = await opsCustomerActivity(id, d.older);
       setD((was) => ({ ...was, lines: [...was.lines, ...next.lines], older: next.older }));
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'load older events'));
     } finally {
       setBusy(false);
     }

@@ -3,6 +3,9 @@ import { Search } from '@ui/components/ui/lineIcons';
 
 import { opsSearch } from './api';
 
+/* Invoice statuses as the Invoices page names them. */
+const INVOICE_WORD = { DRAFT: 'Draft', ISSUED: 'Unpaid', OVERDUE: 'Overdue', PAID: 'Paid', VOID: 'Cancelled' };
+
 /**
  * The search box at the top of every console page (Ops P0): a customer by
  * business or company name, any code, a person's email or name, a GSTIN or a
@@ -63,10 +66,10 @@ export function OpsSearch({ go }) {
   const options = short || !r
     ? []
     : [
-        ...r.customers.map((c) => ({ key: `c-${c.id}`, group: 'Customers', title: c.title, sub: [c.code, c.suspended ? 'suspended' : ''].filter(Boolean).join(' · '), open: () => go('customers', {}, c.id) })),
+        ...r.customers.map((c) => ({ key: `c-${c.id}`, group: 'Accounts', title: c.title, sub: [c.code, c.suspended ? 'suspended' : ''].filter(Boolean).join(' · '), open: () => go('customers', {}, c.id) })),
         ...r.people.map((p) => ({ key: `p-${p.id}`, group: 'People', title: p.name || p.email, sub: [p.email, p.accountName].filter(Boolean).join(' · '), open: () => go('customers', {}, p.accountId, 'users') })),
-        ...r.invoices.map((i) => ({ key: `i-${i.id}`, group: 'Invoices', title: i.number, sub: i.status.toLowerCase(), open: () => go('invoices', {}, i.id) })),
-        ...(r.requestId ? [{ key: 'req', group: 'Request ID', title: `Look up ${r.requestId}`, sub: 'Opens Jobs & workers with the logs link', open: () => go('health', { request: r.requestId }) }] : []),
+        ...r.invoices.map((i) => ({ key: `i-${i.id}`, group: 'Invoices', title: i.number, sub: INVOICE_WORD[i.status] || i.status, open: () => go('invoices', {}, i.id) })),
+        ...(r.requestId ? [{ key: 'req', group: 'Request ID', title: `Look up ${r.requestId}`, sub: 'Opens Background jobs with the logs link', open: () => go('health', { request: r.requestId }) }] : []),
       ];
 
   const pick = (o) => {

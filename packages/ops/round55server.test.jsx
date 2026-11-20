@@ -76,7 +76,7 @@ describe('Saved replies', () => {
     const field = screen.getByLabelText(/Help page \(optional\)/);
     expect(field.value).toBe('https://clor.in/help/gst');
     fireEvent.change(field, { target: { value: 'https://clor.in/help/gst-returns' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save reply' }));
     await waitFor(() => expect(api.opsSaveSavedReply).toHaveBeenCalledWith('r1', expect.objectContaining({ helpUrl: 'https://clor.in/help/gst-returns' })));
   });
 });

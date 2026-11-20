@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 
 import { Button, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -123,7 +124,7 @@ export default function AttendanceRules({ openScreen }) {
       notify.success(out.marksFrom ? `Attendance rules saved. The late-mark change counts from ${monthTitle(out.marksFrom.slice(0, 7))}.` : 'Attendance rules saved.');
     } catch (err) {
       setError(err);
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setSaving(false);
     }
@@ -133,7 +134,7 @@ export default function AttendanceRules({ openScreen }) {
     try {
       setPreview(await previewLateMarks(month, { ...marksBody(form), on: true }));
     } catch (err) {
-      notify.error(String(err?.message || 'Could not work it out.'));
+      notify.error(errorWords(err, 'work out the preview'));
     } finally {
       setPreviewing(false);
     }

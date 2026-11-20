@@ -54,7 +54,7 @@ function Hero({ p, c, soon }) {
               </>
             )}
             <Link className="btn btn--text" href="/products">
-              {soon ? 'See what’s available now' : 'All products'}
+              {soon ? 'See what’s available now' : 'See all products'}
             </Link>
           </div>
           {soon ? null : (
@@ -96,8 +96,8 @@ function SoonPage({ p, c }) {
           </ul>
         </div>
       </section>
-      <Closing title="Use the products that are ready today." text="Books, Payroll, People and Attendance share one login and one list of employees. Projects joins them when it is ready.">
-        <Link href="/products">See every product</Link>
+      <Closing title="Use the products that are ready today." text={`Books, Payroll, People and Attendance share one sign-in and one list of employees. ${p.name} joins them when it is ready.`}>
+        <Link href="/products">See all products</Link>
       </Closing>
     </>
   );
@@ -193,7 +193,7 @@ export default function Product({ slug }) {
         </div>
       </section>
 
-      <Closing demoHref={demoFor(slug)} title={`See ${p.name} with your own data.`} text={`Tell us how you handle this today and we will walk you through the same month in CLOR ${p.name}.`} />
+      <Closing demoHref={demoFor(slug)} title={`See ${p.name} doing work like yours.`} text={`Tell us how you handle this today and we will walk you through the same month in CLOR ${p.name}.`} />
     </>
   );
 }
@@ -206,7 +206,7 @@ export function Products() {
         <div className="wrap stack" style={{ '--stack': '1.25rem' }}>
           <p className="fx-eyebrow">Products</p>
           <h1 className="h-1">The CLOR products</h1>
-          <p className="lede">Each one does a job on its own. Bought together, they share one login, one list of employees and one set of books.</p>
+          <p className="lede">Each one does a job on its own. Bought together, they share one sign-in and the same records.</p>
         </div>
       </section>
       <section className="section section--flush">

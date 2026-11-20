@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { appLive, closing, type Refusal } from './principalAllowed.js';
+import { dateWords } from '../utils/istDate.js';
 
 /**
  * The credential registry (GAP-004, Batch 5).
@@ -335,7 +336,7 @@ export async function suspendCredential(id: string, orgId: string, actor: Actor,
 export async function resumeCredential(id: string, orgId: string, actor: Actor, reason?: string | null, now = new Date()) {
   const c = await load(id, orgId);
   if (c.status === 'REVOKED') throw new CredentialError(409, 'This credential is revoked; make a new one.', 'CREDENTIAL_REVOKED');
-  if (c.expiresAt && c.expiresAt <= now) throw new CredentialError(409, `This credential expired on ${c.expiresAt.toISOString().slice(0, 10)}; rotate it or extend its expiry.`, 'CREDENTIAL_EXPIRED');
+  if (c.expiresAt && c.expiresAt <= now) throw new CredentialError(409, `This credential expired on ${dateWords(c.expiresAt)}. Rotate it, or extend its expiry.`, 'CREDENTIAL_EXPIRED');
   if (c.status === 'ACTIVE') return c;
   const row = await claim(c, { status: 'ACTIVE', suspendedAt: null });
   await recordCredentialEvent(row, 'resumed', actor, { reason });

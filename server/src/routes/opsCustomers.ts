@@ -223,7 +223,7 @@ opsCustomersRouter.post('/ops/accounts/:id/users/:userId/reset-link', requireOpe
       transactional: true,
       relatedType: 'User',
       relatedId: user.id,
-      data: { userName: user.fullName || user.email, resetUrl: `${APP_URL()}/?reset=${token}` },
+      data: { userName: user.fullName || '', resetUrl: `${APP_URL()}/?reset=${token}` },
     });
     await audit(req, 'USER_RESET_LINK_SENT', { accountId: id, userId: user.id }, { email: user.email, reason: parsed.data.reason });
     res.json({ sent: sent?.status === 'SENT', status: sent?.status || null, email: user.email });
@@ -289,7 +289,7 @@ opsCustomersRouter.post('/ops/accounts/:id/users/:userId/reset-authenticator', r
       transactional: true,
       relatedType: 'User',
       relatedId: user.id,
-      data: { userName: user.fullName || user.email, appUrl: APP_URL() },
+      data: { userName: user.fullName || '', appUrl: APP_URL() },
     }).catch(() => null);
     await audit(req, 'USER_AUTHENTICATOR_RESET', { accountId: id, userId: user.id }, { email: user.email, sessions: r.count, told: sent?.status || 'NOT_SENT', reason: parsed.data.reason });
     res.json({ reset: true, sessionsEnded: r.count, told: sent?.status === 'SENT' });

@@ -38,7 +38,7 @@ vi.mock('../api/attendance', () => ({
   setFieldPunchApproval: vi.fn(),
 }));
 
-describe('Mobile punches → Where now', () => {
+describe('Phone punches → Where now', () => {
   it('lists each person once with their last place and time', async () => {
     const { default: PhonePunches } = await import('../screens/PhonePunches');
     render(<PhonePunches />);

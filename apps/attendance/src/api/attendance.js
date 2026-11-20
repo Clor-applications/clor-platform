@@ -177,7 +177,7 @@ export const listReports = () => get('/reports');
 export const runReport = (id, params) => get(`/reports/${encodeURIComponent(id)}${query(params)}`);
 /** Insights: recent months' rates and this month by department and person (server: reports/insights). */
 export const getReportInsights = (params) => get(`/reports/insights${query(params)}`);
-/* Reports that go out by e-mail on their own. */
+/* Reports that go out by email on their own. */
 export const listReportSchedules = () => get('/reports/schedules').then((r) => r?.schedules || []);
 export const createReportSchedule = (body) => send('/reports/schedules', 'POST', body);
 export const updateReportSchedule = (id, body) => send(`/reports/schedules/${encodeURIComponent(id)}`, 'PUT', body);

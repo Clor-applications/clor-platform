@@ -880,7 +880,7 @@ attendanceReportsRouter.post('/orgs/:orgId/attendance/reports/schedules', can(),
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the schedule.' });
   const b = parsed.data;
   if (!REPORTS.some((r) => r.id === b.reportId)) return res.status(400).json({ error: 'No such report.' });
-  if (!b.recipients.split(/[,\s;]+/).some((x) => /.+@.+\..+/.test(x))) return res.status(400).json({ error: 'Give at least one e-mail address.' });
+  if (!b.recipients.split(/[,\s;]+/).some((x) => /.+@.+\..+/.test(x))) return res.status(400).json({ error: 'Give at least one email address.' });
   const row = await peoplePrisma.reportSchedule.create({ data: { accountId, orgId, reportId: b.reportId, paramsJson: JSON.stringify(b.params || {}), cadence: b.cadence, dayOfWeek: b.cadence === 'WEEKLY' ? b.dayOfWeek || 1 : null, dayOfMonth: b.cadence === 'MONTHLY' ? b.dayOfMonth || 1 : null, hour: b.hour, recipients: b.recipients.trim(), enabled: b.enabled ?? true, createdByUserId: req.auth!.userId } });
   res.status(201).json({ schedule: publicSchedule(row) });
 });

@@ -7,6 +7,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import OvertimeRuleFields from '../components/OvertimeRuleFields';
 import OvertimeRatesCaps from '../components/OvertimeRatesCaps';
 import { shiftBody } from '../components/shiftBody';
+import { errorWords } from '@ui/utils/errorWords';
 
 const hours = (m) => `${Math.floor(m / 60)}h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}m` : ''}`;
 
@@ -34,12 +35,12 @@ export default function OvertimePolicy({ openScreen }) {
   const loadRules = useCallback(() => {
     getOvertimeRules()
       .then((r) => { setRules(r.rules); setTypes(r.leaveTypes || []); setSuggestedCaps(r.suggestedCaps || null); setRulesError(''); })
-      .catch((e) => setRulesError(String(e?.message || 'Could not load the overtime rules.')));
+      .catch((e) => setRulesError(errorWords(e, 'load the overtime rules')));
   }, []);
   const loadShifts = useCallback(() => {
     listShifts()
       .then((v) => { setShifts(v); setShiftsError(''); setDrafts({}); })
-      .catch((e) => setShiftsError(String(e?.message || 'Could not load shifts.')));
+      .catch((e) => setShiftsError(errorWords(e, 'load shifts')));
   }, []);
   useEffect(() => { loadRules(); loadShifts(); }, [loadRules, loadShifts]);
 
@@ -49,7 +50,7 @@ export default function OvertimePolicy({ openScreen }) {
       setRules(r.rules);
       notify.success('Overtime rules saved.');
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     }
   };
 
@@ -62,7 +63,7 @@ export default function OvertimePolicy({ openScreen }) {
       notify.success(`${s.name}: overtime start saved.`);
       loadShifts();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setSaving('');
     }

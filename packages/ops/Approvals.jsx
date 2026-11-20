@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 
 import { PageHead } from '../../apps/admin/src/screens/wsKit';
-import { Empty, Err, Loading, ReasonDrawer, Tabs, when } from './kit';
+import { Empty, Err, Loading, ReasonDrawer, Tabs, when, errorWords } from './kit';
 import { opsApprovalLimit, opsApprovalStep, opsApprovals } from './api';
 
 /**
@@ -30,7 +30,7 @@ export function Approvals({ openCustomer }) {
   const load = useCallback(() => {
     opsApprovals(tab)
       .then((r) => (setD(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the approvals')));
   }, [tab]);
   useEffect(() => {
     load();
@@ -53,7 +53,7 @@ export function Approvals({ openCustomer }) {
       notify.success('Withdrawn. Nothing changed for the customer.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(errorWords(e, 'withdraw the request'));
     }
   };
   const saveLimit = async (reason) => {
@@ -69,10 +69,10 @@ export function Approvals({ openCustomer }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Trust', 'Approvals']}
+          crumbs={['Trust']}
           title="Approvals"
           description={d ? `Deals over ${d.limit}% off, and apps given free or cheaper by hand, wait here until someone other than the person who asked approves them.` : 'Deals over the limit, and apps given free by hand, wait here for a second person.'}
-          meta={d ? `${d.waiting} waiting · requests expire after ${d.expiresHours} hours` : null}
+          meta={d ? `${d.waiting ? `${d.waiting} waiting · ` : ''}requests expire after ${d.expiresHours} hours` : null}
           actions={
             d?.canChangeLimit ? (
               <button
@@ -170,7 +170,7 @@ export function Approvals({ openCustomer }) {
         onClose={() => setStep(null)}
         onConfirm={doStep}
       />
-      <ReasonDrawer open={limitOpen} title="Discount that needs a second person" confirmLabel="Save" ready={limitOk} onClose={() => setLimitOpen(false)} onConfirm={saveLimit}>
+      <ReasonDrawer open={limitOpen} title="Discount that needs a second person" confirmLabel="Save limit" ready={limitOk} onClose={() => setLimitOpen(false)} onConfirm={saveLimit}>
         <div className="grid gap-1">
           <label htmlFor="approval-limit" className="text-sm font-medium">
             Ask a second person when a subscription takes off more than, %

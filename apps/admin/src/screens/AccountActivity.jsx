@@ -4,6 +4,7 @@ import { emoji } from '@ui/components/ui/emoji';
 
 import { exportRows } from '@ui/components/ListToolbar';
 import { accountAudit } from '@platform/admin/account';
+import { enumWords, errorWords } from '@ui/utils/errorWords';
 import { Avatar, Empty, FilterSelect, Loading, PageHead, StatusPill } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
@@ -85,6 +86,18 @@ export const ACTION_TONE = {
   MEMBER_REMOVED_FROM_COMPANY: '185 28 28',
   ACCESS_DENIED: '185 28 28',
 };
+/* The metadata keys a person can read, in words; anything else stays out of the page. */
+const META_LABELS = { orgName: 'Company', companyName: 'Company', company: 'Company', email: 'Email', role: 'Role', roleName: 'Role', from: 'From', to: 'To', previousRole: 'Was', newRole: 'Now', name: 'Name', reason: 'Reason', app: 'App', plan: 'Plan' };
+export const metaRows = (meta) => {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return [];
+  const seen = new Set();
+  return Object.entries(meta)
+    .filter(([k, v]) => META_LABELS[k] && (typeof v === 'string' || typeof v === 'number') && String(v).trim())
+    .map(([k, v]) => [META_LABELS[k], /^[A-Z][A-Z0-9_]+$/.test(String(v)) ? enumWords(v) : String(v)])
+    .filter(([label, v]) => !seen.has(`${label}:${v}`) && seen.add(`${label}:${v}`));
+};
+export const actionText = (a) => ACTION_WORDS[a] || (a ? enumWords(a) : 'Made a change');
+
 const scopeOf = (e) => e?.metadata?.orgName || e?.metadata?.companyName || e?.metadata?.company || 'Workspace';
 const detailOf = (e) => [e.targetName, e.message && e.message !== ACTION_WORDS[e.action] ? e.message : ''].filter(Boolean).join(' · ') || '—';
 
@@ -118,7 +131,7 @@ export default function AccountActivity() {
       })
       .catch((e) => {
         setEvents((prev) => prev || []);
-        setError(String(e?.message || 'Could not load the account’s activity.'));
+        setError(errorWords(e, 'load the audit log'));
       });
   }, []);
   useEffect(() => load(filters), [filters, load]);
@@ -133,7 +146,7 @@ export default function AccountActivity() {
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!events || !needle) return events;
-    return events.filter((e) => [ACTION_WORDS[e.action] || e.action, e.actor?.name, e.targetName, e.message, scopeOf(e)].join(' ').toLowerCase().includes(needle));
+    return events.filter((e) => [actionText(e.action), e.actor?.name, e.targetName, e.message, scopeOf(e)].join(' ').toLowerCase().includes(needle));
   }, [events, q]);
   const filtered = Boolean(filters.action || filters.result || filters.from || filters.to || filters.actor || q);
 
@@ -152,7 +165,7 @@ export default function AccountActivity() {
       rows: (shown || []).map((e) => ({
         when: when(e.at),
         who: e.actor?.name || 'Someone',
-        action: ACTION_WORDS[e.action] || e.action,
+        action: actionText(e.action),
         result: e.result === 'DENIED' ? 'Refused' : 'Done',
         detail: detailOf(e),
         scope: scopeOf(e),
@@ -178,7 +191,7 @@ export default function AccountActivity() {
           <label className="ws-search">
             <Search size={16} aria-hidden="true" />
             <span className="sr-only">Search</span>
-            <input type="search" className="ui-input" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input type="search" className="ui-input" placeholder="Search by person, action or detail" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
           {/* Menus, not native selects (owner, 19 Nov 2026). */}
           <FilterSelect label="Person" value={filters.actor} onChange={pick('actor')} options={[['', 'Anyone'], ...people.map((p) => [p.id, p.name])]} />
@@ -190,7 +203,7 @@ export default function AccountActivity() {
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         {shown === null ? (
-          <Loading shape="rows" label="Loading…" />
+          <Loading shape="rows" label="Loading the audit log…" />
         ) : shown.length === 0 ? (
           <Empty icon={EMPTY_ICON} compact>Nothing here{filtered ? ' for these filters' : ' yet'}.</Empty>
         ) : (
@@ -222,7 +235,7 @@ export default function AccountActivity() {
                         <span className="ws-sec-action">
                           <button type="button" className="ws-tag ws-sec-tagbtn" style={{ '--tag': ACTION_TONE[e.result === 'DENIED' ? 'ACCESS_DENIED' : e.action] || '92 90 84' }} aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? '' : e.id)}>
                             {e.result === 'DENIED' ? <ShieldAlert size={14} aria-hidden="true" /> : null}
-                            {ACTION_WORDS[e.action] || e.action}
+                            {actionText(e.action)}
                           </button>
                           {e.result === 'DENIED' ? <StatusPill tone="danger">Refused</StatusPill> : null}
                         </span>
@@ -237,8 +250,8 @@ export default function AccountActivity() {
                             <dt>When</dt>
                             <dd>{when(e.at)}</dd>
                             {e.message ? (<><dt>What</dt><dd>{e.message}</dd></>) : null}
-                            {e.metadata ? (<><dt>Details</dt><dd className="ui-mono break-all">{JSON.stringify(e.metadata)}</dd></>) : null}
-                            {e.requestId ? (<><dt>Request</dt><dd className="ui-mono">{e.requestId}</dd></>) : null}
+                            {metaRows(e.metadata).map(([label, v]) => (<React.Fragment key={`${label}:${v}`}><dt>{label}</dt><dd>{v}</dd></React.Fragment>))}
+                            {e.requestId ? (<><dt>Error code</dt><dd className="ui-mono">{e.requestId}</dd></>) : null}
                           </dl>
                         </td>
                       </tr>

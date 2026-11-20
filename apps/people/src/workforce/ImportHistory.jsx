@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -31,7 +32,7 @@ export default function ImportHistory({ canUndo }) {
       const r = await undoImport(b.id);
       notify.success(`Undone: ${r.removed} removed, ${r.restored} put back${r.kept ? `, ${r.kept} kept` : ''}.`);
     } catch (e) {
-      notify.error(String(e?.message || 'Not undone.'));
+      notify.error(errorWords(e, 'undo the import'));
     } finally {
       setBusy(null);
       req.reload();

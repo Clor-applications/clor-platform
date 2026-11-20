@@ -10,6 +10,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createStructure, deleteStructure, listStructure, updateStructure } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * One screen for the org-structure lists Attendance still shows: departments,
@@ -104,7 +105,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
       setEditing(null);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save it'));
     } finally {
       setSaving(false);
     }
@@ -114,7 +115,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
     const ok = await confirmDialog({
       title: `Delete ${row.name}?`,
       message: `Only a ${cfg.singular} nobody is in can be deleted. One in use can be marked inactive instead.`,
-      confirmLabel: 'Yes, delete',
+      confirmLabel: `Delete ${cfg.singular}`,
     });
     if (!ok) return;
     try {
@@ -122,7 +123,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
       notify.success(`${row.name} deleted.`);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not delete it.'));
+      notify.error(errorWords(err, 'delete it'));
     }
   };
 

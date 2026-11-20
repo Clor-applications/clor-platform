@@ -10,8 +10,9 @@ class ErrorBoundary extends React.Component {
     return { hasError: true, error };
   }
 
-  componentDidCatch() {
-    // Intentionally minimal: avoid noisy console logs in production builds.
+  componentDidCatch(error) {
+    // The technical text goes to the console for whoever is debugging, not on screen.
+    if (import.meta.env?.DEV) console.error(error);
   }
 
   render() {
@@ -20,12 +21,9 @@ class ErrorBoundary extends React.Component {
     return (
       <div className="ui-min-h-viewport flex items-center justify-center ui-sunken p-6">
         <div className="w-full max-w-lg ui-surface border rounded-xl p-6">
-          <div className="ui-t-sec">Something went wrong</div>
+          <div className="ui-t-sec">This page could not be shown</div>
           <div className="text-sm ui-muted mt-2">
-            Try refreshing the page. If the problem continues, check the last change.
-          </div>
-          <div className="mt-4 text-xs ui-muted break-words">
-            {String(this.state.error?.message || this.state.error || '')}
+            Reload the page. Nothing you saved is lost. If it happens again, write to support@clor.in.
           </div>
           <div className="mt-6 flex gap-2">
             <button
@@ -33,7 +31,7 @@ class ErrorBoundary extends React.Component {
               className="px-4 py-2 rounded-lg ui-primary-bg"
               onClick={() => window.location.reload()}
             >
-              Refresh
+              Reload the page
             </button>
           </div>
         </div>

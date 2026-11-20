@@ -56,7 +56,7 @@ describe('adding an app from Workspace', () => {
     expect(await within(dialog).findByText('₹1,239.00')).toBeInTheDocument();
     expect(within(dialog).getByText(/To pay by 3 Dec 2026/)).toBeInTheDocument();
     expect(within(dialog).getByText('₹1,500.00, before GST')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Add People' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add People · pay ₹1,239.00' }));
     await waitFor(() => expect(onInvoice).toHaveBeenCalledWith('inv7'));
     const sent = fetches.call.mock.calls.find(([p, o]) => p === '/billing/apps' && o?.method === 'POST');
     expect(sent[1].body).toEqual({ plan: 'people-growth', quantity: 25, total: 123900 });
@@ -71,7 +71,7 @@ describe('adding an app from Workspace', () => {
     fireEvent.click(within(dialog).getByRole('radio', { name: 'Payroll' }));
     expect(within(dialog).getByText('Payroll Starter')).toBeInTheDocument();
     expect(within(dialog).getByRole('spinbutton')).toHaveValue(10);
-    expect(within(dialog).getByRole('button', { name: 'Add Payroll' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: /^Add Payroll/ })).toBeInTheDocument();
   });
 
   it('marks an app the customer added, and says why when one waits to be paid', async () => {

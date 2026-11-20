@@ -18,7 +18,7 @@ const copy = async (text) => {
  * signing secrets (kept encrypted, to sign with). Either way this is the one
  * chance to take it, so it scrolls into view wherever the action was.
  */
-export default function ShownOnce({ label, value, hint = '', kept = 'CLOR keeps only a hash and cannot show it again.', onDone }) {
+export default function ShownOnce({ label, value, hint = '', kept = 'CLOR cannot show this again, so copy it now.', onDone }) {
   const ref = useRef(null);
   useEffect(() => {
     ref.current?.scrollIntoView?.({ block: 'nearest' });

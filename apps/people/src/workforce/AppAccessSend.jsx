@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
@@ -6,8 +7,8 @@ import { escapeHtml as esc } from '@ui/utils/html';
 
 /*
  * "Send employee app access" (HR-VIEW gap 3), from the directory's bulk bar
- * or one record's More menu. People with an e-mail get their one-time code
- * by e-mail and HR never sees it; people with only a phone get a code shown
+ * or one record's More menu. People with an email get their one-time code
+ * by email and HR never sees it; people with only a phone get a code shown
  * here once, to print or share on WhatsApp. Closing this throws the codes
  * away: sending again makes new ones.
  */
@@ -37,7 +38,7 @@ export default function AppAccessSend({ people, onClose }) {
     try {
       setResult(await sendAppAccess(people.map((p) => p.id)));
     } catch (e) {
-      notify.error(String(e?.message || 'Not sent.'));
+      notify.error(errorWords(e, 'send it'));
     } finally {
       setBusy(false);
     }
@@ -54,7 +55,7 @@ export default function AppAccessSend({ people, onClose }) {
         <div className="space-y-3 text-sm">
           <p>Each person gets a one-time activation code for the employee app. It works for a day; with it they choose their own password.</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>With an e-mail on file: sent by e-mail. You will not see the code.</li>
+            <li>With an email on file: sent by email. You will not see the code.</li>
             <li>With only a phone: the code is shown here once, to print or send on WhatsApp.</li>
             <li>A new code replaces any code not used yet. A password they already chose keeps working until they use the new code.</li>
           </ul>
@@ -62,8 +63,8 @@ export default function AppAccessSend({ people, onClose }) {
       ) : (
         <div className="space-y-6">
           {emailed.length ? (
-            <section aria-label="Sent by e-mail">
-              <h3 className="ui-t-sec">Sent by e-mail <span className="ui-caption tabular-nums">{emailed.length}</span></h3>
+            <section aria-label="Sent by email">
+              <h3 className="ui-t-sec">Sent by email <span className="ui-caption tabular-nums">{emailed.length}</span></h3>
               <ul className="divide-y text-sm">{emailed.map((s) => <li key={s.employeeId} className="flex justify-between gap-3 py-2"><span>{s.name}</span><span className="ui-muted">{s.sentTo}</span></li>)}</ul>
             </section>
           ) : null}

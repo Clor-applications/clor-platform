@@ -8,6 +8,8 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listReports, runReport, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { monthText } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * The muster roll as a screen: one row per person, one mark per day, read
@@ -63,7 +65,6 @@ export default function AttendanceRegister() {
       description="One mark per person per day. The muster roll, read across."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Find a person…', label: 'Find a person' }}
       headerExtras={
         <>
@@ -78,14 +79,14 @@ export default function AttendanceRegister() {
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (!format || !report || !rows.length) return;
-        runListExport({ format, title: 'Attendance register', subtitle: month, fileName: `Attendance register ${month}`, label: 'person/people', columns: report.columns.map((c) => ({ key: c.key, label: c.label })), rows });
+        runListExport({ format, title: 'Daily attendance register', subtitle: monthText(month), fileName: `Daily attendance register ${month}`, label: 'person/people', columns: report.columns.map((c) => ({ key: c.key, label: c.label })), rows });
       }}
-      cards={loading ? null : [
+      countLine={countItems(loading ? null : [
         { label: 'People', value: figures.people, count: true, tone: 'all', Icon: Users },
         { label: 'Present days', value: figures.present, count: true, tone: 'paid', Icon: CalendarCheck },
         { label: 'Absent days', value: figures.absent, count: true, tone: 'overdue', Icon: UserX },
         { label: 'Leave days', value: figures.leave, count: true, tone: 'sent', Icon: CalendarOff },
-      ]}
+      ])}
     >
       {loading ? <SkeletonCard lines={8} /> : (
         <>

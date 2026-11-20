@@ -59,7 +59,7 @@ describe('System health', () => {
     expect(screen.getByText('Show the 1 on time')).toBeInTheDocument();
     expect(screen.getByText(/failed 3 times today · connection refused/)).toBeInTheDocument();
     expect(screen.getByText(/about every 1 day/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'See failed emails' }));
     expect(go).toHaveBeenCalledWith('emailLog', { status: 'FAILED' });
   });
 

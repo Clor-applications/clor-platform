@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
-import { AlertTriangle, ArrowLeft, Ban, BookOpen, Check, Download, Plus, Send, Wallet, X } from '@ui/components/ui/lineIcons';
+import { AlertTriangle, ArrowLeft, Ban, Check, Download, Plus, Wallet, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -24,6 +24,8 @@ import {
 } from '../api/payrollPayments';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { rupees as money } from '@ui/utils/money';
+import { dayText, errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Paying people, and saying what the bank did about it.
@@ -44,11 +46,11 @@ import { rupees as money } from '@ui/utils/money';
 
 const STATUS = {
   DRAFT: { label: 'Not sent', tone: 'ui-pill-neutral' },
-  PROCESSING: { label: 'Part answered', tone: 'ui-pill-warn' },
+  PROCESSING: { label: 'Waiting for bank', tone: 'ui-pill-warn' },
   COMPLETED: { label: 'Paid', tone: 'ui-pill-pos' },
   PARTIAL: { label: 'Partly paid', tone: 'ui-pill-warn' },
   FAILED: { label: 'All rejected', tone: 'ui-pill-neg' },
-  CANCELLED: { label: 'Called off', tone: 'ui-pill-neutral' },
+  CANCELLED: { label: 'Cancelled', tone: 'ui-pill-neutral' },
 };
 
 const LINE_STATUS = {
@@ -56,7 +58,7 @@ const LINE_STATUS = {
   PAID: { label: 'Paid', tone: 'ui-pill-pos' },
   FAILED: { label: 'Rejected', tone: 'ui-pill-neg' },
   /* The batch was called off: the payslip went back to be paid in another. */
-  CANCELLED: { label: 'Called off', tone: 'ui-pill-neutral' },
+  CANCELLED: { label: 'Cancelled', tone: 'ui-pill-neutral' },
 };
 
 const METHODS = [
@@ -80,7 +82,7 @@ const TABS = [
   { value: 'OPEN', label: 'With the bank', tone: 'outstanding' },
   { value: 'COMPLETED', label: 'Paid', tone: 'paid' },
   { value: 'PROBLEM', label: 'Rejections', tone: 'overdue' },
-  { value: 'CANCELLED', label: 'Called off', tone: 'cancelled' },
+  { value: 'CANCELLED', label: 'Cancelled', tone: 'cancelled' },
 ];
 const inTabOf = (p, t) => {
   if (!t) return true;
@@ -100,7 +102,7 @@ const EXPORT_COLUMNS = [
   { key: 'paidAmount', label: 'Paid', value: (p) => Number(p.paidAmount || 0) },
   { key: 'failedCount', label: 'Rejected', value: (p) => Number(p.failedCount || 0) },
   { key: 'status', label: 'Status', value: (p) => STATUS[p.status]?.label || p.status },
-  { key: 'postingStatus', label: 'In books', value: (p) => (p.postingStatus === 'POSTED' ? 'Posted' : 'Not yet') },
+  { key: 'postingStatus', label: 'In accounts', value: (p) => (p.postingStatus === 'POSTED' ? 'Posted' : 'Not yet') },
 ];
 
 export default function PayrollPayments({ menuLabel } = {}) {
@@ -122,7 +124,7 @@ export default function PayrollPayments({ menuLabel } = {}) {
         setBanks(ledger);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load salary payments.')));
+      .catch((e) => setError(errorWords(e, 'load salary payments')));
   }, []);
 
   useEffect(() => {
@@ -161,29 +163,28 @@ export default function PayrollPayments({ menuLabel } = {}) {
   return (
     <DocumentListShell
       entity="payment"
-      title={menuLabel || 'Salary payments'}
+      title={menuLabel || 'Payments'}
       description="The money going out for an approved payroll, what the bank did with each line, and the entry that clears it."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search payments…', label: 'Search salary payments' }}
       moreItems={payments?.length ? [exportMenuItem('Export payments')] : null}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (!format) return;
-        runListExport({ format, title: 'Salary payments', fileName: 'Salary payments', label: 'payment/payments', columns: EXPORT_COLUMNS, rows });
+        runListExport({ format, title: 'Payments', fileName: 'Salary payments', label: 'payment/payments', columns: EXPORT_COLUMNS, rows });
       }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" onClick={start} disabled={!runs.length || starting}>
           <Plus size={16} aria-hidden="true" /> New payment
         </button>
       }
-      cards={[
-        { label: 'Sent', value: figures.sent, tone: 'sent', Icon: Send },
-        { label: 'Paid', value: figures.paid, tone: 'paid', Icon: Check, onSelect: () => setStatus('COMPLETED') },
-        { label: 'Rejected', value: figures.rejected, count: true, tone: 'overdue', Icon: X, onSelect: () => setStatus('PROBLEM') },
-        { label: 'Not posted', value: figures.unposted, count: true, tone: 'outstanding', Icon: BookOpen },
-      ]}
+      countLine={countItems([
+        { label: 'Sent', value: figures.sent, tone: 'sent' },
+        { label: 'Paid', value: figures.paid, tone: 'paid', onSelect: () => setStatus('COMPLETED') },
+        { label: 'Rejected', value: figures.rejected, count: true, tone: 'overdue', onSelect: () => setStatus('PROBLEM') },
+        { label: 'Not posted', value: figures.unposted, count: true, tone: 'outstanding' },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -218,7 +219,7 @@ export default function PayrollPayments({ menuLabel } = {}) {
                 <th scope="col" className="ui-col-h-right">Paid</th>
                 <th scope="col" className="ui-col-h-right">Rejected</th>
                 <th scope="col" className="ui-col-h-center">Status</th>
-                <ColumnHeader label="In books" col="books" state={filters} align="center" />
+                <ColumnHeader label="In accounts" col="books" state={filters} align="center" />
               </tr>
             </thead>
             <tbody className="ui-rows">
@@ -236,7 +237,7 @@ export default function PayrollPayments({ menuLabel } = {}) {
                     ) : (
                       <EmptyState
                         icon={Wallet}
-                        title={status ? `No payments ${TABS.find((t) => t.value === status)?.label.toLowerCase()}` : 'Nothing has been paid yet'}
+                        title={{ OPEN: 'No payments waiting for the bank', COMPLETED: 'No payments paid yet', PROBLEM: 'No payments with rejections', CANCELLED: 'No cancelled payments' }[status] || 'Nothing has been paid yet'}
                         description="Start a payment and it gathers everybody on an approved payroll who is still owed, with the bank details to pay them at."
                         routes={runs.length && !status ? [{ label: 'New payment', description: 'Preview who is owed before anything is sent.', onSelect: start }] : undefined}
                       />
@@ -325,7 +326,7 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
         })
       );
     } catch (err) {
-      notify.error(String(err?.message || 'Could not start that payment.'));
+      notify.error(errorWords(err, 'start that payment'));
     } finally {
       setSaving(false);
     }
@@ -341,7 +342,7 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
           <select id="pay-run" className="ui-select w-full" value={form.runId} onChange={(e) => set({ runId: e.target.value })} required>
             {runs.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.number} — {r.period?.name || shownDate(r.payrollDate)}
+                {r.number} · {r.period?.name || shownDate(r.payrollDate)}
               </option>
             ))}
           </select>
@@ -351,7 +352,7 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
           <input id="pay-date" type="date" className="ui-input w-full" value={form.paymentDate} onChange={(e) => set({ paymentDate: e.target.value })} required />
         </div>
         <div>
-          <label className="ui-label" htmlFor="pay-method">How</label>
+          <label className="ui-label" htmlFor="pay-method">Payment method</label>
           <select id="pay-method" className="ui-select w-full" value={form.method} onChange={(e) => set({ method: e.target.value })}>
             {METHODS.map((m) => (
               <option key={m.id} value={m.id}>{m.label}</option>
@@ -366,7 +367,7 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
           </select>
-          <span className="ui-caption">The account the money leaves. Needed before this clears into the books.</span>
+          <span className="ui-caption">The account the money leaves. Needed before this payment is posted to accounts.</span>
         </div>
       </div>
 
@@ -424,7 +425,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
       setPayment(row);
       setPosting(await previewPaymentPosting(paymentId).catch(() => null));
     } catch (e) {
-      notify.error(String(e?.message || 'Could not load that payment.'));
+      notify.error(errorWords(e, 'load that payment'));
     } finally {
       setLoading(false);
     }
@@ -446,7 +447,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
       notify.success(done);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not record that.'));
+      notify.error(errorWords(e, 'record the bank’s answer'));
     } finally {
       setBusy('');
     }
@@ -473,7 +474,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
       });
       notify.success(`${advice.rows.length} ${advice.rows.length === 1 ? 'line' : 'lines'} downloaded.`);
     } catch (e) {
-      notify.error(String(e?.message || 'Could not build the advice file.'));
+      notify.error(errorWords(e, 'make the bank file'));
     } finally {
       setBusy('');
     }
@@ -481,19 +482,19 @@ const PaymentDetail = ({ paymentId, onBack }) => {
 
   const post = async () => {
     const ok = await confirmDialog({
-      title: 'Clear this payment into the books?',
+      title: 'Post this payment to accounts?',
       message: `${money(posting?.totalDebit || 0)} comes out of the bank and off what was owed. Only the lines marked paid are included.`,
-      confirmLabel: 'Yes, post it',
+      confirmLabel: 'Post payment',
       tone: 'default',
     });
     if (!ok) return;
     setBusy('post');
     try {
       const out = await postPayrollPayment(paymentId);
-      notify.success(out.replayed ? 'This payment was already in the books.' : 'Posted.');
+      notify.success(out.replayed ? 'This payment was already posted to accounts.' : 'Posted to accounts.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not post that payment.'));
+      notify.error(errorWords(e, 'post that payment'));
     } finally {
       setBusy('');
     }
@@ -501,17 +502,18 @@ const PaymentDetail = ({ paymentId, onBack }) => {
 
   const callOff = async () => {
     const ok = await confirmDialog({
-      title: 'Call this payment off?',
+      title: 'Cancel this payment?',
       message: 'Everybody in it goes back to being owed, and appears in the next payment.',
-      confirmLabel: 'Yes, call it off',
+      confirmLabel: 'Cancel payment',
+      cancelLabel: 'Keep it',
     });
     if (!ok) return;
     try {
       await cancelPayrollPayment(paymentId);
-      notify.success('Called off.');
+      notify.success('Payment cancelled.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not call that off.'));
+      notify.error(errorWords(e, 'cancel that payment'));
     }
   };
 
@@ -533,7 +535,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
             </button>
             {posted ? null : (
               <button type="button" className="ui-btn ui-btn-primary" onClick={post} disabled={busy === 'post' || Boolean(posting?.problems?.length)}>
-                {busy === 'post' ? 'Posting…' : 'Post to books'}
+                {busy === 'post' ? 'Posting…' : 'Post to accounts'}
               </button>
             )}
           </div>
@@ -550,7 +552,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
 
       {posted ? (
         <p className="ui-caption">
-          In the books since {new Date(payment.postedAt).toLocaleDateString('en-IN')}. Anything that changed afterwards is a fresh payment,
+          Posted to accounts on {dayText(payment.postedAt)}. Anything that changed afterwards is a fresh payment,
           not an edit to this one.
         </p>
       ) : posting?.problems?.length ? (
@@ -558,7 +560,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
           <div className="flex items-start gap-2">
             <AlertTriangle size={15} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
             <div>
-              <p className="text-sm">This cannot go into the books yet.</p>
+              <p className="text-sm">This cannot be posted to accounts yet.</p>
               <ul className="ui-caption mt-1 space-y-0.5">
                 {posting.problems.map((p) => (
                   <li key={p.code}>{p.message}</li>
@@ -570,7 +572,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
       ) : posting?.lines?.length ? (
         <div className="ui-card overflow-hidden">
           <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
-            What this writes to the books
+            What this posts to accounts
           </div>
           <div className="ui-table-scroll">
             <table className="ui-table ui-table-sticky w-full">
@@ -600,26 +602,34 @@ const PaymentDetail = ({ paymentId, onBack }) => {
           <div className="ui-sec-head">Who is being paid</div>
           <div className="flex items-center gap-2">
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={download} disabled={busy === 'advice'}>
-              <Download size={14} aria-hidden="true" /> {busy === 'advice' ? 'Building…' : 'Advice file'}
+              <Download size={14} aria-hidden="true" /> {busy === 'advice' ? 'Making…' : 'Download bank file'}
             </button>
             {settled && pending.length ? (
               <button
                 type="button"
                 className="ui-btn ui-btn-secondary ui-btn-sm"
                 disabled={busy === 'settle'}
-                onClick={() =>
+                onClick={async () => {
+                  const total = pending.reduce((t, l) => t + (Number(l.amount) || 0), 0);
+                  const ok = await confirmDialog({
+                    title: `Mark ${pending.length} ${pending.length === 1 ? 'person' : 'people'} paid, ${money(total)}?`,
+                    message: 'This records that the bank paid them. Mark any rejection first: a line marked paid is not paid again.',
+                    confirmLabel: `Mark ${pending.length} paid`,
+                    tone: 'default',
+                  });
+                  if (!ok) return;
                   settle(
                     pending.map((l) => ({ lineId: l.id, status: 'PAID' })),
                     `${pending.length} marked paid.`
-                  )
-                }
+                  );
+                }}
               >
                 <Check size={14} aria-hidden="true" /> Mark the rest paid
               </button>
             ) : null}
             {settled && !payment.paidCount ? (
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={callOff}>
-                <Ban size={14} aria-hidden="true" /> Call off
+                <Ban size={14} aria-hidden="true" /> Cancel payment
               </button>
             ) : null}
           </div>
@@ -635,7 +645,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
                 <th scope="col" className="ui-col-h-right">Amount</th>
                 <th scope="col" className="ui-col-h-center">Status</th>
                 <th scope="col">Reference</th>
-                {settled ? <th scope="col" className="ui-col-h-center">Mark</th> : null}
+                {settled ? <th scope="col" className="ui-col-h-center">Bank’s answer</th> : null}
               </tr>
             </thead>
             <tbody className="ui-rows">
@@ -741,7 +751,7 @@ const RejectLine = ({ line, onCancel, onSave }) => {
       </div>
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary">Record it</button>
+        <button type="submit" className="ui-btn ui-btn-primary">Record rejection</button>
       </div>
     </form>
   );

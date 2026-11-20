@@ -84,7 +84,7 @@ export default function AskSupport({ onClose }) {
             disabled={!ready || busy}
           >
             <Send size={16} aria-hidden="true" />{" "}
-            {busy ? "Sending…" : "Send to CLOR"}
+            {busy ? "Sending…" : "Send to CLOR support"}
           </button>
         </div>
       }

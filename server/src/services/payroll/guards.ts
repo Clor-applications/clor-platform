@@ -2,6 +2,7 @@ import { appGate } from '../appGate.js';
 import type { Request, Response } from 'express';
 
 import { isFeatureEnabled } from '../features.js';
+import { otherCompany } from '../../utils/companyWords.js';
 
 /**
  * The two checks every payroll route makes before it does anything.
@@ -22,7 +23,7 @@ import { isFeatureEnabled } from '../features.js';
 /** The org in the path must be the org the caller is authenticated for. */
 export const orgMatches = (req: Request, res: Response): boolean => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;
@@ -33,7 +34,7 @@ export const payrollEnabled = async (req: Request, res: Response): Promise<boole
   const { accountId, orgId } = req.tenant!;
   if (await isFeatureEnabled(accountId, orgId, 'payroll')) return true;
   res.status(403).json({
-    error: 'Payroll is not switched on for this organisation.',
+    error: 'Payroll is not switched on for this company.',
     code: 'PAYROLL_DISABLED',
   });
   return false;

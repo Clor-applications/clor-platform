@@ -170,7 +170,7 @@ describe('role permission matrix', () => {
       .send({ permissions: ['SALES::Invoices::SUPERPOWER'] })
       .expect(400);
 
-    expect(String(res.body.error)).toMatch(/unknown permission/i);
+    expect(String(res.body.error)).toMatch(/not one CLOR knows/i);
   });
 
   it('expands a preset into concrete permissions', async () => {

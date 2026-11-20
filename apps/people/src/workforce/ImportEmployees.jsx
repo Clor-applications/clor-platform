@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useRef, useState } from 'react';
 import { Check, FileDown, Upload } from '@ui/components/ui/lineIcons';
 
@@ -58,7 +59,7 @@ export default function ImportEmployees({ openScreen }) {
   /* A file mapped or checked but not imported yet is work in hand. */
   useUnsavedChanges(Boolean(file) && step !== 'results' && step !== 'upload');
 
-  if (!can(perms, 'PEOPLE::Employees::CREATE')) return <ErrorState kind="forbidden" body="Importing employees needs the Employees create permission." />;
+  if (!can(perms, 'PEOPLE::Employees::CREATE')) return <ErrorState kind="forbidden" body="You do not have access to import employees. Ask an admin to allow it in Roles & permissions." />;
 
   const take = async (f) => {
     setFailure(null);
@@ -90,7 +91,7 @@ export default function ImportEmployees({ openScreen }) {
       setResult(null);
       setStep('map');
     } catch (e) {
-      setFailure({ message: String(e?.message || 'Could not read that file.') });
+      setFailure({ message: errorWords(e, 'read that file') });
     } finally {
       if (input.current) input.current.value = '';
     }
@@ -131,7 +132,7 @@ export default function ImportEmployees({ openScreen }) {
       notify.success(`Undone: ${r.removed} removed, ${r.restored} put back${r.kept ? `, ${r.kept} kept (already in payroll)` : ''}.`);
       setResult({ ...result, undone: true });
     } catch (e) {
-      notify.error(String(e?.message || 'Not undone.'));
+      notify.error(errorWords(e, 'undo the import'));
     } finally {
       setBusy(false);
     }
@@ -170,7 +171,7 @@ export default function ImportEmployees({ openScreen }) {
               <input ref={input} type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => take(e.target.files?.[0])} />
             </label>
             <div className="flex flex-wrap items-center gap-3">
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadImportTemplate('employees', 'CLOR employees import template').catch((e) => notify.error(String(e?.message || 'The template could not be downloaded.')))}><FileDown size={16} aria-hidden="true" /> Download the template</button>
+              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadImportTemplate('employees', 'CLOR employees import template').catch((e) => notify.error(errorWords(e, 'download the template')))}><FileDown size={16} aria-hidden="true" /> Download the template</button>
               <span className="ui-caption">A CSV file that opens in Excel: every heading, one example row, and a note on each column.</span>
             </div>
             {/* Earlier imports, and undo within the day (gap 14). */}

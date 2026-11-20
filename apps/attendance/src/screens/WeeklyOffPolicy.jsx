@@ -6,6 +6,7 @@ import { listShifts, updateShift } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { shiftBody } from '../components/shiftBody';
 import { mondayFirst } from '@ui/timeOff/round33';
+import { errorWords } from '@ui/utils/errorWords';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const NTH = ['1st', '2nd', '3rd', '4th', '5th'];
@@ -31,7 +32,7 @@ export default function WeeklyOffPolicy({ openScreen }) {
   const load = useCallback(() => {
     listShifts()
       .then((v) => { setShifts(v); setError(''); setDrafts({}); })
-      .catch((e) => setError(String(e?.message || 'Could not load shifts.')));
+      .catch((e) => setError(errorWords(e, 'load shifts')));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -51,7 +52,7 @@ export default function WeeklyOffPolicy({ openScreen }) {
       notify.success(`${s.name}: weekly offs saved.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setSaving('');
     }

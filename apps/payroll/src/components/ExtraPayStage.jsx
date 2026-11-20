@@ -5,6 +5,7 @@ import { wholeRupees as money } from "@ui/utils/money";
 import { saveExtraPay, setRunEmployeeIncluded } from "../api/payrollRuns";
 import { listEmployees } from "../api/payrollPeople";
 import { listSalaryComponents } from "../api/payrollComponents";
+import { errorWords } from "@ui/utils/errorWords";
 
 /**
  * Who an extra pay run pays, and what (an OFF_CYCLE run).
@@ -45,7 +46,7 @@ const PersonRow = ({ member, components, editable, runId, onChanged }) => {
       notify.success(`Saved for ${name}.`);
       onChanged();
     } catch (e) {
-      notify.error(String(e?.message || "Could not save that."));
+      notify.error(errorWords(e, "save the extra pay"));
     } finally {
       setBusy(false);
     }
@@ -64,7 +65,7 @@ const PersonRow = ({ member, components, editable, runId, onChanged }) => {
             onChange={(e) =>
               setRunEmployeeIncluded(runId, member.employeeId, e.target.checked)
                 .then(onChanged)
-                .catch((err) => notify.error(String(err?.message || "Could not change that.")))
+                .catch((err) => notify.error(errorWords(err, "change the extra pay")))
             }
           />
           <span className="font-medium truncate">{name}</span>
@@ -195,7 +196,7 @@ const ExtraPayStage = ({ data, editable, runId, onChanged }) => {
       setAdding("");
       onChanged();
     } catch (e) {
-      notify.error(String(e?.message || "Could not add that person."));
+      notify.error(errorWords(e, "add that person"));
     }
   };
 

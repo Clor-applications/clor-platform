@@ -31,13 +31,13 @@ const me = (over) => ({
 
 beforeEach(() => vi.clearAllMocks());
 
-it('keeps Clock out for a day the browser opened, even for someone now on phone punching', async () => {
+it('keeps Punch out for a day the browser opened, even for someone now on phone punching', async () => {
   getMe.mockResolvedValue(me({ phone: { allowed: true }, webClock: { allowed: true, outOnly: true, code: 'USE_PHONE_PUNCH', why: 'Punch from your phone from now on.' } }));
   clock.mockResolvedValue({ kind: 'OUT', record: { checkOutTime: '18:05' } });
   render(<MyAttendance />);
   expect(await screen.findByText('Phone punch card')).toBeTruthy();
   expect(screen.getByText('Punch from your phone from now on.')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: /Clock out/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Punch out/ }));
   await waitFor(() => expect(clock).toHaveBeenCalledWith('OUT'));
 });
 

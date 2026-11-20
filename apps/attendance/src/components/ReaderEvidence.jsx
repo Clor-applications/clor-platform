@@ -55,7 +55,7 @@ export default function ReaderEvidence({ device }) {
       </details>
       <details className="ui-card p-3 text-sm" onToggle={(e) => setOpenEvents(e.currentTarget.open)}>
         <summary className="cursor-pointer font-medium">What it sent</summary>
-        {!events ? <p className="ui-caption mt-2">Loading…</p> : (
+        {!events ? <p className="ui-caption mt-2">Loading what it sent…</p> : (
           <div className="mt-2 space-y-2">
             <div role="tablist" className="flex flex-wrap gap-1">
               {['', 'NEW', 'REJECTED', 'IGNORED'].map((o) => (
@@ -98,7 +98,7 @@ export function ReaderCompatibility() {
   return (
     <details className="ui-card p-4 text-sm" onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary className="ui-t-sec cursor-pointer select-none">Which readers work</summary>
-      {!data ? <p className="ui-caption mt-2">Loading…</p> : (
+      {!data ? <p className="ui-caption mt-2">Loading the list of readers…</p> : (
         <div className="mt-3 space-y-2">
           <div className="overflow-x-auto ui-table-scroll ui-table-fit">
             <table className="ui-table w-full">

@@ -10,11 +10,12 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import GetStarted from '../components/GetStarted';
 import MoveToPeople from '../components/MoveToPeople';
 import { TodayScreen } from '../components/round24';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* The reader states the server already decides (Reader health uses the same words). */
 const READER = {
   ok: { label: 'Healthy', tone: 'pos' },
-  delayed: { label: 'Late checking in', tone: 'warn' },
+  delayed: { label: 'Slow to report', tone: 'warn' },
   warn: { label: 'Needs a look', tone: 'warn' },
   bad: { label: 'Problem', tone: 'neg' },
   offline: { label: 'Offline', tone: 'neg' },
@@ -49,8 +50,8 @@ function Kpi({ k, label, value, note = null, on = false }) {
 function daySentence(data, isToday) {
   const inn = data.present + data.halfDay;
   if (data.holiday) return `${data.holiday}, a holiday.`;
-  if (!data.headcount) return 'Add people under Personnel to start tracking attendance.';
-  if (!inn && isToday) return `Nobody has clocked in yet. ${data.headcount} ${data.headcount === 1 ? 'person is' : 'people are'} expected.`;
+  if (!data.headcount) return 'Add people under People → Employees to start tracking attendance.';
+  if (!inn && isToday) return `Nobody has punched in yet. ${data.headcount} ${data.headcount === 1 ? 'person is' : 'people are'} expected.`;
   const parts = [`${inn} of ${data.headcount} ${isToday ? 'in so far' : 'were in'}`];
   if (data.late.length) parts.push(`${data.late.length} late`);
   if (data.onLeave) parts.push(`${data.onLeave} on leave`);
@@ -103,7 +104,7 @@ export default function AttendanceToday({ openScreen }) {
     let cancelled = false;
     getOverview(date)
       .then((d) => !cancelled && (setData(d), setError('')))
-      .catch((e) => !cancelled && setError(String(e?.message || 'Could not load today.')));
+      .catch((e) => !cancelled && setError(errorWords(e, 'load today’s attendance')));
     return () => {
       cancelled = true;
     };
@@ -135,7 +136,7 @@ export default function AttendanceToday({ openScreen }) {
   const waiting = data
     ? [
         { n: data.toValidate, label: data.toValidate === 1 ? 'day to validate' : 'days to validate', key: 'records', icon: ListChecks },
-        { n: data.pendingRequests, label: data.pendingRequests === 1 ? 'attendance request' : 'attendance requests', key: 'requests', icon: Inbox },
+        { n: data.pendingRequests, label: data.pendingRequests === 1 ? 'correction' : 'corrections', key: 'requests', icon: Inbox },
         { n: data.pendingLeave, label: data.pendingLeave === 1 ? 'leave request' : 'leave requests', key: 'leaveRequests', icon: CalendarDays },
       ]
     : [];

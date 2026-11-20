@@ -11,6 +11,7 @@ import { FilterSelect, Loading, PageHead, StatusPill, WsDrawer } from './wsKit';
 import './ws-security.css';
 import './workspace.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Workspace → Security → Single sign-on (redesign W-R7; R&D WS-11).
@@ -102,7 +103,7 @@ export default function SsoSettings() {
   const [scimRole, setScimRole] = useState('');
   const [newToken, setNewToken] = useState('');
 
-  const load = useCallback(() => getProviders().then(setData).catch((e) => notify.error(String(e?.message || 'Could not load sign-in methods.'))), []);
+  const load = useCallback(() => getProviders().then(setData).catch((e) => notify.error(errorWords(e, 'load the sign-in methods'))), []);
   const loadScim = useCallback(() => getScim().then(setScim).catch(() => setScim({ baseUrl: '', tokens: [] })), []);
   useEffect(() => {
     load();
@@ -116,12 +117,12 @@ export default function SsoSettings() {
       setNewToken(r.token);
       loadScim();
     } catch (err) {
-      notify.error(String(err?.message || 'Not made.'));
+      notify.error(errorWords(err, 'make the token'));
     }
   };
   const revoke = async (t) => {
-    if (!(await confirmDialog({ title: 'Revoke this token?', message: 'Directory sync stops at once.', confirmLabel: 'Revoke' }))) return;
-    await revokeScimToken(t.id).catch((err) => notify.error(String(err?.message || 'Not revoked.')));
+    if (!(await confirmDialog({ title: 'Revoke this directory sync token?', message: 'Directory sync stops at once. People already added stay, and you can make a new token later.', confirmLabel: 'Revoke token', tone: 'danger' }))) return;
+    await revokeScimToken(t.id).catch((err) => notify.error(errorWords(err, 'revoke the token')));
     loadScim();
   };
   const copyToken = async () => {
@@ -144,7 +145,7 @@ export default function SsoSettings() {
       setForm(null);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the provider'));
     } finally {
       setBusy(false);
     }
@@ -154,7 +155,7 @@ export default function SsoSettings() {
       await updateProvider(p.id, { kind: p.kind, name: p.name, discoveryUrl: p.discoveryUrl, issuer: p.issuer, clientId: p.clientId, scopes: p.scopes, emailDomains: p.emailDomains, autoProvision: p.autoProvision, defaultRoleId: p.defaultRoleId, entryPoint: p.entryPoint, entityId: p.entityId, enabled: !p.enabled });
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not changed.'));
+      notify.error(errorWords(err, 'switch it'));
     }
   };
   const verify = async (p) => {
@@ -165,12 +166,12 @@ export default function SsoSettings() {
       else notify.success('All domains verified. You can switch it on.');
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not check.'));
+      notify.error(errorWords(err, 'check the domains'));
     }
   };
   const remove = async (p) => {
-    if (!(await confirmDialog({ title: `Remove ${p.name}?`, message: 'Its users go back to passwords.', confirmLabel: 'Remove' }))) return;
-    await deleteProvider(p.id).catch((err) => notify.error(String(err?.message || 'Not removed.')));
+    if (!(await confirmDialog({ title: `Remove ${p.name} single sign-on?`, message: 'People who signed in with it go back to signing in with their CLOR password.', confirmLabel: 'Remove provider', tone: 'danger' }))) return;
+    await deleteProvider(p.id).catch((err) => notify.error(errorWords(err, 'remove the provider')));
     load();
   };
   const edit = (p) => setForm({ ...EMPTY, ...p, clientSecret: '', defaultRoleId: p.defaultRoleId || '', emailDomains: p.emailDomains || '', discoveryUrl: p.discoveryUrl || '', issuer: p.issuer || '', scopes: p.scopes || EMPTY.scopes });
@@ -230,7 +231,7 @@ export default function SsoSettings() {
                     ) : null}
                     {p.saml ? (
                       <p className="ws-sso-small">
-                        At the provider: Reply URL / ACS <code className="ui-mono break-all">{p.saml.acsUrl}</code> · Identifier / Audience <code className="ui-mono break-all">{p.saml.spEntityId}</code> · metadata at the same address as the identifier. NameID as e-mail.
+                        At the provider: Reply URL / ACS <code className="ui-mono break-all">{p.saml.acsUrl}</code> · Identifier / Audience <code className="ui-mono break-all">{p.saml.spEntityId}</code> · metadata at the same address as the identifier. NameID as email.
                       </p>
                     ) : null}
                     <div className="ws-sso-actions">
@@ -323,7 +324,7 @@ export default function SsoSettings() {
               title="At your provider"
               id="ws-sso-provider"
               action={<a className="ws-link" href="/docs/sso.html" target="_blank" rel="noreferrer">Set-up guide</a>}
-              lede="Register this as the redirect URI. Scopes: openid, email, profile. Only verified e-mails at your domains are trusted; passwords keep working."
+              lede="Register this as the redirect URI. Scopes: openid, email, profile. Only verified emails at your domains are trusted; passwords keep working."
             >
               <Address label="Redirect address to register" value={data.redirectUri} />
             </Section>
@@ -375,7 +376,7 @@ export default function SsoSettings() {
                     </Field>
                   </>
                 )}
-                <Field label="E-mail domains this provider owns" wide>
+                <Field label="Email domains this provider owns" wide>
                   <input className="ui-input w-full" required value={form.emailDomains} onChange={set('emailDomains')} placeholder="yourcompany.com, yourcompany.in" />
                 </Field>
                 <Field label="Role for people added automatically" wide>

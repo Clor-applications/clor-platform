@@ -8,6 +8,7 @@ import { askSalaryAdvance, mySalaryAdvance, previewAsk } from '../services/peopl
 import { SkipAskError, askSkip } from '../services/payroll/skipAsk.js';
 import { z } from 'zod';
 import { check, flag, id, idParams, noBody, rawText, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * The person's own money, from the employee app (WORKFLOW-GAP-RESEARCH 4.1,
@@ -26,7 +27,7 @@ const run = (fn: (req: Request, res: Response) => Promise<unknown>) => async (re
   } catch (e) {
     if (e instanceof MoneyError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
     console.error('[people-money portal]', e instanceof Error ? e.message : e); // eslint-disable-line no-console
-    res.status(500).json({ error: 'Something went wrong. Try again.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 };
 const KINDS = { claims: 'claim', advances: 'advance', 'salary-advance': 'ask' } as const;
@@ -96,20 +97,20 @@ peopleMoneyPortalRouter.post('/instalments/:id/skip', check({ params: idParams, 
   } catch (e) {
     if (e instanceof SkipAskError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
     console.error('[people-money portal]', e instanceof Error ? e.message : e); // eslint-disable-line no-console
-    res.status(500).json({ error: 'Something went wrong. Try again.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 });
 
 /** Withdraw, or answer a question about, one of my own: a claim, an advance or a salary advance. */
 peopleMoneyPortalRouter.post('/:kind/:id/withdraw', check({ params: KIND_PARAMS, body: noBody }), run(async (req, res) => {
   const kind = kindOf(String(req.params.kind));
-  if (!kind) return res.status(404).json({ error: 'Not found.' });
+  if (!kind) return res.status(404).json({ error: 'No such request.' });
   res.json(await withdrawMine(me(req), kind, String(req.params.id)));
 }));
 
 peopleMoneyPortalRouter.post('/:kind/:id/reply', check({ params: KIND_PARAMS, body: z.object({ note: text(20_000).nullish() }) }), run(async (req, res) => {
   const kind = kindOf(String(req.params.kind));
-  if (!kind) return res.status(404).json({ error: 'Not found.' });
+  if (!kind) return res.status(404).json({ error: 'No such request.' });
   res.json(await answerMine(me(req), kind, String(req.params.id), String(req.body?.note || '')));
 }));
 

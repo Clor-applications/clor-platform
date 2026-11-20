@@ -3,7 +3,7 @@ import { notify } from '@ui/components/ui/notify';
 import { AlertTriangle } from '@ui/components/ui/lineIcons';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
-import { Empty, Err, Loading, Tabs, when } from './kit';
+import { Empty, Err, Loading, Tabs, when, errorWords } from './kit';
 import { opsEndSupportGrant, opsMySupportGrants } from './api';
 
 /**
@@ -39,7 +39,7 @@ export function AccessRequests({ openCustomer }) {
   const load = useCallback(() => {
     opsMySupportGrants()
       .then((r) => (setRows(r?.grants || []), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the access requests')));
   }, []);
   useEffect(load, [load]);
 
@@ -48,7 +48,7 @@ export function AccessRequests({ openCustomer }) {
       await opsEndSupportGrant(g.id);
       notify.success(g.state === 'PENDING' ? 'Withdrawn.' : 'Closed.');
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'close the request'));
     }
     load();
   };
@@ -59,15 +59,15 @@ export function AccessRequests({ openCustomer }) {
     <>
       <PageHead
         title="Access requests"
-        description="Your requests to look inside a customer’s company. The customer’s owner or admin answers each one in Workspace; nobody at CLOR approves their own."
+        description="Your requests to look inside a customer’s company. The customer’s owner or an administrator answers each one in Workspace; nobody at CLOR approves their own."
       />
       <Tabs
         label="Which requests"
         value={tab}
         onChange={setTab}
         tabs={[
-          ['waiting', `Waiting${rows ? ` · ${count('waiting')}` : ''}`],
-          ['open', `Open${rows ? ` · ${count('open')}` : ''}`],
+          ['waiting', `Waiting${rows ? ` (${count('waiting')})` : ''}`],
+          ['open', `Open${rows ? ` (${count('open')})` : ''}`],
           ['ended', 'Ended'],
         ]}
       />

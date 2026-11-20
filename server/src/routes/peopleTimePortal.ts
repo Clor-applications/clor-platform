@@ -10,6 +10,7 @@ import { noticesFor } from '../services/people/absconding.js';
 import { ConsentError, consentHistory, consentOf, nightDaysAhead, recordConsent } from '../services/people/nightConsent.js';
 import { z } from 'zod';
 import { check, q, rawText, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * The employee app's side of the attendance rules (WORKFLOW-GAP-RESEARCH-2026-10-30 4.4, 4.5, 4.6,
@@ -31,7 +32,7 @@ const me = (req: Request) => req.portal!.employee as { id: string; accountId: st
 const fail = (res: Response, e: any) => {
   if (e instanceof ConsentError || (e?.status && e.status < 500)) return res.status(e.status || 400).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
   console.error('[portal attendance rules]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong. Try again in a moment.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 
 /* A month that is not one reads as this month (the handler's fallback), so it is only checked for being short text. */

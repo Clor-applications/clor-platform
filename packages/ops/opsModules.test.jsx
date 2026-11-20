@@ -67,7 +67,7 @@ describe('operator console: status page', () => {
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Payroll is slow' } });
     fireEvent.change(screen.getByLabelText('First update'), { target: { value: 'Payslips take a minute to open.' } });
     fireEvent.click(screen.getByRole('checkbox', { name: 'Payroll' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Post' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Post notice' }));
     await waitFor(() => expect(api.opsPostStatus).toHaveBeenCalledWith(expect.objectContaining({ kind: 'INCIDENT', title: 'Payroll is slow', parts: ['payroll'], impact: 'MINOR' })));
   });
 });

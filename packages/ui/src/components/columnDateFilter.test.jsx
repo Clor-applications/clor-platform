@@ -46,7 +46,7 @@ const setWindow = (from, to) => {
   openDatePanel();
   if (from !== null) fireEvent.change(screen.getByLabelText('Next invoice date from'), { target: { value: from } });
   if (to !== null) fireEvent.change(screen.getByLabelText('Next invoice date to'), { target: { value: to } });
-  fireEvent.click(screen.getByText('Apply Filter'));
+  fireEvent.click(screen.getByText('Apply filter'));
 };
 
 const names = () => screen.getAllByRole('row').slice(1).map((r) => r.cells[0].textContent);
@@ -82,7 +82,7 @@ describe('a date column filters by window', () => {
     render(<Table />);
     setWindow('2026-09-15', '2026-11-01');
     openDatePanel();
-    fireEvent.click(screen.getByText('Clear Filter'));
+    fireEvent.click(screen.getByText('Clear the filter on “Next invoice date”'));
     expect(names()).toHaveLength(4);
   });
 });

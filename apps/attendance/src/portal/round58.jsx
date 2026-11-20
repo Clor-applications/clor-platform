@@ -10,6 +10,7 @@ import {
   bundleChoices, bundleTitle, countVisit, dismissInstall, inSpan, installDismissed, isIos, isStandalone,
   lastSlips, monthWeeks, shiftMonth, shouldAskInstall, tapDay,
 } from '@ui/picks/round58';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* ---------------------------------------------------------------- installapp A */
 
@@ -277,7 +278,7 @@ export function PayslipBundle({ slips, load }) {
       const full = await Promise.all(lastSlips(slips, n).map((s) => load(s.id).then((d) => d.slip)));
       print(full);
     } catch (e) {
-      if (e?.name !== 'SignedOut') setFailed(String(e?.message || 'Could not put the payslips together.'));
+      if (e?.name !== 'SignedOut') setFailed(errorWords(e, 'put the payslips together'));
     } finally {
       setBusy(false);
     }

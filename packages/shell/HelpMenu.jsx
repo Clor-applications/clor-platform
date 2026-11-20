@@ -51,21 +51,21 @@ export default function HelpMenu({ variant = 'bar', icon: Icon = null }) {
           {dot ? <span className="r67-dot" aria-hidden="true" /> : null}
         </MenuTrigger>
       ) : (
-        <MenuTrigger className="ui-icon-btn r67-help-trigger" aria-label={dot ? 'Help and contact, something new to read' : 'Help and contact'} title="Help and contact">
+        <MenuTrigger className="ui-icon-btn r67-help-trigger" aria-label={dot ? 'Help and support, something new to read' : 'Help and support'} title="Help and support">
           <CircleHelp size={16} aria-hidden="true" />
           {dot ? <span className="r67-dot" aria-hidden="true" /> : null}
         </MenuTrigger>
       )}
       {/* From the rail's foot it opens beside the rail, not over it; from the bar it hangs under its button. */}
-      <MenuPanel aria-label="Help and contact" minWidth={248} zIndex="var(--z-platform-menu)" side={variant === 'rail' ? 'right' : 'bottom'} align="end">
+      <MenuPanel aria-label="Help and support" minWidth={248} zIndex="var(--z-platform-menu)" side={variant === 'rail' ? 'right' : 'bottom'} align="end">
         <MenuItem onClick={() => requestOpenHelp('welcome')}>
           <BookOpen size={16} aria-hidden="true" /> Help centre
         </MenuItem>
         <MenuItem onClick={() => requestOpenHelp('setup')}>
-          <ListChecks size={16} aria-hidden="true" /> Set up your workspace
+          <ListChecks size={16} aria-hidden="true" /> Set up your company
         </MenuItem>
         <MenuItem onClick={() => requestOpenHelp('readers')}>
-          <Cpu size={16} aria-hidden="true" /> Integration guides
+          <Cpu size={16} aria-hidden="true" /> Connect machines and other tools
         </MenuItem>
         <MenuItem disabled>
           <Keyboard size={16} aria-hidden="true" /> Search anywhere

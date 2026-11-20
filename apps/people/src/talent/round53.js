@@ -2,7 +2,7 @@
  * Round 53 picks (DESIGN.md, Round 53), the parts that need no server change.
  *
  * dupcandidate A: a new application from someone who applied before shows
- * "Applied before for Sales Executive in Mar 2026", matched on e-mail or phone.
+ * "Applied before for Sales Executive in Mar 2026", matched on email or phone.
  * goalweight A: each goal has a weight and a person's active goals add to 100%;
  * the goal form says what they add to with this one.
  * goalcopy A: "Copy last year's goals" copies a person's goals due last year,
@@ -20,7 +20,7 @@ export function monthYear(at) {
   return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 }
 
-/** The other applications from the same person (same e-mail or phone) made before this one, newest first. */
+/** The other applications from the same person (same email or phone) made before this one, newest first. */
 export function earlierApplications(candidate, rows = []) {
   if (!candidate) return [];
   const mail = email(candidate.email);

@@ -10,6 +10,8 @@ import { notify } from '@ui/components/ui/notify';
 import { addTemporarySchedule, dayLabel, listEmployees, listShifts, listTemporarySchedules, removeTemporarySchedule, todayIst } from '../api/attendance';
 import { confirmScheduleChange } from '../components/scheduleCheck';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const COLUMNS = {
   employee: (r) => r.employeeName,
@@ -32,7 +34,7 @@ export default function TemporarySchedule({ menuLabel } = {}) {
   const [q, setQ] = useState('');
   const [form, setForm] = useState({ shiftId: '', fromDate: todayIst(), toDate: todayIst(), reason: '' });
   const load = useCallback(() => {
-    listTemporarySchedules().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load.')));
+    listTemporarySchedules().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load this')));
   }, []);
   useEffect(() => {
     load();
@@ -77,7 +79,7 @@ export default function TemporarySchedule({ menuLabel } = {}) {
       setPicked(new Set());
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     }
   };
 
@@ -88,14 +90,13 @@ export default function TemporarySchedule({ menuLabel } = {}) {
       description="A different shift for some days. It wins over every other schedule on those days."
       compact
       tight
-      denseCards
       search={{ value: list.query, onChange: list.setQuery, placeholder: 'Search temporary schedules…', label: 'Search temporary schedules' }}
-      cards={[
+      countLine={countItems([
         { label: 'Schedules', value: figures.total, count: true, tone: 'all', Icon: CalendarClock },
         { label: 'People', value: figures.people, count: true, tone: 'sent', Icon: Users },
         { label: 'On today', value: figures.today, count: true, tone: 'paid', Icon: CalendarCheck },
         { label: 'Still to come', value: figures.upcoming, count: true, tone: 'partial', Icon: CalendarRange },
-      ]}
+      ])}
       above={
         <section className="ui-card space-y-3 p-4" aria-label="New temporary schedule">
           <div className="flex flex-wrap items-end gap-3">
@@ -167,7 +168,7 @@ export default function TemporarySchedule({ menuLabel } = {}) {
                       <td className="ui-col-grow whitespace-normal min-w-[10rem]">{r.reason || '—'}</td>
                       <td className="ui-col-meta">
                         <span className="flex justify-end">
-                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName}'s temporary schedule`} onClick={async () => { try { await removeTemporarySchedule(r.id); load(); } catch (err) { notify.error(String(err?.message || 'Not removed.')); } }}>
+                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName}'s temporary schedule`} onClick={async () => { try { await removeTemporarySchedule(r.id); load(); } catch (err) { notify.error(errorWords(err, 'remove it')); } }}>
                             <Trash2 size={14} aria-hidden="true" /> Remove
                           </button>
                         </span>

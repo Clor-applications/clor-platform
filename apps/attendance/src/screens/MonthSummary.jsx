@@ -10,6 +10,8 @@ import { closeMonth, getSummary, hm, todayIst } from '../api/attendance';
 import ReopenMonth from '../components/ReopenMonth';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords, monthText } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * The month as payroll sees it: payable days and loss-of-pay days per
@@ -41,8 +43,8 @@ export default function MonthSummary({ openScreen } = {}) {
     if (closing) {
       const noOut = (data?.rows || []).reduce((n, r) => n + (r.incompleteDays || 0), 0);
       const ok = await confirmDialog({
-        title: `Close ${month}?`,
-        message: `Its days become final: corrections, leave, manual changes and late reader uploads can no longer change them, so Payroll takes fixed figures.${noOut ? ` ${noOut} days still have no check-out and will stay as loss of pay.` : ''} You can reopen it.`,
+        title: `Close ${monthText(month)}?`,
+        message: `Its days become final: corrections, leave, manual changes and late reader uploads can no longer change them, so Payroll takes fixed figures.${noOut ? ` ${noOut} days still have no punch out and will stay as loss of pay.` : ''} You can reopen it.`,
         confirmLabel: 'Close month',
         tone: 'default',
       });
@@ -51,10 +53,10 @@ export default function MonthSummary({ openScreen } = {}) {
     setBusy(true);
     try {
       await closeMonth(month, true);
-      notify.success(`${month} closed.`);
+      notify.success(`${monthText(month)} closed.`);
       setAttempt((n) => n + 1);
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     } finally {
       setBusy(false);
     }
@@ -64,7 +66,7 @@ export default function MonthSummary({ openScreen } = {}) {
     let cancelled = false;
     getSummary(month)
       .then((d) => !cancelled && (setData(d), setError('')))
-      .catch((e) => !cancelled && setError(String(e?.message || 'Could not load the month.')));
+      .catch((e) => !cancelled && setError(errorWords(e, 'load the month')));
     return () => {
       cancelled = true;
     };
@@ -75,21 +77,21 @@ export default function MonthSummary({ openScreen } = {}) {
     { key: 'code', label: 'Employee ID' },
     { key: 'name', label: 'Name' },
     { key: 'payableDays', label: 'Payable days', lead: true },
-    { key: 'lossOfPayDays', label: 'Unpaid days (LOP)', lead: true },
+    { key: 'lossOfPayDays', label: 'Unpaid days', lead: true },
     { key: 'present', label: 'Present' },
     { key: 'halfDays', label: 'Half days' },
     { key: 'absent', label: 'Absent' },
-    { key: 'incompleteDays', label: 'No check-out' },
+    { key: 'incompleteDays', label: 'No punch out' },
     { key: 'leave', label: 'Leave' },
     { key: 'unpaidLeaveDays', label: 'Unpaid leave' },
     { key: 'holidays', label: 'Holidays' },
     { key: 'weeklyOffs', label: 'Weekly offs' },
     { key: 'lateCount', label: 'Late days' },
     { key: 'latePenaltyDays', label: 'Late penalty' },
-    { key: 'approvedOvertimeMinutes', label: 'Approved OT', value: (r) => hm(r.approvedOvertimeMinutes) },
+    { key: 'approvedOvertimeMinutes', label: 'Approved overtime', value: (r) => hm(r.approvedOvertimeMinutes) },
     /* The same approved hours, each at its day's rate (Overtime policy); Payroll takes the plain hours. */
-    { key: 'weightedOvertimeMinutes', label: 'OT at the rate', value: (r) => hm(r.weightedOvertimeMinutes) },
-    { key: 'overCapOvertimeMinutes', label: 'OT over the cap', value: (r) => hm(r.overCapOvertimeMinutes) },
+    { key: 'weightedOvertimeMinutes', label: 'Overtime at the rate', value: (r) => hm(r.weightedOvertimeMinutes) },
+    { key: 'overCapOvertimeMinutes', label: 'Overtime over the cap', value: (r) => hm(r.overCapOvertimeMinutes) },
     { key: 'notYet', label: 'To come' },
     { key: 'totalDays', label: 'Days' },
   ];
@@ -116,14 +118,13 @@ export default function MonthSummary({ openScreen } = {}) {
       description="Payable days for payroll. Days still to come are neither paid nor lost yet."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search people' }}
       headerExtras={<input type="month" className="ui-input ui-ctl-compact !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
       moreItems={[exportMenuItem('Export summary')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (!format || !data?.rows?.length) return;
-        runListExport({ format, title: 'Attendance summary', subtitle: month, fileName: `Attendance summary ${month}`, label: 'person/people', columns, rows });
+        runListExport({ format, title: 'Monthly attendance summary', subtitle: monthText(month), fileName: `Monthly attendance summary ${month}`, label: 'person/people', columns, rows });
       }}
       primary={
         ended && data ? (
@@ -134,12 +135,12 @@ export default function MonthSummary({ openScreen } = {}) {
           )
         ) : null
       }
-      cards={data ? [
+      countLine={countItems(data ? [
         { label: 'People', value: figures.people, count: true, tone: 'all', Icon: Users },
         { label: 'Payable days', value: round(figures.payable), count: true, tone: 'paid', Icon: CalendarCheck },
-        { label: 'Unpaid days (LOP)', value: round(figures.lop), count: true, tone: 'overdue', Icon: CalendarX },
-        { label: 'No check-out', value: figures.noOut, count: true, tone: 'outstanding', Icon: Clock },
-      ] : null}
+        { label: 'Unpaid days', value: round(figures.lop), count: true, tone: 'overdue', Icon: CalendarX },
+        { label: 'No punch out', value: figures.noOut, count: true, tone: 'outstanding', Icon: Clock },
+      ] : null)}
       above={
         data?.closed ? (
           <div className="ui-card p-3 text-sm" role="status">

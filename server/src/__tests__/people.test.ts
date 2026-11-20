@@ -96,7 +96,7 @@ describe('employee files', () => {
     const other = await makeOwner();
     const foreign = (await api(other).post('/structure/departments', { name: 'Elsewhere' }).expect(201)).body.item;
     const res = await api(owner).post('/employees', { name: 'Stray', departmentId: foreign.id }).expect(400);
-    expect(res.body.error).toMatch(/not in this organisation/);
+    expect(res.body.error).toMatch(/not in this company/);
   });
 
   it('finds people by name, code and department, and filters by tag', async () => {

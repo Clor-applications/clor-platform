@@ -26,14 +26,14 @@ it('offers Upload to someone who may add files', async () => {
   perms.current = { permissions: new Set(['PEOPLE::Documents::VIEW', 'PEOPLE::Documents::CREATE']) };
   render(<PeopleDocuments />);
   expect((await screen.findAllByText('Offer letter')).length).toBeGreaterThan(0);
-  expect(screen.getByRole('button', { name: /^(Upload|New document)$/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^(Upload document)$/ })).toBeTruthy();
 });
 
 it('does not offer Upload to a reader who may only view', async () => {
   perms.current = { permissions: new Set(['PEOPLE::Documents::VIEW']) };
   render(<PeopleDocuments />);
   expect((await screen.findAllByText('Offer letter')).length).toBeGreaterThan(0);
-  expect(screen.queryByRole('button', { name: /^(Upload|New document)$/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^(Upload document)$/ })).toBeNull();
 });
 
 it('leaves the empty register without the add route for a view-only reader', async () => {
@@ -41,5 +41,5 @@ it('leaves the empty register without the add route for a view-only reader', asy
   api.listCompanyDocuments.mockResolvedValue([]);
   render(<PeopleDocuments />);
   expect(await screen.findByText('No documents yet')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: /^(Upload|New document)$/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^(Upload document)$/ })).toBeNull();
 });

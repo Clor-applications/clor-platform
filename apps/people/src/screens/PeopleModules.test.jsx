@@ -33,9 +33,9 @@ it('shows core HR always on, a switch per module, and each app with its state in
   expect(screen.getByRole('switch', { name: 'Hiring' })).toHaveAttribute('aria-checked', 'true');
   expect(screen.getByRole('switch', { name: 'Benefits & assets' })).toHaveAttribute('aria-checked', 'false');
   expect(screen.getByRole('heading', { name: 'Connected CLOR apps' })).toBeInTheDocument();
-  expect(screen.getAllByText('Connected')).toHaveLength(2); // Payroll, and Accounting from the plan
+  expect(screen.getAllByText('Connected')).toHaveLength(2); // Payroll, and Books from the plan
   expect(screen.getByText('Not in plan')).toBeInTheDocument(); // Attendance
-  expect(screen.queryByRole('switch', { name: 'Accounting' })).toBeNull();
+  expect(screen.queryByRole('switch', { name: 'Books' })).toBeNull();
 });
 
 it('switches a module', async () => {

@@ -37,7 +37,7 @@ it('opens short, a row opens into its parts, and every part shows the full table
   const asha = await screen.findByRole('button', { name: /Asha/ });
   const table = screen.getByRole('table');
   expect(within(table).queryByRole('columnheader', { name: 'Basic' })).toBeNull();
-  expect(within(table).getByRole('columnheader', { name: 'Take-home' })).toBeTruthy();
+  expect(within(table).getByRole('columnheader', { name: 'Net pay' })).toBeTruthy();
   expect(within(table).getByText('2 people')).toBeTruthy();
 
   expect(asha.getAttribute('aria-expanded')).toBe('false');
@@ -73,7 +73,7 @@ it('checks the PF and ESI files before download, and Fix opens the person (round
   await screen.findByRole('button', { name: /Asha/ });
   await user.selectOptions(document.getElementById('report-kind'), 'filings');
   expect(await screen.findByText('2 ready · 1 without a UAN')).toBeTruthy();
-  expect(screen.getByRole('button', { name: /Download ECR/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Download PF ECR/ })).toBeTruthy();
   expect(screen.getByRole('button', { name: /Download ESIC file/ }).hasAttribute('disabled')).toBe(true);
   await user.click(screen.getByRole('button', { name: 'Fix Nobody Uan' }));
   expect(requestOpenScreen).toHaveBeenCalledWith('assignments', { employeeId: 'e3', tab: 'details' });

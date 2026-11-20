@@ -6,6 +6,7 @@ import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listContractors, listEmployees, listStructure, transferEmployees } from '@ui/personnel/api';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
 
 const FIELDS = {
   departmentId: { label: 'Department', list: 'departments', current: 'department' },
@@ -35,7 +36,7 @@ export default function Transfer() {
         setPeople(r?.employees || []);
         setLoadError('');
       })
-      .catch((e) => setLoadError(String(e?.message || 'Could not load people.')));
+      .catch((e) => setLoadError(errorWords(e, 'load people')));
   useEffect(() => {
     load();
     Promise.all([listStructure('departments'), listStructure('areas'), listStructure('job-positions'), listContractors()])
@@ -70,7 +71,7 @@ export default function Transfer() {
       setPicked(new Set());
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not moved.'));
+      notify.error(errorWords(e, 'move it'));
     } finally {
       setSaving(false);
     }

@@ -12,6 +12,7 @@ import { CHOICE_KEYS, ChoiceError, choicesScreen, mayChange, readsRevisionsAsHr,
 import { todayIst } from '../utils/istDate.js';
 import { z } from 'zod';
 import { check, flag, rawText, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * People → Settings → Company choices (docs/people/workflow-engine/SPEC.md 3, 8.1): the decisions HR and the owner
@@ -32,7 +33,7 @@ const handle = (fn: (req: Request, res: Response) => Promise<unknown>) => async 
   } catch (e: any) {
     if (e instanceof ChoiceError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
     console.error('[company choices]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong. Try again in a moment.', requestId: (req as any).id || null });
+    res.status(500).json({ error: ourFault((res.req as any)?.id), requestId: (req as any).id || null });
   }
 };
 

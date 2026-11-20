@@ -15,13 +15,14 @@ import { MODULE_PACKS } from '../constants/planCatalog.js';
 import { editLogChanges } from '../middleware/auditMutations.js';
 import { backfillPartyCodes } from '../services/partyCodeNumbering.js';
 import { recordAudit } from '../services/auditTrail.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 export const featuresRouter = Router();
 featuresRouter.use(requireAuth, requireTenantContext);
 
 const orgOk = (req: any, res: any) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;
@@ -59,7 +60,7 @@ featuresRouter.get('/orgs/:orgId/party-code-settings', requirePermission('SETTIN
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const org = await platformPrisma.org.findFirst({ where: { accountId, id: orgId }, select: { profileJson: true } });
-  if (!org) return res.status(404).json({ error: 'Company not found' });
+  if (!org) return res.status(404).json({ error: 'No such company.' });
   const profile = parseProfile(org.profileJson);
   const counters = await prisma.partyCodeCounter.findMany({ where: { accountId, orgId }, select: { kind: true, branchScope: true, nextNumber: true } });
   res.json({ partyCodeSettings: profile.partyCodeSettings || {}, counters: counters.map((row) => ({ ...row, nextNumber: Number(row.nextNumber) })) });
@@ -72,7 +73,7 @@ featuresRouter.patch('/orgs/:orgId/party-code-settings', requirePermission('SETT
   if (String(format.nextNumber).length > format.digits) return res.status(400).json({ error: 'Next number must fit the selected number of digits' });
   if ((format.prefix.match(/\d/g) || []).length + (format.suffix.match(/\d/g) || []).length + Math.max(format.digits, String(format.nextNumber).length) > 10) return res.status(400).json({ error: 'Code format may contain at most 10 digits in total' });
   const org = await platformPrisma.org.findFirst({ where: { id: orgId, accountId }, select: { id: true, profileJson: true } });
-  if (!org) return res.status(404).json({ error: 'Company not found' });
+  if (!org) return res.status(404).json({ error: 'No such company.' });
   const profile = parseProfile(org.profileJson);
   const partyCodeSettings = { ...(profile.partyCodeSettings || {}), [kind]: format };
   const otherKind = kind === 'customer' ? 'vendor' : 'customer';
@@ -98,7 +99,7 @@ featuresRouter.patch('/orgs/:orgId/profile', requirePermission('SETTINGS', Permi
   const { accountId, orgId } = req.tenant!;
   const body = companyProfileSchema.parse(req.body);
   const org = await platformPrisma.org.findFirst({ where: { id: orgId, accountId }, select: { id: true, name: true, baseCurrency: true, profileJson: true } });
-  if (!org) return res.status(404).json({ error: 'Company not found' });
+  if (!org) return res.status(404).json({ error: 'No such company.' });
   const previous = parseProfile(org.profileJson);
   const settings = body.companySettings;
   const baseCurrency = String(settings.baseCurrency || org.baseCurrency).trim().toUpperCase();
@@ -275,7 +276,7 @@ featuresRouter.put(
     let backfilled: Awaited<ReturnType<typeof backfillPartyCodes>> = [];
     if (newlyEnabledCodes.length) {
       const org = await platformPrisma.org.findFirst({ where: { id: orgId, accountId }, select: { profileJson: true } });
-      if (!org) return res.status(404).json({ error: 'Company not found' });
+      if (!org) return res.status(404).json({ error: 'No such company.' });
       backfilled = await prisma.$transaction(async (tx) => {
         const assigned: Awaited<ReturnType<typeof backfillPartyCodes>> = [];
         for (const key of newlyEnabledCodes) {

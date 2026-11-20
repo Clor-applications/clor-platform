@@ -128,7 +128,7 @@ portalAdminRouter.put(`${base}/portal-access`, can(PermissionAction.EDIT), async
   const { employeeIds, ...change } = parsed.data;
   if (change.geofenceId) {
     const f = await peoplePrisma.geofence.findFirst({ where: { id: change.geofenceId, orgId } });
-    if (!f) return res.status(400).json({ error: 'That site is not in this organisation.' });
+    if (!f) return res.status(400).json({ error: 'That site is not in this company.' });
   }
   /* Switching the portal off ends their sessions and any unused code; the password is kept for when it is switched back on. */
   const data: any = { ...change, ...(change.portalEnabled === false ? { portalSetupHash: null, portalSetupExpires: null } : {}) };
@@ -202,7 +202,7 @@ const fenceOut = async (orgId: string, rows: any[]) => {
 const areaOk = async (orgId: string, areaId: string | null | undefined) => {
   if (!areaId) return;
   const a = await peoplePrisma.area.findFirst({ where: { id: areaId, orgId }, select: { id: true } });
-  if (!a) throw Object.assign(new Error('That area is not in this organisation.'), { status: 400 });
+  if (!a) throw Object.assign(new Error('That area is not in this company.'), { status: 400 });
 };
 
 portalAdminRouter.get(`${base}/geofences`, can(PermissionAction.VIEW), async (req, res) => {

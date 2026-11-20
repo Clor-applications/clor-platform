@@ -1,5 +1,6 @@
 import { Prisma } from '../generated/people/index.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { dateWords } from '../utils/istDate.js';
 
 /**
  * Anonymise a former employee (LX-07, DPDP Act s.8(7) and s.12).
@@ -58,7 +59,7 @@ export async function anonymiseEmployee(args: { accountId: string; orgId: string
     select: { id: true, name: true, code: true, status: true, dateOfLeaving: true, anonymisedAt: true, email: true, personalEmail: true, workEmail: true, phone: true, workPhone: true },
   });
   if (!e) throw new AnonymiseError('No such employee.', 404, 'NOT_FOUND');
-  if (e.anonymisedAt) throw new AnonymiseError(`${e.name} was already anonymised on ${e.anonymisedAt.toISOString().slice(0, 10)}.`, 409, 'ALREADY_ANONYMISED');
+  if (e.anonymisedAt) throw new AnonymiseError(`${e.name} was already anonymised on ${dateWords(e.anonymisedAt)}.`, 409, 'ALREADY_ANONYMISED');
   if (e.status !== 'LEFT') {
     throw new AnonymiseError(`${e.name} still works here. Record their leaving (Resignations) first; then their data can be anonymised.`, 409, 'STILL_EMPLOYED');
   }

@@ -11,6 +11,7 @@ import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-access.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('busts-in-silhouette');
@@ -32,7 +33,7 @@ const EMPTY_ICON = emoji('busts-in-silhouette');
  */
 
 const ROLE_LABEL = { OWNER: 'Owner', ADMIN: 'Administrator', BILLING_ADMIN: 'Billing admin', MEMBER: 'Member' };
-const APP_LABEL = { accounting: 'Accounting', payroll: 'Payroll', people: 'People', attendance: 'Attendance' };
+const APP_LABEL = { accounting: 'Books', payroll: 'Payroll', people: 'People', attendance: 'Attendance' };
 const STATUS = { ACTIVE: { tone: 'ok', label: 'Active' }, SUSPENDED: { tone: 'danger', label: 'Suspended' }, INVITED: { tone: 'neutral', label: 'Invited' } };
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never');
 
@@ -86,7 +87,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
       })
       .catch((e) => {
         setData({ companies: [], members: [] });
-        setError(String(e?.message || 'Could not load the members.'));
+        setError(errorWords(e, 'load the members'));
       });
   }, []);
   useEffect(load, [load]);
@@ -98,7 +99,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
     setDetailCompany('');
     memberAccess(userId)
       .then(setDetail)
-      .catch((e) => setDetail({ error: String(e?.message || 'Could not load this person’s access.') }));
+      .catch((e) => setDetail({ error: errorWords(e, 'load this person’s access') }));
   };
 
   /* A link to one person (search, or another page) opens their access once the list is in. */
@@ -125,7 +126,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
       load();
       if (openId) memberAccess(openId).then(setDetail).catch(() => {});
     } catch (e) {
-      setError(String(e?.message || 'That did not work.'));
+      setError(errorWords(e, 'make the change'));
     }
   };
 
@@ -194,7 +195,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
           <label className="ws-search">
             <span className="sr-only">Search by name or email</span>
             <Search size={16} aria-hidden="true" />
-            <input className="ui-input" value={filters.q} onChange={set('q')} placeholder="Search name or email" />
+            <input className="ui-input" value={filters.q} onChange={set('q')} placeholder="Search by name or email" />
           </label>
           {/* Menus, not native selects: a native list opened as a tall sheet in the middle of the page. */}
           <FilterSelect label="Company" value={filters.companyId} onChange={pick('companyId')} options={[['', 'All'], ...(data?.companies || []).map((c) => [c.orgId, c.name])]} />
@@ -286,7 +287,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
 
       <WsDrawer open={Boolean(openId)} onClose={() => { setOpenId(''); setDetail(null); }} title={detail?.name || detail?.email || 'Member'} description={detail?.email || ''}>
         {!detail ? (
-          <Loading shape="card" label="Loading…" />
+          <Loading shape="card" label="Loading this person’s access…" />
         ) : detail.error ? (
           <p role="alert" className="text-sm">{detail.error}</p>
         ) : (
@@ -434,7 +435,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                   type="button"
                   className="ws-row-link ws-row-link--danger"
                   onClick={async () => {
-                    if (!(await confirmDialog({ title: 'Suspend in the account?', message: 'They lose access to every company until reinstated.', confirmLabel: 'Suspend' }))) return;
+                    if (!(await confirmDialog({ title: `Suspend ${detail.name || detail.email || 'this person'} in the account?`, message: 'They lose access to every company until reinstated. Their records stay.', confirmLabel: 'Suspend in the account', tone: 'danger' }))) return;
                     act(() => suspendMember(detail.userId), 'Suspended in every company of the account.');
                   }}
                 >

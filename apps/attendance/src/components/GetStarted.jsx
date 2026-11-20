@@ -5,6 +5,7 @@ import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { can } from '@ui/timeOff/shared';
 import { changeAttendanceSetup, getAttendanceSetup } from '../api/attendance';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Attendance → Today, for a company still setting up: "Get started", six
@@ -79,7 +80,7 @@ export default function GetStarted({ openScreen }) {
       setSetup((await changeAttendanceSetup({ action: 'hide' }))?.setup || null);
       notify.success('Hidden. Settings → Attendance setup keeps the full checklist.');
     } catch (e) {
-      notify.error(String(e?.message || 'Not hidden.'));
+      notify.error(errorWords(e, 'hide it'));
     } finally {
       setBusy(false);
     }

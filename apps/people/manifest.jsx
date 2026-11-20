@@ -551,7 +551,7 @@ export const peopleApp = {
     { key: 'employeeImport', label: 'Import employees', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'employees' },
     { key: 'orgChart', label: 'Org chart', keywords: ['organisation', 'organization', 'hierarchy', 'reporting line'], icon: I.orgChart, permission: 'PEOPLE::Employees::VIEW' },
     /* The old Organisation overview: off the menu (People plan, 8 Nov 2026), still at its address for links that name it. */
-    { key: 'organization', label: 'Organisation overview', keywords: ['organisation', 'organization'], icon: I.orgOverview, permission: 'PEOPLE::Employees::VIEW', parent: 'orgChart' },
+    { key: 'organization', label: 'Organisation', keywords: ['organisation', 'organization'], icon: I.orgOverview, permission: 'PEOPLE::Employees::VIEW', parent: 'orgChart' },
     { key: 'branches', label: 'Branches', keywords: ['organisation', 'office'], icon: I.branch, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'orgChanges', label: 'Org changes', keywords: ['change history', 'organisation', 'history'], icon: I.history, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'documents', label: 'Documents', keywords: ['id proof', 'aadhaar', 'pan card', 'certificate'], icon: I.folder, permission: 'PEOPLE::Documents::VIEW' },
@@ -622,7 +622,7 @@ export const peopleApp = {
     { key: 'leaveCalendar', label: 'Leave calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     /* Who decides for an absent approver: set up once, so Settings › Requests & approvals (People plan, 8 Nov 2026). */
     { key: 'standIns', label: 'Delegates', keywords: ['stand-in', 'stand in', 'away', 'hand on approvals'], icon: I.delegate, permission: 'ATTENDANCE::Leave Requests::VIEW', parent: 'settings' },
-    { key: 'attendanceRequests', label: 'Attendance fixes', keywords: ['attendance requests', 'punch', 'missed punch', 'regularise', 'regularize', 'fix punch'], short: 'Fixes', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
+    { key: 'attendanceRequests', label: 'Attendance corrections', keywords: ['attendance requests', 'attendance fixes', 'punch', 'missed punch', 'regularise', 'regularize', 'fix punch'], short: 'Corrections', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     { key: 'attendance', label: 'Daily attendance', keywords: ['who is in', 'absent', 'present', 'late', 'today'], icon: I.attendance, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'myDays', label: 'My attendance', icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'myLeave', label: 'My leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },

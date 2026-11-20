@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
-import { AlertTriangle, ArrowLeft, Calculator, CalendarClock, Check, Clock, Info, Play, Plus, Wallet } from '@ui/components/ui/lineIcons';
+import { AlertTriangle, ArrowLeft, CalendarClock, Check, Info, Play } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from "@ui/components/ColumnFilters";
 import { useListSearch } from "@ui/components/ListToolbar";
@@ -35,6 +35,7 @@ import {
   postPayrollRun,
 } from "../api/payrollRuns";
 import LoadFailed from "@ui/components/ui/LoadFailed";
+import Drawer from "@ui/components/ui/Drawer";
 import SuccessNote from "@ui/components/ui/SuccessNote";
 import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
 import { ProvisionalDaysNotice } from "../components/ProvisionalDaysSetting";
@@ -49,6 +50,8 @@ import { BANK_CUTOFF_NOTE, afterBankCutoff } from "@ui/picks/round54";
 import { EarlierNote, NextMonthNote } from "../components/RunNotes";
 import { HoldPayPanel, LatePayNote } from "../components/round66";
 import ExtraPayStage from "../components/ExtraPayStage";
+import { errorWords, monthText } from "@ui/utils/errorWords";
+import { countItems } from "../components/countItems";
 
 /**
  * Running payroll.
@@ -72,7 +75,7 @@ function RunSteps({ status }) {
   const at = RUN_STEPS.indexOf(status === "PAID" || status === "POSTED" ? "LOCKED" : status);
   if (at < 0) return null;
   return (
-    <ol className="ui-run-steps" aria-label="Payroll progress">
+    <ol className="ui-run-steps" aria-label="Pay run progress">
       {RUN_STEPS.map((s, i) => (
         <li
           key={s}
@@ -113,6 +116,13 @@ const TABS = [
   { value: "DONE", label: "Paid or posted", tone: "paid" },
   { value: "CANCELLED", label: "Cancelled", tone: "cancelled" },
 ];
+/* One written title per tab: a title built from the tab label read "No pay runs paid or posted". */
+const EMPTY_TITLES = {
+  OPEN: "No pay runs in progress",
+  APPROVED: "No approved pay runs waiting",
+  DONE: "No pay runs paid or posted yet",
+  CANCELLED: "No cancelled pay runs",
+};
 const inTabOf = (r, t) => {
   if (!t) return true;
   if (t === "OPEN") return ["DRAFT", "CALCULATED", "REVIEW"].includes(r.status);
@@ -125,7 +135,7 @@ const COLUMNS = {
   status: (r) => STATUS_LABEL[r.status] || r.status,
 };
 const EXPORT_COLUMNS = [
-  { key: "number", label: "Payroll" },
+  { key: "number", label: "Pay run" },
   { key: "period", label: "Period", value: (r) => r.period?.name || "" },
   { key: "payrollDate", label: "Pay date" },
   { key: "employeeCount", label: "People" },
@@ -153,7 +163,7 @@ export default function PayRuns() {
         setRuns(runRows);
         setError("");
       })
-      .catch((e) => setError(String(e?.message || "Could not load payroll runs.")));
+      .catch((e) => setError(errorWords(e, "load the pay runs")));
     listPayrollPeriods({ openOnly: true })
       .then((rows) => {
         setPeriods(rows);
@@ -185,7 +195,7 @@ export default function PayRuns() {
       setOpenId(made.run.id);
       load();
     } catch (e) {
-      notify.error(String(e?.message || "Could not start that payroll."));
+      notify.error(errorWords(e, "start that pay run"));
     }
   };
 
@@ -227,10 +237,9 @@ export default function PayRuns() {
     <DocumentListShell
       entity="payRun"
       title="Pay runs"
-      description="Payroll for a period and a population, checked, reviewed and approved before anybody is paid."
+      description="Pay for one period and one group of people, checked and approved before anybody is paid."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: "Search pay runs…", label: "Search pay runs" }}
       moreItems={runs?.length ? [exportMenuItem("Export pay runs")] : null}
       onMoreSelect={(k) => {
@@ -243,12 +252,12 @@ export default function PayRuns() {
           <Play size={16} aria-hidden="true" /> Run payroll
         </button>
       }
-      cards={[
-        { label: "In progress", value: counts.OPEN || 0, count: true, tone: "outstanding", Icon: Clock, onSelect: () => setStatus("OPEN") },
-        { label: "Net pending", value: figures.open, tone: "partial", Icon: Calculator },
-        { label: "Approved", value: figures.approved, tone: "sent", Icon: Check, onSelect: () => setStatus("APPROVED") },
-        { label: "Paid or posted", value: figures.done, tone: "paid", Icon: Wallet, onSelect: () => setStatus("DONE") },
-      ]}
+      countLine={countItems([
+        { label: "In progress", value: counts.OPEN || 0, count: true, tone: "outstanding", onSelect: () => setStatus("OPEN") },
+        { label: "Net pending", value: figures.open, tone: "partial" },
+        { label: "Approved", value: figures.approved, tone: "sent", onSelect: () => setStatus("APPROVED") },
+        { label: "Paid or posted", value: figures.done, tone: "paid", onSelect: () => setStatus("DONE") },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -265,7 +274,7 @@ export default function PayRuns() {
           <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <th scope="col">Payroll</th>
+                <th scope="col">Pay run</th>
                 <ColumnHeader label="Period" col="period" state={filters} />
                 <th scope="col" className="ui-col-h-center hidden md:table-cell">Pay date</th>
                 <th scope="col" className="ui-col-h-right hidden md:table-cell">People</th>
@@ -289,7 +298,7 @@ export default function PayRuns() {
                     ) : (
                       <EmptyState
                         icon={CalendarClock}
-                        title={status ? `No pay runs ${TABS.find((t) => t.value === status)?.label.toLowerCase()}` : "No payroll has been run yet"}
+                        title={EMPTY_TITLES[status] || "No pay runs yet"}
                         description="Start a run for a period and payroll will gather everybody eligible, check them, and work out what each is owed."
                         routes={periods.length && !status ? [{ label: "Run payroll", description: "Pick the month and who it is for.", onSelect: begin }] : undefined}
                       />
@@ -408,7 +417,7 @@ const StartRun = ({ periods, payGroups, onCancel, onStart }) => {
             Cancel
           </button>
           <button type="submit" className="ui-btn ui-btn-primary">
-            Start
+            Start pay run
           </button>
         </div>
       </div>
@@ -430,7 +439,7 @@ const RunWorkflow = ({ runId, onBack }) => {
     try {
       setData(await getPayrollRun(runId));
     } catch (e) {
-      notify.error(String(e?.message || "Could not load that payroll."));
+      notify.error(errorWords(e, "load that pay run"));
     }
   }, [runId]);
 
@@ -445,7 +454,7 @@ const RunWorkflow = ({ runId, onBack }) => {
       if (after) after(out);
       await load();
     } catch (e) {
-      notify.error(String(e?.message || `Could not ${label}.`));
+      notify.error(errorWords(e, label));
     } finally {
       setBusy("");
     }
@@ -469,7 +478,7 @@ const RunWorkflow = ({ runId, onBack }) => {
     <div className="space-y-3 ui-touch-44">
       <PageHeader
         entity="payRun"
-        title={`${run.number} — ${run.period?.name || "payroll"}`}
+        title={`${run.number} · ${run.period?.name || "pay run"}`}
         description={`${run.kind === "OFF_CYCLE" ? "Extra pay run: " : ""}${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}, paid on ${shownDate(run.payrollDate)}.`}
         actions={
           <>
@@ -628,6 +637,47 @@ const RunWorkflow = ({ runId, onBack }) => {
  * The status is the server's, so the button follows it rather than the screen
  * keeping its own idea of where the run has got to.
  */
+/* Sending a pay run back asks why in the app's own drawer: the preparer reads the reason, so it is required. */
+const SendBack = ({ run, busy, onSend }) => {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const why = reason.trim();
+  return (
+    <>
+      <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => setOpen(true)}>
+        Send back
+      </button>
+      <Drawer
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Send ${run.number || "this pay run"} back?`}
+        description="It goes back to the preparer to change and calculate again. Nothing is paid until it is approved."
+        dirty={Boolean(why)}
+      >
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!why) return;
+            setOpen(false);
+            setReason("");
+            onSend(why);
+          }}
+        >
+          <div>
+            <label className="ui-label" htmlFor="send-back-reason">Reason (the preparer sees this)</label>
+            <textarea id="send-back-reason" className="ui-input w-full" rows={4} required value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
+            <button type="submit" className="ui-btn ui-btn-primary" disabled={!why}>Send back</button>
+          </div>
+        </form>
+      </Drawer>
+    </>
+  );
+};
+
 export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch, onDone }) => {
   /* The run screen shows a green note; anywhere else falls back to the toast. */
   const done = (title, next) => (onDone ? onDone({ title, next }) : notify.success(`${title} ${next}`.trim()));
@@ -641,12 +691,12 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
         className="ui-btn ui-btn-primary"
         disabled={Boolean(busy)}
         onClick={() =>
-          act("check this payroll", async () => {
+          act("check this pay run", async () => {
             const out = await validatePayrollRun(runId);
             setIssues(out);
             if (out.canCalculate) {
               await calculatePayrollRun(runId);
-              notify.success("Payroll calculated.");
+              notify.success("Pay run calculated.");
             } else {
               notify.error(
                 `${out.errors} thing${out.errors === 1 ? "" : "s"} to resolve first.`,
@@ -725,11 +775,11 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
                   throw e;
                 }
               },
-              () => done("Payroll locked.", "Nothing in it can change now."),
+              () => done("Pay run locked.", "Nothing in it can change now."),
             );
           }}
         >
-          Lock
+          Lock pay run
         </button>
         <button
           type="button"
@@ -737,11 +787,11 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
           disabled={Boolean(busy)}
           onClick={() =>
             act(
-              "post to the books",
+              "post to accounts",
               () => postPayrollRun(runId),
               (out) =>
                 notify.success(
-                  out?.replayed ? "Already posted." : "Posted to the books.",
+                  out?.replayed ? "Already posted." : "Posted to accounts.",
                 ),
             )
           }
@@ -754,22 +804,17 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
   if (run.status === "REVIEW") {
     return (
       <>
-        <button
-          type="button"
-          className="ui-btn ui-btn-secondary"
-          disabled={Boolean(busy)}
-          onClick={async () => {
-            const reason = window.prompt("Why is this going back?");
-            if (reason === null) return;
+        <SendBack
+          run={run}
+          busy={busy}
+          onSend={(reason) =>
             act(
               "send it back",
               () => rejectPayrollRun(runId, { reason }),
-              () => notify.success("Sent back."),
-            );
-          }}
-        >
-          Send back
-        </button>
+              () => notify.success("Sent back. The preparer sees your reason."),
+            )
+          }
+        />
         <button
           type="button"
           className="ui-btn ui-btn-primary"
@@ -778,8 +823,8 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
           onClick={async () => {
             const ok = await confirmDialog({
               title: `Approve ${run.number}?`,
-              message: `Approving fixes these figures: ${money(run.netTotal)} to ${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}. Nothing can be changed afterwards.${afterBankCutoff() ? ` ${BANK_CUTOFF_NOTE}` : ""}`,
-              confirmLabel: "Yes, approve",
+              message: `Approving freezes these figures: ${money(run.netTotal)} to ${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}. To change anything after this, the pay run has to be sent back.${afterBankCutoff() ? ` ${BANK_CUTOFF_NOTE}` : ""}`,
+              confirmLabel: "Approve pay run",
             });
             if (ok)
               act(
@@ -794,19 +839,19 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
                     const sure = await confirmDialog({
                       title: "Approve with tax withheld without a PAN?",
                       message: `${people.map((p) => p.name).join(", ")} ${people.length === 1 ? "has" : "have"} no valid PAN, so income tax is withheld at 20% where that is more (section 206AA). Adding the PAN and calculating again lowers it. Approving now is recorded in the audit log.`,
-                      confirmLabel: "I know, approve",
+                      confirmLabel: "Approve without PAN",
                     });
                     if (!sure) return null;
                     return approvePayrollRun(runId, { noPanAcknowledged: people.map((p) => p.employeeId) });
                   }
                 },
                 (out) => {
-                  if (out) done("Payroll approved.", afterBankCutoff() ? `${BANK_CUTOFF_NOTE} Next: post it to accounts, or lock it.` : "Next: post it to accounts, or lock it.");
+                  if (out) done("Pay run approved.", afterBankCutoff() ? `${BANK_CUTOFF_NOTE} Next: post it to accounts, or lock it.` : "Next: post it to accounts, or lock it.");
                 },
               );
           }}
         >
-          Approve payroll
+          Approve pay run
         </button>
       </>
     );
@@ -819,11 +864,11 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
         disabled={Boolean(busy)}
         onClick={() =>
           act(
-            "post to the books",
+            "post to accounts",
             () => postPayrollRun(runId),
             (out) =>
               notify.success(
-                out?.replayed ? "Already posted." : "Posted to the books.",
+                out?.replayed ? "Already posted." : "Posted to accounts.",
               ),
           )
         }
@@ -851,7 +896,7 @@ const PeopleStage = ({ data, editable, runId, onChanged }) => (
         <thead>
           <tr>
             <th scope="col" className="ui-col-h-center w-10">
-              In
+              Include
             </th>
             <th scope="col">
               Employee
@@ -883,14 +928,14 @@ const PeopleStage = ({ data, editable, runId, onChanged }) => (
                       .then(onChanged)
                       .catch((err) =>
                         notify.error(
-                          String(err?.message || "Could not change that."),
+                          errorWords(err, "change who is in this pay run"),
                         ),
                       )
                   }
                 />
               </td>
               <td className="ui-col-entity">
-                {m.employee?.name || "Unknown"}
+                {m.employee?.name || "Name missing"}
                 {m.employee?.code ? (
                   <span className="ui-caption block">{m.employee.code}</span>
                 ) : null}
@@ -925,7 +970,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
       .filter((m) => m.inclusion === "INCLUDED")
       .map((m) => ({
         employeeId: m.employeeId,
-        name: m.employee?.name || "Unknown",
+        name: m.employee?.name || "Name missing",
         workingDays: m.input?.workingDays ?? 30,
         payableDays: m.input?.payableDays ?? 30,
         lwpDays: m.input?.lwpDays ?? 0,
@@ -954,11 +999,11 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
       notify.success(
         `Days taken from Attendance for ${out.saved} ${out.saved === 1 ? "person" : "people"}.` +
           (unresolved
-            ? ` ${unresolved} still have days with no check-out. Those count as loss of pay until corrected in Attendance.`
+            ? ` ${unresolved === 1 ? "1 person still has" : `${unresolved} people still have`} days with no check-out. Those count as loss of pay until corrected in Attendance.`
             : "") +
           (out.attendanceClosed
             ? (out.attendanceSnapshots || []).length
-              ? ` Matches the Attendance close of ${out.attendanceSnapshots.map((x) => `${x.month} (snapshot ${x.version})`).join(", ")}.`
+              ? ` Matches Attendance as closed for ${out.attendanceSnapshots.map((x) => monthText(x.month)).join(", ")}.`
               : ""
             : ` ${out.warning || "The month is not closed in Attendance; these figures can still change."}`) +
           (out.provisionalMessage ? ` ${out.provisionalMessage}` : "") +
@@ -971,7 +1016,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
       onSaved();
     } catch (e) {
       notify.error(
-        String(e?.message || "Could not take days from Attendance."),
+        errorWords(e, "take days from Attendance"),
       );
     } finally {
       setTaking(false);
@@ -997,7 +1042,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
       );
       onSaved();
     } catch (e) {
-      notify.error(String(e?.message || "Could not take leave from People."));
+      notify.error(errorWords(e, "take leave from People"));
     } finally {
       setTaking(false);
     }
@@ -1022,7 +1067,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
       notify.success("Days saved.");
       onSaved();
     } catch (e) {
-      notify.error(String(e?.message || "Could not save those days."));
+      notify.error(errorWords(e, "save those days"));
     } finally {
       setSaving(false);
     }
@@ -1081,9 +1126,9 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
                 <th
                   scope="col"
                   className="ui-col-h-right"
-                  title="Approved overtime hours. An earning component prices them with OVERTIME_HOURS in its formula."
+                  title="Approved overtime hours, paid by the overtime component of the salary structure."
                 >
-                  OT hours
+                  Overtime hours
                 </th>
                 <th scope="col" className="ui-col-h-right">
                   Variable pay
@@ -1303,7 +1348,7 @@ const ReviewStage = ({ data, byEmployee }) => {
                 s.variancePercent != null && Math.abs(s.variancePercent) >= 20;
               return (
                 <tr key={s.id}>
-                  <td className="ui-col-entity">{person?.name || "Unknown"}</td>
+                  <td className="ui-col-entity">{person?.name || "Name missing"}</td>
                   <td className="ui-col-amount">{money(s.grossEarnings)}</td>
                   <td className="ui-col-amount">{money(s.totalDeductions)}</td>
                   <td className="ui-col-amount">{money(s.employerCost)}</td>
@@ -1355,10 +1400,10 @@ const BooksStage = ({ runId, run, onPosted }) => {
     try {
       const r = await sendPayrollToTally(runId, agentId);
       notify.success(
-        `Queued for ${r.agent}; it posts the voucher into Tally on its next round (Attendance → Integrations shows the result).`,
+        `Sent to ${r.agent}. It reaches Tally within a few minutes; check the result under Attendance → Integrations.`,
       );
     } catch (e) {
-      notify.error(String(e?.message || "Could not queue it."));
+      notify.error(errorWords(e, "send the entry to Tally"));
     }
   };
 
@@ -1369,7 +1414,7 @@ const BooksStage = ({ runId, run, onPosted }) => {
       .catch(
         (e) =>
           alive &&
-          setError(String(e?.message || "Could not work out the entry.")),
+          setError(errorWords(e, "prepare the accounting entry")),
       );
     return () => {
       alive = false;
@@ -1404,7 +1449,7 @@ const BooksStage = ({ runId, run, onPosted }) => {
         "Tally XML downloaded. Import it under Gateway of Tally → Import Data → Vouchers; ledger names must match.",
       );
     } catch (e) {
-      notify.error(String(e?.message || "Could not make the Tally file."));
+      notify.error(errorWords(e, "make the Tally file"));
     }
   };
   const post = async () => {
@@ -1412,11 +1457,11 @@ const BooksStage = ({ runId, run, onPosted }) => {
     try {
       const out = await postPayrollRun(runId);
       notify.success(
-        out?.replayed ? "Already posted." : "Posted to the books.",
+        out?.replayed ? "Already posted." : "Posted to accounts.",
       );
       onPosted();
     } catch (e) {
-      notify.error(String(e?.message || "Could not post that payroll."));
+      notify.error(errorWords(e, "post that pay run"));
     } finally {
       setPosting(false);
     }
@@ -1511,7 +1556,7 @@ const BooksStage = ({ runId, run, onPosted }) => {
                 onClick={tally}
                 title="Tally Prime / ERP 9 import file"
               >
-                Tally XML
+                Download Tally XML
               </button>
               {connectors.map((c) => (
                 <button

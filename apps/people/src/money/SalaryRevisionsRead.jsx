@@ -1,3 +1,4 @@
+import { enumWords } from '@ui/utils/errorWords';
 import React from 'react';
 
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
@@ -14,7 +15,7 @@ import PayrollSalaryRevisions from '../../../payroll/src/screens/SalaryRevisions
 import { wholeRupees as money } from '@ui/utils/money';
 import { Avatar } from '@ui/personnel/Employees';
 import { Clock, Coins, TrendingUp, Users } from 'lucide-react';
-import { KpiTiles } from '../components/Core';
+import { CountLine } from '@ui/components/ui/CountLine';
 
 /**
  * Salary revisions in People. Whoever holds Payroll's right works in Payroll's own screen. HR without Payroll
@@ -26,7 +27,7 @@ const STATUS = {
   REVIEWED: { label: 'Reviewed', tone: 'ui-pill-neutral' },
   APPROVED: { label: 'Approved', tone: 'ui-pill-pos' },
   APPLIED: { label: 'In effect', tone: 'ui-pill-pos' },
-  REJECTED: { label: 'Not approved', tone: 'ui-pill-neutral' },
+  REJECTED: { label: 'Rejected', tone: 'ui-pill-neutral' },
 };
 const WAITING = new Set(['DRAFT', 'REVIEWED']);
 
@@ -40,14 +41,14 @@ export function SalaryRevisionsReadOnly() {
   const added = live.reduce((a, r) => a + Math.max(0, Number(r.proposedAnnualCtc || 0) - Number(r.currentAnnualCtc || 0)), 0);
   const waiting = rows.filter((r) => WAITING.has(r.status)).length;
   const strip = rows.length ? (
-    <KpiTiles label="Salary revisions at a glance" items={[
+    <CountLine label="Salary revisions at a glance" items={[
       { key: 'n', label: 'Revisions', cat: 1, Icon: Users, value: live.length, note: `${new Set(live.map((r) => r.employeeId || r.employeeName)).size} people` },
       { key: 'avg', label: 'Average increase', cat: 2, Icon: TrendingUp, value: rises.length ? `${(rises.reduce((a, n) => a + n, 0) / rises.length).toFixed(1)}%` : '—', note: 'Across revisions not rejected' },
       { key: 'cost', label: 'Annual cost added', cat: 3, Icon: Coins, value: money(added), note: 'New CTC less old, a year' },
       { key: 'wait', label: 'Awaiting approval', cat: 4, Icon: Clock, value: waiting, tone: 'warn', note: waiting ? 'Approved in Payroll' : 'Nothing waiting' },
     ]} />
   ) : null;
-  const header = <ListHeader section="Pay, benefits & assets" title={title} strip={strip} description="Annual CTC changes, from when, and where each revision stands. Read only: Payroll raises, reviews and approves revisions." />;
+  const header = <ListHeader section="Pay & benefits" title={title} strip={strip} description="Annual CTC changes, from when, and where each revision stands. Read only: Payroll raises, reviews and approves revisions." />;
   if (req.error && !req.data) return <div className="space-y-6">{header}<ErrorState error={req.error} onRetry={req.reload} /></div>;
   if (!req.data) return <div className="space-y-6">{header}<SkeletonCard lines={6} /></div>;
   return (
@@ -77,7 +78,7 @@ export function SalaryRevisionsReadOnly() {
                   <td className="ui-col-amount tabular-nums text-right font-semibold">{money(r.proposedAnnualCtc)}</td>
                   <td className="ui-col-amount tabular-nums text-right">{r.incrementPercent ? <span className={Number(r.incrementPercent) > 0 ? 'pc-up' : ''}>{Number(r.incrementPercent) > 0 ? '+' : ''}{Number(r.incrementPercent).toFixed(1)}%</span> : '—'}</td>
                   <td className="ui-col-date tabular-nums text-right whitespace-nowrap">{r.effectiveFrom ? formatDate(String(r.effectiveFrom).slice(0, 10)) : '—'}</td>
-                  <td><ExceptionTag label={r.status === 'APPLIED' ? '' : STATUS[r.status]?.label || r.status} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} /></td>
+                  <td><ExceptionTag label={r.status === 'APPLIED' ? '' : STATUS[r.status]?.label || enumWords(r.status)} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} /></td>
                 </tr>
               ))}
             </tbody>

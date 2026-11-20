@@ -16,6 +16,7 @@ import { RESUME_TYPES, TalentError } from '../services/people/talent/hiring.js';
 import * as referrals from '../services/people/talent/referrals.js';
 import { z } from 'zod';
 import { check, code, flag, idParams, list, num, q, rawText, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Employee referrals (services/people/talent/referrals.ts, A20).
@@ -55,7 +56,7 @@ const handle = (fn: (req: Request, res: Response) => Promise<unknown>) => async 
   } catch (e) {
     if (e instanceof TalentError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
     console.error('[referrals]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 };
 

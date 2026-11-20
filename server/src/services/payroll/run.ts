@@ -14,7 +14,7 @@ import { firstPayrollYearOf, openingFor, type Opening } from './openingYtd.js';
 import { round2 } from '../../utils/money.js';
 import { componentApplies, monthsOfService, type EligibilityFacts } from './eligibility.js';
 import { isCorrection, isLatePenalty } from './provisionalDays.js';
-import { daysBetween } from '../../utils/istDate.js';
+import { dateWords, daysBetween } from '../../utils/istDate.js';
 import { canonicalState, stateLabel } from '../../constants/stateLevies.js';
 import { minimumWageCheck } from './minimumWage.js';
 import { checksSentence, parseConfig, ruleNeedsCheck, stateRulesThatCount } from './statutory/resolve.js';
@@ -1821,7 +1821,7 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
         severity: 'WARNING',
         code: 'BANK_CHANGED_RECENTLY',
         employeeId: employee.id,
-        message: `${who}'s bank account was changed on ${changed.toISOString().slice(0, 10)}. Confirm it with them before paying.`,
+        message: `${who}'s bank account was changed on ${dateWords(changed)}. Confirm it with them before paying.`,
       });
     }
     if (pendingBank.has(employee.id)) {

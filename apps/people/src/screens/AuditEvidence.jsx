@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useEffect, useState } from 'react';
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
@@ -14,7 +15,7 @@ const opts = { skipWarehouseHeader: true };
 export default function AuditEvidence() {
   const [data, setData] = useState(null);
   useEffect(() => {
-    apiFetch(base(), opts).then(setData).catch((e) => { notify.error(String(e?.message || 'Could not load.')); setData({ grants: [], documents: [] }); });
+    apiFetch(base(), opts).then(setData).catch((e) => { notify.error(errorWords(e, 'load this')); setData({ grants: [], documents: [] }); });
   }, []);
   const open = async (d) => {
     try {
@@ -22,7 +23,7 @@ export default function AuditEvidence() {
       const w = window.open();
       if (w) w.location.href = r.document.dataUrl;
     } catch (e) {
-      notify.error(String(e?.message || 'Could not open.'));
+      notify.error(errorWords(e, 'open it'));
     }
   };
   return (

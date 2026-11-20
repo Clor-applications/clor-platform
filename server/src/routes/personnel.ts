@@ -39,7 +39,7 @@ const blank = (v: unknown) => (v === undefined || v === null || String(v).trim()
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const sendError = (res: any, e: any) => {
   if (e?.status) return res.status(e.status).json({ error: e.message });
-  if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'That name is already used in this organisation.' });
+  if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'That name is already used in this company.' });
   throw e;
 };
 

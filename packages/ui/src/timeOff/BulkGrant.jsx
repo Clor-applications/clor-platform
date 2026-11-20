@@ -9,6 +9,7 @@ import { listStructure } from '@ui/personnel/api';
 
 import { useSuggestions } from './suggestions';
 import { bulkGrantLeave } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Leave balances → Grant leave to many (owner, 29 Oct 2026, from ERPNext's
@@ -42,7 +43,7 @@ export default function BulkGrant({ types, year, label, onClose, onDone }) {
     const t = setTimeout(() => {
       bulkGrantLeave({ ...body, reason: body.reason || 'Preview', preview: true })
         .then((r) => { if (n === seq.current) setPreview(r); })
-        .catch((e) => { if (n === seq.current) setPreview({ error: String(e?.message || 'Could not work out who it goes to.') }); });
+        .catch((e) => { if (n === seq.current) setPreview({ error: errorWords(e, 'work out who it goes to') }); });
     }, 300);
     return () => clearTimeout(t);
   }, [form.leaveTypeId, form.days, form.departmentIds, form.employeeTypeIds, year]);
@@ -56,7 +57,7 @@ export default function BulkGrant({ types, year, label, onClose, onDone }) {
       notify.success(`${days} ${days === 1 ? 'day' : 'days'} granted to ${out.granted} ${out.granted === 1 ? 'person' : 'people'}.`);
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not granted.'));
+      notify.error(errorWords(err, 'grant the leave'));
     } finally {
       setSaving(false);
     }

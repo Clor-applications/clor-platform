@@ -29,7 +29,7 @@ import {
 } from '@platform/admin/admin';
 import Popover from '@ui/components/ui/Popover';
 import { useFeatures } from '@ui/permissions/useFeatures';
-import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
+import { failWords } from './failWords';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { selectedBranchId } from '@platform/context';
 import RoleSelect from './RoleSelect';
@@ -40,6 +40,7 @@ import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
 import './ws-access.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* The colour icons the empty lists show: each the one its menu item wears. */
 const EMPTY_ICON = emoji('bust-in-silhouette');
@@ -137,13 +138,13 @@ export function SettingsUsers({ orgId, params }) {
       const r = await listRoles(orgId);
       setRoles(Array.isArray(r.roles) ? r.roles : []);
     } catch (e) {
-      msgs.push(`Roles: ${e.message || 'Failed to load'}`);
+      msgs.push(failWords(e, 'load the roles'));
     }
     try {
       const u = await listUsers(orgId);
       setUsers(Array.isArray(u.users) ? u.users : []);
     } catch (e) {
-      msgs.push(`Users: ${e.message || 'Failed to load'}`);
+      msgs.push(failWords(e, 'load the users'));
     }
     if (branchesEnabled) {
       try {
@@ -151,12 +152,12 @@ export function SettingsUsers({ orgId, params }) {
         setBranches(Array.isArray(b.branches) ? b.branches : []);
       } catch (e) {
         setBranches([]);
-        msgs.push(`Branches: ${e.message || 'Failed to load'}`);
+        msgs.push(failWords(e, 'load the branches'));
       }
     } else {
       setBranches([]);
     }
-    if (msgs.length) setError(msgs.join(' | '));
+    if (msgs.length) setError([...new Set(msgs)].join(' '));
     setLoading(false);
   };
 
@@ -220,7 +221,7 @@ export function SettingsUsers({ orgId, params }) {
     } catch (e) {
       setCompanyRows([]);
       setCompanyChecked([]);
-      setError(e?.message || String(e));
+      setError(errorWords(e, 'load their companies'));
     } finally {
       setPanelLoading(false);
     }
@@ -236,7 +237,7 @@ export function SettingsUsers({ orgId, params }) {
       /* Could not read what they have: still allow setting it. */
       const first = defaultBranch();
       setBranchIds(first ? [normalizeId(first)] : []);
-      setError(e?.message || String(e));
+      setError(errorWords(e, 'load their branches'));
     } finally {
       setPanelLoading(false);
     }
@@ -273,7 +274,7 @@ export function SettingsUsers({ orgId, params }) {
         warehouseRoles: (held?.warehouseRoles || []).map((row) => ({ warehouseId: normalizeId(row.warehouseId), roleId: normalizeId(row.roleId) })),
       });
     } catch (e) {
-      setError(rbacErrorMessage(e, 'Could not load their branches and roles'));
+      setError(failWords(e, 'load their branches and roles'));
     } finally {
       setPanelLoading(false);
     }
@@ -286,7 +287,7 @@ export function SettingsUsers({ orgId, params }) {
       await fn();
       return true;
     } catch (err) {
-      setError(rbacErrorMessage(err, fallback));
+      setError(failWords(err, fallback));
       return false;
     } finally {
       setBusy(false);
@@ -312,7 +313,7 @@ export function SettingsUsers({ orgId, params }) {
       if (form.isActive === false) await updateUser(orgId, res.user.id, { isActive: false });
       close();
       await loadData();
-    }, 'Failed to create user');
+    }, 'add the user');
   };
 
   const submitEdit = (e) => {
@@ -324,7 +325,7 @@ export function SettingsUsers({ orgId, params }) {
       await setUserPrimaryRole(orgId, id, editForm.roleId || null);
       close();
       await loadData();
-    }, 'Failed to update user');
+    }, 'save the changes');
   };
 
   const submitCompanies = (e) => {
@@ -332,7 +333,7 @@ export function SettingsUsers({ orgId, params }) {
     act(async () => {
       await setUserCompanies(panel.user.id, companyChecked);
       close();
-    }, 'Failed to save company access');
+    }, 'save their company access');
   };
 
   const submitBranches = (e) => {
@@ -345,7 +346,7 @@ export function SettingsUsers({ orgId, params }) {
     act(async () => {
       await assignUserBranches(orgId, panel.user.id, ids);
       close();
-    }, 'Failed to assign branches');
+    }, 'save their branches');
   };
 
   const submitAccess = (e) => {
@@ -358,7 +359,7 @@ export function SettingsUsers({ orgId, params }) {
       await setUserAccess(orgId, panel.user.id, access);
       close();
       await loadData();
-    }, 'Failed to save branches and roles');
+    }, 'save their branches and roles');
   };
 
   const submitPassword = (e) => {
@@ -370,7 +371,7 @@ export function SettingsUsers({ orgId, params }) {
     act(async () => {
       await changeUserPassword(orgId, panel.user.id, password);
       close();
-    }, 'Failed to change password');
+    }, 'set the password');
   };
 
   /* Leaving is not a switch: it asks why and when, and who takes over what was waiting on them. */
@@ -381,7 +382,7 @@ export function SettingsUsers({ orgId, params }) {
       const info = await getLeaving(orgId, u.id);
       setLeave((l) => (l ? { ...l, reasons: info.reasons || [], pending: info.pending || null } : l));
     } catch (err) {
-      setError(rbacErrorMessage(err, 'Could not load what was waiting on them'));
+      setError(failWords(err, 'check what is waiting on them'));
     }
   };
   const submitLeave = (e) => {
@@ -398,31 +399,31 @@ export function SettingsUsers({ orgId, params }) {
       });
       setUsers((rows) => rows.map((r) => (r.id === u.id ? { ...r, isActive: false, left: { reason: leave.reason, lastWorkingDay: leave.lastWorkingDay, note: leave.note || null } } : r)));
       close();
-    }, 'Could not mark them as left');
+    }, 'mark them as left');
   };
   const bringBack = async (u) => {
     setMenuFor(null);
     setError('');
-    if (!(await confirmDialog({ title: `Reactivate ${nameOf(u)}?`, message: 'They can sign in again with their roles as they were. This takes a seat on your plan.', confirmLabel: 'Reactivate' }))) return;
+    if (!(await confirmDialog({ title: `Reactivate ${nameOf(u)}?`, message: 'They can sign in again with their roles as they were. This takes a seat on your plan.', confirmLabel: 'Reactivate and take a seat' }))) return;
     try {
       const out = await reactivateUser(orgId, u.id);
       setUsers((rows) => rows.map((r) => (r.id === u.id ? { ...r, isActive: true, left: null } : r)));
       if (panel?.user?.id === u.id) setPanel((p) => (p ? { ...p, user: { ...p.user, isActive: true, left: null } } : p));
       if (out?.emailRestored === false) setError('Reactivated. Their old email address now belongs to someone else: give them a new one under Edit.');
     } catch (err) {
-      setError(rbacErrorMessage(err, 'Could not reactivate'));
+      setError(failWords(err, 'reactivate them'));
     }
   };
 
   const remove = async (u) => {
     setMenuFor(null);
-    if (!(await confirmDialog({ title: `Remove ${nameOf(u)}?`, message: 'They lose this company and every role in it.', confirmLabel: 'Remove' }))) return;
+    if (!(await confirmDialog({ title: `Remove ${nameOf(u)} from this company?`, message: 'They can no longer open this company, every role they hold here goes, and their seats here are freed. You can add them again later.', confirmLabel: 'Remove from company', tone: 'danger' }))) return;
     try {
       await deleteUser(orgId, u.id);
       setUsers((prev) => prev.filter((x) => x.id !== u.id));
       if (panel?.user?.id === u.id) close();
     } catch (err) {
-      setError(rbacErrorMessage(err, 'Failed to remove user'));
+      setError(failWords(err, 'remove them from this company'));
     }
   };
 
@@ -622,7 +623,7 @@ export function SettingsUsers({ orgId, params }) {
               }), branchLabel(b));
             })}
           </ul>
-          {!panelLoading && branchesSorted.length === 0 ? <Empty icon={BRANCH_ICON} compact>No branches yet. Add them under Company → Branches.</Empty> : null}
+          {!panelLoading && branchesSorted.length === 0 ? <Empty icon={BRANCH_ICON} compact>No branches yet. Add them in Home → Branches.</Empty> : null}
         </form>
       ),
     };
@@ -666,7 +667,7 @@ export function SettingsUsers({ orgId, params }) {
             <input type="date" className="ui-input w-full" required value={leave.lastWorkingDay} onChange={(e) => setLeave((l) => ({ ...l, lastWorkingDay: e.target.value }))} />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Note <span className="ui-caption">· optional</span></span>
+            <span className="text-sm font-medium">Note <span className="ui-caption">(optional)</span></span>
             <textarea className="ui-input w-full" rows={2} maxLength={1000} value={leave.note} onChange={(e) => setLeave((l) => ({ ...l, note: e.target.value }))} />
           </label>
           <label className="grid gap-1">
@@ -733,7 +734,7 @@ export function SettingsUsers({ orgId, params }) {
           <label className="ws-search" style={{ flexBasis: 360 }}>
             <span className="sr-only">Search users</span>
             <Search size={16} aria-hidden="true" />
-            <input className="ui-input" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} placeholder="Search name, email, user ID or role" />
+            <input className="ui-input" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} placeholder="Search by name, email, user ID or role" />
           </label>
           <FilterSelect label="Status" value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} width="11rem" options={[['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']]} />
           {/* The total is on the Users card above; a count here only says how far a search or filter narrowed it. */}
@@ -745,7 +746,7 @@ export function SettingsUsers({ orgId, params }) {
         {loading && !users.length ? (
           <Loading shape="rows" rows={3} label="Loading users…" />
         ) : rows.length === 0 ? (
-          <Empty icon={EMPTY_ICON} compact>{users.length ? 'No user matches this search.' : 'No users yet. Add the first one.'}</Empty>
+          <Empty icon={EMPTY_ICON} compact actionNode={users.length ? null : <PermissionButton permission="SETTINGS::Users::CREATE" type="button" onClick={openCreate} className="ws-btn ws-btn--quiet ws-btn--small">Add user</PermissionButton>}>{users.length ? 'No user matches this search.' : 'Everyone who signs in to this company will be listed here.'}</Empty>
         ) : (
           <div className="ws-table-wrap">
             <table className="ws-table">

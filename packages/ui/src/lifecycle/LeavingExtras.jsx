@@ -12,6 +12,7 @@ import { hasApp } from '@platform/context';
 /* A server timestamp's day in India: slicing the ISO string gives the UTC day (signed at 00:29 IST read as the day before). */
 import { istDay } from '../timeOff/shared';
 import { addClearanceLine, decideExitInterview, enterExitInterview, orgUsers, removeClearanceLine, updateClearanceLine, withOwner } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * The leaving plan's money and goodbye (WORKFLOW-GAP-RESEARCH-2026-10-30 4.3, 4.9): the final-pay clock,
@@ -118,7 +119,7 @@ function LineDrawer({ line, canEdit, onClose, onSaved }) {
       notify.success(kind === 'sign' ? `${line.label}: signed off.` : kind === 'reopen' ? 'Opened again.' : 'Saved.');
       onSaved?.();
     } catch (e) {
-      setError(String(e?.message || 'Not saved.'));
+      setError(errorWords(e, 'save the clearance line'));
     } finally {
       setBusy('');
     }
@@ -129,7 +130,7 @@ function LineDrawer({ line, canEdit, onClose, onSaved }) {
       await removeClearanceLine(line.id);
       onSaved?.();
     } catch (e) {
-      setError(String(e?.message || 'Not removed.'));
+      setError(errorWords(e, 'remove the line'));
     }
   };
   const open = !signed && line.canSign;
@@ -214,7 +215,7 @@ function AddLine({ employeeId, existing, onAdded }) {
       setLabel('');
       onAdded?.();
     } catch (err) {
-      setError(String(err?.message || 'Not added.'));
+      setError(errorWords(err, 'add the line'));
     } finally {
       setBusy(false);
     }
@@ -307,7 +308,7 @@ function EnterDrawer({ interview, employeeId, name, onClose, onSaved }) {
       notify.success('Exit interview saved.');
       onSaved?.();
     } catch (err) {
-      setError(String(err?.message || 'Not saved.'));
+      setError(errorWords(err, 'save the exit interview'));
     } finally {
       setBusy(false);
     }
@@ -344,7 +345,7 @@ function ExitInterview({ interview: iv, employeeId, name, onChanged }) {
       notify.success(body.outcome ? OUTCOME_WORD[body.outcome] : 'Saved.');
       onChanged?.();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the exit interview'));
     } finally {
       setBusy('');
     }

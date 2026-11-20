@@ -57,7 +57,7 @@ describe('Workspace Overview panels', () => {
 
   it('shows the monthly run rate when every line is priced', async () => {
     show({ runRate: { monthly: 4500, currency: 'INR', interval: 'month', status: 'active', unpriced: [] } });
-    expect(await screen.findByText('Monthly run rate')).toBeInTheDocument();
+    expect(await screen.findByText('Cost each month')).toBeInTheDocument();
   });
 
   it('repeats what the reader-check job decided, rather than judging a second time', async () => {

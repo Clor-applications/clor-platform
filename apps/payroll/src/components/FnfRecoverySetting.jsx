@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 
 import { notify } from "@ui/components/ui/notify";
 import { getFnfRecoveryCap, saveFnfRecoveryCap } from "../api/payrollSetup";
+import { errorWords } from "@ui/utils/errorWords";
 
 /**
  * How much of a leaver's final wages a full and final may take for loans and
@@ -20,7 +21,7 @@ export function FnfRecoverySetting() {
         setSaved(s);
         setPercent(String(s.percent));
       })
-      .catch((e) => setFailed(String(e?.message || "Could not read this setting.")));
+      .catch((e) => setFailed(errorWords(e, "read this setting")));
   }, []);
 
   if (failed) return <p className="ui-caption" role="alert">{failed}</p>;
@@ -38,7 +39,7 @@ export function FnfRecoverySetting() {
       setPercent(String(next.percent));
       notify.success(`Full and final settlements recover up to ${next.percent}% of the final wages.`);
     } catch (e) {
-      notify.error(String(e?.message || "Could not save this setting."));
+      notify.error(errorWords(e, "save this setting"));
     } finally {
       setSaving(false);
     }

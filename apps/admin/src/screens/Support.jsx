@@ -9,6 +9,7 @@ import { INCLUDED_IN } from '@platform/includedApps';
 import { Avatar, ICON, PageHead, WsDrawer, ago } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('red-question-mark');
@@ -74,7 +75,7 @@ export default function Support() {
         setRows(r?.tickets || []);
         setWhole(Boolean(r?.wholeAccount));
       })
-      .catch((e) => setError(e.message || 'Could not load your tickets.'));
+      .catch((e) => setError(errorWords(e, 'load your tickets')));
   }, []);
   useEffect(load, [load]);
 
@@ -235,7 +236,7 @@ function NewTicket({ open, onClose, onOpened }) {
       setForm({ subject: '', body: '', category: 'QUESTION', app: '', requestId: '', urgent: false });
       onOpened(t);
     } catch (err) {
-      setError(err.message || 'Could not send. Try again.');
+      setError(errorWords(err, 'send the ticket'));
     } finally {
       setBusy(false);
     }
@@ -311,7 +312,7 @@ function TicketView({ id, onBack }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    getTicket(id).then(setT).catch((e) => setError(e.status === 404 ? 'This ticket is not yours to see, or no longer exists.' : e.message || 'Could not load the ticket.'));
+    getTicket(id).then(setT).catch((e) => setError(e.status === 404 ? 'This ticket is not yours to see, or no longer exists.' : errorWords(e, 'load the ticket')));
   }, [id]);
 
   const act = async (fn) => {
@@ -321,7 +322,7 @@ function TicketView({ id, onBack }) {
       setT(await fn());
       setReply('');
     } catch (e) {
-      setError(e.message || 'That did not work. Try again.');
+      setError(errorWords(e, 'send the reply'));
     } finally {
       setBusy(false);
     }

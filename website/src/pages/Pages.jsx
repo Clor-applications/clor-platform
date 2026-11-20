@@ -58,7 +58,7 @@ export function Businesses() {
   const stages = [
     ['Just starting', 'Begin with Books for GST invoices and accounts. Add the rest as people join.', ['books']],
     ['A growing team', 'Add People and Attendance when you hire, and Payroll when salaries need to be right every month.', ['people', 'attendance', 'payroll']],
-    ['Several companies or branches', 'One login holds all your companies; each branch keeps its own GSTIN, stock and books.', ['books', 'payroll']],
+    ['Several companies or branches', 'One sign-in holds all your companies; each branch keeps its own GSTIN, stock and books.', ['books', 'payroll']],
   ];
   const changes = [
     ['Added once', 'A new employee is added once, and appears on the readers, in payroll and in the employee app.'],
@@ -83,7 +83,7 @@ export function Businesses() {
 
       <section className="section" aria-labelledby="stages-title">
         <div className="wrap">
-          <Head id="stages-title" title="Pick the product for today’s problem" intro="There is no bundle to buy. Each product works on its own; add the others when you need them." />
+          <Head id="stages-title" title="Pick the product for today’s problem" intro="You don’t have to buy a bundle. Each product works on its own; add the others when you need them." />
           <ul className="groups">
             {stages.map(([t, d, ps]) => (
               <li key={t}>
@@ -123,16 +123,16 @@ export function Businesses() {
 
 export function Firms() {
   const today = [
-    ['Your client invites you', 'The client invites your email address from their Workspace (Access, then Invitations). You join with your own login, never theirs.'],
-    ['Every client, one login', 'Accept invitations from as many clients as you work for, and switch between their companies from the company menu without signing out.'],
-    ['Access the client controls', 'The client chooses your role, for example posting entries but not approving payments, and can change it or end it at any time.'],
+    ['Your client invites you', 'The client invites your email address. You join with your own sign-in, never theirs.'],
+    ['Every client, one sign-in', 'Accept invitations from as many clients as you work for, and switch between their companies from the company menu without signing out.'],
+    ['The client controls your access', 'The client chooses your role, for example posting entries but not approving payments, and can change it or end it at any time.'],
     ['Time-limited if they prefer', 'A client can give you outside access that ends on a date they choose (Access, then Outside access), for an audit or a filing season.'],
     ['Everything recorded', 'Every change you make is in the client’s own audit trail, in plain words, with your name on it.'],
     ['GST and TDS where the work is', 'Returns come from the client’s own invoices and bills, so the month’s work is review, not re-entry.'],
   ];
   const steps = [
     ['Your client invites you', 'From their Workspace, under Access and then Invitations, with your email and the role you need.'],
-    ['You accept with your login', 'One CLOR login for you, however many clients you have.'],
+    ['You accept with your sign-in', 'One CLOR sign-in for you, however many clients you have.'],
     ['Work in their books', 'Switch between clients from the company menu; each keeps its own records.'],
     ['They stay in control', 'The client sees what you changed, and can change your role or end your access.'],
   ];
@@ -140,9 +140,9 @@ export function Firms() {
     <>
       <SolutionHero
         title="CLOR for accounting firms"
-        intro="Each client invites you into their CLOR company with your own login. You work in their books; they decide what you can see and change, and can end it at any time."
+        intro="Each client invites you into their CLOR company with your own sign-in. You work in their books; they decide what you can see and change, and can end it at any time."
       >
-        <Link className="btn btn--primary btn--lg" href="/contact?about=firm">
+        <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
           Request a demo
         </Link>
         <Link className="btn btn--text" href="/contact?about=firm">
@@ -173,7 +173,7 @@ export function Firms() {
 
       <section className="section" aria-labelledby="firm-planned-title">
         <div className="wrap split">
-          <Head id="firm-planned-title" title="Planned: a workspace for the firm itself" intro="In development, not yet available. What we are building:" />
+          <Head id="firm-planned-title" title="Planned: an account for the firm itself" intro="In development, not yet available. What we are building:" />
           <div className="stack">
             <ul className="facts-list">
               <li>Your firm’s own account, with your staff and their roles.</li>
@@ -185,7 +185,7 @@ export function Firms() {
         </div>
       </section>
 
-      <Closing demoHref="/contact?about=firm" title="Working with clients on CLOR already?" text="Ask your client to invite you from their Workspace, under Access and then Invitations. Or ask us for a demo of how firms work in CLOR." />
+      <Closing title="Working with clients on CLOR already?" text="Ask your client to invite you from their Workspace, under Access and then Invitations. Or ask us for a demo of how firms work in CLOR." />
     </>
   );
 }
@@ -384,7 +384,7 @@ export function About() {
       <PageHead
         eyebrow="Company"
         title="About CLOR"
-        intro={`${SITE.company} makes CLOR: accounting, HR, payroll and attendance that read the same records, so an employee added in People is the same person on the attendance reader, in the salary run and in the books.`}
+        intro={`${SITE.company} makes CLOR: accounting, HR, payroll and attendance that read the same records, so an employee added in People is the same person on the attendance reader, in the pay run and in the books.`}
       >
         <p className="body">
           We work from our office in {SITE.city}: {SITE.address}. You are welcome to visit; write to {SITE.contactEmail} first so someone is there to meet you.
@@ -411,7 +411,7 @@ export function About() {
             </li>
             <li>
               <h3 className="h-3">Say what is true</h3>
-              <p className="body">If a product or a feature isn’t ready, we say so, on this site and in the app.</p>
+              <p className="body">If a product or a feature isn’t ready, we say so, on this site and in CLOR itself.</p>
             </li>
           </ul>
         </div>
@@ -516,7 +516,7 @@ export function Contact() {
               <dd>
                 <a href={`mailto:${SITE.salesEmail}`}>{SITE.salesEmail}</a>
               </dd>
-              <dt>Help with the app</dt>
+              <dt>Help using CLOR</dt>
               <dd>
                 <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>
               </dd>
@@ -528,7 +528,7 @@ export function Contact() {
               {SITE.address}
             </p>
             <h2 className="h-3">Already a customer?</h2>
-            <p className="body">Sign in and use Help in the app, or write to support.</p>
+            <p className="body">Sign in and use Help in CLOR, or write to support.</p>
             <a className="btn btn--text" href={SITE.signInUrl}>
               Sign in
             </a>
@@ -683,13 +683,13 @@ function StatusPosts({ title, posts }) {
           <li key={i.id} className="status-post">
             <h3>{i.title}</h3>
             <p className="status-post-meta">
-              {i.parts.length ? i.parts.map((p) => PART_WORD[p] || p).join(', ') : 'All of CLOR'}
+              {i.parts.length ? i.parts.map((p) => PART_WORD[p] || 'Other parts of CLOR').filter((w, n, all) => all.indexOf(w) === n).join(', ') : 'All of CLOR'}
               {i.kind === 'MAINTENANCE' && i.endsAt ? ` · ${stamp(i.startsAt)} to ${stamp(i.endsAt)}` : ''}
             </p>
             <ol>
               {i.updates.map((u) => (
                 <li key={u.at}>
-                  <strong>{POST_STATE[u.state] || u.state}</strong> <span className="status-post-time">{stamp(u.at)}</span> — {u.body}
+                  <strong>{POST_STATE[u.state] || 'Update'}</strong> <span className="status-post-time">{stamp(u.at)}</span>: {u.body}
                 </li>
               ))}
             </ol>
@@ -703,37 +703,33 @@ function StatusPosts({ title, posts }) {
 /* ------------------------------------------------------------------- legal */
 /*
  * Refund and cancellation: published on clor.in before this site (11 October
- * 2026) and kept word for word, because payment providers check for it. It is
- * the website's own page, not one of the app's shared legal documents.
+ * 2026), because payment providers check for it. The on-premise section came
+ * out on 20 Nov 2026: CLOR is sold as a cloud service only. It is the
+ * website's own page, not one of the app's shared legal documents.
  */
 const REFUND = {
-  title: 'Refund & cancellation',
-  summary: 'How billing, cancellation and refunds work for CLOR. Last updated 11 October 2026.',
+  title: 'Refund and cancellation',
+  summary: 'How billing, cancellation and refunds work for CLOR. Last updated 20 Nov 2026.',
   Body: () => (
     <>
       <h2>Cloud subscriptions</h2>
       <p>
-        Cloud plans are billed monthly or annually in advance. You can cancel any time from your account or by emailing us; cancellation stops
+        Cloud plans are billed monthly or yearly in advance. You can cancel any time from your account or by emailing us; cancellation stops
         the next renewal. Your access continues until the end of the period already paid for.
       </p>
       <h2>Refunds</h2>
       <p>
-        Monthly fees already charged are generally non-refundable. For annual plans cancelled within 7 days of the first payment, we refund the
-        amount in full. After 7 days, annual plans are non-refundable but remain active until the term ends. If we materially fail to provide the
-        service and cannot fix it, contact us — we will refund the affected period.
-      </p>
-      <h2>On-premise licenses</h2>
-      <p>
-        On-premise license fees and annual support (AMC) are non-refundable once a license key has been issued, because the software has been
-        delivered. A trial or pilot period, where offered, lets you evaluate before paying.
+        Monthly fees already charged are generally non-refundable. For yearly plans cancelled within 7 days of the first payment, we refund the
+        amount in full. After 7 days, yearly plans are non-refundable but remain active until the term ends. If we materially fail to provide the
+        service and cannot fix it, contact us and we will refund the affected period.
       </p>
       <h2>How refunds are paid</h2>
       <p>
-        Approved refunds are made to the original payment method, normally within 5–10 business days of approval. Taxes already remitted (GST)
+        Approved refunds are made to the original payment method, normally within 5 to 10 working days of approval. Taxes already remitted (GST)
         are adjusted as the law requires.
       </p>
-      <h2>Free tier and trials</h2>
-      <p>Free plans and trial periods carry no charge and nothing to refund.</p>
+      <h2>Free trials</h2>
+      <p>A free trial carries no charge, so there is nothing to refund.</p>
       <h2>Contact</h2>
       <p>
         Billing questions and cancellation requests: <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>.
@@ -748,7 +744,7 @@ const REFUND = {
  */
 const DELIVERY = {
   title: 'Delivery policy',
-  summary: 'How you receive CLOR after you sign up or pay. Last updated 9 November 2026.',
+  summary: 'How you receive CLOR after you sign up or pay. Last updated 20 Nov 2026.',
   Body: () => (
     <>
       <h2>Nothing is shipped</h2>
@@ -760,14 +756,12 @@ const DELIVERY = {
       <p>
         Access is delivered by email to the address you sign up with. When you create an account yourself, you can use it as soon as you have
         confirmed your email. When our team creates the account for you after a demo, we email the owner a link to set a password, and the
-        apps you chose are ready when you sign in.
+        products you chose are ready when you sign in.
       </p>
       <p>
-        A paid plan or an added app starts as soon as the payment is confirmed. Nothing changes in how you sign in: the new apps appear in the
+        A paid plan or an added product starts as soon as the payment is confirmed. Nothing changes in how you sign in: the new products appear in the
         same account.
       </p>
-      <h2>On-premise licenses</h2>
-      <p>The license key and the installation guide are emailed to the address on the order once the payment is confirmed.</p>
       <h2>Invoices</h2>
       <p>The invoice for each payment is emailed to the account owner.</p>
       <h2>If something has not arrived</h2>
@@ -789,7 +783,7 @@ const DELIVERY = {
  */
 const DPA = {
   title: 'Data processing agreement',
-  summary: 'How CLOR handles the personal data your company keeps in it, as your processor. Last updated 11 November 2026.',
+  summary: 'How CLOR handles the personal data your company keeps in it, as your processor. Last updated 11 Nov 2026.',
   Body: () => (
     <>
       <h2>Who this is between</h2>
@@ -800,7 +794,7 @@ const DPA = {
       <h2>Whose data it is</h2>
       <p>
         Your company decides what personal data goes into CLOR and why: your employees, your customers and suppliers, and the people you give
-        a login. Under India’s Digital Personal Data Protection Act, 2023, your company is the Data Fiduciary for that data and we are its
+        access to. Under India’s Digital Personal Data Protection Act, 2023, your company is the Data Fiduciary for that data and we are its
         Data Processor. For the details of your own account with us (your name, email and sign-in history) we are the Data Fiduciary, and
         the <Link href="/legal/privacy">privacy notice</Link> applies.
       </p>
@@ -907,7 +901,7 @@ export function NotFound() {
           Go to the home page
         </Link>
         <Link className="btn btn--quiet" href="/products">
-          See the products
+          See all products
         </Link>
       </div>
     </PageHead>

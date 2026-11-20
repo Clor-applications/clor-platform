@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { PageHeader, SkeletonCard, StatTile, EmptyState } from '@ui/components/ui/Primitives';
 import { getReportInsights, listReports } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
 
 const monthName = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' });
 const fmt = (v, unit = '') => (v == null ? '—' : `${v}${unit}`);
@@ -52,7 +53,7 @@ export default function ReportInsights({ openScreen }) {
     let live = true;
     getReportInsights(filters)
       .then((d) => { if (live) { setData(d); setError(''); } })
-      .catch((e) => { if (live) setError(String(e?.message || 'Could not load insights.')); });
+      .catch((e) => { if (live) setError(errorWords(e, 'load insights')); });
     return () => { live = false; };
   }, [filters, attempt]);
 
@@ -69,7 +70,7 @@ export default function ReportInsights({ openScreen }) {
 
   return (
     <div className="space-y-3">
-      <PageHeader entity="report" title="Attendance insights" description="How attendance is going this month and over recent months. Figures are the Monthly Attendance Summary's." />
+      <PageHeader entity="report" title="Attendance insights" description="How attendance is going this month and over recent months. Figures are the same as the Monthly attendance summary." />
       <div className="pb-8 space-y-4">
         <section className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Filters">
           <div className="ui-segmented" role="tablist" aria-label="Months">
@@ -114,7 +115,7 @@ export default function ReportInsights({ openScreen }) {
               <StatTile label="Late days" value={fmt(now?.lateDays)} hint={delta('lateDays', '')} tone={now?.lateDays ? 'warn' : 'neutral'} />
               <StatTile label="Late 3+ times" value={fmt(data.repeatLate)} hint="people this month" tone={data.repeatLate ? 'neg' : 'neutral'} />
               <StatTile label="Overtime" value={fmt(now?.overtimeHours, ' h')} hint="approved, this month" />
-              <StatTile label="Unpaid days (LOP)" value={fmt(now?.lossOfPayDays)} hint="this month so far" tone={now?.lossOfPayDays ? 'warn' : 'neutral'} />
+              <StatTile label="Unpaid days" value={fmt(now?.lossOfPayDays)} hint="this month so far" tone={now?.lossOfPayDays ? 'warn' : 'neutral'} />
             </section>
 
             <div className="grid gap-4 xl:grid-cols-2">

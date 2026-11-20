@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import { Copy, Plus } from '@ui/components/ui/lineIcons';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
@@ -63,17 +64,17 @@ export default function Openings({ params = {}, openScreen }) {
       await setOpeningStatus(row.id, to);
       notify.success(to === 'OPEN' ? `${row.title} is open.` : to === 'ON_HOLD' ? `${row.title} is on hold. Its apply link is off.` : `${row.title} is marked filled.`);
       req.reload();
-    } catch (e) { notify.error(String(e?.message || 'Not changed.')); }
+    } catch (e) { notify.error(errorWords(e, 'make the change')); }
   };
   const remove = async (row) => {
     if (!(await confirmDialog({ title: `Delete ${row.title}?`, message: 'Only an opening with no candidates can be deleted. Close one that has candidates; it keeps their history.', confirmLabel: 'Delete' }))) return;
-    try { await deleteOpening(row.id); notify.success('Deleted.'); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
+    try { await deleteOpening(row.id); notify.success(`${row.title} deleted.`); req.reload(); } catch (e) { notify.error(errorWords(e, 'delete it')); }
   };
   const moves = (r) => [
     ['REQUESTED', 'DRAFT', 'ON_HOLD', 'FILLED', 'CLOSED'].includes(r.status) ? ['OPEN', r.status === 'REQUESTED' ? 'Open it' : r.status === 'DRAFT' ? 'Open' : 'Open again'] : null,
     r.status === 'OPEN' ? ['ON_HOLD', 'Put on hold'] : null,
     ['OPEN', 'ON_HOLD'].includes(r.status) ? ['FILLED', 'Mark filled'] : null,
-    !['CLOSED', 'FILLED'].includes(r.status) ? ['CLOSED', r.status === 'REQUESTED' ? 'Turn down' : 'Close'] : null,
+    !['CLOSED', 'FILLED'].includes(r.status) ? ['CLOSED', r.status === 'REQUESTED' ? 'Reject' : 'Close'] : null,
   ].filter(Boolean);
 
   const columns = [
@@ -97,7 +98,7 @@ export default function Openings({ params = {}, openScreen }) {
   return (
     <div className="space-y-6">
       <ListHeader
-        module="Talent"
+        module="Hiring"
         title="Job openings"
         description="What the company is hiring for; candidates and interviews hang off each opening."
         primary={canCreate ? { label: canEdit ? 'New opening' : 'Ask for an opening', icon: Plus, onClick: () => setEditing(blank) } : null}
@@ -132,8 +133,8 @@ export default function Openings({ params = {}, openScreen }) {
       {open ? <OpeningDrawer id={open} canEdit={canEdit} moves={moves} onMove={move} onEdit={(o) => { setOpen(null); setEditing(o); }} openScreen={openScreen} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
       {editing ? <OpeningForm value={editing} rows={rows} canEdit={canEdit} onClose={() => setEditing(null)} onSaved={(o) => { setEditing(null); req.reload(); setOpen(o.id); }} /> : null}
       {closing ? (
-        <ReasonDrawer title={closing.status === 'REQUESTED' ? `Turn down ${closing.title}` : `Close ${closing.title}`} label="Why" help="Say why, for example filled elsewhere or no longer needed."
-          action={closing.status === 'REQUESTED' ? 'Turn down' : 'Close'} suggestions={['No longer needed', 'Filled elsewhere', 'Budget not approved']}
+        <ReasonDrawer title={closing.status === 'REQUESTED' ? `Reject ${closing.title}` : `Close ${closing.title}`} label="Why" help="Say why, for example filled elsewhere or no longer needed."
+          action={closing.status === 'REQUESTED' ? 'Reject' : 'Close'} suggestions={['No longer needed', 'Filled elsewhere', 'Budget not approved']}
           onClose={() => setClosing(null)}
           onDone={async (reason) => { await setOpeningStatus(closing.id, 'CLOSED', reason); notify.success(`${closing.title} is closed.`); setClosing(null); req.reload(); }} />
       ) : null}
@@ -162,7 +163,7 @@ function OpeningDrawer({ id, canEdit, moves, onMove, onEdit, openScreen, onClose
       notify.success(on ? 'Apply link made. Copy it now: it is shown once.' : 'Apply link off.');
       req.reload();
       onChanged();
-    } catch (e) { notify.error(String(e?.message || 'Not changed.')); } finally { setBusy(false); }
+    } catch (e) { notify.error(errorWords(e, 'make the change')); } finally { setBusy(false); }
   };
   const copy = async () => {
     try { await navigator.clipboard.writeText(link); notify.success('Link copied.'); } catch { linkRef.current?.select(); }

@@ -11,6 +11,7 @@ import { matchColumns, normaliseTimeColumns, rowsByColumn, toStatus } from '@ui/
 import { readXlsx } from '@ui/utils/xlsx';
 import { importContractors, importEmployees } from '@ui/personnel/api';
 import { importAssignments, importHolidays, importLeaveBalances, importLeaveHistory, importRecords } from '../api/attendance';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * ClorTime's Import Wizard: pick what the file holds, take the template,
@@ -49,7 +50,7 @@ export const KINDS = [
       { key: 'name', label: 'Name' },
       { key: 'code', label: 'Employee ID', aliases: ['Employee code'] },
       { key: 'email', label: 'Personal email' },
-      { key: 'workEmail', label: 'Work email', aliases: ['Work e-mail'] },
+      { key: 'workEmail', label: 'Work email', aliases: ['Work email'] },
       { key: 'phone', label: 'Phone', aliases: ['Mobile'] },
       { key: 'department', label: 'Department' },
       { key: 'jobPosition', label: 'Designation', aliases: ['Position'] },
@@ -136,7 +137,7 @@ export const KINDS = [
       { key: 'code', label: 'Code' },
       { key: 'contactPerson', label: 'Contact person' },
       { key: 'phone', label: 'Phone' },
-      { key: 'email', label: 'E-mail' },
+      { key: 'email', label: 'Email' },
       { key: 'gstin', label: 'GSTIN' },
       { key: 'licenceNo', label: 'Licence number' },
       { key: 'licenceValidTo', label: 'Licence valid to (15/10/2027 or 2027-10-15)', date: true },
@@ -205,7 +206,7 @@ export default function DataImport({ params } = {}) {
       setRows(read.rows);
       setColumnsRead(read);
     } catch (e) {
-      setProblem(String(e?.message || 'That file could not be read.'));
+      setProblem(errorWords(e, 'read that file'));
     }
   };
   const checkFile = async () => {
@@ -215,7 +216,7 @@ export default function DataImport({ params } = {}) {
     try {
       setCheck(await kind.run(rows, true));
     } catch (e) {
-      setProblem(String(e?.message || 'Could not check the file.'));
+      setProblem(errorWords(e, 'check the file'));
     } finally {
       setBusy(false);
     }
@@ -227,7 +228,7 @@ export default function DataImport({ params } = {}) {
     try {
       setResult(await kind.run(rows, false));
     } catch (e) {
-      setProblem(String(e?.message || 'Not imported.'));
+      setProblem(errorWords(e, 'import the file'));
     } finally {
       setBusy(false);
     }
@@ -267,7 +268,7 @@ export default function DataImport({ params } = {}) {
           <ul className="text-sm space-y-0.5">
             {kind.columns.map((c) => <li key={c.key}><code className="ui-mono text-xs">{c.key}</code> <span className="ui-caption">— {c.label}</span></li>)}
           </ul>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => downloadImportTemplate(kind.id, `CLOR ${kind.label.toLowerCase()} import template`).catch((e) => notify.error(String(e?.message || 'The template could not be downloaded.')))}>
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => downloadImportTemplate(kind.id, `CLOR ${kind.label.toLowerCase()} import template`).catch((e) => notify.error(errorWords(e, 'download the template')))}>
             <Download size={16} aria-hidden="true" /> Download the template
           </button>
           <p className="ui-caption">A CSV file that opens in Excel: the headings, one example row, and a note on each column. Leave the notes in or delete them.</p>

@@ -161,10 +161,10 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
             required
             minLength={8}
           />
-          {invite.hasLogin ? null : <span id="invite-password-help" className="ui-caption">At least eight characters, and not a common one.</span>}
+          {invite.hasLogin ? null : <span id="invite-password-help" className="ui-caption">At least 8 characters, and not a common one.</span>}
         </div>
         <button type="submit" className="ui-btn ui-btn-primary w-full" disabled={busy}>
-          {busy ? 'Joining…' : invite.hasLogin ? 'Sign in and join' : 'Create my login and join'}
+          {busy ? 'Joining…' : invite.hasLogin ? 'Sign in and join' : 'Create my account and join'}
         </button>
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       </form>

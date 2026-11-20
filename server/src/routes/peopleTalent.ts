@@ -20,6 +20,7 @@ import * as training from '../services/people/talent/training.js';
 import * as referrals from '../services/people/talent/referrals.js';
 import { z } from 'zod';
 import { check, code, flag, idParams, list, num, q, qInt, rawText, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Talent (docs/people/design-v1/TALENT-DECISIONS.md): hiring, growth and training.
@@ -56,7 +57,7 @@ const handle = (fn: (req: Request, res: Response) => Promise<unknown>) => async 
   } catch (e) {
     if (e instanceof hiring.TalentError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
     console.error('[talent]', e instanceof Error ? e.message : e);
-    res.status(500).json({ error: 'Something went wrong.' });
+    res.status(500).json({ error: ourFault((res.req as any)?.id) });
   }
 };
 const fileOf = (req: Request, types: Set<string>) => {

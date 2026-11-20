@@ -8,6 +8,7 @@ import { inForce } from './policies.js';
 import { registerJob } from '../jobRegistry.js';
 import type { TeamScope } from './scope.js';
 import { isCompanyUser } from './members.js';
+import { dateWords, timeWords } from '../../utils/istDate.js';
 
 /**
  * Help desk (docs/people/02-PRD.md DESK-01..06). An employee raises a
@@ -235,7 +236,7 @@ export async function assignRequest(who: Who, id: string, input: { assigneeUserI
     const uid = String(input.assigneeUserId || '').trim() || null;
     if (uid && !(await isCompanyUser(who.accountId, who.orgId, uid))) throw new DeskError('That person is not a user here.');
     data.assigneeUserId = uid;
-    if (uid && uid !== who.userId) await notifyUsers(who.accountId, who.orgId, [uid], { kind: 'people.desk', title: `Assigned to you: ${r.subject}`, body: `Resolve by ${r.resolveBy.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'helpdesk', params: { id: r.id } } as any }).catch(() => undefined);
+    if (uid && uid !== who.userId) await notifyUsers(who.accountId, who.orgId, [uid], { kind: 'people.desk', title: `Assigned to you: ${r.subject}`, body: `Resolve by ${dateWords(r.resolveBy)}.`, link: { app: 'people', screen: 'helpdesk', params: { id: r.id } } as any }).catch(() => undefined);
   }
   if (input.queue !== undefined) { const q = String(input.queue || '').trim().slice(0, 60); if (!q) throw new DeskError('Name the queue.'); data.queue = q; }
   const row = await peoplePrisma.deskRequest.update({ where: { id: r.id }, data, include: { employee: { select: { name: true, code: true } } } });
@@ -282,7 +283,7 @@ export async function moveToCase(who: Who, id: string, input: { caseId?: string 
     const docIds = sent.map((m) => m.attachmentDocId).filter((x): x is string => Boolean(x));
     await tx.deskMessage.deleteMany({ where: { requestId: r.id } });
     if (docIds.length) await tx.employeeDocument.deleteMany({ where: { id: { in: docIds }, orgId: who.orgId, employeeId: r.employeeId } });
-    await tx.deskRequest.update({ where: { id: r.id }, data: { status: 'MOVED', subject: `Moved on ${when.toISOString().slice(0, 10)}`, description: '', resolution: null, replyChannel: null, movedToCaseAt: when, movedToCaseId: String(input.caseId || '').trim() || null } });
+    await tx.deskRequest.update({ where: { id: r.id }, data: { status: 'MOVED', subject: `Moved on ${dateWords(when)}`, description: '', resolution: null, replyChannel: null, movedToCaseAt: when, movedToCaseId: String(input.caseId || '').trim() || null } });
   });
   return requestDetail(who.orgId, id);
 }
@@ -325,7 +326,7 @@ export async function runDeskDues(now = new Date()) {
         const resolveLate = !r.resolveEscalatedAt && r.resolveBy < now;
         if (!replyLate && !resolveLate) continue;
         const lead = cats.find((c) => c.key === r.category)?.leadUserId || null;
-        const notice = { kind: 'people.desk_overdue', title: `${replyLate ? 'No reply yet' : 'Not resolved'}: ${r.subject} (${r.employee.name})`, body: replyLate ? `Reply was due ${r.replyBy.toISOString().slice(0, 16).replace('T', ' ')}.` : `Resolve-by was ${r.resolveBy.toISOString().slice(0, 10)}; assigned to ${r.assigneeUserId ? 'someone' : 'nobody'}.`, link: { app: 'people', screen: 'helpdesk', params: { id: r.id } } as any };
+        const notice = { kind: 'people.desk_overdue', title: `${replyLate ? 'No reply yet' : 'Not resolved'}: ${r.subject} (${r.employee.name})`, body: replyLate ? `A reply was due by ${timeWords(r.replyBy)}.` : `It was to be resolved by ${dateWords(r.resolveBy)}; ${r.assigneeUserId ? 'it is assigned' : 'nobody is assigned to it'}.`, link: { app: 'people', screen: 'helpdesk', params: { id: r.id } } as any };
         if (lead) await notifyUsers(r.accountId, orgId, [lead], notice).catch(() => undefined);
         else { const ids = await usersWithPermission(r.accountId, orgId, 'PEOPLE::HR Cases::EDIT'); await notifyUsers(r.accountId, orgId, ids, notice).catch(() => undefined); }
         await peoplePrisma.deskRequest.update({ where: { id: r.id }, data: { ...(replyLate ? { replyEscalatedAt: now } : {}), ...(resolveLate ? { resolveEscalatedAt: now } : {}) } });

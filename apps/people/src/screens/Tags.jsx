@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
@@ -26,7 +27,7 @@ export default function Tags() {
   const [color, setColor] = useState(SWATCHES[0]);
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(() => listTags().then(setTags).catch((e) => notify.error(String(e?.message || 'Could not load tags.'))), []);
+  const load = useCallback(() => listTags().then(setTags).catch((e) => notify.error(errorWords(e, 'load tags'))), []);
   useEffect(() => {
     load();
   }, [load]);
@@ -48,16 +49,16 @@ export default function Tags() {
       setAdding(false);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Tag not saved.'));
+      notify.error(errorWords(err, 'save the tag'));
     } finally {
       setSaving(false);
     }
   };
 
   const remove = async (t) => {
-    const ok = await confirmDialog({ title: `Delete ${t.name}?`, message: 'It comes off everyone who has it.', confirmLabel: 'Yes, delete' });
+    const ok = await confirmDialog({ title: `Delete ${t.name}?`, message: 'It comes off everyone who has it.', confirmLabel: 'Delete tag' });
     if (!ok) return;
-    await deleteTag(t.id).catch((err) => notify.error(String(err?.message || 'Could not delete.')));
+    await deleteTag(t.id).catch((err) => notify.error(errorWords(err, 'delete the tag')));
     load();
   };
 
@@ -75,11 +76,11 @@ export default function Tags() {
         title="Tags"
         description="Free labels to group people for filters, announcements and reports. Tags never change pay or access."
         primary={{ label: 'Add tag', icon: Plus, onClick: open }}
-        toolbar={tags.length ? <SearchField value={q} onSearch={setQ} placeholder="Search" label="Search tags" className="w-full sm:w-80" /> : null}
+        toolbar={tags.length ? <SearchField value={q} onSearch={setQ} placeholder="Search tags" label="Search tags" className="w-full sm:w-80" /> : null}
         toolbarEnd={tags.length ? <span className="ui-caption tabular-nums">{shown.length} {shown.length === 1 ? 'item' : 'items'}</span> : null}
       />
       {!tags.length ? (
-        <EmptyState title="No tags yet" description="Add one, then pick it on an employee's file." />
+        <EmptyState title="No tags yet" description="Add one, then pick it on an employee's file." action={<button type="button" className="ui-btn ui-btn-primary" onClick={open}>Add tag</button>} />
       ) : !shown.length ? (
         <p className="ui-muted text-sm">No tag matches “{q}”.</p>
       ) : (

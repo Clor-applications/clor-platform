@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Loading, errorWords } from './kit';
 import { ArrowLeft } from 'lucide-react';
 
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -46,7 +47,7 @@ const VIEWS = [
 /* A follow-up date as the day in India, and whether it is today or earlier. */
 const istDay = (d) => new Date(new Date(d).getTime() + 330 * 60_000).toISOString().slice(0, 10);
 const isDue = (d) => Boolean(d) && istDay(d) <= istDay(Date.now());
-const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—');
+const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');
 
 export function DemoPill({ status }) {
   const tone = status === 'ACCOUNT_CREATED' ? 'ws-pill ws-pill--ok' : status === 'NEW' ? 'ws-pill ws-pill--warn' : status === 'NOT_A_FIT' ? 'ws-pill ws-pill--off' : 'ws-pill';
@@ -63,7 +64,7 @@ export function DemoRequests({ openRequest }) {
     /* Only the filters in use go on the address. */
     opsDemoRequests({ status: view.status, page: view.page, ...(view.view !== 'all' ? { view: view.view } : {}), ...(view.source ? { source: view.source } : {}) })
       .then((r) => live && (setData(r), setError('')))
-      .catch((e) => live && setError(String(e?.message || e)));
+      .catch((e) => live && setError(errorWords(e, 'load the demo requests')));
     return () => {
       live = false;
     };
@@ -72,7 +73,7 @@ export function DemoRequests({ openRequest }) {
   const waiting = data?.counts?.NEW || 0;
   return (
     <>
-      <PageHead crumbs={['Customers and sales']} title="Demo requests" meta={data ? `${waiting} new` : null} />
+      <PageHead crumbs={['Customers and sales']} title="Demo requests" meta={data ? (waiting ? `${waiting} new` : 'None new') : null} />
       <div className="flex flex-wrap gap-2 items-center">
         <select className="ui-select" style={{ width: 'auto' }} aria-label="Whose" value={view.view} onChange={(e) => setView((v) => ({ ...v, view: e.target.value, page: 0 }))}>
           {VIEWS.map(([k, l]) => (
@@ -102,7 +103,7 @@ export function DemoRequests({ openRequest }) {
       </div>
       <Err>{error}</Err>
       {!data ? (
-        <p className="ws-card-blurb">Loading…</p>
+        <Loading />
       ) : data.requests.length === 0 ? (
         <div className="ws-empty">
           <p>
@@ -163,9 +164,9 @@ export function DemoRequests({ openRequest }) {
       )}
       {pages > 1 ? (
         <nav className="flex items-center gap-2" aria-label="Pages">
-          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={view.page === 0} onClick={() => setView((v) => ({ ...v, page: v.page - 1 }))}>Newer</button>
+          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={view.page === 0} onClick={() => setView((v) => ({ ...v, page: v.page - 1 }))}>Previous</button>
           <span className="ws-head-meta">Page {view.page + 1} of {pages}</span>
-          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={view.page + 1 >= pages} onClick={() => setView((v) => ({ ...v, page: v.page + 1 }))}>Older</button>
+          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={view.page + 1 >= pages} onClick={() => setView((v) => ({ ...v, page: v.page + 1 }))}>Next</button>
         </nav>
       ) : null}
     </>
@@ -193,7 +194,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
         setOwner(r.request.assignedToUserId || '');
         setFollowUp(r.request.followUpAt ? istDay(r.request.followUpAt) : '');
       })
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the demo request')));
   }, [id]);
   useEffect(load, [load]);
   useEffect(() => {
@@ -202,7 +203,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
       .catch(() => setTeam([]));
   }, []);
 
-  if (!d) return error ? <Err>{error}</Err> : <p className="ws-card-blurb">Loading…</p>;
+  if (!d) return error ? <Err>{error}</Err> : <Loading />;
   const r = d.request;
   const closed = r.status === 'ACCOUNT_CREATED';
   const mayMove = may(role, 'SALES', 'SUPPORT', 'BILLING');
@@ -225,7 +226,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
       notify.success('Saved. It is on the record.');
       load();
     } catch (err) {
-      setSaveError(String(err?.message || err));
+      setSaveError(errorWords(err, 'save the demo request'));
     } finally {
       setSaving(false);
     }
@@ -239,7 +240,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
         </button>
       </div>
       <PageHead
-        crumbs={['Customers and sales · Demo requests']}
+        crumbs={['Customers and sales', 'Demo requests']}
         title={r.company}
         meta={<>{r.name} · asked {day(r.createdAt)}</>}
         actions={
@@ -323,7 +324,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
                 </label>
                 <Err>{saveError}</Err>
                 <div>
-                  <button type="submit" className="ws-btn ws-btn--quiet" disabled={saving || !changed}>{saving ? 'Saving…' : 'Save'}</button>
+                  <button type="submit" className="ws-btn ws-btn--quiet" disabled={saving || !changed}>{saving ? 'Saving…' : 'Save status and note'}</button>
                 </div>
               </form>
             )}
@@ -343,14 +344,14 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
                               ? e.detail?.at ? `Follow up on ${day(e.detail.at)}` : 'Follow-up date cleared'
                               : HISTORY[e.action] || `${DEMO_STATUS[e.detail?.from] || e.detail?.from} → ${DEMO_STATUS[e.detail?.to] || e.detail?.to}`}
                         </span>
-                        <span className="ws-item-sub">{e.operatorName || 'operator'} · {ago(e.at)}{e.detail?.note ? ` · ${e.detail.note}` : ''}</span>
+                        <span className="ws-item-sub">{e.operatorName || 'Staff'} · {ago(e.at)}{e.detail?.note ? ` · ${e.detail.note}` : ''}</span>
                       </span>
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="ws-card-blurb">Nothing yet.</p>
+              <p className="ws-card-blurb">Nothing done yet. Status changes, notes and follow-ups show here.</p>
             )}
           </Panel>
         </aside>
@@ -385,7 +386,7 @@ function ExplorePanel({ id, pass, mayAct, onChange }) {
       }
       onChange();
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'change the Explore link'));
     } finally {
       setBusy('');
     }
@@ -447,7 +448,7 @@ function CreateAccount({ open, request, onClose, onDone }) {
       notify.success(r.created ? `Account made. ${r.owner?.email} has the set-password email.` : 'This account was already made.');
       onDone();
     } catch (err) {
-      setError(String(err?.message || err));
+      setError(errorWords(err, 'create the account'));
     } finally {
       setBusy(false);
     }

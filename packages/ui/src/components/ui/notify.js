@@ -56,8 +56,15 @@ export const subscribeToasts = (fn) => {
  */
 /* `cancelLabel` names the way out; `stayFirst` makes it the main button (round 61 "unsavedleave" A:
    "Leave without saving?" with Stay as the main button, so a stray click never loses work). */
-export const confirmDialog = ({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', tone = 'danger', cancelLabel = 'Cancel', stayFirst = false } = {}) =>
+/* Every call should name the action in the title and on the button ("Delete 3 files?" / "Delete files").
+   The defaults below only keep an unnamed call working; in development it says which call needs words. */
+export const confirmDialog = ({ title, message = '', confirmLabel, tone = 'danger', cancelLabel = 'Cancel', stayFirst = false } = {}) =>
   new Promise((resolve) => {
+    if ((!title || !confirmLabel) && import.meta.env?.DEV) {
+      console.warn('confirm-dialog-unnamed', { title, confirmLabel }); // give it a title and a confirmLabel that name the action
+    }
+    title = title || 'Continue with this?';
+    confirmLabel = confirmLabel || 'Continue';
     const request = { id: ++nextId, title, message, confirmLabel, tone, cancelLabel, stayFirst, resolve };
     confirmListeners.forEach((l) => l(request));
     // No subscriber mounted (tests, early boot): fall back to the native

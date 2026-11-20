@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { shownLines } from '@ui/picks/round60';
-import { Banknote, Clock, FileText, MinusCircle, Printer, Wallet } from '@ui/components/ui/lineIcons';
+import { FileText, Printer } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -14,6 +14,8 @@ import { listSalarySlips, getSalarySlip, getSlipYearToDate } from '../api/payrol
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import DraftStrip from '../components/DraftStrip';
 import { SPLIT_NOTE, SPLIT_TITLE, countWords, splitLines } from '@ui/picks/payLines';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Payslips.
@@ -45,7 +47,7 @@ const TABS = [
   { value: 'PAID', label: 'Paid', tone: 'paid' },
 ];
 const COLUMNS = {
-  employee: (s) => s.employee?.name || 'Unknown',
+  employee: (s) => s.employee?.name || 'Name missing',
   period: (s) => s.period?.name || '—',
 };
 const EXPORT_COLUMNS = [
@@ -72,7 +74,7 @@ export default function SalarySlips() {
         setAll(v);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load payslips.')));
+      .catch((e) => setError(errorWords(e, 'load payslips')));
   }, []);
 
   useEffect(() => {
@@ -103,24 +105,23 @@ export default function SalarySlips() {
     <div className="ui-touch-44">
     <DocumentListShell
       entity="payslip"
-      title="Salary slips"
+      title="Payslips"
       description="Every payslip produced, and how each figure on it was reached."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search payslips…', label: 'Search payslips' }}
       moreItems={all?.length ? [exportMenuItem('Export payslips')] : null}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (!format) return;
-        runListExport({ format, title: 'Salary slips', fileName: 'Salary slips', label: 'payslip/payslips', columns: EXPORT_COLUMNS, rows });
+        runListExport({ format, title: 'Payslips', fileName: 'Payslips', label: 'payslip/payslips', columns: EXPORT_COLUMNS, rows });
       }}
-      cards={[
-        { label: 'Gross', value: figures.gross, tone: 'sent', Icon: Banknote },
-        { label: 'Deductions', value: figures.deductions, tone: 'partial', Icon: MinusCircle },
-        { label: 'Net pay', value: figures.net, tone: 'paid', Icon: Wallet },
-        { label: 'Net still unpaid', value: figures.unpaid, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('UNPAID') },
-      ]}
+      countLine={countItems([
+        { label: 'Gross', value: figures.gross, tone: 'sent' },
+        { label: 'Deductions', value: figures.deductions, tone: 'partial' },
+        { label: 'Net pay', value: figures.net, tone: 'paid' },
+        { label: 'Net still unpaid', value: figures.unpaid, tone: 'outstanding', onSelect: () => setStatus('UNPAID') },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -164,7 +165,7 @@ export default function SalarySlips() {
                   <tr key={x.id} className="ui-row-click" onClick={() => setOpenId(x.id)}>
                     <td className="ui-col-id">{x.number}</td>
                     <td className="ui-col-entity">
-                      {x.employee?.name || 'Unknown'}
+                      {x.employee?.name || 'Name missing'}
                       {x.employee?.code ? <span className="ui-caption"> · {x.employee.code}</span> : null}
                     </td>
                     <td className="ui-col-meta">{x.period?.name || '—'}{x.extraPayRun ? <span className="ui-caption"> · Extra pay run</span> : null}</td>
@@ -205,7 +206,7 @@ const SlipDocument = ({ slipId }) => {
     let alive = true;
     getSalarySlip(slipId)
       .then((s) => alive && setSlip(s))
-      .catch((e) => alive && notify.error(String(e?.message || 'Could not open that payslip.')));
+      .catch((e) => alive && notify.error(errorWords(e, 'open that payslip')));
     getSlipYearToDate(slipId)
       .then((y) => alive && setYtd(y))
       .catch(() => {});
@@ -409,13 +410,9 @@ const Explanation = ({ line, trace, slip }) => {
         <Row label="Paid" value={trace.computedAmount} strong />
       </section>
 
-      {trace.statutoryRuleVersion ? (
-        <p className="ui-caption">Worked out under statutory rule version {trace.statutoryRuleVersion}.</p>
-      ) : null}
-
       <p className="ui-caption">
-        Calculated by payroll engine {slip.engineVersion || 'unknown'}. The same inputs always produce the same figure, so
-        this payslip can be reproduced exactly.
+        Calculated with the statutory rates in force for this month. The same figures always give the same result, so
+        this payslip can be produced again exactly.
       </p>
     </div>
   );

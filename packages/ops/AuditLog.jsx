@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead } from '../../apps/admin/src/screens/wsKit';
-import { Empty, Err, Loading, Pager, when } from './kit';
+import { Empty, Err, Loading, Pager, when, errorWords } from './kit';
 import { opsAccounts, opsAudit, opsAuditExport, opsAuditFilters } from './api';
 
 /**
@@ -24,7 +24,7 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
     let live = true;
     opsAudit(f)
       .then((r) => live && (setD(r), setError('')))
-      .catch((e) => live && setError(String(e?.message || e)));
+      .catch((e) => live && setError(errorWords(e, 'load the Staff audit log')));
     return () => {
       live = false;
     };
@@ -46,7 +46,7 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
       URL.revokeObjectURL(url);
       notify.success('Downloaded. The download is in the audit log too.');
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(errorWords(e, 'download the Staff audit log'));
     } finally {
       setBusy(false);
     }

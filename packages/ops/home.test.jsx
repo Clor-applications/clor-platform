@@ -32,7 +32,7 @@ describe('Overview', () => {
     expect(await screen.findByText('412')).toBeInTheDocument();
     expect(screen.getByText('+9 this week')).toBeInTheDocument();
     expect(screen.getByText('70% of accounts')).toBeInTheDocument();
-    expect(screen.getByText('Fail-open: must move to a plan')).toBeInTheDocument();
+    expect(screen.getByText('Every app is open to them: move each to a plan')).toBeInTheDocument();
     expect(await screen.findByText('Notify email')).toBeInTheDocument();
     expect(screen.getByText('Failing')).toBeInTheDocument();
     expect(await screen.findByText('3 new requests wait for a call · 1 came in today')).toBeInTheDocument();

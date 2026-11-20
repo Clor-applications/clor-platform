@@ -8,7 +8,7 @@ import { startChecklist } from './checklists.js';
 import { writeEvent } from './outbox.js';
 import { registerJob } from '../jobRegistry.js';
 import { RECIPE, automation, automationsFor, recipientUsers, recordRun } from './engagement/automations.js';
-import { istDate } from '../../utils/istDate.js';
+import { dateWords, istDate } from '../../utils/istDate.js';
 
 /**
  * People's own events, told to whoever manages employees (PEOPLE::Employees
@@ -134,19 +134,19 @@ async function remindDocuments(docs: DueDoc[], now: Date) {
         const stage = stageOf(daysLeft)!;
         const name = person.name;
         const permit = PERMIT_KINDS.has(d.kind);
-        const title = daysLeft < 0 ? `${name}’s ${d.title} expired on ${d.expiresOn}` : daysLeft === 0 ? `${name}’s ${d.title} expires today` : `${name}’s ${d.title} expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
-        const body = `${d.kind}${permit && d.restrictsWork ? ` · until renewed: ${d.restrictsWork}` : ` · ${d.expiresOn}`}`;
+        const title = daysLeft < 0 ? `${name}’s ${d.title} expired on ${dateWords(d.expiresOn)}` : daysLeft === 0 ? `${name}’s ${d.title} expires today` : `${name}’s ${d.title} expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
+        const body = `${d.kind}${permit && d.restrictsWork ? ` · until renewed: ${d.restrictsWork}` : ` · expires ${dateWords(d.expiresOn)}`}`;
         if (tell) await notifyUsers(accountId, orgId, recipients.map((r) => r.id), { kind: 'people.document_expiring', title, body, link: { app: 'people', screen: 'employees', params: { id: d.employeeId } } });
         if (tell) told.push(`${name}: ${d.title}`);
         for (const r of tell ? recipients : []) {
-          await sendTemplate({ templateKey: 'people.document_expiring', to: r.email, toName: r.fullName, accountId, orgId, relatedType: 'EmployeeDocument', relatedId: d.id, data: { name, title: d.title, kind: d.kind, expiresOn: d.expiresOn || '', days: String(Math.max(0, daysLeft)), orgName: org?.name || '' } });
+          await sendTemplate({ templateKey: 'people.document_expiring', to: r.email, toName: r.fullName, accountId, orgId, relatedType: 'EmployeeDocument', relatedId: d.id, data: { name, title: d.title, kind: d.kind, expiresOn: dateWords(d.expiresOn), days: String(Math.max(0, daysLeft)), when: daysLeft <= 0 ? 'today' : daysLeft === 1 ? 'tomorrow' : `in ${daysLeft} days`, orgName: org?.name || '' } });
         }
         /* A permit running out is work for HR and the manager, once per document while it is open. */
         if (permit && stage <= 30) {
           const open = await peoplePrisma.checklistTask.count({ where: { orgId, employeeId: d.employeeId, kind: 'RENEWAL', doneAt: null, note: { contains: d.id } } });
           if (!open) {
             await startChecklist({ accountId, orgId, userId: null }, { id: d.employeeId }, 'RENEWAL', d.expiresOn, { items: [
-              { title: `Renew ${d.title} (expires ${d.expiresOn})`, owner: 'HR', dueDays: -7, note: `Document ${d.id}. Until renewed${d.restrictsWork ? `: ${d.restrictsWork}` : ', check what work needs it.'}` },
+              { title: `Renew ${d.title} (expires ${dateWords(d.expiresOn)})`, owner: 'HR', dueDays: -7, note: `Document ${d.id}. Until renewed${d.restrictsWork ? `: ${d.restrictsWork}` : ', check what work needs it.'}` },
               { title: `Plan ${name}’s work while ${d.title} is renewed`, owner: 'MANAGER', dueDays: -7, note: `Document ${d.id}. ${d.restrictsWork ? `They may not: ${d.restrictsWork}.` : 'Check what work needs it.'} Shown on the record, not enforced by other apps.` },
             ] });
           }

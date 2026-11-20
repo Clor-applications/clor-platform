@@ -45,8 +45,8 @@ function ProductsMenu({ onPick }) {
           ))}
         </div>
         <Link href="/solutions/businesses" className="mega-feature" onClick={onPick}>
-          <span className="mega-name">One login for every app</span>
-          <span className="mega-line">Books, People, Payroll and Attendance share one list of employees and one set of books.</span>
+          <span className="mega-name">One sign-in for every product</span>
+          <span className="mega-line">Books, People, Payroll and Attendance work from the same employees.</span>
         </Link>
       </div>
       <div className="mega-foot">
@@ -81,7 +81,7 @@ function ListMenu({ items, onPick }) {
 /* Two doors: the company's own users, and staff who only punch, ask for leave and read payslips. */
 const DOORS = [
   { href: SITE.signInUrl, name: 'Company sign-in', line: 'Owners, HR, managers and accountants.' },
-  { href: SITE.portalUrl, name: 'Employee portal', line: 'Punch in, ask for leave, see your payslips.' },
+  { href: SITE.portalUrl, name: 'Employee app', line: 'Punch in, ask for leave, see your payslips.' },
 ];
 
 const MENUS = [
@@ -205,7 +205,7 @@ export default function Nav() {
         </nav>
         <div className="nav-end">
           <a href={SITE.portalUrl} className="nav-quiet">
-            Employee portal
+            Employee app
           </a>
           <Link href="/contact" className="nav-quiet">
             Contact sales

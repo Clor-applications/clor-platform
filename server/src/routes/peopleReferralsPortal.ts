@@ -9,6 +9,7 @@ import { RESUME_TYPES, TalentError } from '../services/people/talent/hiring.js';
 import * as referrals from '../services/people/talent/referrals.js';
 import { z } from 'zod';
 import { check, rawText, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Jobs and referrals in the employee app (services/people/talent/referrals.ts, A20), behind the
@@ -28,7 +29,7 @@ async function me(req: Request) {
 const fail = (res: Response, e: unknown) => {
   if (e instanceof TalentError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
   console.error('[portal referrals]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 const off = (res: Response) => res.status(403).json({ error: 'Jobs are not switched on for your company.', code: 'MODULE_OFF' });
 

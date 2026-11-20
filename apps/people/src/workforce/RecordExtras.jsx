@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useEffect, useState } from 'react';
 import { Armchair, Car, CreditCard, Headphones, IdCard, KeyRound, Laptop, Monitor, Package, Smartphone } from 'lucide-react';
 
@@ -74,7 +75,7 @@ export function ProbationSection({ person, canReview, canDecide, onDecided }) {
       setEndOn('');
       onDecided?.();
       reviews.reload();
-    } catch (e) { notify.error(String(e?.message || 'Not saved.')); }
+    } catch (e) { notify.error(errorWords(e, 'save the changes')); }
   };
   const mayReview = canReview && !own;
   const mayDecide = canDecide && !own;
@@ -225,7 +226,7 @@ export function PersonAssets({ employeeId, openScreen }) {
                 <span className="font-medium">{a.title}</span>
                 <span className="block ui-caption">{[a.details?.assetTag, a.details?.category, a.details?.issuedOn ? `issued ${day(a.details.issuedOn)}` : null].filter(Boolean).join(' · ')}</span>
               </span>
-              <span className={`ui-pill ${a.status === 'ASSIGNED' ? 'ui-pill-info' : 'ui-pill-neutral'}`}>{ASSET_WORD[a.status] || a.status}</span>
+              <span className={`ui-pill ${a.status === 'ASSIGNED' ? 'ui-pill-info' : 'ui-pill-neutral'}`}>{ASSET_WORD[a.status] || enumWords(a.status)}</span>
             </li>
           ))}
         </ul>
@@ -236,7 +237,7 @@ export function PersonAssets({ employeeId, openScreen }) {
 
 /* ------------------------------------------------------------------ Employee app access sent (gap 22) */
 
-const CHANNEL_WORD = { EMAIL: 'By e-mail', PRINT: 'Code handed over' };
+const CHANNEL_WORD = { EMAIL: 'By email', PRINT: 'Code handed over' };
 
 /** When this person was sent employee app access, how, and until when the code worked. Never the code. */
 export function AppAccessHistory({ employeeId, canSend, onSend }) {
@@ -250,7 +251,7 @@ export function AppAccessHistory({ employeeId, canSend, onSend }) {
           {rows.map((r) => (
             <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
               <span className="tabular-nums whitespace-nowrap">{new Date(r.sentAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}</span>
-              <span className="min-w-0 flex-1">{CHANNEL_WORD[r.channel] || r.channel}{r.channel === 'EMAIL' && r.sentTo ? ` to ${r.sentTo}` : ''}</span>
+              <span className="min-w-0 flex-1">{CHANNEL_WORD[r.channel] || enumWords(r.channel)}{r.channel === 'EMAIL' && r.sentTo ? ` to ${r.sentTo}` : ''}</span>
               <span className="ui-caption">{until(r)}</span>
             </li>
           ))}
@@ -276,7 +277,7 @@ export function PersonCelebrations({ employeeId }) {
       notify.success(on ? 'They will be announced again.' : 'They will not be announced.');
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setBusy(false);
     }

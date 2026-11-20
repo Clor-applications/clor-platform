@@ -13,6 +13,7 @@ import '../services/people/engagement/index.js';
 import { z } from 'zod';
 import { anyBody, check, id, q, qInt, text } from '../middleware/validate.js';
 import { AutomationError, automationHistory, companyUsers, listAutomations, recipesOf, saveAutomations, RECIPE, type AutomationModule } from '../services/people/engagement/automations.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Settings → Automations for any module (the registry in services/people/engagement/automations.ts):
@@ -67,7 +68,7 @@ async function gate(req: Request, res: Response, module: string, action: 'VIEW' 
 const failed = (res: Response, e: any) => {
   if (e instanceof AutomationError || (e?.status && e.status < 500)) return res.status(e.status || 400).json({ error: e.message });
   console.error('[automations]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong. Try again in a moment.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 
 /** The users "a named person" may be, for an editor of a module that offers one. */

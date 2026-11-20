@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
+import { Loading, errorWords } from './kit';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
 import { opsBuildSample, opsEndPass, opsExplorePasses, opsResendPass, opsSampleCompany } from './api';
@@ -11,12 +12,12 @@ import { opsBuildSample, opsEndPass, opsExplorePasses, opsResendPass, opsSampleC
  * company that Explore links open is built here, and every link sent with a
  * demo request is listed here, to resend or end. Reading is for any operator;
  * a change needs support or billing, an authenticator code, and goes on the
- * operator log.
+ * Staff audit log.
  */
 
 const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
-const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—');
+const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');
 const Err = ({ children }) => (children ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p> : null);
 const seconds = (a, b) => (a && b ? Math.max(1, Math.round((new Date(b) - new Date(a)) / 1000)) : null);
 
@@ -96,7 +97,7 @@ export function SampleCompany({ role, openLinks }) {
           setD(r);
           setError('');
         })
-        .catch((e) => setError(String(e?.message || e))),
+        .catch((e) => setError(errorWords(e, 'load the sample company'))),
     []
   );
   useEffect(() => {
@@ -138,7 +139,7 @@ export function SampleCompany({ role, openLinks }) {
       await opsBuildSample(force);
       await load();
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'start the build'));
     } finally {
       setBusy('');
     }
@@ -160,7 +161,7 @@ export function SampleCompany({ role, openLinks }) {
       />
       <Err>{error}</Err>
       {!d ? (
-        error ? null : <p className="ws-card-blurb">Loading…</p>
+        error ? null : <Loading />
       ) : (
         <>
           <Panel title={d.company}>
@@ -236,7 +237,7 @@ export function ExploreLinks({ role, openRequest }) {
     let live = true;
     opsExplorePasses(view)
       .then((r) => live && (setData(r), setError('')))
-      .catch((e) => live && setError(String(e?.message || e)));
+      .catch((e) => live && setError(errorWords(e, 'load the Explore links')));
     return () => {
       live = false;
     };
@@ -258,7 +259,7 @@ export function ExploreLinks({ role, openRequest }) {
       }
       setTick((n) => n + 1);
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'change the Explore link'));
     } finally {
       setBusy('');
     }
@@ -266,7 +267,7 @@ export function ExploreLinks({ role, openRequest }) {
 
   return (
     <>
-      <PageHead crumbs={['Customers and sales']} title="Explore links" meta={data ? `${data.active} open` : null} />
+      <PageHead crumbs={['Customers and sales']} title="Explore links" meta={data ? (data.active ? `${data.active} open` : 'None open') : null} />
       <div className="flex flex-wrap gap-2 items-center">
         <select className="ui-select" style={{ width: 'auto' }} aria-label="Which links" value={view.state} onChange={(e) => setView({ state: e.target.value, page: 0 })}>
           {VIEWS.map(([k, label]) => (
@@ -276,10 +277,10 @@ export function ExploreLinks({ role, openRequest }) {
       </div>
       <Err>{error}</Err>
       {!data ? (
-        <p className="ws-card-blurb">Loading…</p>
+        <Loading />
       ) : data.passes.length === 0 ? (
         <div className="ws-empty">
-          <p>{view.state === 'all' ? 'No Explore link has been sent yet. Each demo request from clor.in/demo sends one.' : 'No link here.'}</p>
+          <p>{view.state === 'all' ? 'No Explore link has been sent yet. Each demo request from clor.in/demo sends one.' : 'No link with this state.'}</p>
         </div>
       ) : (
         <div className="ws-table-wrap">
@@ -340,9 +341,9 @@ export function ExploreLinks({ role, openRequest }) {
       )}
       {pages > 1 ? (
         <nav className="flex items-center gap-2" aria-label="Pages">
-          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={view.page === 0} onClick={() => setView((v) => ({ ...v, page: v.page - 1 }))}>Newer</button>
+          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={view.page === 0} onClick={() => setView((v) => ({ ...v, page: v.page - 1 }))}>Previous</button>
           <span className="ws-head-meta">Page {view.page + 1} of {pages}</span>
-          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={view.page + 1 >= pages} onClick={() => setView((v) => ({ ...v, page: v.page + 1 }))}>Older</button>
+          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={view.page + 1 >= pages} onClick={() => setView((v) => ({ ...v, page: v.page + 1 }))}>Next</button>
         </nav>
       ) : null}
     </>

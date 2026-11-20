@@ -1,3 +1,4 @@
+import { enumWords } from '@ui/utils/errorWords';
 import React from 'react';
 import {
   BarChart3, Building2, CalendarDays, CalendarRange, ClipboardCheck, FileText, Gavel, Inbox, LifeBuoy, ListChecks, Lock, MapPin,
@@ -106,7 +107,7 @@ export function ChecklistsPanel({ openScreen }) {
         {req.data && !list.length ? <SideClear>Nothing open</SideClear> : null}
       </SideBlock>
       <SideBlock title="Late, by owner" count={late} tone="warn">
-        {Object.entries(byOwner).sort((a, b) => b[1] - a[1]).map(([o, n]) => <SideLine key={o} title={OWNER_WORD[o] || o} meta={n} tone="neg" bar={(n / Math.max(1, late)) * 100} />)}
+        {Object.entries(byOwner).sort((a, b) => b[1] - a[1]).map(([o, n]) => <SideLine key={o} title={OWNER_WORD[o] || enumWords(o)} meta={n} tone="neg" bar={(n / Math.max(1, late)) * 100} />)}
       </SideBlock>
       {/* Tasks is where People opens for someone without Home (an employee, an auditor): only links they may follow. */}
     </>

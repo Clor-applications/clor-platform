@@ -37,7 +37,7 @@ export default function Footer() {
       <div className="wrap ft-grid">
         <div className="ft-brand">
           <Logo height={24} lazy light />
-          <p className="ft-line">Accounting, HR, attendance and payroll for Indian companies. Your data is kept in {SITE.hosting}.</p>
+          <p className="ft-line">Accounting, HR, payroll and attendance for Indian companies. Your data is kept in {SITE.hosting}.</p>
           <ul className="ft-mail">
             {mail.map(([k, v]) => (
               <li key={v}>

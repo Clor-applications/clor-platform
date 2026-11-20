@@ -9,6 +9,7 @@ import { sendTemplate } from './mailer.js';
 import { ACCOUNT_ADMINS, accountRoleOf, recordAccountEvent, type AccountRole } from './accountMembership.js';
 import { lockQuota } from './quotaLock.js';
 import { domainRefusalFor, policyForOrgs, validatePassword } from './policy.js';
+import { statusWords } from '../utils/statusWords.js';
 
 /**
  * Workspace W-3: inviting a person into the account.
@@ -152,7 +153,7 @@ export async function createInvitation(req: Request, input: { email?: unknown; a
   return outsideTenant('account invitation: create', async () => {
     const existing = await platformPrisma.user.findFirst({ where: { email }, select: { id: true, accountId: true } });
     if (existing && existing.accountId !== accountId) {
-      throw new InvitationError(409, 'This person has a CLOR login in another account. Let them into a company under Outside access instead.', 'OTHER_ACCOUNT');
+      throw new InvitationError(409, 'This person has a CLOR sign-in in another account. Let them into a company under Outside access instead.', 'OTHER_ACCOUNT');
     }
     if (existing) {
       const m = await platformPrisma.accountMembership.findUnique({ where: { accountId_userId: { accountId, userId: existing.id } }, select: { status: true } });
@@ -195,7 +196,7 @@ export async function resendInvitation(req: Request, id: string, asOperator?: { 
   return outsideTenant('account invitation: resend', async () => {
     const row = await platformPrisma.accountInvitation.findFirst({ where: { id, accountId } });
     if (!row) throw new InvitationError(404, 'No such invitation.', 'NOT_FOUND');
-    if (row.status !== 'PENDING' && row.status !== 'EXPIRED') throw new InvitationError(409, `This invitation was ${row.status.toLowerCase()}; send a new one instead.`, 'NOT_PENDING');
+    if (row.status !== 'PENDING' && row.status !== 'EXPIRED') throw new InvitationError(409, `This invitation was already ${statusWords(row.status)}. Send a new one instead.`, 'NOT_PENDING');
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
     /* Only while it is still open: a revoke or an accept that landed since the read above must not be undone. */
@@ -217,7 +218,7 @@ export async function revokeInvitation(req: Request, id: string) {
   const actor = String(req.auth?.userId || '');
   return outsideTenant('account invitation: revoke', async () => {
     const done = await platformPrisma.accountInvitation.updateMany({ where: { id, accountId, status: { in: ['PENDING', 'EXPIRED'] } }, data: { status: 'REVOKED', revokedAt: new Date(), revokedByUserId: actor } });
-    if (!done.count) throw new InvitationError(404, 'No open invitation with that id.', 'NOT_FOUND');
+    if (!done.count) throw new InvitationError(404, 'No such open invitation. It may have been accepted or withdrawn; reload the list.', 'NOT_FOUND');
     await recordAccountEvent({ accountId, actorUserId: actor, action: 'INVITATION_REVOKED', targetType: 'AccountInvitation', targetId: id, message: 'Revoked an invitation' });
     return { revoked: true };
   });
@@ -273,11 +274,11 @@ export async function acceptInvitation(input: { token?: unknown; signedInUserId?
         /* The login may have been made a moment ago by this same invitation (a double click): say so, not "sign in". */
         const now = await platformPrisma.accountInvitation.findUnique({ where: { id: row.id }, select: { status: true } });
         if (now?.status === 'ACCEPTED') throw new InvitationError(409, 'This invitation has already been used.', 'ALREADY_ACCEPTED');
-        throw new InvitationError(401, 'You already have a CLOR login. Sign in with it to accept.', 'SIGN_IN_REQUIRED');
+        throw new InvitationError(401, 'You already have a CLOR sign-in. Sign in with it to accept.', 'SIGN_IN_REQUIRED');
       }
       if (input.signedInUserId !== user.id) throw new InvitationError(403, `This invitation is for ${row.email}. Sign in with that address to accept it.`, 'WRONG_PERSON');
-      if (user.accountId !== row.accountId) throw new InvitationError(409, 'Your login belongs to another account; ask to be let in under Outside access.', 'OTHER_ACCOUNT');
-      if (!user.isActive) throw new InvitationError(403, 'Your login is switched off in this account.', 'INACTIVE');
+      if (user.accountId !== row.accountId) throw new InvitationError(409, 'Your sign-in belongs to another account; ask to be let in under Outside access.', 'OTHER_ACCOUNT');
+      if (!user.isActive) throw new InvitationError(403, 'Your sign-in is switched off in this account.', 'INACTIVE');
     } else {
       /* Signed in as somebody else, for an address that has no login: not theirs to accept. */
       if (input.signedInUserId) throw new InvitationError(403, `This invitation is for ${row.email}. Sign out, then open the link again to accept it.`, 'WRONG_PERSON');

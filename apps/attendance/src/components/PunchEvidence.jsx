@@ -5,6 +5,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { getPunchEvidence, getPunchEvidenceCsv, todayIst } from '../api/attendance';
 import { printEvidence } from './readerTrust';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Attendance evidence (reader trust, O-11): every punch of one person in a
@@ -44,7 +45,7 @@ export default function PunchEvidence({ open, onClose, people = [], initial = {}
       saveText(text, `Attendance evidence ${person?.code || person?.name || ''} ${form.from} to ${form.to}.csv`.replace(/[\\/:*?"<>|]+/g, '-'));
       notify.success('Evidence downloaded.');
     } catch (err) {
-      notify.error(String(err?.message || 'Could not build the evidence.'));
+      notify.error(errorWords(err, 'build the evidence'));
     } finally {
       setBusy('');
     }
@@ -54,7 +55,7 @@ export default function PunchEvidence({ open, onClose, people = [], initial = {}
     try {
       printEvidence(await getPunchEvidence(form.employeeId, form.from, form.to));
     } catch (err) {
-      notify.error(String(err?.message || 'Could not build the evidence.'));
+      notify.error(errorWords(err, 'build the evidence'));
     } finally {
       setBusy('');
     }

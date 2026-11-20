@@ -57,12 +57,12 @@ it('narrows the list to one kind, each kind counted', async () => {
   await screen.findByText('1,250 people have something open');
   const tabs = screen.getByRole('tablist', { name: 'What is open' });
   const tab = (name) => within(tabs).getByRole('tab', { name: new RegExp(`^${name}`) });
-  expect(tab('No check-out').textContent).toBe('No check-out3 people');
+  expect(tab('No punch out').textContent).toBe('No punch out3 people');
   expect(tab('Overtime to approve').textContent).toBe('Overtime to approve13 people');
   expect(tab('No attendance').textContent).toBe('No attendance1,250 people');
 
-  fireEvent.click(tab('No check-out'));
-  expect(tab('No check-out').getAttribute('aria-selected')).toBe('true');
+  fireEvent.click(tab('No punch out'));
+  expect(tab('No punch out').getAttribute('aria-selected')).toBe('true');
   const rows = within(byPerson()).getAllByRole('row').slice(1);
   expect(rows.map((r) => r.cells[0].textContent)).toEqual(['Person 0000 · M-0', 'Person 0001 · M-1', 'Person 0002 · M-2']);
 
@@ -196,7 +196,7 @@ it('does not call a month with no-record days ready, and closes only once they a
   const button = screen.getByRole('button', { name: /Close the month/ });
   fireEvent.click(screen.getByLabelText(/I have seen the 1 open item/));
   expect(button.disabled).toBe(true);
-  fireEvent.click(within(confirm).getByLabelText('Dock these 3 working days from pay as unpaid absence.'));
+  fireEvent.click(within(confirm).getByLabelText('Count these 3 working days as unpaid.'));
   expect(button.disabled).toBe(false);
   fireEvent.click(button);
   await waitFor(() => expect(closeMonth).toHaveBeenCalledWith('2026-09', true, { confirmNoRecordDays: 3, confirmNoRecordToken: 'abc' }));
@@ -223,6 +223,6 @@ it('blocks the close while reader punches are held for the month, and shows them
   expect(screen.getByRole('region', { name: 'Held for a look' })).toBeTruthy();
   expect(screen.getByText(/2 reader punches are held for a look in this month/)).toBeTruthy();
   fireEvent.click(screen.getByLabelText(/I have seen the 2 open items/));
-  fireEvent.click(screen.getByLabelText('Dock these 3 working days from pay as unpaid absence.'));
+  fireEvent.click(screen.getByLabelText('Count these 3 working days as unpaid.'));
   expect(screen.getByRole('button', { name: /Close the month/ }).disabled).toBe(true);
 });

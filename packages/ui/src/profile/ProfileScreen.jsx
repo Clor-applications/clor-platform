@@ -20,6 +20,7 @@ import {
 import { changePassword, exportMyData, forgotPassword, getProfile, resendVerification, updateProfile } from '@platform/auth';
 import { operator } from '@platform/operator';
 import { Button, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { errorWords } from '@ui/utils/errorWords.js';
 import AuthenticatorCard from './AuthenticatorCard';
 
 /**
@@ -184,7 +185,7 @@ export const ProfileScreen = ({ Header = PageHeader, links = [] }) => {
     Promise.resolve()
       .then(getProfile)
       .then((d) => !cancelled && load(d))
-      .catch((e) => !cancelled && setError(String(e?.message || e)))
+      .catch((e) => !cancelled && setError(errorWords(e, 'load your profile')))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -231,7 +232,7 @@ export const ProfileScreen = ({ Header = PageHeader, links = [] }) => {
       await fn();
       if (note) setNotice(note);
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, key === 'verify' ? 'send the confirmation link' : 'save your details'));
     } finally {
       setBusy('');
     }
@@ -244,7 +245,7 @@ export const ProfileScreen = ({ Header = PageHeader, links = [] }) => {
       const url = await resizeToDataUrl(file);
       setForm((f) => ({ ...f, avatarUrl: url }));
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'use that photo'));
     }
   };
 
@@ -382,7 +383,7 @@ export const ProfileScreen = ({ Header = PageHeader, links = [] }) => {
             </div>
           </div>
           {!verified && user.email ? (
-            <Button icon={Mail} loading={busy === 'verify'} onClick={() => run('verify', resendVerification, 'Verification link sent')}>
+            <Button icon={Mail} loading={busy === 'verify'} onClick={() => run('verify', resendVerification, 'Confirmation link sent.')}>
               Send the confirmation link
             </Button>
           ) : null}
@@ -469,7 +470,7 @@ export const ProfileScreen = ({ Header = PageHeader, links = [] }) => {
             <Field label="Branches" value={branchNames} hint={branchNames ? null : 'No branch restriction: you can see all of them.'} />
             <Field label="Warehouses" value={warehouseNames} hint={warehouseNames ? null : 'No warehouse restriction.'} />
             <Field label="User ID" value={user.code || '—'} mono />
-            <Field label="Client ID" value={user.accountCode || user.accountId} mono />
+            <Field label="CLOR account number" value={user.accountCode || user.accountId} mono />
           </dl>
         </aside>
       </div>
@@ -500,7 +501,7 @@ function PasswordCard({ email }) {
       setNotice(note);
       return true;
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, key === 'reset' ? 'send the reset link' : 'change your password'));
       return false;
     } finally {
       setBusy('');
@@ -620,7 +621,7 @@ function PrivacySection() {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
-      setError(String(e?.message || 'Could not prepare your data.'));
+      setError(errorWords(e, 'prepare your data'));
     } finally {
       setBusy(false);
     }

@@ -10,6 +10,8 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listDeviceLogs, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { plusDaysIso } from '@ui/utils/dates';
+import { errorWords, dayText } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const weekAgo = () => plusDaysIso(-6);
 
@@ -51,7 +53,7 @@ export default function DeviceLogs() {
         setLogs({ OPERATION: ops?.logs || [], ERROR: errs?.logs || [] });
         setLoadError('');
       })
-      .catch((e) => setLoadError(String(e?.message || 'Could not load reader logs.')));
+      .catch((e) => setLoadError(errorWords(e, 'load reader logs')));
   }, [range]);
   useEffect(() => {
     load();
@@ -74,21 +76,20 @@ export default function DeviceLogs() {
       title="Reader logs"
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search logs…', label: 'Search reader logs' }}
       moreItems={[exportMenuItem('Export logs')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (!format) return;
         const what = kind === 'ERROR' ? 'errors' : 'operations';
-        runListExport({ format, title: `Reader ${what}`, subtitle: `${range.from} to ${range.to}`, fileName: `Reader ${what} ${range.from} to ${range.to}`, label: 'entry/entries', columns: EXPORT_COLUMNS, rows });
+        runListExport({ format, title: `Reader ${what}`, subtitle: `${dayText(range.from)} to ${dayText(range.to)}`, fileName: `Reader ${what} ${range.from} to ${range.to}`, label: 'entry/entries', columns: EXPORT_COLUMNS, rows });
       }}
-      cards={[
+      countLine={countItems([
         { label: 'Operations', value: counts.OPERATION, count: true, tone: 'all', Icon: ClipboardList, onSelect: () => setKind('OPERATION') },
         { label: 'Errors', value: counts.ERROR, count: true, tone: 'overdue', Icon: AlertTriangle, onSelect: () => setKind('ERROR') },
         { label: 'Readers reporting', value: readersReporting, count: true, tone: 'sent', Icon: Router },
         { label: 'Readers with errors', value: readersWithErrors, count: true, tone: 'outstanding', Icon: ScrollText },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={kind}
       statusCounts={counts}

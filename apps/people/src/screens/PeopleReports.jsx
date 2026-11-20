@@ -1,3 +1,4 @@
+import { enumWords } from '@ui/utils/errorWords';
 import React, { useMemo } from 'react';
 import { BarList, ChartPanel, Columns, Delta, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 import JoinLeaveBars from '@ui/timeOff/JoinLeaveBars';
@@ -200,7 +201,7 @@ export default function PeopleReports({ params = {}, updateParams }) {
               <Columns label="Headcount at the end of each month" rows={months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], value: m.headcountAtEnd }))} />
             </ChartPanel>
             <ChartPanel title="Why people left">
-              {reasons.length ? <BarList label="Leavers by reason" rows={reasons.sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ key: k, label: REASONS[k] || k, value: n }))} /> : <p className="pt-foot">Nobody left in this period.</p>}
+              {reasons.length ? <BarList label="Leavers by reason" rows={reasons.sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ key: k, label: REASONS[k] || enumWords(k), value: n }))} /> : <p className="pt-foot">Nobody left in this period.</p>}
             </ChartPanel>
             {t.joiners || t.leavers ? (
               <ChartPanel title="Joined and left" note="Up joined · down left" className="pt-chart-wide">

@@ -12,6 +12,7 @@ import { closeMonth, dayLabel, getMonthReadiness, getMonthSnapshot, setAttendanc
 import ReopenMonth from '../components/ReopenMonth';
 import PayrollExport from '../components/PayrollExport';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Payroll readiness: before a month is closed, everything that would make its
@@ -30,7 +31,7 @@ const lastMonth = () => {
 /* The kinds a person can have open, each a filter on the list. */
 const KINDS = [
   { value: '', label: 'All' },
-  { value: 'missingOut', label: 'No check-out' },
+  { value: 'missingOut', label: 'No punch out' },
   { value: 'noRecord', label: 'No attendance' },
   { value: 'unapprovedOvertime', label: 'Overtime to approve' },
   { value: 'unvalidated', label: 'Not validated' },
@@ -68,7 +69,7 @@ function NoRecordConfirm({ people, count, checked, onChange }) {
       ) : null}
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" className="ui-checkbox mt-0.5" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-        <span>Dock these {days(count)} from pay as unpaid absence.</span>
+        <span>Count these {days(count)} as unpaid.</span>
       </label>
     </div>
   );
@@ -89,7 +90,7 @@ function StartDate({ value, canChange, onSaved }) {
       setEditing(false);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setBusy(false);
     }
@@ -128,7 +129,7 @@ export default function MonthClose({ openScreen, params }) {
   const load = useCallback(() => {
     getMonthReadiness(month)
       .then((d) => { setData(d); setError(''); setAck(false); setLopOk(false); })
-      .catch((e) => setError(String(e?.message || 'Could not check the month.')));
+      .catch((e) => setError(errorWords(e, 'check the month')));
   }, [month]);
   useEffect(() => { load(); }, [load]);
 
@@ -167,10 +168,10 @@ export default function MonthClose({ openScreen, params }) {
     setBusy(true);
     try {
       const r = await closeMonth(month, openItems.length > 0, noRecordDays ? data.noRecordConfirm : undefined);
-      notify.success(`${monthName(month)} closed. Snapshot ${r.snapshot?.version ?? ''} kept for Payroll.`);
+      notify.success(`${monthName(month)} closed. Payroll now uses these figures (copy ${r.snapshot?.version ?? ''}).`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not closed.'));
+      notify.error(errorWords(e, 'close the month'));
     } finally {
       setBusy(false);
     }
@@ -181,17 +182,17 @@ export default function MonthClose({ openScreen, params }) {
     try {
       const s = await getMonthSnapshot(month, version);
       downloadCsv({
-        fileName: `Attendance ${month} snapshot ${version}`,
+        fileName: `Attendance ${month} copy ${version}`,
         columns: [
           { key: 'code', label: 'Employee ID' }, { key: 'name', label: 'Name' }, { key: 'department', label: 'Department' },
-          { key: 'payableDays', label: 'Payable days' }, { key: 'lossOfPayDays', label: 'Unpaid days (LOP)' }, { key: 'present', label: 'Present' },
-          { key: 'halfDays', label: 'Half days' }, { key: 'absent', label: 'Absent' }, { key: 'incompleteDays', label: 'No check-out' },
-          { key: 'leave', label: 'Leave' }, { key: 'unpaidLeaveDays', label: 'Unpaid leave' }, { key: 'approvedOvertimeMinutes', label: 'Approved OT (min)' }, { key: 'weightedOvertimeMinutes', label: 'OT at the rate (min)' }, { key: 'overCapOvertimeMinutes', label: 'OT over the cap (min)' },
+          { key: 'payableDays', label: 'Payable days' }, { key: 'lossOfPayDays', label: 'Unpaid days' }, { key: 'present', label: 'Present' },
+          { key: 'halfDays', label: 'Half days' }, { key: 'absent', label: 'Absent' }, { key: 'incompleteDays', label: 'No punch out' },
+          { key: 'leave', label: 'Leave' }, { key: 'unpaidLeaveDays', label: 'Unpaid leave' }, { key: 'approvedOvertimeMinutes', label: 'Approved overtime (min)' }, { key: 'weightedOvertimeMinutes', label: 'Overtime at the rate (min)' }, { key: 'overCapOvertimeMinutes', label: 'Overtime over the cap (min)' },
         ],
         rows: s.rows,
       });
     } catch (e) {
-      notify.error(String(e?.message || 'Could not download.'));
+      notify.error(errorWords(e, 'download the file'));
     }
   };
   const go = (c) => {
@@ -206,7 +207,7 @@ export default function MonthClose({ openScreen, params }) {
       <PageHeader
         entity="report"
         title="Month close"
-        description="Check the month before Payroll takes it. Closing makes its days final and keeps a snapshot of the figures."
+        description="Check the month before Payroll takes it. Closing makes its days final and keeps a copy of the figures."
         actions={<input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
       />
       <div className="pb-8 space-y-6">
@@ -273,7 +274,7 @@ export default function MonthClose({ openScreen, params }) {
           {!data.closed && data.ended && !teamOnly ? (
             <section className="ui-card p-4 space-y-3" aria-labelledby="close-h">
               <h2 id="close-h" className="ui-t-sec">Close {monthName(month)}</h2>
-              <p className="text-sm ui-muted">Corrections, leave, manual changes and late reader uploads can no longer change its days. Payroll takes the figures as they are now; a snapshot is kept.</p>
+              <p className="text-sm ui-muted">Corrections, leave, manual changes and late reader uploads can no longer change its days. Payroll takes the figures as they are now; a copy is kept.</p>
               {held ? <p className="text-sm ui-text-neg" role="note">{held} reader punch{held === 1 ? ' is' : 'es are'} held for a look in this month. Count or discard {held === 1 ? 'it' : 'them'} under Held for a look before closing.</p> : null}
               {noRecordDays ? <NoRecordConfirm people={noRecordPeople} count={noRecordDays} checked={lopOk} onChange={setLopOk} /> : null}
               {openItems.length ? (
@@ -326,7 +327,7 @@ export default function MonthClose({ openScreen, params }) {
                 <thead>
                   <tr>
                     <ColumnHeader label="Employee" col="employee" state={filters}  className="ui-col-grow" />
-                    <th scope="col" className="ui-num">No check-out</th>
+                    <th scope="col" className="ui-num">No punch out</th>
                     <th scope="col" className="ui-num">No attendance</th>
                     <th scope="col" className="ui-num">Overtime to approve</th>
                     <th scope="col" className="ui-num">Not validated</th>
@@ -370,7 +371,7 @@ export default function MonthClose({ openScreen, params }) {
               <ul className="divide-y">
                 {data.snapshots.map((s) => (
                   <li key={s.version} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                    <span className="font-medium">Snapshot {s.version}</span>
+                    <span className="font-medium">Copy {s.version}</span>
                     <span className="ui-caption flex-1">{new Date(s.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} · {s.by}</span>
                     <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => downloadSnapshot(s.version)}><Download size={14} aria-hidden="true" /> CSV</button>
                   </li>

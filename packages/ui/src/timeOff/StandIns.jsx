@@ -14,6 +14,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { can, homeCrumbs } from './shared';
 import { addStandIn, listStandIns, removeStandIn, listPeople } from './api';
 import { scopeWords } from './standInScope';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Time → Delegates (was Stand-ins): who decides leave for a manager while they are
@@ -42,7 +43,7 @@ export default function StandIns() {
       notify.success('Delegate removed.');
       req.reload();
     } catch (err) {
-      notify.error(String(err?.message || 'Not removed.'));
+      notify.error(errorWords(err, 'remove the stand-in'));
     }
   };
 
@@ -111,7 +112,7 @@ function AddStandIn({ wholeCompany, onClose, onDone }) {
       notify.success(`${out.standIn?.standInName || 'They'} stand${out.standIn?.standInName ? 's' : ''} in for ${out.standIn?.managerName || 'the manager'}.`);
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'add the stand-in'));
     } finally {
       setSaving(false);
     }

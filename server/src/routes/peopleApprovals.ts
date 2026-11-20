@@ -345,7 +345,7 @@ peopleApprovalsRouter.post(`${base}/approvals/bulk-decide`, can(PermissionAction
       if (e instanceof ApprovalError) results.push({ id, error: e.message, ...(e.code ? { code: e.code } : {}) });
       else {
         console.error('[approvals] bulk decision failed:', e instanceof Error ? e.message : e);
-        results.push({ id, error: 'Something went wrong.' });
+        results.push({ id, error: 'This one could not be decided because of a fault on our side. Try it again on its own.' });
       }
     }
   }

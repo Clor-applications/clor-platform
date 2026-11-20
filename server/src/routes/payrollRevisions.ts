@@ -11,6 +11,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { SalaryRevisionError, applyRevision, previewImpact } from '../services/payroll/revision.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
+import { statusWords } from '../utils/statusWords.js';
 
 /**
  * Salary revisions, and what they actually cost.
@@ -347,7 +348,7 @@ const transition = (
       if (!existing) return res.status(404).json({ error: 'No such salary revision.' });
       if (!from.includes(existing.status)) {
         return res.status(409).json({
-          error: `A revision that is ${existing.status.toLowerCase()} cannot be ${path === 'submit-review' ? 'sent for review' : `${path}d`}.`,
+          error: `A revision that is ${statusWords(existing.status)} cannot be ${path === 'submit-review' ? 'sent for review' : `${path}d`}.`,
           code: 'REVISION_WRONG_STATE',
         });
       }

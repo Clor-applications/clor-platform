@@ -1,4 +1,5 @@
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BulkOutcome from '@ui/components/list/BulkOutcome';
 import { bulkOutcome, waitingFirst } from '@ui/picks/round57';
@@ -44,12 +45,12 @@ const FIELD_WORDS = {
  * be decided together are approved or rejected at once with one note, each
  * through its own checks. "Asked by me" keeps what I sent for approval.
  */
-const STATUS = { WAITING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', WITHDRAWN: 'Withdrawn', MORE_INFO: 'Asked for more' };
-const STEP = { WAITING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', MORE_INFO: 'Asked for more', HANDED_ON: 'Handed on', SKIPPED: 'Skipped', WITHDRAWN: 'Withdrawn' };
+const STATUS = { WAITING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn', MORE_INFO: 'Asked for more' };
+const STEP = { WAITING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', MORE_INFO: 'Asked for more', HANDED_ON: 'Handed on', SKIPPED: 'Skipped', WITHDRAWN: 'Withdrawn' };
 const TONE = { WAITING: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'neutral', MORE_INFO: 'warn', HANDED_ON: 'neutral', SKIPPED: 'neutral' };
-const TYPE = { PROFILE_CHANGE: 'Profile change', JOB_CHANGE: 'Job change', LEAVING: 'Leaving', LEAVING_WITHDRAW: 'Staying on', DOCUMENT_REQUEST: 'Document', LETTER_REQUEST: 'Letter', POLICY_PUBLISH: 'Policy', DESK_ESCALATION: 'Help desk', SEAT_REQUEST: 'Seat', PROBATION: 'Probation', SHIFT_SWAP: 'Shift swap', ...MONEY_TYPES };
+const TYPE = { PROFILE_CHANGE: 'Profile change', JOB_CHANGE: 'Job change', LEAVING: 'Leaving', LEAVING_WITHDRAW: 'Staying on', DOCUMENT_REQUEST: 'Document', LETTER_REQUEST: 'Letter', POLICY_PUBLISH: 'Policy', DESK_ESCALATION: 'Help desk', SEAT_REQUEST: 'Position', PROBATION: 'Probation', SHIFT_SWAP: 'Shift swap', ...MONEY_TYPES };
 /* A request type HR set up (FORM:<id>, gap 25) is named by its form; one asked before the name was read shows as a request. */
-const typeOf = (requestType, payload) => TYPE[requestType] || (String(requestType || '').startsWith('FORM:') ? payload?.formName || 'Request' : requestType);
+const typeOf = (requestType, payload) => TYPE[requestType] || (String(requestType || '').startsWith('FORM:') ? payload?.formName || 'Request' : enumWords(requestType));
 /* To approve, then my own open tasks (joining, leaving, probation, letters: People plan 8 Nov 2026, step 2), then what I asked for. */
 const TABS = [['waiting', 'To approve'], ['tasks', 'My tasks'], ['mine', 'Asked by me']];
 const TASK_KIND = { JOINING: 'Joining', LEAVING: 'Leaving', CHANGE: 'Change', PROBATION: 'Probation', RENEWAL: 'Renewal', LETTER: 'Letter', LEAVING_WITHDRAWN: 'Leaving withdrawn' };
@@ -149,7 +150,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
           handedOn += res.value.handedOn || 0;
           for (const r of res.value.results || []) if (r.error) failed.push({ id: r.id, ok: false, error: r.error, kind: k });
         } else {
-          failed.push(...ids(k).map((id) => ({ id, ok: false, error: String(res.reason?.message || 'Not done.'), kind: k })));
+          failed.push(...ids(k).map((id) => ({ id, ok: false, error: errorWords(res.reason, 'decide it'), kind: k })));
         }
       }
       const did = approve ? 'approved' : 'rejected';
@@ -191,7 +192,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
       }
       inbox.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'save your decision'));
     } finally {
       rowBusyRef.current.delete(i.key);
       setRowBusy(new Set(rowBusyRef.current));
@@ -213,7 +214,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
       notify.success(`${t.title}: done.`);
       inbox.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'mark the task done'));
     } finally {
       rowBusyRef.current.delete(t.id);
       setRowBusy(new Set(rowBusyRef.current));
@@ -265,13 +266,13 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     { key: 'task', label: 'Task', always: true, render: (t) => (
       <span className="block min-w-0 whitespace-normal">
         <span className="block font-medium">{t.title}</span>
-        <span className="block ui-caption">{TASK_KIND[t.kind] || t.kind} · {t.employee?.name || '—'}{t.employee?.code ? ` (${t.employee.code})` : ''}</span>
+        <span className="block ui-caption">{TASK_KIND[t.kind] || enumWords(t.kind)} · {t.employee?.name || '—'}{t.employee?.code ? ` (${t.employee.code})` : ''}</span>
       </span>
     ) },
     { key: 'due', label: 'Due', render: (t) => <span className={`whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg font-medium' : ''}`}>{t.dueDate ? day(t.dueDate) : '—'}{t.overdue ? ' (late)' : ''}</span> },
     { key: 'act', label: <span className="sr-only">Actions</span>, align: 'right', always: true, render: (t) => (
       <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={rowBusy.has(t.id)} onClick={(e) => { e.stopPropagation(); finishTask(t); }}>
-        <Check size={14} aria-hidden="true" /> {rowBusy.has(t.id) ? 'Saving…' : 'Done'}
+        <Check size={14} aria-hidden="true" /> {rowBusy.has(t.id) ? 'Saving…' : 'Mark done'}
       </button>
     ) },
   ];
@@ -279,7 +280,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     { key: 'title', label: 'Request', always: true, render: (r) => <span className="font-medium">{r.title}</span> },
     { key: 'kind', label: 'Kind', render: (r) => typeOf(r.requestType, r.payload) },
     { key: 'asked', label: 'Asked', render: (r) => <span className="tabular-nums">{day(r.createdAt)}</span> },
-    { key: 'status', label: 'Status', render: (r) => <ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || r.status} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /> },
+    { key: 'status', label: 'Status', render: (r) => <ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /> },
   ];
   const kindOptions = [{ value: '', label: 'Every kind' }, ...KIND_ORDER.filter((k) => inbox.data?.rights?.[k]?.see).map((k) => ({ value: k, label: `${INBOX_KIND[k]}${counts[k] ? ` (${counts[k]})` : ''}` }))];
   const req = tab === 'mine' ? mine : inbox;
@@ -350,12 +351,12 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
           <span className="flex items-center gap-3 min-w-0 flex-1">
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{t.title}</span><span className={`ui-caption whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg' : ''}`}>{t.dueDate ? day(t.dueDate) : ''}</span></span>
-              <span className="block truncate ui-caption">{TASK_KIND[t.kind] || t.kind} · {t.employee?.name || '—'}</span>
+              <span className="block truncate ui-caption">{TASK_KIND[t.kind] || enumWords(t.kind)} · {t.employee?.name || '—'}</span>
             </span>
           </span>
         ) : (r) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || r.status} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /></span>
             <span className="block truncate ui-caption">{typeOf(r.requestType, r.payload)}</span>
           </span>
         )}
@@ -401,10 +402,10 @@ function TimeDrawer({ item, onClose, onDone }) {
       const out = await BULK[item.kind]([item.id], approve, punch ? undefined : note.trim() || undefined);
       const err = (out.results || [])[0]?.error;
       if (err) { notify.error(err); return; }
-      notify.success(approve ? (out.handedOn ? 'Approved as the manager; now with HR.' : 'Approved.') : punch ? 'Refused; the punch does not count.' : 'Rejected.');
+      notify.success(approve ? (out.handedOn ? 'Approved as the manager; now with HR.' : 'Approved.') : punch ? 'Rejected; the punch does not count.' : 'Rejected.');
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'save your decision'));
     } finally {
       setBusy('');
     }
@@ -412,7 +413,7 @@ function TimeDrawer({ item, onClose, onDone }) {
   return (
     <Drawer open onClose={onClose} title={`${INBOX_KIND[item.kind]}: ${item.employeeName || '—'}`} widthClass="w-[min(32rem,96vw)]" dirty={Boolean(note.trim())}
       actions={<>
-        <button type="button" className="ui-btn ui-btn-ghost" disabled={Boolean(busy)} onClick={() => act(false)}>{busy === 'reject' ? 'Saving…' : punch ? 'Refuse' : 'Reject'}</button>
+        <button type="button" className="ui-btn ui-btn-ghost" disabled={Boolean(busy)} onClick={() => act(false)}>{busy === 'reject' ? 'Saving…' : 'Reject'}</button>
         <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => act(true)}>{busy === 'approve' ? 'Approving…' : 'Approve'}</button>
       </>}
     >
@@ -426,7 +427,7 @@ function TimeDrawer({ item, onClose, onDone }) {
           <div><dt className="ui-t-label">Waiting since</dt><dd>{waitedText(item.since)}</dd></div>
           {item.managerApproved ? <div><dt className="ui-t-label">Manager</dt><dd>Approved</dd></div> : null}
         </dl>
-        {punch ? <p className="ui-muted">Made outside every work site. Approved, it counts like any punch; refused, it stays on record and does not count.</p> : null}
+        {punch ? <p className="ui-muted">Made outside every work site. Approved, it counts like any punch; rejected, it stays on record and does not count.</p> : null}
         {item.reason ? <p className="ui-muted">“{item.reason}”</p> : null}
         {!punch ? (
           <label className="block"><span className="ui-label">Note to them</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Needed to reject" /></label>
@@ -449,16 +450,16 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
 
   const act = async (action) => {
     if (!open) return;
-    if (action !== 'approve' && action !== 'withdraw' && !comment.trim()) { notify.error(action === 'reject' ? 'Say why it is not approved.' : 'Say what more is needed.'); return; }
+    if (action !== 'approve' && action !== 'withdraw' && !comment.trim()) { notify.error(action === 'reject' ? 'Say why it is rejected.' : 'Say what more is needed.'); return; }
     setBusy(action);
     try {
       const r = action === 'withdraw' ? await withdrawRequest(open.id) : action === 'reply' ? await replyRequest(open.id, comment.trim()) : await decideRequest(open.id, action, comment.trim() || undefined);
       setRequest(r.request);
       setComment('');
-      notify.success(action === 'approve' ? (r.request.status === 'APPROVED' ? 'Approved and done.' : 'Approved; sent on to the next step.') : action === 'reject' ? 'Not approved.' : action === 'withdraw' ? 'Withdrawn.' : action === 'reply' ? 'Answer sent.' : 'Asked for more.');
+      notify.success(action === 'approve' ? (r.request.status === 'APPROVED' ? 'Approved and done.' : 'Approved; sent on to the next step.') : action === 'reject' ? 'Rejected.' : action === 'withdraw' ? 'Request withdrawn.' : action === 'reply' ? 'Answer sent.' : 'Asked for more.');
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save your answer'));
     } finally {
       setBusy('');
     }
@@ -487,7 +488,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
           <dl className="grid gap-3 sm:grid-cols-2">
             <div><dt className="ui-t-label">Kind</dt><dd>{typeOf(open.requestType, open.payload)}</dd></div>
             <div><dt className="ui-t-label">Asked by</dt><dd>{open.requesterName} · {day(open.createdAt)}</dd></div>
-            <div><dt className="ui-t-label">Status</dt><dd><span className={`ui-pill ui-pill-${TONE[open.status] || 'neutral'}`}>{STATUS[open.status] || open.status}</span></dd></div>
+            <div><dt className="ui-t-label">Status</dt><dd><span className={`ui-pill ui-pill-${TONE[open.status] || 'neutral'}`}>{STATUS[open.status] || enumWords(open.status)}</span></dd></div>
             <div><dt className="ui-t-label">Due</dt><dd className="tabular-nums">{open.status === 'WAITING' ? day(open.dueAt) : '—'}{open.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</dd></div>
           </dl>
           {open.payload?.fields ? (
@@ -498,7 +499,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
                   k === 'photoUrl' && open.payload.data?.photoUrl
                     /* A new photo is shown, not described: HR sees what they are approving. */
                     ? <li key={k} className="flex items-center gap-3"><span className="ui-muted">Photo:</span><img src={open.payload.data.photoUrl} alt="New photo asked for" className="h-16 w-16 rounded-xl object-cover" /></li>
-                    : <li key={k}><span className="ui-muted">{FIELD_WORDS[k] || SCHEDULED_LABELS[k] || k.replace(/Id$/, '')}</span>: <span className="ui-muted">{String(v.before ?? 'None')}</span> → <strong>{String(v.after ?? 'None')}</strong></li>
+                    : <li key={k}><span className="ui-muted">{FIELD_WORDS[k] || SCHEDULED_LABELS[k] || 'Other detail'}</span>: <span className="ui-muted">{String(v.before ?? 'None')}</span> → <strong>{String(v.after ?? 'None')}</strong></li>
                 ))}
               </ul>
               {open.payload.effectiveOn ? <p className="ui-caption mt-1">Takes effect {day(open.payload.effectiveOn)}</p> : null}
@@ -515,7 +516,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
               {open.payload.colleagueNote ? <p className="mt-1"><span className="ui-muted">{open.payload.colleagueName || 'The colleague'} said:</span> {open.payload.colleagueNote}</p> : null}
               {(open.payload.files || []).length ? (
                 <ul className="mt-2 space-y-1" aria-label="Files">
-                  {open.payload.files.map((f) => <li key={f.fileId}><button type="button" className="ui-link" onClick={() => requestFile(f.fileId).then(openFile).catch((e) => notify.error(String(e?.message || 'Could not open.')))}>{f.label}: {f.name}</button></li>)}
+                  {open.payload.files.map((f) => <li key={f.fileId}><button type="button" className="ui-link" onClick={() => requestFile(f.fileId).then(openFile).catch((e) => notify.error(errorWords(e, 'open it')))}>{f.label}: {f.name}</button></li>)}
                 </ul>
               ) : null}
               {(open.payload.replies || []).map((x) => <p key={x.at} className="mt-1"><span className="ui-muted">Answer, {day(x.at)}:</span> {x.note}</p>)}
@@ -527,7 +528,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
             <ol className="space-y-2" aria-label="Approval steps">
               {open.steps.map((s) => (
                 <li key={s.id} className="flex flex-wrap items-center gap-2">
-                  <span className={`ui-pill ui-pill-${TONE[s.status] || 'neutral'}`}>{STEP[s.status] || s.status}</span>
+                  <span className={`ui-pill ui-pill-${TONE[s.status] || 'neutral'}`}>{STEP[s.status] || enumWords(s.status)}</span>
                   <span>Step {s.order}: {s.decidedBy || s.candidates.join(' or ')}{s.standInFor ? ` (standing in for ${s.standInFor})` : ''}</span>
                   <span className="ui-caption tabular-nums">{s.status === 'WAITING' ? `due ${day(s.dueAt)}` : s.decidedAt ? day(s.decidedAt) : ''}</span>
                   {s.comment ? <span className="ui-caption">· {s.comment}</span> : null}

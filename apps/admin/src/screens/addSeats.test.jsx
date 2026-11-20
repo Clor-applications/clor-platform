@@ -41,7 +41,7 @@ describe('adding users from Workspace', () => {
     expect(await within(dialog).findByText('₹865.33')).toBeInTheDocument();
     expect(within(dialog).getByText(/To pay by 2 Dec 2026/)).toBeInTheDocument();
     expect(within(dialog).getByText('₹1,000.00 more, before GST')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Add 2 users' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add 2 users · pay ₹865.33' }));
     await waitFor(() => expect(onInvoice).toHaveBeenCalledWith('inv9'));
     const sent = fetches.call.mock.calls.find(([p, o]) => p === '/billing/seats' && o?.method === 'POST');
     expect(sent[1].body).toEqual({ add: 2, total: 86533 });

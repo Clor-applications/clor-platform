@@ -7,6 +7,7 @@ import { apiFetch } from '@platform/http';
 import { AppTag, Avatar, FilterSelect, Loading, PageHead, ago, appName } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('inbox-tray');
@@ -44,7 +45,7 @@ export default function Inbox({ openApp, openScreen }) {
   const fetchInbox = () =>
     getInbox()
       .then((r) => setData(r || { rows: [], updates: [], unanswered: [] }))
-      .catch((e) => setError(e?.message || 'The inbox could not be loaded. Try again in a minute.'))
+      .catch((e) => setError(errorWords(e, 'load the inbox')))
       .finally(() => setLoading(false));
   const load = () => {
     setLoading(true);
@@ -131,7 +132,7 @@ export default function Inbox({ openApp, openScreen }) {
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
 
         {all === null && !error ? (
-          <Loading shape="rows" label="Loading…" />
+          <Loading shape="rows" label="Loading the inbox…" />
         ) : all !== null ? (
           <div className="ws-activity-layout">
             <div className="ws-activity-main">

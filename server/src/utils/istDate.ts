@@ -58,3 +58,29 @@ export const dayWords = (d: string | null | undefined): string => {
   if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return s;
   return `${Number(s.slice(8, 10))} ${MONTHS_SHORT[Number(s.slice(5, 7)) - 1]} ${s.slice(0, 4)}`;
 };
+
+/**
+ * A day or a moment as a person reads it, in India's time: "20 Nov 2026". The one formatter for dates in
+ * titles, bodies, emails and errors (UX copy audit, 20 Nov 2026), which used to print
+ * `toISOString().slice(0, 10)`: a UTC day, in the form a database writes it.
+ * Takes an instant, or an ISO day (kept as that calendar day). Null and empty come back as "".
+ */
+export const dateWords = (at: Date | string | null | undefined): string => {
+  if (at == null || at === '') return '';
+  if (typeof at === 'string') return /^\d{4}-\d{2}-\d{2}$/.test(at) ? dayWords(at) : dateWords(new Date(at));
+  return Number.isFinite(at.getTime()) ? dayWords(istDate(at)) : '';
+};
+
+/** "20 Nov 2026, 3:30 pm" in India's time, for a moment where the hour matters (a reply due, a code that runs out). */
+export const timeWords = (at: Date | string | null | undefined): string => {
+  if (at == null || at === '') return '';
+  const d = typeof at === 'string' ? new Date(at) : at;
+  if (!Number.isFinite(d.getTime())) return '';
+  const ist = new Date(d.getTime() + IST_OFFSET_MS);
+  const h = ist.getUTCHours();
+  const m = String(ist.getUTCMinutes()).padStart(2, '0');
+  return `${dayWords(ist.toISOString().slice(0, 10))}, ${h % 12 || 12}:${m} ${h < 12 ? 'am' : 'pm'}`;
+};
+
+/** "1 day", "3 days": a count with its noun said right. */
+export const countWords = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;

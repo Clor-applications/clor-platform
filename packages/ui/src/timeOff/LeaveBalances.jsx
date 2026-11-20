@@ -22,6 +22,7 @@ import BulkGrant from './BulkGrant';
 import { BarList, ChartPanel, CountLine, TILE_ICON } from './Figures';
 import { Avatar } from '@ui/personnel/Employees';
 import { addLeaveAdjustment, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, getLeaveSettings, grantCompOff, periodChoices, setAllocation, swatchOf, thisYear, todayIst } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Time & Leave → Balances. Everyone's days for the leave period; open a
@@ -207,7 +208,7 @@ function CompOff({ person, onClose, onDone }) {
       notify.success(`Comp-off granted to ${person.name} for ${formatDate(form.workedOn)}.`);
       onDone();
     } catch (err) {
-      notify.error(String(err?.message || 'Not granted.'));
+      notify.error(errorWords(err, 'grant the leave'));
     } finally {
       setSaving(false);
     }
@@ -285,31 +286,31 @@ function Ledger({ person, year, label, onClose, onChanged }) {
       req.reload();
       onChanged();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'change the balance'));
     } finally {
       setSaving(false);
     }
   };
   const backOnPolicy = async (type) => {
-    const ok = await confirmDialog({ title: `Back on the policy's days?`, message: `${person.name}'s ${type.name} for ${label} goes back to what the policy gives.`, confirmLabel: 'Yes, put it back' });
+    const ok = await confirmDialog({ title: `Back on the policy's days?`, message: `${person.name}'s ${type.name} for ${label} goes back to what the policy gives.`, confirmLabel: 'Use the policy days', cancelLabel: 'Keep these days' });
     if (!ok) return;
     try {
       await setAllocation({ employeeId: person.employeeId, leaveTypeId: type.id, year, days: null });
       req.reload();
       onChanged();
     } catch (err) {
-      notify.error(String(err?.message || 'Not changed.'));
+      notify.error(errorWords(err, 'put the policy days back'));
     }
   };
   const remove = async (entry) => {
-    const ok = await confirmDialog({ title: 'Remove this line?', message: `${signed(entry.days)} days: ${entry.note}. It goes to the recycle bin for 30 days.`, confirmLabel: 'Yes, remove' });
+    const ok = await confirmDialog({ title: 'Remove this line?', message: `${signed(entry.days)} days: ${entry.note}. It goes to the recycle bin for 30 days.`, confirmLabel: 'Remove line', cancelLabel: 'Keep line' });
     if (!ok) return;
     try {
       await deleteLeaveAdjustment(entry.id);
       req.reload();
       onChanged();
     } catch (err) {
-      notify.error(String(err?.message || 'Not removed.'));
+      notify.error(errorWords(err, 'remove the line'));
     }
   };
 

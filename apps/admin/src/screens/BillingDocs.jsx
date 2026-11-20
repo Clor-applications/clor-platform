@@ -6,6 +6,7 @@ import { printElement } from '@ui/utils/printElement';
 import { WsDrawer } from './wsKit';
 import { InvoiceDocument, inr } from './InvoiceDocument';
 import { invoiceDay } from './InvoiceDrawer';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Round 67 (selling to companies and CAs), Workspace → Plan → Invoices, below
@@ -17,7 +18,7 @@ import { invoiceDay } from './InvoiceDrawer';
  * nothing here charges or moves money.
  */
 
-const msg = (e) => String(e?.message || e);
+const msg = (e, what) => errorWords(e, what);
 const dayOf = (iso) => (iso ? invoiceDay(`${iso}T00:00:00+05:30`) : '—');
 
 function useList(path, key) {
@@ -60,18 +61,18 @@ function PurchaseOrders() {
       setAdding(false);
       reload();
     } catch (e) {
-      setProblems(e?.data?.problems?.length ? e.data.problems : [msg(e)]);
+      setProblems(e?.data?.problems?.length ? e.data.problems : [msg(e, 'save the PO')]);
     } finally {
       setBusy(false);
     }
   };
   const remove = async (po) => {
-    if (!(await confirmDialog({ title: `Remove ${po.number}?`, message: 'Invoices already issued keep it. New ones will not carry it.', confirmLabel: 'Remove' }))) return;
+    if (!(await confirmDialog({ title: `Remove PO ${po.number}?`, message: 'Invoices already issued keep it. New ones will not carry it.', confirmLabel: 'Remove PO' }))) return;
     try {
       await apiFetch(`/billing/purchase-orders/${encodeURIComponent(po.id)}`, { method: 'DELETE' });
       reload();
     } catch (e) {
-      notify.error(msg(e));
+      notify.error(msg(e, 'remove the PO'));
     }
   };
   return (
@@ -123,7 +124,7 @@ function PurchaseOrders() {
         </div>
       ) : null}
       {rows === null ? null : !rows.length ? (
-        <p className="ws-item-sub">No purchase orders.</p>
+        <p className="ws-item-sub">No purchase orders yet. Add one if your accounts team needs its number on CLOR’s invoices.</p>
       ) : (
         <ul className="r67-rows">
           {rows.map((po) => (
@@ -162,7 +163,7 @@ function ProformaList() {
       reload();
       setOpen(p);
     } catch (e) {
-      notify.error(msg(e));
+      notify.error(msg(e, 'make the proforma'));
     } finally {
       setMaking(false);
     }
@@ -237,7 +238,7 @@ function VendorDocs() {
       a.click();
       a.remove();
     } catch (e) {
-      notify.error(msg(e));
+      notify.error(msg(e, 'download the document'));
     }
   };
   return (

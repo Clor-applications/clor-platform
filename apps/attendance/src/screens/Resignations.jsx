@@ -12,6 +12,8 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { LEAVING_TYPES, listAllEmployees, rehireEmployee, resignEmployee } from '@ui/personnel/api';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { todayIst } from '@ui/utils/dates';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 
 const TONE = { RESIGNED: 'sent', TERMINATED: 'overdue', RETIRED: 'paid', ABSCONDED: 'outstanding', CONTRACT_ENDED: 'cancelled', DECEASED: 'cancelled' };
@@ -54,7 +56,7 @@ export default function Resignations() {
         setAll((r?.employees || []).sort((a, b) => String(b.dateOfLeaving || '').localeCompare(String(a.dateOfLeaving || ''))));
         setLoadError('');
       })
-      .catch((e) => setLoadError(String(e?.message || 'Could not load.')));
+      .catch((e) => setLoadError(errorWords(e, 'load this')));
     listAllEmployees({ status: 'ACTIVE' }).then((r) => setActive(r?.employees || [])).catch(() => setActive([]));
   }, []);
   useEffect(() => {
@@ -91,7 +93,7 @@ export default function Resignations() {
       notify.success(`${p.name} is back.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not rehired.'));
+      notify.error(errorWords(e, 'rehire them'));
     }
   };
 
@@ -102,20 +104,19 @@ export default function Resignations() {
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
-        if (format) runListExport({ format, title: 'Resignations', fileName: 'Leavers', label: 'person/people', columns: EXPORT_COLUMNS, rows: rows });
+        if (format) runListExport({ format, title: 'Resignations', fileName: 'Resignations', label: 'person/people', columns: EXPORT_COLUMNS, rows: rows });
       }}
       description="Who has left and why. Recording someone leaving removes them from every reader."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people who left…', label: 'Search resignations' }}
       primary={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" /> Record leaving</button>}
-      cards={[
+      countLine={countItems([
         { label: 'Left', value: figures.total, count: true, tone: 'all', Icon: UserMinus },
         { label: 'This month', value: figures.month, count: true, tone: 'sent', Icon: CalendarDays },
         { label: 'This year', value: figures.year, count: true, tone: 'cancelled', Icon: CalendarX },
         { label: 'Absconded', value: figures.absconded, count: true, tone: 'outstanding', Icon: UserX, onSelect: () => setStatus('ABSCONDED') },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -150,7 +151,7 @@ export default function Resignations() {
                         <EmptyState
                           icon={UserMinus}
                           title={status ? `Nobody ${String(LEAVING_TYPES[status] || '').toLowerCase()}` : 'Nobody has left'}
-                          description={status ? 'Try another tab.' : 'People who leave are listed here, with the reason.'}
+                          description={status ? 'Pick All to see everyone who has left.' : 'People who leave are listed here, with the reason.'}
                           routes={status ? undefined : [{ label: 'Record leaving', description: 'People who leave are listed here, with the reason.', onSelect: () => setAdding(true) }]}
                         />
                       )}
@@ -191,7 +192,7 @@ function RecordLeaving({ people, onClose, onSaved }) {
       notify.success(r.readers ? `Recorded, and removed from ${r.readers} reader${r.readers === 1 ? '' : 's'}.` : 'Recorded.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setSaving(false);
     }

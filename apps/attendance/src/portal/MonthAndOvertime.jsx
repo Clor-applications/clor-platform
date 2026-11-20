@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { SignedOut, askOvertime, cancelOvertime, confirmMonth, disputeMonth, getMonthReview, getOvertime, hm, todayIst } from './portalApi';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 
 /*
  * The month's review and overtime in the web employee app (time depth, gap 18):
@@ -18,7 +19,7 @@ const lastMonth = () => {
 const monthWords = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const dayWords = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const PILL = { PENDING: ['ui-pill-warn', 'Waiting'], APPROVED: ['ui-pill-pos', 'Approved'], REJECTED: ['ui-pill-neg', 'Not approved'], CANCELLED: ['ui-pill-neutral', 'Cancelled'] };
-const Pill = ({ status }) => <span className={`ui-pill ${PILL[status]?.[0] || 'ui-pill-neutral'}`}>{PILL[status]?.[1] || status}</span>;
+const Pill = ({ status }) => <span className={`ui-pill ${PILL[status]?.[0] || 'ui-pill-neutral'}`}>{PILL[status]?.[1] || enumWords(status)}</span>;
 
 /** Load once per key; only the latest answer fills the card. */
 function useLoad(fn, key, guard) {
@@ -29,7 +30,7 @@ function useLoad(fn, key, guard) {
     const n = ++seq.current;
     guard(fn(key))
       .then((d) => { if (n === seq.current) { setData(d); setError(''); } })
-      .catch((e) => { if (n === seq.current && !(e instanceof SignedOut)) setError(String(e?.message || 'Could not load.')); });
+      .catch((e) => { if (n === seq.current && !(e instanceof SignedOut)) setError(errorWords(e, 'load this')); });
   }, [fn, key, guard]);
   useEffect(() => { load(); }, [load]);
   return { data, error, load };
@@ -54,7 +55,7 @@ export function MonthReview({ guard }) {
       setNote('');
       load();
     } catch (e) {
-      if (!(e instanceof SignedOut)) setMessage({ ok: false, text: String(e?.message || 'Not sent.') });
+      if (!(e instanceof SignedOut)) setMessage({ ok: false, text: errorWords(e, 'send it') });
     } finally {
       setBusy(false);
     }
@@ -69,10 +70,10 @@ export function MonthReview({ guard }) {
         <input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => { setMonth(e.target.value || lastMonth()); setMessage(null); setDisputing(false); setAllShown(false); }} aria-label="Month to check" />
       </div>
       <LoadFailed message={error} onRetry={load} />
-      {!data ? (error ? null : <p className="ui-caption">Loading…</p>) : !s ? <p className="ui-caption">Nothing recorded for this month yet.</p> : (
+      {!data ? (error ? null : <p className="ui-caption">Loading your month…</p>) : !s ? <p className="ui-caption">Nothing recorded for this month yet.</p> : (
         <>
           <dl className="grid grid-cols-3 gap-2 text-center">
-            {[['Payable days', s.payableDays], ['Unpaid days (LOP)', s.lossOfPayDays], ['Present', s.present], ['Leave', s.leave], ['Absent', s.absent], ['Overtime', hm(s.approvedOvertimeMinutes)]].map(([k, v]) => (
+            {[['Payable days', s.payableDays], ['Unpaid days', s.lossOfPayDays], ['Present', s.present], ['Leave', s.leave], ['Absent', s.absent], ['Overtime', hm(s.approvedOvertimeMinutes)]].map(([k, v]) => (
               <div key={k} className="rounded-xl p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
                 <dt className="ui-caption">{k}</dt>
                 <dd className="text-base font-semibold tabular-nums">{v}</dd>
@@ -153,7 +154,7 @@ export function MyOvertime({ guard }) {
       setReason('');
       load();
     } catch (e) {
-      if (!(e instanceof SignedOut)) setMessage({ ok: false, text: String(e?.message || 'Not sent.') });
+      if (!(e instanceof SignedOut)) setMessage({ ok: false, text: errorWords(e, 'send it') });
     } finally {
       setBusy('');
     }
@@ -166,7 +167,7 @@ export function MyOvertime({ guard }) {
       setMessage({ ok: true, text: 'Request withdrawn.' });
       load();
     } catch (e) {
-      if (!(e instanceof SignedOut)) setMessage({ ok: false, text: String(e?.message || 'Not withdrawn.') });
+      if (!(e instanceof SignedOut)) setMessage({ ok: false, text: errorWords(e, 'withdraw it') });
     } finally {
       setBusy('');
     }
@@ -179,7 +180,7 @@ export function MyOvertime({ guard }) {
         <input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => { setMonth(e.target.value || todayIst().slice(0, 7)); setAsking(null); setMessage(null); }} aria-label="Overtime month" />
       </div>
       <LoadFailed message={error} onRetry={load} />
-      {!data ? (error ? null : <p className="ui-caption">Loading…</p>) : !data.days.length ? (
+      {!data ? (error ? null : <p className="ui-caption">Loading your overtime…</p>) : !data.days.length ? (
         <p className="ui-caption">No overtime or work on a day off recorded in {monthWords(month)}.</p>
       ) : (
         <>
@@ -190,7 +191,7 @@ export function MyOvertime({ guard }) {
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="font-medium whitespace-nowrap">{dayWords(d.date)}</span>
                   <span className="ui-caption tabular-nums text-right">
-                    {d.restDay ? 'Day off worked' : <span className="ui-ot-tag">+{hm(d.overtimeMinutes)} OT</span>}{d.overtimeMinutes && d.overtimeRate ? ` · paid at ${d.overtimeRate}×` : ''}{d.overtimeApproved ? ' · approved' : ''}
+                    {d.restDay ? 'Day off worked' : <span className="ui-ot-tag">+{hm(d.overtimeMinutes)} overtime</span>}{d.overtimeMinutes && d.overtimeRate ? ` · paid at ${d.overtimeRate}×` : ''}{d.overtimeApproved ? ' · approved' : ''}
                   </span>
                 </div>
                 {d.overCap ? <p className="ui-caption tabular-nums">{d.overCap}. It counts if it is approved.</p> : null}

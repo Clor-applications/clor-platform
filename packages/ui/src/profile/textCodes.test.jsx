@@ -30,7 +30,7 @@ describe('codes by text message on the profile', () => {
     expect(await screen.findByText(PHONE)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send a new code in 30s' })).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Code from the text message'), { target: { value: '123456' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Turn on' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Turn on text codes' }));
     await waitFor(() => expect(api.enableSmsTwoFactor).toHaveBeenCalledWith('123456'));
     expect(await screen.findByText('AAAA-BBBB')).toBeInTheDocument();
     expect(onChange).toHaveBeenCalled();
@@ -46,7 +46,7 @@ describe('codes by text message on the profile', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(`We texted a code to ${PHONE}.`);
     fireEvent.change(screen.getByLabelText('Your password'), { target: { value: 'my-password' } });
     fireEvent.change(screen.getByLabelText('A texted code, a code from the app, or a recovery code'), { target: { value: '654321' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Turn off' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Turn off text codes' }));
     await waitFor(() => expect(api.disableSmsTwoFactor).toHaveBeenCalledWith('my-password', '654321'));
     expect(onChange).toHaveBeenCalled();
   });

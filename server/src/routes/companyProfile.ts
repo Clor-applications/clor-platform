@@ -7,6 +7,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { recordAudit } from '../services/auditTrail.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 /**
  * Company details (People → Settings → Company): who the employer is, as
@@ -63,7 +64,7 @@ const shape = (org: { name: string; legalName: string | null; pan: string | null
 };
 const orgOk = (req: any, res: any) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;

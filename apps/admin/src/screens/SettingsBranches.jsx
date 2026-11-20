@@ -14,6 +14,7 @@ import { Empty, FilterSelect, Loading, PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-home.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('convenience-store');
@@ -39,6 +40,7 @@ const BRANCH_TYPES = [
   ['TRADING', 'Trading'],
   ['BOTH', 'Both · Service and Trading'],
 ];
+const GST_REG_WORD = { REGULAR: 'Regular', COMPOSITION: 'Composition', UNREGISTERED: 'Unregistered' };
 export const branchTypeLabel = (type) => (type === 'SERVICE' ? 'Service' : type === 'TRADING' ? 'Trading' : 'Both');
 /* Branch type decides whether a branch holds stock, which only matters to a company that keeps books. With no app list to go by (a screen opened outside the shell), it is shown. */
 const asksBranchType = () => !(platformContext()?.apps || []).length || hasApp('accounting');
@@ -106,7 +108,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       setBranches(rows);
     } catch (err) {
       setBranches((prev) => prev || []);
-      setError(err.message || 'Failed to load branches');
+      setError(errorWords(err, 'load the branches'));
     }
   }, [orgId, companyDefaults]);
   useEffect(() => {
@@ -130,7 +132,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       notify.success(`Branch marked ${res?.branch?.isActive === false ? 'inactive' : 'active'}.`);
       onBranchesChanged?.();
     } catch (err) {
-      notify.error(err.message || 'Failed to update branch status');
+      notify.error(errorWords(err, 'change the branch status'));
     }
   };
 
@@ -144,7 +146,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       notify.success('Branch deleted.');
       onBranchesChanged?.();
     } catch (err) {
-      notify.error(err.message || 'Failed to delete branch');
+      notify.error(errorWords(err, 'delete the branch'));
     }
   };
 
@@ -191,7 +193,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
               <label className="ws-search">
                 <span className="sr-only">Search branches</span>
                 <Search size={16} aria-hidden="true" />
-                <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value }))} placeholder="Search branches" />
+                <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value }))} placeholder="Search by name, code, city or GSTIN" />
               </label>
               {statesHere.length > 1 ? (
                 <FilterSelect label="State" value={stateFilter} options={[['', 'All'], ...statesHere.map((st) => [st, st])]} onChange={setStateFilter} />
@@ -223,7 +225,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         {branches === null ? (
           <Loading shape="rows" rows={3} label="Loading branches…" />
         ) : rows.length === 0 ? (
-          <Empty icon={PAGE_ICON} compact>{all.length ? 'No branch matches this search.' : 'No branches yet. Add the first one.'}</Empty>
+          <Empty icon={PAGE_ICON} compact actionNode={all.length ? null : <PermissionButton permission="MASTERS::Company/Branch setup::CREATE" type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setDrawer({ mode: 'create' })}>Add branch</PermissionButton>}>{all.length ? 'No branch matches this search.' : 'Each office, shop or warehouse of this company will be listed here.'}</Empty>
         ) : (
           <div className="ws-activity-layout">
           <div className="ws-activity-main">
@@ -366,14 +368,14 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
             submitLabel="Add branch"
             onSubmit={async (f, w) => {
               const t = (v) => String(v || '').trim();
-              if (!t(f.state)) throw new Error('State is required. Pick the branch state.');
+              if (!t(f.state)) throw new Error('Choose the state the branch is in.');
               if (showType && !f.branchType) throw new Error('Choose whether this is a Service, Trading, or Both branch.');
-              if (gstEnabled && !t(f.gstin)) throw new Error('GSTIN is mandatory while GST is enabled.');
+              if (gstEnabled && !t(f.gstin)) throw new Error('Enter the branch’s GSTIN. GST is on for this company.');
               const badGstin = gstinError(f.gstin);
               if (badGstin) throw new Error(badGstin);
               const holdsStock = showType && f.branchType !== 'SERVICE';
               if (holdsStock && (!t(w.code) || !t(w.name) || !t(w.addressLine1) || !t(w.state))) {
-                throw new Error('Warehouse code, name, address, and state are required for this branch.');
+                throw new Error('Trading branches keep stock: enter the warehouse code, name, address and state.');
               }
               const { branchType, ...rest } = f;
               const payload = {
@@ -436,11 +438,11 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
                 phone: t(f.phone) || null,
                 email: t(f.email) || null,
               };
-              if (!payload.branchCode) throw new Error('Branch code is required');
-              if (!payload.branchName) throw new Error('Branch name is required');
-              if (!payload.addressLine1) throw new Error('Address is required');
-              if (!payload.state) throw new Error('State is required');
-              if ((gstEnabled || payload.gstRegistrationType !== 'UNREGISTERED') && !payload.gstin) throw new Error('GSTIN is mandatory while GST is enabled');
+              if (!payload.branchCode) throw new Error('Enter a branch code.');
+              if (!payload.branchName) throw new Error('Enter the branch name.');
+              if (!payload.addressLine1) throw new Error('Enter the branch address.');
+              if (!payload.state) throw new Error('Choose the state the branch is in.');
+              if ((gstEnabled || payload.gstRegistrationType !== 'UNREGISTERED') && !payload.gstin) throw new Error('Enter the branch’s GSTIN. GST is on for this company.');
               /* A GSTIN saved before the check existed does not block other edits; a changed one must pass. */
               const gstinChanged = String(payload.gstin || '').toUpperCase() !== String(selected.gstin || '').toUpperCase();
               if (gstinChanged && gstinError(payload.gstin)) throw new Error(gstinError(payload.gstin));
@@ -475,7 +477,7 @@ function BranchDetail({ branch: b, showType = false }) {
     ['Status', b.isActive !== false ? 'Active' : 'Inactive'],
     ['Address', [b.addressLine1, b.addressLine2].filter(Boolean).join(', ')],
     ['Location', [b.city, b.state, b.country].filter(Boolean).join(', ')],
-    ['GST registration', b.gstRegistrationType || 'UNREGISTERED'],
+    ['GST registration', GST_REG_WORD[b.gstRegistrationType] || 'Unregistered'],
     ['GSTIN', b.gstin, true],
     ['Contact person', b.contactPerson],
     ['Phone', b.phone],
@@ -559,7 +561,7 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
         try {
           await onSubmit(f, w);
         } catch (err) {
-          const message = String(err?.message || 'Not saved.');
+          const message = errorWords(err, 'save the branch');
           setError(message);
           notify.error(message);
         } finally {

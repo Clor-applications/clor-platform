@@ -55,9 +55,9 @@ it('lists each person with all three figures, and locks only with an acknowledge
   await user.click(screen.getByRole('checkbox', { name: /I have seen these differences/ }));
   const lock = screen.getByRole('button', { name: 'Lock with this reason' });
   expect(lock).toBeDisabled();
-  await user.type(screen.getByRole('textbox', { name: /Why/ }), 'ok');
+  await user.type(screen.getByRole('textbox', { name: /Reason/ }), 'ok');
   expect(lock).toBeDisabled();
-  await user.type(screen.getByRole('textbox', { name: /Why/ }), ' — fixed in October');
+  await user.type(screen.getByRole('textbox', { name: /Reason/ }), ' — fixed in October');
   expect(lock).toBeEnabled();
   await user.click(lock);
   await waitFor(() => expect(lockPayrollRun).toHaveBeenCalledWith('run-1', { acknowledge: true, reason: 'ok — fixed in October' }));

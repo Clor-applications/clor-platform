@@ -22,7 +22,7 @@ import {
   opsTdsCertificate,
   opsVoidInvoice,
 } from './api';
-import { Empty, Err, Loading, ReasonDrawer, Tabs, day, may, when } from './kit';
+import { Empty, Err, Loading, ReasonDrawer, Tabs, day, may, when, errorWords } from './kit';
 import { inr, rupeesText, toPaise } from './money';
 
 /**
@@ -79,7 +79,7 @@ async function emailInvoice(inv, kind, to) {
     else notify.error(`The email did not go: ${r.emailError || 'try again in a minute.'}`);
     return r;
   } catch (e) {
-    notify.error(String(e?.message || e));
+    notify.error(errorWords(e, 'send the email'));
     return null;
   }
 }
@@ -117,7 +117,7 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
   useEffect(() => {
     opsInvoices({ status: status === 'all' ? '' : status, before })
       .then((r) => (setData(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the invoices')));
   }, [status, before, again]);
   const mayChange = may(role, 'BILLING');
   /* Chasing is the Overdue view's job, so only it shows how late each one is and when it was last reminded. */
@@ -135,7 +135,7 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
       <PageHead
         crumbs={['Billing and setup']}
         title="Invoices"
-        meta={unpaid?.count ? `${unpaid.count} unpaid, ${inr(unpaid.amount)}${t.OVERDUE?.count ? `; ${t.OVERDUE.count} overdue` : ''}` : 'Nothing unpaid'}
+        meta={!data ? null : unpaid?.count ? `${unpaid.count} unpaid, ${inr(unpaid.amount)}${t.OVERDUE?.count ? ` · ${t.OVERDUE.count} overdue` : ''}` : 'Nothing unpaid'}
         actions={
           mayChange ? (
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => setMaking(true)}>
@@ -158,7 +158,7 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
       {!data ? (
         error ? null : <Loading />
       ) : !data.invoices.length ? (
-        <Empty>{status === 'all' ? 'No invoices yet. New invoice makes a draft for a customer from the apps they have.' : 'None here.'}</Empty>
+        <Empty>{status === 'all' ? 'No invoices yet. New invoice makes a draft for a customer from the apps they have.' : 'No invoices with this status.'}</Empty>
       ) : (
         <div className="ws-table-wrap">
           <table className="ws-table">
@@ -288,7 +288,7 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
       setLines(s.lines.length ? linesIn(s.lines) : [blankLine()]);
       setGstOn(s.gstRegistered);
     } catch (e) {
-      setProblems([String(e?.message || e)]);
+      setProblems([errorWords(e, 'find the account')]);
     }
   };
   const setLine = (i, k) => (e) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: e.target.value } : l)));
@@ -320,7 +320,7 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
       notify.success(invoice ? 'Draft saved.' : 'Draft made. Check it, then issue it.');
       onSaved(r);
     } catch (e) {
-      setProblems(e?.data?.problems?.length ? e.data.problems : [String(e?.message || e)]);
+      setProblems(e?.data?.problems?.length ? e.data.problems : [errorWords(e, 'save the draft')]);
     } finally {
       setBusy(false);
     }
@@ -358,7 +358,7 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
             </div>
           </div>
         ) : (
-          <Field id="inv-search" label="Customer account" hint="Type the account’s name or client ID.">
+          <Field id="inv-search" label="Customer account" hint="Type the account’s name or account ID.">
             <input id="inv-search" className="ui-input" autoComplete="off" value={search} onChange={(e) => setSearch(e.target.value)} />
             {found.length ? (
               <ul className="grid gap-1" aria-label="Matching accounts">
@@ -386,7 +386,7 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
                   <Field id={`inv-l${i}-d`} label={i === 0 ? 'What it is for' : <span className="sr-only">What line {i + 1} is for</span>}>
                     <input id={`inv-l${i}-d`} className="ui-input" value={l.description} onChange={setLine(i, 'description')} placeholder="CLOR People, 25 users" />
                   </Field>
-                  <Field id={`inv-l${i}-q`} label={i === 0 ? 'Qty' : <span className="sr-only">Quantity, line {i + 1}</span>}>
+                  <Field id={`inv-l${i}-q`} label={i === 0 ? 'Quantity' : <span className="sr-only">Quantity, line {i + 1}</span>}>
                     <input id={`inv-l${i}-q`} className="ui-input ui-num" inputMode="numeric" value={l.quantity} onChange={setLine(i, 'quantity')} />
                   </Field>
                   <Field id={`inv-l${i}-p`} label={i === 0 ? 'Price, ₹' : <span className="sr-only">Price, line {i + 1}</span>}>
@@ -478,7 +478,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
   const load = useCallback(() => {
     opsInvoice(id)
       .then((r) => (setInv(r), setError('')))
-      .catch((e) => setError(String(e?.message || e)));
+      .catch((e) => setError(errorWords(e, 'load the invoice')));
   }, [id]);
   useEffect(load, [load]);
   const loadSends = useCallback(() => {
@@ -508,7 +508,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
       setInv(await opsInvoiceReminders(inv.id, off));
       notify.success(off ? 'Automatic reminders are stopped for this invoice. Send reminder still works.' : 'Automatic reminders are allowed again for this invoice.');
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(errorWords(e, 'change the reminders'));
     } finally {
       setDoing(null);
     }
@@ -524,9 +524,9 @@ export function InvoicePage({ id, role, back, openCustomer }) {
       const r = await opsSendInvoiceToBooks(inv.id);
       setInv(r);
       if (r.books?.ok) notify.success(r.books.message);
-      else notify.error(r.books?.message || 'Not sent.');
+      else notify.error(r.books?.message || 'The invoice did not reach Books. Check the connector under Invoice settings, then send it again.');
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(errorWords(e, 'send the invoice to Books'));
     } finally {
       setDoing(null);
     }
@@ -647,7 +647,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
                     done(await opsTdsCertificate(inv.id, today()), 'Certificate noted as received.');
                   } catch (e) {
                     setDoing(null);
-                    notify.error(String(e?.message || e));
+                    notify.error(errorWords(e, 'note the certificate'));
                   }
                 }}
               >
@@ -714,6 +714,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
         title="Cancel this invoice"
         what={`${inv.number} stays in the series, marked cancelled, and the customer sees nothing is due on it. A paid invoice cannot be cancelled.`}
         confirmLabel="Cancel invoice"
+        cancelLabel="Keep invoice"
         tone="danger"
         onClose={() => setDoing(null)}
         onConfirm={async (reason) => done(await opsVoidInvoice(inv.id, reason), `${inv.number} is cancelled.`)}
@@ -790,7 +791,7 @@ function MarkPaid({ inv, onClose, onDone }) {
     try {
       onDone(await opsMarkInvoicePaid(inv.id, { reference: f.reference.trim(), paidOn: f.paidOn, amount, tdsDeducted: tds || null }));
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'mark the invoice paid'));
     } finally {
       setBusy(false);
     }
@@ -823,11 +824,11 @@ function MarkPaid({ inv, onClose, onDone }) {
           <Field id="paid-amount" label="Amount received, ₹" hint={amount && amount + tds !== inv.total ? `The invoice is for ${inr(inv.total)}.` : null}>
             <input id="paid-amount" className="ui-input ui-num" inputMode="decimal" value={f.amount} onChange={set('amount')} />
           </Field>
-          <Field id="paid-tds" label="TDS deducted, ₹" hint="If the customer kept back tax at source. Their certificate is then chased under TDS certificates due.">
+          <Field id="paid-tds" label="TDS deducted, ₹" hint="If the customer kept back tax at source. Their certificate is then chased under TDS certificates.">
             <input id="paid-tds" className="ui-input ui-num" inputMode="decimal" placeholder="None" value={f.tds} onChange={setTds} />
           </Field>
         </div>
-        <p className="ws-card-blurb">Saving asks for a code from your authenticator app. It goes on the operator log.</p>
+        <p className="ws-card-blurb">Saving asks for a code from your authenticator app. It goes in the Staff audit log.</p>
         <Err>{error}</Err>
       </div>
     </WsDrawer>

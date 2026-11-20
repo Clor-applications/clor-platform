@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import MoneyInput from '@ui/components/ui/MoneyInput';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -74,7 +75,7 @@ function ClaimDetail({ claim: c, advance, monthTotal, canCut, onSaved }) {
       setCuts({});
       onSaved();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setBusy(false);
     }
@@ -105,7 +106,7 @@ function ClaimDetail({ claim: c, advance, monthTotal, canCut, onSaved }) {
                   {l.overLimit ? <span className="ui-caption block ui-text-warn">Over the {money(l.overLimit)} limit for {l.category}</span> : null}
                   {l.possibleDuplicate ? <span className="ui-caption block ui-text-warn">Same amount, day and place as another bill. Check it is not the same one</span> : null}
                   {l.paidByCompany ? <span className="ui-caption block">Paid with the company card: kept for the accounts, not paid back</span> : null}
-                  {l.billId ? <button type="button" className="ui-link text-xs" onClick={() => openBill(l.billId).catch((e) => notify.error(String(e?.message || 'Could not open the bill.')))}>See the bill</button> : <span className="ui-caption block">No bill</span>}
+                  {l.billId ? <button type="button" className="ui-link text-xs" onClick={() => openBill(l.billId).catch((e) => notify.error(errorWords(e, 'open the bill')))}>See the bill</button> : <span className="ui-caption block">No bill</span>}
                   {l.cutReason && !cutting ? <span className="ui-caption block">Allowed less: {l.cutReason}</span> : null}
                   {cutting ? (
                     <span className="mt-2 grid gap-2 sm:grid-cols-[8rem_1fr]">

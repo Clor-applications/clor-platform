@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { fyLabel } from '@ui/picks/round34';
-import { Check, Clock, Download, FileText, Printer, Receipt, RotateCcw } from '@ui/components/ui/lineIcons';
+import { Check, Download, Printer, Receipt, RotateCcw } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -20,6 +20,8 @@ import OpeningYtdSection from '../components/OpeningYtdSection';
 import { wholeRupees as money } from '@ui/utils/money';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { escapeHtml } from '@ui/utils/html';
+import { dayTimeText, errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const STATUS = {
   NONE: { label: 'Not declared', pill: 'ui-pill-neutral' },
@@ -50,6 +52,13 @@ const TABS = [
   { value: 'DRAFT', label: 'Draft', tone: 'partial' },
   { value: 'NONE', label: 'Not declared', tone: 'cancelled' },
 ];
+/* One written title per tab: a title built from the tab label read "Nobody to verify" and "Nobody not declared". */
+const EMPTY_TITLES = {
+  SUBMITTED: 'No declarations waiting to be verified',
+  VERIFIED: 'No verified declarations yet',
+  DRAFT: 'No draft declarations',
+  NONE: 'Everyone has declared',
+};
 const regimeOf = (p) => (p.regime === 'OLD' ? 'Old' : 'New');
 const COLUMNS = {
   name: (p) => p.name,
@@ -77,7 +86,7 @@ export default function TaxDeclarations() {
         setData(r);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load declarations.')));
+      .catch((e) => setError(errorWords(e, 'load declarations')));
   }, [fy]);
   useEffect(() => {
     load();
@@ -105,7 +114,6 @@ export default function TaxDeclarations() {
       description="Regime and investments for income tax. Tax is withheld on what was declared until the proofs are verified."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search tax declarations' }}
       headerExtras={
         <>
@@ -120,12 +128,12 @@ export default function TaxDeclarations() {
         if (!format) return;
         runListExport({ format, title: 'Tax declarations', subtitle: fyLabel(fy), fileName: `Tax declarations FY ${fy}`, label: 'person/people', columns: EXPORT_COLUMNS, rows });
       }}
-      cards={[
-        { label: 'To verify', value: counts.SUBMITTED || 0, count: true, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('SUBMITTED') },
-        { label: 'Old regime', value: figures.oldRegime, count: true, tone: 'partial', Icon: Receipt },
-        { label: 'Declared', value: figures.declared, tone: 'sent', Icon: FileText },
-        { label: 'Verified', value: figures.verified, tone: 'paid', Icon: Check, onSelect: () => setStatus('VERIFIED') },
-      ]}
+      countLine={countItems([
+        { label: 'To verify', value: counts.SUBMITTED || 0, count: true, tone: 'outstanding', onSelect: () => setStatus('SUBMITTED') },
+        { label: 'Old regime', value: figures.oldRegime, count: true, tone: 'partial' },
+        { label: 'Declared', value: figures.declared, tone: 'sent' },
+        { label: 'Verified', value: figures.verified, tone: 'paid', onSelect: () => setStatus('VERIFIED') },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -162,7 +170,7 @@ export default function TaxDeclarations() {
                     ) : (
                       <EmptyState
                         icon={Receipt}
-                        title={status ? `Nobody ${STATUS[status]?.label.toLowerCase()}` : 'Nobody in payroll yet'}
+                        title={EMPTY_TITLES[status] || 'Nobody in payroll yet'}
                         description={status ? 'Pick another tab to see everyone.' : 'People paid through payroll appear here. They declare from the employee portal, or HR enters it here.'}
                       />
                     )}
@@ -220,7 +228,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
   useEffect(() => {
     getTaxDeclaration(employeeId, fy)
       .then(take)
-      .catch((e) => setError(String(e?.message || 'Could not load the declaration.')));
+      .catch((e) => setError(errorWords(e, 'load the declaration')));
   }, [employeeId, fy]);
 
   const verified = d?.status === 'VERIFIED';
@@ -240,7 +248,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
       onChanged();
     } catch (e) {
       if (e?.code === 'REGIME_LOCKED') setRegimeLocked(true);
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the declaration'));
     } finally {
       setBusy(false);
     }
@@ -267,7 +275,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
     const ok = await confirmDialog({
       title: 'Mark the proofs verified?',
       message: 'Tax from the next pay run is worked out on the verified amounts. Blank verified amounts count as nothing proved.',
-      confirmLabel: 'Verify',
+      confirmLabel: 'Verify declaration',
       tone: 'default',
     });
     if (!ok) return;
@@ -288,7 +296,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
         !form ? null : verified ? (
           <>
             <button type="button" className="ui-btn ui-btn-ghost" onClick={() => printForm16(employeeId, fy)}>
-              <Printer size={14} aria-hidden="true" /> Form 16
+              <Printer size={14} aria-hidden="true" /> Print Form 16
             </button>
             <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => run(() => reopenTaxDeclaration(employeeId, fy), 'Reopened.')}>
               <RotateCcw size={14} aria-hidden="true" /> Reopen
@@ -297,7 +305,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
         ) : (
           <>
             <button type="button" className="ui-btn ui-btn-ghost" onClick={() => printForm16(employeeId, fy)}>
-              <Printer size={14} aria-hidden="true" /> Form 16
+              <Printer size={14} aria-hidden="true" /> Print Form 16
             </button>
           <>
             <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={save}>Save</button>
@@ -474,11 +482,14 @@ function Return24q({ fy }) {
         rows: r.rows,
       });
       const noChallan = (r.noChallan || []).map(monthWords);
-      if (r.problems.length) notify.error(`${r.problems.length} without a valid PAN: ${r.problems.map((p) => p.name).join(', ')}.`);
+      if (r.problems.length) {
+        const n = r.problems.length;
+        notify.error(`Downloaded. ${n === 1 ? '1 person has' : `${n} people have`} no valid PAN and ${n === 1 ? 'is' : 'are'} filed as PANNOTAVBL: ${r.problems.map((p) => p.name).join(', ')}. Add the PAN under Salary assignments.`);
+      }
       else if (noChallan.length) notify.error(`Downloaded. No challan recorded for ${noChallan.join(', ')}: add it under TDS deposits.`);
       else notify.success('Downloaded.');
     } catch (e) {
-      notify.error(String(e?.message || 'Could not build the return.'));
+      notify.error(errorWords(e, 'build the return'));
     } finally {
       setBusy(false);
     }
@@ -491,7 +502,7 @@ function Return24q({ fy }) {
         ))}
       </select>
       <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={go}>
-        <Download size={16} aria-hidden="true" /> 24Q
+        <Download size={16} aria-hidden="true" /> Download 24Q
       </button>
     </span>
   );
@@ -509,7 +520,7 @@ async function printForm16(employeeId, fy) {
     r = await getForm16(fy, employeeId);
   } catch (e) {
     w.close();
-    notify.error(String(e?.message || 'Could not build Form 16.'));
+    notify.error(errorWords(e, 'build Form 16'));
     return;
   }
   const p = r.people[0];
@@ -559,7 +570,7 @@ ${row(p.balance >= 0 ? '12. Tax still payable' : '12. Deducted in excess', Math.
 </table>
 <h2>Tax deducted, month by month</h2>
 <table><thead><tr><th>Month</th><th>Paid on</th><th class="r">Salary</th><th class="r">TDS</th></tr></thead><tbody className="ui-rows">${months}</tbody></table>
-<p class="n">${p.regime === 'OLD' ? `Deductions are as ${p.deductionBasis === 'VERIFIED' ? 'verified from proofs' : 'declared, not yet verified'}. ` : ''}Worked out from approved payslips. Part A (details of tax deposited) is issued from TRACES. Printed ${escapeHtml(new Date().toLocaleString())}.</p>
+<p class="n">${p.regime === 'OLD' ? `Deductions are as ${p.deductionBasis === 'VERIFIED' ? 'verified from proofs' : 'declared, not yet verified'}. ` : ''}Worked out from approved payslips. Part A (details of tax deposited) is issued from TRACES. Printed ${escapeHtml(dayTimeText(new Date()))}.</p>
 </body></html>`);
   w.document.close();
   w.focus();

@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Plus, X } from '@ui/components/ui/lineIcons';
 
@@ -35,7 +36,7 @@ const APPROVER_WORDS = { MANAGER: 'Their manager', HR: 'HR', MANAGER_HR: 'Their 
 const APPROVER_OPTIONS = ['MANAGER', 'HR', 'MANAGER_HR'].map((value) => ({ value, label: APPROVER_WORDS[value] }));
 const blankField = () => ({ label: '', type: 'TEXT', required: false, options: '' });
 const BLANK = { name: '', description: '', fields: [{ ...blankField(), required: true }], audience: 'EVERYONE', departmentIds: [], approver: 'HR', slaDays: '', active: true };
-const LABEL_IDEAS = ['Reason', 'Why', 'Needed by', 'Amount, ₹', 'Addressed to', 'Purpose', 'Anything else', 'Photo', 'Quote or picture'];
+const LABEL_IDEAS = ['Reason', 'Why', 'Needed by', 'Amount', 'Addressed to', 'Purpose', 'Anything else', 'Photo', 'Quote or picture'];
 
 const toForm = (f) => ({
   id: f.id, name: f.name, description: f.description || '', audience: f.audience, departmentIds: f.departmentIds || [], approver: f.approver || 'HR', slaDays: f.slaDays ?? '', active: f.active,
@@ -64,7 +65,7 @@ export default function RequestForms() {
       notify.success(`${f.name} is open for requests.`);
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not switched on.'));
+      notify.error(errorWords(e, 'switch it on'));
     } finally {
       setBusy('');
     }
@@ -150,7 +151,7 @@ function FormDrawer({ start, departments, canEdit, taken, ideas, onClose, onSave
       notify.success(form.id ? 'Saved.' : `${form.name.trim()} is open for requests.`);
       onSaved();
     } catch (err) {
-      setError(String(err?.message || 'Not saved.'));
+      setError(errorWords(err, 'save the changes'));
     } finally {
       setSaving(false);
     }

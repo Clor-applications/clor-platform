@@ -18,6 +18,8 @@ import PunchEvidence from '../components/PunchEvidence';
 import { TRUST } from '../components/readerTrust';
 import { plusDaysIso } from '@ui/utils/dates';
 import EarlyGoTag from '@ui/timeOff/EarlyGoTag';
+import { errorWords, enumWords, dayText } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Everyone's days: filter, correct, validate, approve overtime. After
@@ -41,10 +43,10 @@ const SOURCE = { DEVICE: 'Reader', CLOCK: 'Phone or web', MANUAL: 'By hand', REQ
 
 const COLUMNS = {
   department: (r) => r.department || '',
-  source: (r) => SOURCE[r.source] || r.source || '',
+  source: (r) => SOURCE[r.source] || enumWords(r.source),
   date: (r) => r.date,
   employee: (r) => r.employeeName,
-  status: (r) => STATUS[r.status]?.label || r.status,
+  status: (r) => STATUS[r.status]?.label || enumWords(r.status),
   validated: (r) => (r.validated ? 'Validated' : 'Not validated'),
   trust: (r) => TRUST[r.trust]?.label || 'Not worked out',
 };
@@ -59,9 +61,9 @@ const EXPORT_COLUMNS = [
   { key: 'lateMinutes', label: 'Late (min)' },
   { key: 'earlyOutMinutes', label: 'Early out (min)' },
   { key: 'overtimeMinutes', label: 'Overtime (min)' },
-  { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
+  { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || enumWords(r.status) },
   { key: 'validated', label: 'Validated', value: (r) => (r.validated ? 'Yes' : 'No') },
-  { key: 'source', label: 'Source', value: (r) => SOURCE[r.source] || r.source || '' },
+  { key: 'source', label: 'Source', value: (r) => SOURCE[r.source] || enumWords(r.source) },
 ];
 /* Reader trust (O-11), only while the company has it on. */
 const TRUST_EXPORT = [
@@ -95,7 +97,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
         setLoadError('');
         setSelected(new Set());
       })
-      .catch((e) => setLoadError(String(e?.message || 'Could not load days.')));
+      .catch((e) => setLoadError(errorWords(e, 'load the days')));
   }, [filters]);
   useEffect(() => {
     load();
@@ -143,7 +145,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
       notify.success(`${r.validated} days validated.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not validated.'));
+      notify.error(errorWords(e, 'validate the days'));
     }
   };
 
@@ -157,7 +159,6 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
       description="Mark, correct and validate days. A corrected day needs validating again."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people or dates…', label: 'Search records' }}
       moreItems={[exportMenuItem('Export days'), ...(readerTrust ? [{ key: 'evidence', label: 'Attendance evidence', Icon: FileSearch }] : []), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
       onMoreSelect={(k) => {
@@ -165,20 +166,20 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
         if (k === 'evidence') return setEvidenceOpen(true);
         const format = exportFormatFromKey(k);
         if (!format) return;
-        runListExport({ format, title: 'Attendance', subtitle: `${filters.from} to ${filters.to}`, fileName: `Attendance ${filters.from} to ${filters.to}`, label: 'day/days', columns: readerTrust ? [...EXPORT_COLUMNS, ...TRUST_EXPORT] : EXPORT_COLUMNS, rows });
+        runListExport({ format, title: 'Attendance records', subtitle: `${dayText(filters.from)} to ${dayText(filters.to)}`, fileName: `Attendance records ${filters.from} to ${filters.to}`, label: 'day/days', columns: readerTrust ? [...EXPORT_COLUMNS, ...TRUST_EXPORT] : EXPORT_COLUMNS, rows });
       }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({ date: todayIst(), checkIn: '', checkOut: '', status: '' })}>
           <Plus size={16} aria-hidden="true" /> Mark attendance
         </button>
       }
-      cards={[
+      countLine={countItems([
         { label: 'Present', value: figures.present, count: true, tone: 'paid', Icon: CalendarCheck },
         { label: 'Late', value: figures.late, count: true, tone: 'partial', Icon: AlarmClock, onSelect: () => setFilters((f) => ({ ...f, late: f.late === 'true' ? '' : 'true' })) },
         { label: 'Absent', value: figures.absent, count: true, tone: 'overdue', Icon: UserX, onSelect: () => setStatus('ABSENT') },
         { label: 'No punch out', value: figures.open, count: true, tone: 'outstanding', Icon: Wand2 },
         { label: 'Overtime to approve', value: figures.overtime, count: true, tone: 'sent', Icon: Timer },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -273,7 +274,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                   pageRows.map((r) => (
                     <tr key={r.id} className="ui-row-click" onClick={() => setEditing({ ...r, checkIn: r.checkInTime || '', checkOut: r.checkOutTime || '', status: r.checkIn ? '' : r.status })}>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" className="ui-checkbox" aria-label={`Select ${r.employeeName} ${r.date}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
+                        <input type="checkbox" className="ui-checkbox" aria-label={`Select ${r.employeeName}, ${dayLabel(r.date)}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
                       </td>
                       <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}{r.shiftLabel ? <span className="ui-caption block">{r.shiftLabel}</span> : null}</td>
                       <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
@@ -297,7 +298,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                                 await approveOvertime(r.id, !r.overtimeApproved);
                                 load();
                               } catch (e) {
-                                notify.error(String(e?.message || 'Not saved.'));
+                                notify.error(errorWords(e, 'save the changes'));
                               }
                             }}
                           >
@@ -306,8 +307,8 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                           </span>
                         ) : '—'}
                       </td>
-                      <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span></td>
-                      <td className="ui-col-meta hidden 2xl:table-cell">{SOURCE[r.source] || r.source || '—'}</td>
+                      <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span></td>
+                      <td className="ui-col-meta hidden 2xl:table-cell">{SOURCE[r.source] || enumWords(r.source) || '—'}</td>
                       <td className="ui-col-h-center hidden 2xl:table-cell">{r.validated ? <span className="ui-pill ui-pill-pos">Validated</span> : <span className="ui-caption">—</span>}</td>
                       {readerTrust ? (
                         <td className="ui-col-h-center" title={Array.isArray(r.trustReasons) ? r.trustReasons.map((x) => x.text).join(' ') : ''}>
@@ -315,7 +316,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                         </td>
                       ) : null}
                       <td onClick={(e) => e.stopPropagation()}>
-                        <button type="button" className="ui-icon-btn" aria-label={`Why is ${r.employeeName} ${STATUS[r.status]?.label?.toLowerCase() || r.status} on ${r.date}?`} title="Why does this day say this?" onClick={() => setExplaining(r)}>
+                        <button type="button" className="ui-icon-btn" aria-label={`Why is ${r.employeeName} ${STATUS[r.status]?.label?.toLowerCase() || enumWords(r.status).toLowerCase()} on ${dayLabel(r.date)}?`} title="Why does this day say this?" onClick={() => setExplaining(r)}>
                           <HelpCircle size={16} aria-hidden="true" />
                         </button>
                       </td>
@@ -359,9 +360,9 @@ const monthEnd = (date) => {
 };
 
 const OPERATION = {
-  SET_OUT_SHIFT_END: { title: 'Close the days at the end of their shift', hint: 'For days with a check-in and no check-out (a reader that lost exits). Each day is scored again from its shift.' },
+  SET_OUT_SHIFT_END: { title: 'Close the days at the end of their shift', hint: 'For days with a punch in and no punch out (a reader that lost exits). Each day is scored again from its shift.' },
   APPROVE_OVERTIME: { title: 'Approve the overtime on these days', hint: 'Approved overtime counts in the month summary and payroll.' },
-  SET_STATUS: { title: 'Mark days that have no times', hint: 'For days with no check-in. A day with times keeps them; correct those one by one.' },
+  SET_STATUS: { title: 'Mark days that have no times', hint: 'For days with no punch in. A day with times keeps them; correct those one by one.' },
 };
 const FIELD = { status: 'Status', in: 'In', out: 'Out', workedMinutes: 'Worked', lateMinutes: 'Late', earlyOutMinutes: 'Early out', overtimeMinutes: 'Overtime', overtimeApproved: 'Overtime approved', validated: 'Validated', source: 'Set by' };
 const fmt = (field, v) => (v == null ? '—' : field === 'status' ? STATUS[v]?.label || v : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : /Minutes$/.test(field) ? hm(v) : String(v));
@@ -380,7 +381,7 @@ function BulkChange({ spec, ids, onClose, onDone }) {
     setError('');
     bulkChangeDays({ ids, operation: spec.operation, status: spec.operation === 'SET_STATUS' ? status : undefined, reason: 'Preview', preview: true })
       .then((r) => !off && setPreview(r))
-      .catch((e) => !off && setError(String(e?.message || 'Could not preview.')));
+      .catch((e) => !off && setError(errorWords(e, 'show the preview')));
     return () => { off = true; };
   }, [ids, spec.operation, status]);
 
@@ -392,7 +393,7 @@ function BulkChange({ spec, ids, onClose, onDone }) {
       else notify.success(`${r.applied} day${r.applied === 1 ? '' : 's'} changed.`);
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
+      notify.error(errorWords(e, 'make the change'));
     } finally {
       setBusy(false);
     }
@@ -483,20 +484,20 @@ function MarkDay({ initial, people, onClose, onSaved }) {
       notify.success('Day saved.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setSaving(false);
     }
   };
 
   const remove = async () => {
-    const ok = await confirmDialog({ title: 'Delete this day?', message: 'The day goes back to unmarked.', confirmLabel: 'Yes, delete' });
+    const ok = await confirmDialog({ title: 'Delete this day?', message: 'The day goes back to unmarked.', confirmLabel: 'Delete day' });
     if (!ok) return;
     try {
       await deleteDay(form.id);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not deleted.'));
+      notify.error(errorWords(err, 'delete it'));
     }
   };
 
@@ -505,7 +506,7 @@ function MarkDay({ initial, people, onClose, onSaved }) {
       widthClass="w-[min(40rem,96vw)]"
       open
       onClose={onClose}
-      title={form.id ? `${form.employeeName} · ${form.date}` : 'Mark attendance'}
+      title={form.id ? `${form.employeeName} · ${dayLabel(form.date)}` : 'Mark attendance'}
       description={form.shiftLabel ? `${form.shiftLabel}. Times are 24-hour, Indian Standard Time; a time after midnight is that night's.` : 'Times are 24-hour, Indian Standard Time. An out earlier than the in is the next morning.'}
       actions={
         <>

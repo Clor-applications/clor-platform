@@ -48,7 +48,7 @@ describe('Demo requests in the operator console', () => {
     expect(await screen.findByText('We pay 18 people by hand.')).toBeInTheDocument();
     fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), { target: { value: 'CONTACTED' } });
     fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Demo Thursday' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save status and note' }));
     await waitFor(() => expect(api.set).toHaveBeenCalledWith('d1', { status: 'CONTACTED', note: 'Demo Thursday' }));
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Create account' })[0]);
@@ -68,7 +68,7 @@ describe('Demo requests in the operator console', () => {
     unmount();
     api.one.mockResolvedValue({ request: asha, account: null, history: [] });
     render(<DemoRequestDetail id="d1" role="SUPPORT" back={() => {}} openAccount={() => {}} />);
-    expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Save status and note' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Create account' })).toBeNull();
   });
 
@@ -120,7 +120,7 @@ describe('Demo requests as a pipeline', () => {
     await screen.findByRole('option', { name: 'Ravi Sales' });
     fireEvent.change(screen.getByLabelText('Looked after by'), { target: { value: 'u-ravi' } });
     fireEvent.change(screen.getByLabelText('Follow up on'), { target: { value: '2026-11-20' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save status and note' }));
     await waitFor(() => expect(api.set).toHaveBeenCalledWith('d1', { status: 'NEW', note: null, assignedToUserId: 'u-ravi', followUpAt: '2026-11-20T00:00:00+05:30' }));
   });
 });

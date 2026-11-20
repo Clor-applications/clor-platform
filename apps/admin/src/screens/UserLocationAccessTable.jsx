@@ -157,7 +157,7 @@ export default function UserLocationAccessTable({ branches = [], warehouses = []
                       value={row.roleId}
                       onChange={(e) => (row.type === 'Branch' ? setBranchRole(row.branchId, e.target.value) : setWarehouseRole(row.warehouseId, e.target.value))}
                     >
-                      <option value="">{row.type === 'Branch' ? 'Select role' : 'Use branch role'}</option>
+                      <option value="">{row.type === 'Branch' ? 'Choose a role' : 'Use branch role'}</option>
                       {roleOptions.map((role) => (
                         <option key={role.id} value={role.id}>{role.name}</option>
                       ))}

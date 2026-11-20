@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { markDay, setExceptionState } from '../api/attendance';
+import { errorWords } from '@ui/utils/errorWords';
 
 /*
  * Round 59 picks (18 Nov 2026), Attendance side.
@@ -30,7 +31,7 @@ export function DayQuickFix({ item, onDone, small = false }) {
       notify.success(f.done);
       onDone?.();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setBusy('');
     }

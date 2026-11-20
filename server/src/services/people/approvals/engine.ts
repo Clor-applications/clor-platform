@@ -17,6 +17,8 @@ import {
   MONEY_TYPES, NEVER_SELF_TYPES, SPEC_VERSION, TWO_PERSON_TYPES, allHold, dueAtFrom, normaliseAutoApprove, normaliseConditions, normaliseStep, normaliseSteps,
   type Approver, type ApproverSpec, type AutoApprove, type Condition, type ConditionV2, type Facts, type RuleSpecV2, type StepSpec, type StepV2,
 } from './spec.js';
+import { dateWords } from '../../../utils/istDate.js';
+import { statusWords } from '../../../utils/statusWords.js';
 
 /**
  * The approval engine (docs/people/02-PRD.md APR-01..07; build contract §5.3).
@@ -845,8 +847,8 @@ async function notifyStep(request: RequestRow) {
   if (!step) return;
   /* ALL mode: everyone on every slot still waiting. */
   const ids = [...new Set(waiting.flatMap((s) => (s.candidateUserIds as string[]) || []))];
-  await notifyUsers(request.accountId, request.orgId, ids, { kind: 'people.approval', title: `Waiting for you: ${request.title}`, body: `Due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${request.id}` });
-  await emailUsers(request.accountId, request.orgId, ids, 'people.approval_waiting', { headline: 'Waiting for you', subjectLine: approvalSubject('Waiting for you', request.title, step.dueAt), title: request.title, dueLine: `Due ${step.dueAt.toISOString().slice(0, 10)}.` }, request.id);
+  await notifyUsers(request.accountId, request.orgId, ids, { kind: 'people.approval', title: `Waiting for you: ${request.title}`, body: `Due ${dateWords(step.dueAt)}.`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${request.id}` });
+  await emailUsers(request.accountId, request.orgId, ids, 'people.approval_waiting', { headline: 'Waiting for you', subjectLine: approvalSubject('Waiting for you', request.title, step.dueAt), title: request.title, dueLine: `Due ${dateWords(step.dueAt)}.` }, request.id);
 }
 
 /**
@@ -969,7 +971,7 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
   /* A module's own record (a leave) is decided where it was asked, with the module's checks and in its transaction. */
   if (request.sourceKind && !opts.atSource) throw new ApprovalError('Decide this from the leave requests, where it was asked.', 409, 'DECIDE_AT_SOURCE');
   if (request.sourceKind && decision === 'more-info') throw new ApprovalError('Approve or reject it.', 400, 'NOT_SUPPORTED');
-  if (request.status !== 'WAITING') throw new ApprovalError(`This request is ${request.status.toLowerCase().replace('_', ' ')}; nothing to decide.`, 409, 'NOT_WAITING');
+  if (request.status !== 'WAITING') throw new ApprovalError(`This request is ${statusWords(request.status)}; there is nothing to decide.`, 409, 'NOT_WAITING');
   /* ANY mode: one row waits. ALL mode: one row per approver, each decided by its own people. */
   const waiting = request.steps.filter((s) => s.order === request.currentStep && s.status === 'WAITING');
   if (!waiting.length) {
@@ -1110,7 +1112,7 @@ export async function withdraw(actor: Actor, requestId: string) {
   if (!request) throw new ApprovalError('No such request.', 404, 'NOT_FOUND');
   if (request.sourceKind) throw new ApprovalError('Withdraw it from your leave, where you asked for it.', 409, 'DECIDE_AT_SOURCE');
   if (request.requesterUserId !== actor.userId) throw new ApprovalError('Only the person who asked can withdraw it.', 403);
-  if (!['WAITING', 'MORE_INFO'].includes(request.status)) throw new ApprovalError(`This request is ${request.status.toLowerCase()}.`, 409, 'NOT_WAITING');
+  if (!['WAITING', 'MORE_INFO'].includes(request.status)) throw new ApprovalError(`This request is already ${statusWords(request.status)}.`, 409, 'NOT_WAITING');
   const done = await closeWithdrawn(actor, request.id, { refuseApproved: true });
   if (!done) throw new ApprovalError('This was decided a moment ago.', 409, 'NOT_WAITING');
   return done;
@@ -1454,8 +1456,8 @@ export async function runApprovalDues(now = new Date()) {
   let failed = 0;
   const remind = async (step: (typeof due)[number]) => {
     await peoplePrisma.approvalStep.update({ where: { id: step.id }, data: { remindedAt: now } });
-    await notifyUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], { kind: 'people.approval', title: `Overdue: ${step.request.title}`, body: `Was due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${step.requestId}` });
-    await emailUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], 'people.approval_waiting', { headline: 'Overdue', subjectLine: approvalSubject('Overdue', step.request.title), title: step.request.title, dueLine: `It was due ${step.dueAt.toISOString().slice(0, 10)}.` }, step.requestId);
+    await notifyUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], { kind: 'people.approval', title: `Overdue: ${step.request.title}`, body: `It was due on ${dateWords(step.dueAt)}.`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${step.requestId}` });
+    await emailUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], 'people.approval_waiting', { headline: 'Overdue', subjectLine: approvalSubject('Overdue', step.request.title), title: step.request.title, dueLine: `It was due on ${dateWords(step.dueAt)}.` }, step.requestId);
     reminded += 1;
   };
   for (const step of due) {

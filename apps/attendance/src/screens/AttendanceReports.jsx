@@ -10,6 +10,7 @@ import { exportListXlsx } from '@ui/utils/listXlsx';
 import { createReportSchedule, deleteReportSchedule, listReportSchedules, listReports, listScheduleRuns, runReport, sendReportSchedule, todayIst, updateReportSchedule } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { escapeHtml } from '@ui/utils/html';
+import { errorWords } from '@ui/utils/errorWords';
 
 
 /** The report as a real spreadsheet: a column is numeric only if every value in it is a number. */
@@ -107,7 +108,7 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
         setLoadError('');
         if (initialReport) setActive((a) => a || v?.reports?.find((r) => r.id === initialReport) || null);
       })
-      .catch((e) => setLoadError(String(e?.message || 'Could not load reports.')));
+      .catch((e) => setLoadError(errorWords(e, 'load reports')));
   }, [attempt, initialReport]);
 
   const filters = useColumnFilters();
@@ -132,7 +133,7 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
       setRunning(true);
       runReport(active.id, paramsFor(active, form))
         .then((r) => { if (live) { setResult(r); setRunError(''); filters.clearAll(); } })
-        .catch((e) => { if (live) { setResult(null); setRunError(String(e?.message || 'The report did not run.')); } })
+        .catch((e) => { if (live) { setResult(null); setRunError(errorWords(e, 'run the report')); } })
         .finally(() => { if (live) setRunning(false); });
     }, 250);
     return () => { live = false; clearTimeout(timer); };
@@ -212,7 +213,7 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
               items={[
                 { key: 'csv', label: 'Export CSV', Icon: Download },
                 { key: 'print', label: 'Print', Icon: Printer },
-                { key: 'schedule', label: 'E-mail on a schedule', Icon: Mail },
+                { key: 'schedule', label: 'Email on a schedule', Icon: Mail },
               ]}
               onSelect={(k) => {
                 if (k === 'schedule') return toSchedule();
@@ -362,7 +363,7 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
 const DOW = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 /**
- * Reports by e-mail on their own: daily (yesterday), weekly (the week just
+ * Reports by email on their own: daily (yesterday), weekly (the week just
  * ended), monthly (the month just ended), at an hour, to a list. The filters
  * come from the form above when a schedule is made from a chosen report.
  */
@@ -374,7 +375,7 @@ function Scheduled({ catalogue, form, active }) {
   const load = useCallback(() => listReportSchedules().then(setRows).catch(() => setRows([])), []);
   const showRuns = async (s) => {
     if (runs?.id === s.id) { setRuns(null); return; }
-    try { setRuns({ id: s.id, list: await listScheduleRuns(s.id) }); } catch (err) { notify.error(String(err?.message || 'Could not load the history.')); }
+    try { setRuns({ id: s.id, list: await listScheduleRuns(s.id) }); } catch (err) { notify.error(errorWords(err, 'load the history')); }
   };
   useEffect(() => { load(); }, [load]);
   const start = () => setDraft({ reportId: active?.id || catalogue.reports[0].id, cadence: 'WEEKLY', dayOfWeek: 1, dayOfMonth: 1, hour: 7, recipients: '', params: { ...(form.departmentId ? { departmentId: form.departmentId } : {}), ...(form.employeeId ? { employeeId: form.employeeId } : {}), ...(form.areaId ? { areaId: form.areaId } : {}), ...(form.contractorId ? { contractorId: form.contractorId } : {}) } });
@@ -387,7 +388,7 @@ function Scheduled({ catalogue, form, active }) {
       setDraft(null);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     } finally {
       setBusy('');
     }
@@ -397,7 +398,7 @@ function Scheduled({ catalogue, form, active }) {
     <section className="ui-card space-y-3 p-4" aria-labelledby="sched-h">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="sched-h" className="ui-t-sec flex items-center gap-2"><Mail size={16} aria-hidden="true" /> Scheduled</h2>
-        {!draft ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={start}>{active ? `E-mail “${active.name}” on a schedule` : 'E-mail a report on a schedule'}</button> : null}
+        {!draft ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={start}>{active ? `Email “${active.name}” on a schedule` : 'Email a report on a schedule'}</button> : null}
       </div>
       <p className="ui-caption">A daily one covers yesterday, a weekly one the week just ended, a monthly one the month just ended. Sent from the company’s mail settings as a table, with the CSV attached.</p>
       {!rows ? null : rows.length ? (
@@ -421,7 +422,7 @@ function Scheduled({ catalogue, form, active }) {
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === s.id} onClick={async () => { setBusy(s.id); try { const r = await sendReportSchedule(s.id); (r.ok ? notify.success : notify.error)(r.ok ? `Sent to ${r.sent}.` : r.error); load(); } finally { setBusy(''); } }}>Send now</button>
                 <button type="button" className="ui-icon-btn" title="When it was sent" aria-label={`History of ${s.reportName}`} onClick={() => showRuns(s)}><History size={15} aria-hidden="true" /></button>
                 <button type="button" className="ui-link text-sm" onClick={() => updateReportSchedule(s.id, { enabled: !s.enabled }).then(load)}>{s.enabled ? 'Pause' : 'Resume'}</button>
-                <button type="button" className="ui-link text-sm" onClick={async () => { if (await confirmDialog({ title: 'Stop this schedule?', message: `${s.reportName} will no longer be e-mailed.`, confirmLabel: 'Stop' })) { await deleteReportSchedule(s.id); load(); } }}>Stop</button>
+                <button type="button" className="ui-link text-sm" onClick={async () => { if (await confirmDialog({ title: 'Stop this schedule?', message: `${s.reportName} will no longer be emailed.`, confirmLabel: 'Stop' })) { await deleteReportSchedule(s.id); load(); } }}>Stop</button>
               </div>
             </li>
           ))}

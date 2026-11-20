@@ -15,9 +15,10 @@ import { z } from 'zod';
  *
  * What it leaves alone: whether a field is required, and every message a handler already gives. Fields are
  * optional here unless the handler never checked them; "Say what you are asking for." still comes from the
- * handler. Where a handler already has its own words for a malformed value ("date must be YYYY-MM-DD."), the
- * schema is given the same words, and they are sent as they are. Any other refusal reads
- * `Validation error: "field" …`, the same opening as a ZodError through middleware/errors.ts.
+ * handler. Where a handler already has its own words for a malformed value, the schema is given the same
+ * words, and they are sent as they are. Any other refusal is a plain sentence naming the answer in words
+ * ("The leave type is missing or is not the right kind of answer."), the same as a ZodError through
+ * middleware/errors.ts. Never a field key, never Zod's own English (UX copy audit, 20 Nov 2026).
  *
  * A body that goes whole into a service with its own schema (leave, attendance requests, a tax declaration) is
  * checked here only for being an object (`anyBody`): the service's schema names its fields and has its messages.
@@ -73,31 +74,70 @@ export const jsonObject = (max = 200) => z.record(z.string().max(200), z.unknown
 
 const GENERIC = '\u0000';
 
-/** A plain sentence for an issue no schema gave its own words to. */
-function words(issue: z.core.$ZodIssue): string {
-  const field = issue.path.length ? `"${issue.path.join('.')}" ` : 'The request ';
+/* Field names said as words: a key the code uses is not a word a person knows. */
+const FIELD_WORDS: Record<string, string> = {
+  id: 'record',
+  ids: 'records',
+  pan: 'PAN',
+  uan: 'UAN',
+  esic: 'ESIC number',
+  ifsc: 'IFSC',
+  gstin: 'GSTIN',
+  dob: 'date of birth',
+  url: 'address',
+  email: 'email',
+};
+
+/** `leaveTypeId` → "leave type", `from_date` → "from date": the last named part of a path, in words. */
+export function fieldWords(path: ReadonlyArray<PropertyKey>): string {
+  const key = [...path].reverse().find((p) => typeof p === 'string') as string | undefined;
+  if (!key) return '';
+  if (FIELD_WORDS[key]) return FIELD_WORDS[key];
+  const spaced = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase()
+    .trim();
+  const words = spaced.replace(/ (id|ids)$/, '').trim();
+  return words.split(' ').map((w) => FIELD_WORDS[w] || w).join(' ') || 'record';
+}
+
+/** A plain sentence for an issue no schema gave its own words to: what is wrong, and with which answer. */
+export function words(issue: z.core.$ZodIssue): string {
+  const label = fieldWords(issue.path);
+  const field = label ? `The ${label} ` : 'One of the answers ';
   const origin = (issue as any).origin as string | undefined;
   switch (issue.code) {
     case 'invalid_type':
-      return `${field}is not the kind of value expected${(issue as any).expected ? ` (${(issue as any).expected})` : ''}.`;
+      return `${field}is missing or is not the right kind of answer. Check it and try again.`;
     case 'too_big':
-      return `${field}${origin === 'string' ? 'is too long' : origin === 'array' || origin === 'set' ? 'has too many entries' : 'is too large'}.`;
+      return `${field}${origin === 'string' ? 'is too long' : origin === 'array' || origin === 'set' ? 'has too many entries' : 'is too large'}. Shorten it and try again.`;
     case 'too_small':
-      return `${field}${origin === 'string' ? 'is empty or too short' : origin === 'array' || origin === 'set' ? 'has too few entries' : 'is too small'}.`;
+      return `${field}${origin === 'string' ? 'is empty or too short' : origin === 'array' || origin === 'set' ? 'has too few entries' : 'is too small'}. Check it and try again.`;
     case 'invalid_format':
-      return `${field}is not in the form expected.`;
+      return `${field}is not in the form expected. Check it and try again.`;
     case 'invalid_value':
-      return `${field}is not one of the choices.`;
+      return `${field}is not one of the choices. Choose one from the list.`;
+    case 'unrecognized_keys':
+      return 'The form sent something this screen does not take. Reload the page and try again.';
     default:
-      return `${field}is not valid.`;
+      return `${field}is not valid. Check it and try again.`;
   }
 }
 
-/** The 400 a failed check answers with: the schema's own words, or `Validation error: …`. */
+/* Zod's own English ("Invalid input: expected string, received undefined"): never shown as it is. */
+const LIBRARY_TEXT = /^(Invalid|Too (big|small)|Expected|Unrecognized|Required)\b/;
+
+/** The sentence for any Zod issue: the schema's own words when it gave some, else `words()`. */
+export function issueWords(issue: z.core.$ZodIssue | undefined): string {
+  if (!issue) return 'Something in the form is not right. Check it and try again.';
+  const own = String(issue.message || '');
+  return own && !own.startsWith(GENERIC) && !LIBRARY_TEXT.test(own) ? own : words(issue);
+}
+
+/** The 400 a failed check answers with: the schema's own words, or a plain sentence naming the answer. */
 export function refusal(error: z.ZodError): string {
-  const first = error.issues[0];
-  if (!first) return 'Validation error';
-  return first.message.startsWith(GENERIC) ? `Validation error: ${words(first)}` : first.message;
+  return issueWords(error.issues[0]);
 }
 
 /** Parse one value; `{ ok: false, error }` carries the sentence for the 400. */

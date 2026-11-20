@@ -46,6 +46,8 @@ import { authorize } from '../middleware/rbac.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { inScope, teamScope, type TeamScope } from '../services/people/scope.js';
 import { decideLeaveOnEngine, decidesNow, engineStepView, goesOnEngine, refreshForPerson, refreshLeaveSteps, engineLeaveNaming, engineQueue, engineRequestOf, engineStepOf, openLeaveOnEngine, restartLeaveOnEngine, syncLeaveDecision } from '../services/attendance/leaveEngine.js';
+import { statusWords } from '../utils/statusWords.js';
+import { countWords } from '../utils/istDate.js';
 
 /**
  * Leave, basic (after Horilla HRMS's leave app; reference only).
@@ -626,7 +628,7 @@ leaveRouter.put(`${base}/allocations`, can(PermissionAction.EDIT, R.leave), asyn
     await scopedOr404(req, employee.id);
     if (await ownBalanceRefused(req, res, employee, 'change')) return;
     const type = await peoplePrisma.leaveType.findFirst({ where: { id: b.leaveTypeId, accountId, orgId } });
-    if (!type) return res.status(400).json({ error: 'That leave type is not in this organisation.' });
+    if (!type) return res.status(400).json({ error: 'That leave type is not in this company.' });
     if (!type.isPaid) return res.status(400).json({ error: 'Unpaid leave has no balance to set.' });
     const key = { employeeId_leaveTypeId_year: { employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year } };
     const which = { employeeId: b.employeeId, leaveTypeId: b.leaveTypeId, year: b.year };
@@ -736,7 +738,7 @@ leaveRouter.post(`${base}/requests/import`, can(PermissionAction.EDIT, R.leave),
     if (to < from) { results.push({ row: i + 1, ok: false, error: 'The last day is before the first.' }); continue; }
     if (periodOf(period, from) !== periodOf(period, to)) { results.push({ row: i + 1, ok: false, error: `Leave stays inside one leave period. Split it at ${periodEnd(period, periodOf(period, from))}.` }); continue; }
     const half = String(r.halfDay || '').trim().toUpperCase();
-    if (half && !['FIRST', 'SECOND'].includes(half)) { results.push({ row: i + 1, ok: false, error: 'Half day is FIRST, SECOND or blank.' }); continue; }
+    if (half && !['FIRST', 'SECOND'].includes(half)) { results.push({ row: i + 1, ok: false, error: 'In the half-day column, write FIRST or SECOND, or leave it blank.' }); continue; }
     if (half && from !== to) { results.push({ row: i + 1, ok: false, error: 'A half-day leave is for one day.' }); continue; }
     const days = await workingDays(orgId, emp, from, to);
     if (!days.length) { results.push({ row: i + 1, ok: false, error: 'Those are all weekly offs or holidays.' }); continue; }
@@ -1506,7 +1508,7 @@ export async function approvable(accountId: string, orgId: string, r: any, opts:
       if (bal.locked) throw fail(409, `${type.name} cannot be taken until confirmed${bal.lockedUntil ? ` (${dayWords(bal.lockedUntil)})` : ''}.`, 'NO_BALANCE');
       /* This request is in "pending" already; what matters is what is left without it. */
       const left = (bal.available ?? Infinity) + r.days + type.negativeDays;
-      if (count > left) throw fail(409, `Only ${round(left)} days of ${type.name} are left this year; this is ${count}.`, 'NO_BALANCE');
+      if (count > left) throw fail(409, `Only ${countWords(round(left), 'day')} of ${type.name} ${round(left) === 1 ? 'is' : 'are'} left this year; this asks for ${countWords(count, 'day')}.`, 'NO_BALANCE');
     }
     /* Checked before any day is written, so an approval never stops halfway through a closed month. */
     const shut = await closedMonths(orgId, days.map((d) => d.slice(0, 7)));
@@ -1925,7 +1927,7 @@ async function reviewLeave(req: any, id: string, approve: boolean, note: string 
   const engineStep = r && r.status === 'PENDING' && !r.ruleId ? await engineStepOf(orgId, r) : null;
   /* Outside the reader's team, only someone who may decide it now (worked out live) finds it. */
   if (!r || (!inScope(scope, r.employeeId) && !stepper && !(engineStep && (await decidesNow(accountId, orgId, r, req.auth!.userId))))) return { status: 404, body: { error: 'No such request.' } };
-  if (r.status !== 'PENDING') return { status: 409, body: { error: `This request was already ${r.status.toLowerCase()}.` } };
+  if (r.status !== 'PENDING') return { status: 409, body: { error: `This request was already ${statusWords(r.status)}.` } };
   /* On the approval engine (workflow engine 2c): its steps say who decides; the leave is decided as before. */
   if (engineStep) {
     try {
@@ -2060,7 +2062,7 @@ leaveRouter.post(`${base}/requests/bulk-review`, canOrStep(PermissionAction.APPR
       out = await reviewLeave(req, id, approve, note);
     } catch (e) {
       console.error('[leave] bulk decision failed:', e instanceof Error ? e.message : e);
-      out = { status: 500, body: { error: 'Something went wrong.' } };
+      out = { status: 500, body: { error: 'This one could not be decided because of a fault on our side. Try it again on its own.' } };
     }
     if (out.status === 200) {
       if (out.body.stage === 'HR') handedOn += 1;
@@ -2218,7 +2220,7 @@ leaveRouter.post(`${base}/requests/:id/cancellation`, async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const approve = req.body?.approve === true;
-  if (!approve && req.body?.approve !== false) return res.status(400).json({ error: 'approve must be true or false.' });
+  if (!approve && req.body?.approve !== false) return res.status(400).json({ error: 'Choose approve or reject.' });
   try {
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
     if (!r || !(await readerDecidesCancel(req, r))) return res.status(404).json({ error: 'No such request.' });
@@ -2274,7 +2276,7 @@ export async function remindLeave(accountId: string, orgId: string, employeeId: 
   return peopleWrite(orgId, async () => {
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id, accountId, orgId, employeeId } });
     if (!r) return { status: 404, body: { error: 'No such request.' } };
-    if (r.status !== 'PENDING') return { status: 409, body: { error: `This request was already ${r.status.toLowerCase()}.` } };
+    if (r.status !== 'PENDING') return { status: 409, body: { error: `This request was already ${statusWords(r.status)}.` } };
     if (!reminderState(r).canRemind) return { status: 429, body: { error: 'You reminded them today. You can remind them again tomorrow.', code: 'REMINDED_TODAY' } };
     await noteOnParts(orgId, r, { by, what: 'REMINDED' });
     /* One notice per leave: its first part speaks for the whole span (tellAboutLeave). */
@@ -2304,7 +2306,7 @@ async function sendBackLeave(req: any, id: string, question: string): Promise<{ 
   const userId = req.auth!.userId;
   const r = await peoplePrisma.leaveRequest.findFirst({ where: { id, accountId, orgId } });
   if (!r || !(await readerDecides(req, r))) return { status: 404, body: { error: 'No such request.' } };
-  if (r.status !== 'PENDING') return { status: 409, body: { error: `This request was already ${r.status.toLowerCase()}.` } };
+  if (r.status !== 'PENDING') return { status: 409, body: { error: `This request was already ${statusWords(r.status)}.` } };
   if (openQuestionOf(r.history)) return { status: 409, body: { error: 'A question is already waiting for their answer.', code: 'QUESTION_OPEN' } };
   const emp = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { name: true, userId: true } });
   if (emp?.userId === userId) return { status: 403, body: { error: 'This is your own request.' } };
@@ -2330,7 +2332,7 @@ export async function answerLeaveQuestion(accountId: string, orgId: string, empl
   const out: { status: number; body: any; asker?: string | null; row?: any } = await peopleWrite(orgId, async () => {
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id, accountId, orgId, employeeId } });
     if (!r) return { status: 404, body: { error: 'No such request.' } };
-    if (r.status !== 'PENDING') return { status: 409, body: { error: `This request was already ${r.status.toLowerCase()}.` } };
+    if (r.status !== 'PENDING') return { status: 409, body: { error: `This request was already ${statusWords(r.status)}.` } };
     const q = openQuestionOf(r.history);
     if (!q) return { status: 409, body: { error: 'There is no question waiting for an answer.' } };
     const row = await noteOnParts(orgId, r, { by, what: 'ANSWERED', note: answer });
@@ -2517,11 +2519,11 @@ leaveRouter.post(`${base}/adjustments`, can(PermissionAction.EDIT, R.leave), asy
         if (days < 0) throw fail(400, 'Give the days paid out as a positive number.');
         const paidOut = -((await peoplePrisma.leaveAdjustment.aggregate({ where: { orgId, employeeId: employee.id, leaveTypeId: type.id, year: b.year, kind: 'ENCASH', reversedAt: null }, _sum: { days: true } }))._sum.days ?? 0);
         if (type.maxEncashDays != null && paidOut + days > type.maxEncashDays) {
-          throw fail(400, `At most ${type.maxEncashDays} days of ${type.name} are paid out a year; ${paidOut} already are.`);
+          throw fail(400, `At most ${countWords(type.maxEncashDays, 'day')} of ${type.name} ${type.maxEncashDays === 1 ? 'is' : 'are'} paid out a year, and ${countWords(paidOut, 'day')} already ${paidOut === 1 ? 'is' : 'are'}.`);
         }
         const { balances } = await balancesFor(accountId, orgId, [employee.id], b.year);
         const left = balances.get(employee.id)!.get(type.id)!.available ?? 0;
-        if (days > left) throw fail(400, `Only ${left} days of ${type.name} are left to pay out.`, 'NO_BALANCE');
+        if (days > left) throw fail(400, `Only ${countWords(left, 'day')} of ${type.name} ${left === 1 ? 'is' : 'are'} left to pay out.`, 'NO_BALANCE');
         days = -days;
       }
       return peoplePrisma.leaveAdjustment.create({
@@ -3842,7 +3844,7 @@ export async function cancelOwnLeave(accountId: string, orgId: string, employeeI
   const out: { status: number; body: any; ask?: any } = await peopleWrite(orgId, async () => {
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id, accountId, orgId, employeeId } });
     if (!r) return { status: 404, body: { error: 'No such request.' } };
-    if (!OPEN.includes(r.status)) return { status: 409, body: { error: `This request was already ${r.status.toLowerCase()}.` } };
+    if (!OPEN.includes(r.status)) return { status: 409, body: { error: `This request was already ${statusWords(r.status)}.` } };
     const started = r.groupId
       ? await peoplePrisma.leaveRequest.findFirst({ where: { orgId, groupId: r.groupId, status: 'APPROVED', fromDate: { lte: today() } }, select: { id: true } })
       : r.status === 'APPROVED' && r.fromDate <= today();

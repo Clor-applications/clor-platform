@@ -188,7 +188,7 @@ export default function Toaster() {
               if (e.key === 'Escape') answer(null);
             }}
           >
-            <h2 id="code-title" className="ui-t-sec">Authenticator code</h2>
+            <h2 id="code-title" className="ui-t-sec">Enter your authenticator code</h2>
             <p className="ui-muted mt-2 text-sm leading-relaxed">{codeAsk.message}</p>
             <input
               autoFocus
@@ -204,7 +204,7 @@ export default function Toaster() {
             <p className="ui-caption mt-2">Lost your phone? A recovery code works once instead.</p>
             <div className="ui-confirm-actions mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => answer(null)} className="ui-btn ui-btn-secondary">Cancel</button>
-              <button type="submit" className="ui-btn ui-btn-primary" disabled={!code.trim()}>Continue</button>
+              <button type="submit" className="ui-btn ui-btn-primary" disabled={!code.trim()}>Confirm code</button>
             </div>
           </form>
         </div>

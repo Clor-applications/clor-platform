@@ -10,6 +10,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { leavingInAudit } from '../middleware/auditMutations.js';
 import { leavingReasonFilter } from '../services/people/companyChoices.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 /**
  * Reading the audit trail.
@@ -66,7 +67,7 @@ const APP_WHERE: Record<string, Record<string, unknown>> = {
 
 auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    return res.status(403).json({ error: 'orgId mismatch' });
+    return otherCompany(res);
   }
   const { accountId, orgId } = req.tenant!;
   const q = querySchema.parse(req.query);
@@ -165,7 +166,7 @@ auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {
 /** What the filters can offer, taken from the rows that actually exist. */
 auditRouter.get('/orgs/:orgId/audit/facets', AUDIT_VIEW, async (req, res) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    return res.status(403).json({ error: 'orgId mismatch' });
+    return otherCompany(res);
   }
   const { accountId, orgId } = req.tenant!;
   /*

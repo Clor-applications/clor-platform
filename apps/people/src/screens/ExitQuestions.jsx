@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -59,7 +60,7 @@ export default function ExitQuestions() {
       setDraft(null);
       notify.success('Exit interview questions saved.');
     } catch (e) {
-      setError(String(e?.message || 'Not saved.'));
+      setError(errorWords(e, 'save the changes'));
     } finally {
       setBusy(false);
     }
@@ -70,7 +71,7 @@ export default function ExitQuestions() {
       req.setData(await resetExitQuestions());
       setDraft(null);
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
+      notify.error(errorWords(e, 'make the change'));
     }
   };
   return (

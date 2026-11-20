@@ -86,7 +86,7 @@ peopleTalentApplyRouter.post('/people/apply/:token', ...applyLimiter, urlencoded
   } catch (e) {
     if (e instanceof TalentError) return res.status(e.status === 410 ? 410 : 400).type('html').send(form(found.o.title, found.orgName, found.o.description, e.message, b, '', screeningOf(found.o)));
     console.error('[apply]', e instanceof Error ? e.message : e);
-    res.status(500).type('html').send(page('Not sent', '<p>Something went wrong. Try again in a little while.</p>'));
+    res.status(500).type('html').send(page('Not sent', '<p>Your application was not sent because of a fault on our side. Try again in a few minutes.</p>'));
   }
 });
 
@@ -119,6 +119,6 @@ peopleTalentApplyRouter.post('/people/refer/:token', ...applyLimiter, urlencoded
   } catch (e) {
     if (e instanceof TalentError) return res.status(e.status === 410 ? 410 : 400).type('html').send(form(found.opening.title, found.orgName, found.opening.description, e.message, b, firstName(found.referrer?.name)));
     console.error('[refer]', e instanceof Error ? e.message : e);
-    res.status(500).type('html').send(page('Not sent', '<p>Something went wrong. Try again in a little while.</p>'));
+    res.status(500).type('html').send(page('Not sent', '<p>Your application was not sent because of a fault on our side. Try again in a few minutes.</p>'));
   }
 });

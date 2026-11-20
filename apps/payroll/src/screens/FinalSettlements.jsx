@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
-import { AlertTriangle, Check, Handshake, PauseCircle, Plus, RotateCcw, Trash2, UserMinus, Wallet } from '@ui/components/ui/lineIcons';
+import { Check, Handshake, PauseCircle, Plus, RotateCcw, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -24,6 +24,8 @@ import {
 } from '../api/payrollSettlements';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { settlementClock } from './settlementClock';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const STATUS = {
   DRAFT: { label: 'Draft', pill: 'ui-pill-neutral' },
@@ -31,8 +33,8 @@ const STATUS = {
   PAID: { label: 'Paid', pill: 'ui-pill-pos' },
 };
 const KINDS = [
-  { id: 'EARNING', label: 'Pay' },
-  { id: 'DEDUCTION', label: 'Recover' },
+  { id: 'EARNING', label: 'Earning' },
+  { id: 'DEDUCTION', label: 'Deduction' },
   { id: 'INFO', label: 'Note' },
 ];
 
@@ -77,7 +79,7 @@ const EXPORT_COLUMNS = [
   { key: 'employeeCode', label: 'Code' },
   { key: 'leavingDate', label: 'Last day' },
   { key: 'dueDate', label: 'Due' },
-  { key: 'netPayable', label: 'Net', value: (s) => Number(s.netPayable || 0) },
+  { key: 'netPayable', label: 'Net pay', value: (s) => Number(s.netPayable || 0) },
   { key: 'status', label: 'Status', value: (s) => STATUS[s.status]?.label || s.status },
   { key: 'held', label: 'Held', value: (s) => (s.hold ? 'Yes' : '') },
   { key: 'overdue', label: 'Overdue', value: (s) => (s.overdue ? 'Yes' : '') },
@@ -96,7 +98,7 @@ export default function FinalSettlements() {
         setData(r);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load settlements.')));
+      .catch((e) => setError(errorWords(e, 'load settlements')));
   }, []);
   useEffect(() => {
     load();
@@ -109,7 +111,7 @@ export default function FinalSettlements() {
       load();
       setOpen(s);
     } catch (e) {
-      notify.error(String(e?.message || 'Could not start it.'));
+      notify.error(errorWords(e, 'start the settlement'));
     } finally {
       setBusy('');
     }
@@ -146,7 +148,6 @@ export default function FinalSettlements() {
       description="What is still owed to, or by, people who have left. Due within two working days of their last day."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search settlements' }}
       moreItems={settlements.length ? [exportMenuItem('Export settlements')] : null}
       onMoreSelect={(k) => {
@@ -154,12 +155,12 @@ export default function FinalSettlements() {
         if (!format) return;
         runListExport({ format, title: 'Full & final settlements', fileName: 'Full and final settlements', label: 'settlement/settlements', columns: EXPORT_COLUMNS, rows });
       }}
-      cards={[
-        { label: 'Not started', value: waiting.length, count: true, tone: 'partial', Icon: UserMinus },
-        { label: 'Overdue', value: figures.overdue, count: true, tone: 'overdue', Icon: AlertTriangle },
-        { label: 'To pay', value: figures.toPay, tone: 'sent', Icon: Wallet, onSelect: () => setStatus('APPROVED') },
-        { label: 'Paid', value: counts.PAID, count: true, tone: 'paid', Icon: Check, onSelect: () => setStatus('PAID') },
-      ]}
+      countLine={countItems([
+        { label: 'Not started', value: waiting.length, count: true, tone: 'partial' },
+        { label: 'Overdue', value: figures.overdue, count: true, tone: 'overdue' },
+        { label: 'To pay', value: figures.toPay, tone: 'sent', onSelect: () => setStatus('APPROVED') },
+        { label: 'Paid', value: counts.PAID, count: true, tone: 'paid', onSelect: () => setStatus('PAID') },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -192,10 +193,10 @@ export default function FinalSettlements() {
                       </td>
                       <td className="whitespace-nowrap text-end">
                         {data?.you?.selfEmployeeId === p.id ? (
-                          <span className="ui-caption">Yours: another approver works it out</span>
+                          <span className="ui-caption">Your own: another approver calculates it</span>
                         ) : (
                           <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === p.id} onClick={() => start(p)}>
-                            <Plus size={14} aria-hidden="true" /> Work it out
+                            <Plus size={14} aria-hidden="true" /> Calculate settlement
                           </button>
                         )}
                       </td>
@@ -219,7 +220,7 @@ export default function FinalSettlements() {
                 <ColumnHeader label="Employee" col="employee" state={filters} />
                 <th scope="col">Last day</th>
                 <th scope="col">Due</th>
-                <th scope="col" className="ui-num">Net</th>
+                <th scope="col" className="ui-num">Net pay</th>
                 <th scope="col" className="ui-col-h-center">Status</th>
               </tr>
             </thead>
@@ -271,7 +272,7 @@ export default function FinalSettlements() {
 /** The India day of a moment: a hold made at 01:50 IST on 31 Oct is held since 31 Oct, not the UTC 30th. */
 const indiaDay = (iso) => new Date(Date.parse(iso) + 330 * 60_000).toISOString().slice(0, 10);
 
-const OWN_WORDS = 'This is your own full and final. Another HR or payroll approver, or the owner, works it out, approves and pays it.';
+const OWN_WORDS = 'This is your own full and final. Another HR or payroll approver, or the owner, calculates, approves and pays it.';
 
 function Settlement({ settlement, you, onClose, onChanged }) {
   const [lines, setLines] = useState(settlement.lines);
@@ -291,7 +292,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
       if (done) notify.success(done);
       onChanged(s);
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'update this settlement'));
     } finally {
       setBusy(false);
     }
@@ -305,13 +306,13 @@ function Settlement({ settlement, you, onClose, onChanged }) {
     const ok = await confirmDialog({
       title: `${owesWords}. Approve this settlement?`,
       message: 'Check each line against your policy and the law first. An approved settlement can no longer be changed.',
-      confirmLabel: 'Approve',
+      confirmLabel: 'Approve settlement',
       tone: 'default',
     });
     if (ok) run(() => approveSettlement(settlement.id), 'Approved.');
   };
   const cancel = async () => {
-    const ok = await confirmDialog({ title: 'Cancel this settlement?', message: 'You can work it out again afterwards.', confirmLabel: 'Cancel settlement' });
+    const ok = await confirmDialog({ title: 'Cancel this settlement?', message: 'It stops here and nothing is paid. You can calculate it again afterwards.', confirmLabel: 'Cancel settlement', cancelLabel: 'Keep it' });
     if (ok) run(() => cancelSettlement(settlement.id), 'Cancelled.');
   };
 
@@ -350,10 +351,10 @@ function Settlement({ settlement, you, onClose, onChanged }) {
                   confirmLabel: net < 0 ? 'Mark received' : 'Mark paid',
                   tone: 'default',
                 });
-                if (ok) run(() => markSettlementPaid(settlement.id, reference || null), 'Marked paid.');
+                if (ok) run(() => markSettlementPaid(settlement.id, reference || null), net < 0 ? 'Marked received.' : 'Marked paid.');
               }}
             >
-              Mark paid
+              {net < 0 ? 'Mark received' : 'Mark paid'}
             </button>
           </>
         ) : null
@@ -366,7 +367,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
           const live = netOf(lines);
           return (
             <div className="r52-fnf-net" aria-live="polite">
-              <span className="ui-label">Net</span>
+              <span className="ui-label">Net pay</span>
               <span className="r52-fnf-net-figure tabular-nums">{money(Math.abs(live))}</span>
               <span className="ui-caption">{live < 0 ? `${who} owes this` : live > 0 ? `To pay ${who}` : 'Nothing either way'}</span>
             </div>
@@ -378,7 +379,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
             <thead>
               <tr>
                 <th scope="col">Item</th>
-                <th scope="col">Kind</th>
+                <th scope="col">Type</th>
                 <th scope="col" className="ui-col-h-right">Amount</th>
                 {draft ? <th scope="col"><span className="sr-only">Remove</span></th> : null}
               </tr>
@@ -398,7 +399,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
                   </td>
                   <td className="whitespace-nowrap">
                     {draft ? (
-                      <select className="ui-select w-28" aria-label="Kind" value={l.kind} onChange={(e) => setLine(i, { kind: e.target.value })}>
+                      <select className="ui-select w-28" aria-label="Type" value={l.kind} onChange={(e) => setLine(i, { kind: e.target.value })}>
                         {KINDS.map((k) => (
                           <option key={k.id} value={k.id}>{k.label}</option>
                         ))}
@@ -434,7 +435,7 @@ function Settlement({ settlement, you, onClose, onChanged }) {
                 </tr>
               ))}
               <tr>
-                <td className="font-semibold" colSpan={2}>Net payable</td>
+                <td className="font-semibold" colSpan={2}>Net pay</td>
                 <td className="ui-col-amount font-semibold">{money(netOf(lines))}</td>
                 {draft ? <td /> : null}
               </tr>
@@ -452,8 +453,8 @@ function Settlement({ settlement, you, onClose, onChanged }) {
             >
               <Plus size={14} aria-hidden="true" /> Add a line
             </button>
-            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy} onClick={() => run(() => recalculateSettlement(settlement.id), 'Worked out again from the records.')}>
-              <RotateCcw size={14} aria-hidden="true" /> Work out again
+            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy} onClick={() => run(() => recalculateSettlement(settlement.id), 'Calculated again from the records.')}>
+              <RotateCcw size={14} aria-hidden="true" /> Calculate again
             </button>
           </div>
         ) : null}
@@ -506,7 +507,7 @@ function RecoveryCap({ settlement, who, unsaved, busy, run }) {
     return (
       <p className="ui-caption max-w-[65ch]" role="note">
         Worked out before loans and advances were held to a share of the final wages.{' '}
-        {settlement.status === 'DRAFT' ? 'Save it or work it out again to apply the limit.' : 'If it recovers more than the limit allows, cancel it and work it out again.'}
+        {settlement.status === 'DRAFT' ? 'Save it or calculate it again to apply the limit.' : 'If it recovers more than the limit allows, cancel it and calculate it again.'}
       </p>
     );
   }
@@ -539,17 +540,17 @@ function RecoveryCap({ settlement, who, unsaved, busy, run }) {
           <p className="ui-caption min-w-0 flex-1 max-w-[65ch]">
             These figures are from the earlier payslip{cap.slip?.ref ? ` (${cap.slip.ref})` : ''}. The leaving month's payroll has changed since, and the limit now allows{' '}
             <span className="ui-num tabular-nums">{money(newer.recovered)}</span> to be recovered.
-            {settlement.status === 'APPROVED' ? ' To recover it, cancel this settlement and work it out again.' : ''}
+            {settlement.status === 'APPROVED' ? ' To recover it, cancel this settlement and calculate it again.' : ''}
           </p>
           {settlement.status === 'DRAFT' && !unsaved ? (
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => run(() => recalculateSettlement(settlement.id), 'Worked out again from the records.')}>
-              Work it out again
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => run(() => recalculateSettlement(settlement.id), 'Calculated again from the records.')}>
+              Calculate again from the new payslip
             </button>
           ) : null}
         </div>
       ) : null}
       {!cap.slip && settlement.status === 'DRAFT' ? (
-        <p className="ui-caption max-w-[65ch]">Salary for days worked counts once the leaving month's payroll is approved. Work it out again then.</p>
+        <p className="ui-caption max-w-[65ch]">Salary for days worked counts once the leaving month's payroll is approved. Calculate it again then.</p>
       ) : null}
       <p className="ui-caption max-w-[65ch]">
         Loans and advances come off the final pay up to {cap.percent}% of the final wages (Code on Wages 2019, s.18(3)); gratuity and reimbursements never count.

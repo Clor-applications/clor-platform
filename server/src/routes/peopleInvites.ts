@@ -16,6 +16,7 @@ import { stepUpRefusal } from '../services/stepUp.js';
 import { inScope, teamScope } from '../services/people/scope.js';
 import { z } from 'zod';
 import { check, idParams, jsonObject, list, q, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Invites before day one (docs/people/02-PRD.md LIFE-01), HR's side: send,
@@ -33,7 +34,7 @@ const actorOf = (req: Request, source: ChangeSource = 'FORM', reason: string | n
 const sendError = (res: any, e: unknown) => {
   if (e instanceof InviteError || e instanceof StatutoryError) return res.status(e.status).json({ error: e.message });
   console.error('[people-invites]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 
 /*
@@ -68,7 +69,7 @@ peopleInvitesRouter.get(`${base}/employees/:id/invites`, can(PermissionAction.VI
 peopleInvitesRouter.get(`${base}/invites`, can(PermissionAction.VIEW, LIFECYCLE), check({ query: z.object({ status: q(text(40)) }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const status = String(req.query.status || '').toUpperCase();
-  if (status && !INVITE_STATUSES.includes(status as any)) return res.status(400).json({ error: 'Unknown status.' });
+  if (status && !INVITE_STATUSES.includes(status as any)) return res.status(400).json({ error: 'Choose a status from the list.' });
   /* A team-limited role sees its own team's joiners only. */
   const scope = await teamScope(req);
   res.json({ invites: (await invitesOf(req.tenant!.orgId, { status: status || undefined })).filter((i) => inScope(scope, i.employeeId)) });

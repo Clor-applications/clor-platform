@@ -5,7 +5,7 @@ import { updateEmployee } from '../employees.js';
 import { writeEvent } from '../outbox.js';
 import { leaveEmployee } from './leaving.js';
 import { activeRule, submitRequest } from '../approvals/engine.js';
-import { todayIst } from '../../../utils/istDate.js';
+import { dateWords, todayIst } from '../../../utils/istDate.js';
 import { issueOnEvent, stintKey } from '../letters.js';
 
 /**
@@ -87,7 +87,7 @@ export async function decideProbation(actor: Actor, employeeId: string, outcome:
   if (outcome === 'EXTEND' && !opts.newEndDate) throw new ProbationError('Give the new probation end date.');
   const rule = await activeRule(actor.orgId, 'PROBATION');
   if (rule) {
-    const r = await submitRequest({ ...actor, reason: opts.note ?? null }, { requestType: 'PROBATION', subjectEmployeeId: employeeId, title: `${employee.name}: ${outcome === 'CONFIRM' ? 'confirm after probation' : outcome === 'EXTEND' ? `extend probation to ${opts.newEndDate}` : 'end employment after probation'}`, payload: { employeeId, outcome, newEndDate: opts.newEndDate ?? null, lastDay: opts.lastDay ?? null, note: opts.note ?? null, reason: opts.note ?? null } });
+    const r = await submitRequest({ ...actor, reason: opts.note ?? null }, { requestType: 'PROBATION', subjectEmployeeId: employeeId, title: `${employee.name}: ${outcome === 'CONFIRM' ? 'confirm after probation' : outcome === 'EXTEND' ? `extend probation to ${dateWords(opts.newEndDate)}` : 'end employment after probation'}`, payload: { employeeId, outcome, newEndDate: opts.newEndDate ?? null, lastDay: opts.lastDay ?? null, note: opts.note ?? null, reason: opts.note ?? null } });
     return { request: r.request, outcome: r.outcome ?? null };
   }
   return { applied: await applyOutcome(actor, employeeId, outcome, opts) };

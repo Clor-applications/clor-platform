@@ -7,6 +7,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { can } from '@ui/timeOff/shared';
 import { listEmployees, listHolidays, listLeaveRequests, listRecords, listShifts, listTransactions, todayIst } from '../api/attendance';
 import { plusDaysIso } from '@ui/utils/dates';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * ClorTime's Export Center: what, for when, in which shape. Everything comes
@@ -35,7 +36,7 @@ const DATASETS = [
     columns: [['localTime', 'Time'], ['employeeCode', 'Employee code'], ['employeeName', 'Name'], ['pin', 'Reader ID'], ['kind', 'Direction'], ['verify', 'Verified by'], ['workCode', 'Work code'], ['deviceName', 'Reader'], ['shiftDate', 'Counted on'], ['siteName', 'Site']] },
   { id: 'employees', label: 'Employees', blurb: 'The staff list with codes, departments and positions.', period: false, need: ['ATTENDANCE::Attendance Records::VIEW', 'ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Attendance Requests::VIEW'],
     load: () => listEmployees(),
-    columns: [['code', 'Code'], ['name', 'Name'], ['department', 'Department'], ['jobPosition', 'Position'], ['status', 'Status'], ['dateOfJoining', 'Joined'], ['workEmail', 'Work e-mail'], ['workPhone', 'Phone'], ['devicePin', 'Reader ID']] },
+    columns: [['code', 'Code'], ['name', 'Name'], ['department', 'Department'], ['jobPosition', 'Position'], ['status', 'Status'], ['dateOfJoining', 'Joined'], ['workEmail', 'Work email'], ['workPhone', 'Phone'], ['devicePin', 'Reader ID']] },
   { id: 'holidays', label: 'Holidays', blurb: 'This year’s calendar.', period: false, need: ['ATTENDANCE::Holidays::VIEW'],
     load: () => listHolidays(Number(todayIst().slice(0, 4))),
     columns: [['date', 'Date'], ['name', 'Name'], ['isOptional', 'Optional'], ['areaName', 'Area']] },
@@ -77,7 +78,7 @@ export default function DataExport() {
       }
       setNote(`${rows.length.toLocaleString('en-IN')} row${rows.length === 1 ? '' : 's'} exported.${rows.length >= 2000 && dataset.period ? ' That is the most one export carries. Narrow the dates for the rest.' : ''}`);
     } catch (e) {
-      setNote(String(e?.message || 'Not exported.'));
+      setNote(errorWords(e, 'export the data'));
     } finally {
       setBusy(false);
     }

@@ -139,7 +139,7 @@ export async function createOffer(actor: Actor, input: CreateInput) {
     Object.assign(values, { name, orgName: org?.name || '', today: words(todayIst()) });
   }
   const email = String(input.email || emailOnFile || '').trim();
-  if (!EMAIL.test(email)) throw new OfferError('An offer goes by e-mail: give an e-mail address.');
+  if (!EMAIL.test(email)) throw new OfferError('An offer goes by email: give an email address.');
 
   const { lines, from, structureId } = await linesFor(accountId, orgId, { annualCtc, structureId: input.structureId, lines: input.lines });
   const gross = lines.filter((l) => l.kind !== 'EMPLOYER').reduce((s, l) => s + l.monthly, 0);

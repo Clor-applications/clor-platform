@@ -4,6 +4,7 @@ import { me } from '@platform/auth';
 import { orgId as platformOrgId } from '@platform/context';
 import { PageHeader, SkeletonCard } from '../components/ui/Primitives';
 import { notify } from '../components/ui/notify';
+import { errorWords } from '@ui/utils/errorWords.js';
 import { SettingHelp } from '../picks/round64';
 import { FROM_ACCOUNTING, LOGO, SECTIONS, bodyOf, isDirty, logoFromMe, usedOn } from './companyFields';
 import './company.css';
@@ -72,7 +73,7 @@ export default function CompanyDetails() {
         setForm(r.company);
         setSaved(r.company);
       })
-      .catch((e) => setError(String(e?.message || 'Could not load the company details.')));
+      .catch((e) => setError(errorWords(e, 'load the company details')));
     /* The logo lives in Accounting's company settings; the page works without it. */
     me()
       .then((r) => setLogo(logoFromMe(r, platformOrgId())))
@@ -88,7 +89,7 @@ export default function CompanyDetails() {
       setSaved(r.company);
       notify.success('Company details saved.');
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the company details'));
     } finally {
       setSaving(false);
     }

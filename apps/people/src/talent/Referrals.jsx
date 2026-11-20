@@ -1,4 +1,5 @@
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
@@ -20,7 +21,7 @@ import { Footer, FormError, Pill, ReasonDrawer, STAGES, day, tabItems, useParamS
  * or, without Payroll in CLOR, HR pays it by hand and marks it paid. Amounts show only to
  * Recruitment edit and Payroll; Recruitment view sees that there is a bonus, not how much.
  */
-const TABS = [['all', 'All'], ['open', 'In process'], ['joined', 'Joined'], ['bonusWaiting', 'Bonus waiting'], ['bonusDue', 'Bonus due'], ['bonusPaid', 'Bonus paid'], ['notTaken', 'Not taken forward'], ['report', 'By employee']];
+const TABS = [['all', 'All'], ['open', 'In process'], ['joined', 'Joined'], ['bonusWaiting', 'Bonus waiting'], ['bonusDue', 'Bonus due'], ['bonusPaid', 'Bonus paid'], ['notTaken', 'Rejected'], ['report', 'By employee']];
 const BONUS = {
   NONE: ['No bonus yet', 'ui-pill-neutral'],
   WAITING: ['Waiting', 'ui-pill-info'],
@@ -48,7 +49,7 @@ export default function Referrals({ params = {}, openScreen }) {
   const money = Boolean(req.data?.money);
 
   const act = async (fn, ok) => {
-    try { const r = await fn(); notify.success(typeof ok === 'function' ? ok(r) : ok); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not done.')); }
+    try { const r = await fn(); notify.success(typeof ok === 'function' ? ok(r) : ok); req.reload(); } catch (e) { notify.error(errorWords(e, 'finish that')); }
   };
   const bonusCell = (r) => (!r.hasBonus ? <span className="ui-muted">—</span> : (
     <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
@@ -74,7 +75,7 @@ export default function Referrals({ params = {}, openScreen }) {
     <div className="space-y-6">
       {/* Refer someone is the one primary action here (People plan, 8 Nov 2026), not a menu entry of its own. */}
       <ListHeader
-        module="Talent"
+        module="Hiring"
         title="Referrals"
         description="People your staff put forward, where each stands, and the bonus owed when one is hired."
         secondary={canEdit ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setRule(true)}>Bonus rule</button> : null}
@@ -184,7 +185,7 @@ function RuleDrawer({ onClose }) {
   const save = async () => {
     setBusy(true);
     setError(null);
-    try { await saveReferrerRule({ forfeitIfReferrerLeaves: current }); notify.success('Saved.'); onClose(); } catch (e) { setError(e); setBusy(false); }
+    try { await saveReferrerRule({ forfeitIfReferrerLeaves: current }); notify.success('Referral rule saved.'); onClose(); } catch (e) { setError(e); setBusy(false); }
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="Referral bonus rule" dirty={value !== null && value !== req.data?.forfeitIfReferrerLeaves}

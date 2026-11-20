@@ -12,6 +12,8 @@ import { createGeofence, deleteGeofence, listGeofences, placeAt, searchPlaces, u
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import WebClockSettings from '../components/WebClockSettings';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /* The map library (Leaflet, ~150 KB) loads with this drawer, not with the app every user downloads. */
 const SiteMap = lazy(() => import('../components/SiteMap'));
@@ -47,7 +49,7 @@ export default function Geofences() {
   const perms = usePermissions();
   const canEditPortal = Boolean(perms?.isAdmin) || Boolean(perms?.permissions?.has?.('ATTENDANCE::Employee Portal::EDIT'));
   const load = useCallback(() => {
-    listGeofences().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load sites.')));
+    listGeofences().then((v) => { setAll(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load the punch areas')));
   }, []);
   useEffect(() => {
     load();
@@ -81,26 +83,25 @@ export default function Geofences() {
       description="Where a phone punch counts: within the radius of an area. Not People's work sites, which are the company's legal establishments."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search punch areas…', label: 'Search punch areas' }}
-      moreItems={[{ key: 'webClock', label: 'Clock-in from a browser', Icon: Globe }]}
+      moreItems={[{ key: 'webClock', label: 'Punch from a browser', Icon: Globe }]}
       onMoreSelect={(k) => { if (k === 'webClock') setWebClock(true); }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" onClick={add}>
-          <Plus size={16} aria-hidden="true" /> New site
+          <Plus size={16} aria-hidden="true" /> New punch area
         </button>
       }
-      cards={[
-        { label: 'Active sites', value: figures.active, count: true, tone: 'paid', Icon: MapPin },
+      countLine={countItems([
+        { label: 'Active punch areas', value: figures.active, count: true, tone: 'paid', Icon: MapPin },
         { label: 'For everyone', value: figures.everyone, count: true, tone: 'sent', Icon: LocateFixed },
         { label: 'For one area', value: figures.area, count: true, tone: 'partial', Icon: LocateFixed },
-        { label: 'Tied to a site', value: figures.tied, count: true, tone: 'all', Icon: Users },
-      ]}
+        { label: 'Tied to one area', value: figures.tied, count: true, tone: 'all', Icon: Users },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
       onStatusChange={setStatus}
-      tabsLabel="Site status"
+      tabsLabel="Punch area status"
     >
       <LoadFailed message={loadError} onRetry={load} />
       {!all ? (
@@ -110,7 +111,7 @@ export default function Geofences() {
           <table className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
-                <ColumnHeader label="Site" col="name" state={filters} />
+                <ColumnHeader label="Punch area" col="name" state={filters} />
                 <ColumnHeader label="Where" col="where" state={filters}  className="ui-col-grow" />
                 <th scope="col" className="ui-num">Radius</th>
                 <ColumnHeader label="For" col="for" state={filters} />
@@ -123,13 +124,13 @@ export default function Geofences() {
                 <tr>
                   <td colSpan={6}>
                     {inTab.length ? (
-                      <EmptyState kind="filtered" totalCount={inTab.length} title="No sites match" description="Nothing in this tab matches the search or the column filters." />
+                      <EmptyState kind="filtered" totalCount={inTab.length} title="No punch areas match" description="Nothing in this tab matches the search or the column filters." />
                     ) : (
                       <EmptyState
                         icon={MapPin}
                         title={status === 'INACTIVE' ? 'No inactive punch areas' : 'No punch areas'}
-                        description={status === 'INACTIVE' ? 'Try another tab.' : 'Add the office, the factory gate or a client site: search for its address and check the pin on the map.'}
-                        routes={status === 'INACTIVE' ? undefined : [{ label: 'New site', description: 'Search for its address and check the pin on the map.', onSelect: add }]}
+                        description={status === 'INACTIVE' ? 'Pick Active to see the ones in use.' : 'Add the office, the factory gate or a client site: search for its address and check the pin on the map.'}
+                        routes={status === 'INACTIVE' ? undefined : [{ label: 'New punch area', description: 'Search for its address and check the pin on the map.', onSelect: add }]}
                       />
                     )}
                   </td>
@@ -284,19 +285,19 @@ function SiteForm({ initial, areas, onClose, onSaved }) {
     try {
       if (form.id) await updateGeofence(form.id, body);
       else await createGeofence(body);
-      notify.success('Site saved.');
+      notify.success('Punch area saved.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     }
   };
   const remove = async () => {
-    if (!(await confirmDialog({ title: `Delete ${form.name}?`, message: 'Only a site nobody has punched at can be deleted. Otherwise switch it off.', confirmLabel: 'Delete' }))) return;
+    if (!(await confirmDialog({ title: `Delete ${form.name}?`, message: 'Only a punch area nobody has punched at can be deleted. Otherwise switch it off.', confirmLabel: 'Delete' }))) return;
     try {
       await deleteGeofence(form.id);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not deleted.'));
+      notify.error(errorWords(err, 'delete it'));
     }
   };
 
@@ -325,7 +326,7 @@ function SiteForm({ initial, areas, onClose, onSaved }) {
           <Suspense fallback={<div className="clor-site-map ui-skel" aria-hidden="true" />}>
             <SiteMap latitude={lat} longitude={lon} radius={Number(form.radiusMeters) || 200} onMove={(la, lo) => moveTo(la, lo)} />
           </Suspense>
-          <p className="ui-caption">{placed ? 'Drag the pin to the gate or the building’s centre. The circle is where a phone punch counts.' : 'Search above, or tap the map where the site is.'}</p>
+          <p className="ui-caption">{placed ? 'Drag the pin to the gate or the building’s centre. The circle is where a phone punch counts.' : 'Search above, or tap the map where the punch area is.'}</p>
           {form.address ? <p className="text-sm"><MapPin size={14} aria-hidden="true" className="ui-subtle me-1 inline" />{form.address}</p> : null}
         </div>
         <div className="block sm:col-span-2">

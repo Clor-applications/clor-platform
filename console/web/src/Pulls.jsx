@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 
 import { api } from './api';
-import { Loading, Notice, PageHead, Pill, ReasonDialog, When, useAction, useLoad } from './kit';
+import { ConfirmDialog, Loading, Notice, PageHead, Pill, ReasonDialog, When, useAction, useLoad } from './kit';
 import { MARK } from './Releases';
 
 const WRITER = { AGENT: 'Agent', DEPENDABOT: 'Dependabot', PERSON: 'Person' };
@@ -19,6 +19,7 @@ export default function Pulls({ me }) {
   const act = useAction(reload);
   const [open, setOpen] = useState(null);
   const [closing, setClosing] = useState(null);
+  const [merging, setMerging] = useState(null);
   const engineer = rank(me.role) >= 1;
   const owner = rank(me.role) >= 2;
 
@@ -75,7 +76,7 @@ export default function Pulls({ me }) {
                             {p.cannotMerge ? <p className="con-quiet">Cannot be merged here: {p.cannotMerge}</p> : null}
                             {engineer ? (
                               <div className="con-row-actions">
-                                {owner && !p.cannotMerge ? <button type="button" className="ui-btn con-btn-primary ui-btn-sm" disabled={Boolean(act.busy)} onClick={() => act.run(`merge-${p.number}`, () => api.pullMerge(p.number), `#${p.number} is merged.`)}>Merge</button> : null}
+                                {owner && !p.cannotMerge ? <button type="button" className="ui-btn con-btn-primary ui-btn-sm" disabled={Boolean(act.busy)} onClick={() => setMerging(p)}>Merge</button> : null}
                                 {!p.fullTests ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(act.busy)} onClick={() => act.run(`tests-${p.number}`, () => api.pullFullTests(p.number), `The full tests have started on #${p.number}.`)}>Run full tests</button> : null}
                                 <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={Boolean(act.busy)} onClick={() => setClosing(p)}>Close</button>
                               </div>
@@ -90,6 +91,9 @@ export default function Pulls({ me }) {
             </tbody>
           </table>
         </div>
+      ) : null}
+      {merging ? (
+        <ConfirmDialog title={`Merge #${merging.number} into main?`} lede={`"${merging.title}" goes into main and out to customers with the next release. A merge cannot be undone from here.`} confirm="Merge pull request" cancel="Keep it open" onClose={() => setMerging(null)} onConfirm={() => act.through(() => api.pullMerge(merging.number), `#${merging.number} is merged.`)} />
       ) : null}
       {closing ? (
         <ReasonDialog title={`Close #${closing.number}`} lede={`"${closing.title}" is closed without merging. The reason is posted on the pull request.`} label="Why" confirm="Close pull request" danger onClose={() => setClosing(null)} onConfirm={(reason) => act.through(() => api.pullClose(closing.number, reason), `#${closing.number} is closed.`)} />

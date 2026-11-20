@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useRef, useState } from 'react';
 import RangePresets from '@ui/components/ui/RangePresets';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
@@ -91,8 +92,8 @@ function AccessReport() {
           </>} />
       )}
       {data?.privateCaseOpens?.length ? (
-        <section className="space-y-2" aria-label="Private cases">
-          <h3 className="ui-t-sec">Private cases <span className="ui-caption">counts only</span></h3>
+        <section className="space-y-2" aria-label="Confidential cases">
+          <h3 className="ui-t-sec">Confidential cases <span className="ui-caption">(counts only)</span></h3>
           <ul className="divide-y border-t text-sm">
             {data.privateCaseOpens.map((c) => <li key={`${c.userId}-${c.what}`} className="flex justify-between gap-3 py-2"><span>{c.user} · {c.what === 'EVIDENCE' ? 'opened evidence' : 'opened a case'}</span><span className="tabular-nums">{c.count}</span></li>)}
           </ul>
@@ -112,7 +113,7 @@ function Retention({ canEdit }) {
       await apiFetch(`${base()}/retention/${r.dataType}`, { ...opts, method: 'PUT', body: { legalHold: false } });
       notify.success('Hold lifted.');
       req.reload();
-    } catch (e) { notify.error(String(e?.message || 'Not changed.')); }
+    } catch (e) { notify.error(errorWords(e, 'make the change')); }
   };
   const columns = [
     { key: 'label', label: 'Data', always: true, render: (r) => <span className="min-w-0"><span className="block font-medium">{r.label}</span><span className="block ui-caption">{r.basis}{r.erasable ? '' : ' Never erased by a request.'}</span></span> },
@@ -208,7 +209,7 @@ function ReviewDrawer({ row, hold, canKeep, canErase, onClose, onDone }) {
   const [error, setError] = useState(null);
   const decide = async (decision) => {
     if (decision === 'KEEP' && !note.trim()) { setError({ message: 'Say why it is kept.' }); return; }
-    if (decision === 'APPROVE' && !(await confirmDialog({ title: `Erase ${row.label}'s personal data?`, message: 'This cannot be undone.', confirmLabel: 'Erase' }))) return;
+    if (decision === 'APPROVE' && !(await confirmDialog({ title: `Erase ${row.label}'s personal data?`, message: 'Their name, contacts, address, photo, notes and documents are erased for good. Pay and statutory records stay for their legal period.', confirmLabel: 'Erase personal data' }))) return;
     setBusy(true);
     setError(null);
     try {
@@ -243,14 +244,14 @@ function Auditors({ canEdit }) {
       await apiFetch(`${base()}/auditor-grants/${encodeURIComponent(g.id)}/revoke`, { ...opts, method: 'POST', body: {} });
       notify.success('Access ended.');
       req.reload();
-    } catch (e) { notify.error(String(e?.message || 'Not changed.')); }
+    } catch (e) { notify.error(errorWords(e, 'make the change')); }
   };
   const columns = [
     { key: 'who', label: 'Auditor', always: true, render: (g) => <span className="font-medium">{name(g.userId)}</span> },
     { key: 'for', label: 'For', render: (g) => g.purpose },
     { key: 'docs', label: 'Documents', align: 'right', render: (g) => <span className="tabular-nums">{(g.documentIds || []).length}</span> },
     { key: 'until', label: 'Until', render: (g) => <span className="tabular-nums whitespace-nowrap">{day(g.untilAt)}</span> },
-    { key: 'state', label: 'State', render: (g) => (g.live ? <span className="ui-pill ui-pill-pos">Open</span> : <span className="ui-muted">{g.revokedAt ? 'Ended early' : 'Ended'}</span>) },
+    { key: 'state', label: 'Status', render: (g) => (g.live ? <span className="ui-pill ui-pill-pos">Open</span> : <span className="ui-muted">{g.revokedAt ? 'Ended early' : 'Ended'}</span>) },
   ];
   return (
     <section aria-label="Auditor access">

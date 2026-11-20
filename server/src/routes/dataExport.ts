@@ -20,6 +20,7 @@ import { RECORD_EXTRAS_PERSONAL } from '../services/people/recordExtras.js';
 import { levelFor, resolveAccess } from '../services/access.js';
 import { seesPersonal, teamScope } from '../services/people/scope.js';
 import { WORKSPACE } from '../services/people/workspace.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 /**
  * A company's own books and its own settings, in files its owner can keep.
@@ -258,7 +259,7 @@ const plain = (rows: any[]): any[] =>
 
 dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    return res.status(403).json({ error: 'orgId mismatch' });
+    return otherCompany(res);
   }
   const { accountId, orgId } = req.tenant!;
   const scope = { accountId, orgId };
@@ -271,14 +272,14 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
   const wantData = asked === 'all' || asked === 'data';
   const wantConfiguration = asked === 'all' || asked === 'configuration';
   if (!wantData && !wantConfiguration) {
-    return res.status(400).json({ error: "scope must be 'data', 'configuration' or 'all'" });
+    return res.status(400).json({ error: 'Choose what to export: the data, the settings, or both.' });
   }
 
   const org = await platformPrisma.org.findFirst({
     where: { id: orgId, accountId },
     select: { id: true, name: true, slug: true, profileJson: true },
   });
-  if (!org) return res.status(404).json({ error: 'Company not found' });
+  if (!org) return res.status(404).json({ error: 'No such company.' });
 
   /*
    * Secrets are stripped, not exported.

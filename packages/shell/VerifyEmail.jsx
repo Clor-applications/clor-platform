@@ -26,7 +26,7 @@ export default function VerifyEmail({ token, onDone }) {
   const title = state.status === 'ok' ? 'Email confirmed' : state.status === 'failed' ? 'Link not valid' : 'Confirming your email…';
   const subtitle =
     state.status === 'failed'
-      ? `${state.message} Verification links work once; sign in and ask for a new one.`
+      ? `${state.message} Confirmation links work once. Sign in and ask for a new one.`
       : state.message || 'One moment.';
 
   return (

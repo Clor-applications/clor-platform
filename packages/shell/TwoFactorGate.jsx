@@ -108,7 +108,7 @@ export default function TwoFactorGate() {
   const carryOn = () =>
     act(async () => {
       const still = await recheckTwoFactor();
-      if (still) setNote('Two-step sign-in is not on yet. Go back a step and enter the code.');
+      if (still) setNote('Two-factor sign-in is not on yet. Go back a step and enter the code.');
     });
 
   const codesText = (codes || []).join('\n');
@@ -179,7 +179,7 @@ export default function TwoFactorGate() {
           </form>
         </GateStep>
 
-        <GateStep n={2} title={method === 'SMS' ? 'Type the code we texted you' : 'Scan the code with your authenticator app'} state={stateOf(1)} summary={codes && method === 'SMS' ? 'Codes by text message switched on.' : codes ? 'Authenticator switched on.' : 'Two-step sign-in is on.'}>
+        <GateStep n={2} title={method === 'SMS' ? 'Type the code we texted you' : 'Scan the code with your authenticator app'} state={stateOf(1)} summary={codes && method === 'SMS' ? 'Codes by text message switched on.' : codes ? 'Authenticator switched on.' : 'Two-factor sign-in is on.'}>
           {method === 'SMS' ? (
             <form onSubmit={turnOn} className="grid gap-3">
               <p className="text-sm">We texted a 6-digit code to <span className="ui-mono">{sentTo}</span>. It works for 5 minutes.</p>
@@ -188,7 +188,7 @@ export default function TwoFactorGate() {
                 <input className="ui-input ui-num h-10 w-40 text-center tracking-[0.3em]" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus required />
               </label>
               <div className="flex flex-wrap items-center gap-2">
-                <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.trim().length !== 6}>{busy ? 'Checking…' : 'Turn on'}</button>
+                <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.trim().length !== 6}>{busy ? 'Checking…' : 'Turn on text codes'}</button>
                 <button type="button" className="ui-btn ui-btn-ghost" disabled={busy || wait > 0} onClick={() => act(() => textCode(smsPassword.current))}>
                   {wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'}
                 </button>
@@ -212,7 +212,7 @@ export default function TwoFactorGate() {
                 <input className="ui-input ui-num h-10 w-40 text-center tracking-[0.3em]" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus required />
               </label>
               <div>
-                <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.trim().length !== 6}>{busy ? 'Checking…' : 'Turn on'}</button>
+                <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.trim().length !== 6}>{busy ? 'Checking…' : 'Turn on authenticator'}</button>
               </div>
             </div>
           </form>
@@ -243,7 +243,7 @@ export default function TwoFactorGate() {
                 </label>
               </>
             ) : (
-              <p className="text-sm">Two-step sign-in is already on for this account.</p>
+              <p className="text-sm">Two-factor sign-in is already on for this account.</p>
             )}
             <div>
               <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !saved} onClick={carryOn}>{busy ? 'Opening…' : 'Continue to CLOR'}</button>

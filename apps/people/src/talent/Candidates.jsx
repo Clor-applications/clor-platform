@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
@@ -56,7 +57,7 @@ export default function Candidates({ params = {}, openScreen }) {
   ] : null;
 
   const move = async (r, to) => {
-    try { await moveCandidate(r.id, to); notify.success(`${r.name}: ${word(STAGES, to).toLowerCase()}.`); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not moved.')); }
+    try { await moveCandidate(r.id, to); notify.success(`${r.name}: ${word(STAGES, to).toLowerCase()}.`); req.reload(); } catch (e) { notify.error(errorWords(e, 'move it')); }
   };
   const columns = [
     { key: 'name', label: 'Candidate', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{r.currentEmployer || r.email || r.phone || ''}</span></span> },
@@ -73,7 +74,7 @@ export default function Candidates({ params = {}, openScreen }) {
   return (
     <div className="space-y-6">
       <ListHeader
-        module="Talent"
+        module="Hiring"
         title="Candidates"
         description="Everyone applying, on one pipeline from applied to hired, as a list or a board of stages."
         primary={canCreate ? { label: 'Add candidate', icon: Plus, onClick: () => setAdding(true) } : null}
@@ -110,7 +111,7 @@ export default function Candidates({ params = {}, openScreen }) {
 function ToolbarItems({ q, setQ, opening, setOpening, openings, view, chooseView }) {
   return (
     <>
-      <SearchField value={q} onSearch={setQ} placeholder="Search name, e-mail or phone" label="Search candidates" className="w-full sm:w-72" />
+      <SearchField value={q} onSearch={setQ} placeholder="Search name, email or phone" label="Search candidates" className="w-full sm:w-72" />
       <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Opening" value={opening} alwaysSearch={openings.length > 8} onChange={(v) => setOpening(v || '')} options={[{ value: '', label: 'Every opening' }, ...openings.map((o) => ({ value: o.id, label: o.title }))]} /></div>
       <div className="pt-seg" role="group" aria-label="Show as">
         <button type="button" className="pt-seg-item" aria-pressed={view === 'board'} onClick={() => chooseView('board')}>Board</button>

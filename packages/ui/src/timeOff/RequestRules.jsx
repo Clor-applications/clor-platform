@@ -11,6 +11,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { can } from './shared';
 import { getRequestRules, saveRequestRules } from './api';
 import { KINDS, KIND_NAME } from './AttendanceRequests';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Settings → Request rules (TIME-LEAVE-DECISIONS.md, advanced build): for
@@ -67,7 +68,7 @@ export default function RequestRules() {
       notify.success('Request rules saved.');
     } catch (err) {
       setError(err);
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the request rules'));
     } finally {
       setSaving(false);
     }

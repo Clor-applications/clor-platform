@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, day, when } from './kit';
+import { Err, Loading, day, when, errorWords } from './kit';
 import { opsBooksCheck, opsHealth, opsRequestLookup } from './api';
 
 /**
@@ -32,7 +32,7 @@ export function Health({ go, request = '' }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   const load = useCallback(() => {
-    opsHealth().then(setD).catch((e) => setError(String(e?.message || e)));
+    opsHealth().then(setD).catch((e) => setError(errorWords(e, 'load the background jobs')));
   }, []);
   useEffect(load, [load]);
 
@@ -42,8 +42,8 @@ export function Health({ go, request = '' }) {
   return (
     <>
       <PageHead
-        title="Jobs & workers"
-        description="Background work outside requests: postings, e-invoices, reader punches, messages and renewals. Fixing a stopped worker stays with engineering."
+        title="Background jobs"
+        description="Work CLOR does in the background: postings, e-invoices, reader punches, messages and renewals. If a job has stopped, tell engineering."
         meta={d ? <>Checked {when(d.at)}</> : null}
         actions={
           <button type="button" className="ws-btn ws-btn--quiet" onClick={() => { setD(null); setError(''); load(); }}>
@@ -95,7 +95,7 @@ export function Health({ go, request = '' }) {
                       <td className="num">
                         {s.screen && s.count ? (
                           <button type="button" className="ops-link" onClick={() => go('emailLog', { status: 'FAILED' })}>
-                            Open
+                            See failed emails
                           </button>
                         ) : null}
                       </td>
@@ -122,7 +122,7 @@ function WorkerList({ workers }) {
           <tr>
             <th>Job</th>
             <th>State</th>
-            <th className="num">Failed (24 h)</th>
+            <th className="num">Failed, last 24 hours</th>
           </tr>
         </thead>
         <tbody>
@@ -169,7 +169,7 @@ export function BooksCheck({ openAccount }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   const load = useCallback(() => {
-    opsBooksCheck().then(setD).catch((e) => setError(String(e?.message || e)));
+    opsBooksCheck().then(setD).catch((e) => setError(errorWords(e, 'run the Books check')));
   }, []);
   useEffect(load, [load]);
   return (
@@ -234,7 +234,7 @@ export function RequestLookup({ initial = '' }) {
       const r = await opsRequestLookup(id.trim());
       window.open(r.logsUrl, '_blank', 'noopener');
     } catch (err) {
-      setError(String(err?.message || err));
+      setError(errorWords(err, 'open the logs'));
     } finally {
       setBusy(false);
     }

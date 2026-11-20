@@ -9,6 +9,7 @@ import { authorize } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { z } from 'zod';
 import { check, id } from '../middleware/validate.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 /**
  * Workspace, Overview: what waits on the signed-in person in each app of this
@@ -19,13 +20,13 @@ import { check, id } from '../middleware/validate.js';
 export const workspaceWaitingRouter = Router();
 
 workspaceWaitingRouter.get('/orgs/:orgId/workspace/waiting', requireAuth, requireTenantContext, check({ params: z.object({ orgId: id }) }), async (req, res) => {
-  if (String(req.params.orgId) !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (String(req.params.orgId) !== req.tenant!.orgId) return otherCompany(res);
   res.json(await workspaceWaiting(req));
 });
 
 /** The list behind that number, and the reader's latest updates (services/workspace/inbox.ts). Same gate: it shows only what the reader may decide. */
 workspaceWaitingRouter.get('/orgs/:orgId/workspace/inbox', requireAuth, requireTenantContext, check({ params: z.object({ orgId: id }) }), async (req, res) => {
-  if (String(req.params.orgId) !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (String(req.params.orgId) !== req.tenant!.orgId) return otherCompany(res);
   res.json(await workspaceInbox(req));
 });
 
@@ -36,7 +37,7 @@ workspaceWaitingRouter.get('/orgs/:orgId/workspace/inbox', requireAuth, requireT
  * gets it, as with the rest of Workspace's company pages.
  */
 workspaceWaitingRouter.get('/orgs/:orgId/workspace/integrations', requireAuth, requireTenantContext, check({ params: z.object({ orgId: id }) }), async (req, res) => {
-  if (String(req.params.orgId) !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  if (String(req.params.orgId) !== req.tenant!.orgId) return otherCompany(res);
   if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile')) return res.status(403).json({ error: 'Only someone who can see the company profile can see its integrations.', code: 'NOT_ALLOWED' });
   res.json(await workspaceIntegrations(req));
 });

@@ -73,7 +73,7 @@ async function tellOwner(accountId: string, inv: { id: string; accountId: string
       relatedType: 'BillingInvoice',
       relatedId: inv.id,
       data: {
-        userName: to.name,
+        userName: to.name && to.name !== to.email ? to.name : '',
         number: inv.number || '',
         amount: rupees(inv.total),
         period: inv.periodStart && inv.periodEnd ? `${words(inv.periodStart)} to ${words(inv.periodEnd)}` : 'the next period',

@@ -8,8 +8,6 @@
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: rgb(var(--fg-muted, 58 63 71));
 }
 
@@ -93,8 +91,6 @@
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: rgb(var(--fg-muted, 58 63 71));
 }
 .ws-member-facts dd {
@@ -350,8 +346,6 @@
   padding: 8px 8px 8px 0;
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: rgb(var(--fg));
 }
 :root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-table td { padding: 10px 8px 10px 0; vertical-align: middle; }
@@ -367,8 +361,6 @@
   padding: 0 12px;
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: rgb(74 72 66);
 }
 .ws-role-group > i { width: 8px; height: 8px; border-radius: 9999px; background: rgb(var(--tag)); flex: none; }

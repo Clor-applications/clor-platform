@@ -295,7 +295,7 @@ describe('reminders and the leave rule’s hand-on, from the engine’s dues job
     const handed = (await engineOf(x.id))!.steps.find((s) => s.status === 'WAITING')!;
     expect(handed.resolvedHow).toBe('HANDED_ON');
     expect((handed.candidateUserIds as string[]).sort()).toEqual([hr.userId, kavya.userId].sort());
-    expect(JSON.stringify((await leaveRow(x.id)).history)).toContain('handed on');
+    expect(JSON.stringify((await leaveRow(x.id)).history)).toMatch(/handed on/i);
     expect((await att(hr).post(`/leave/requests/${x.id}/approve`, {})).status).toBe(200);
   }, 90_000);
 });

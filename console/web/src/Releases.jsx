@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 
 import { api } from './api';
-import { Loading, Notice, PageHead, Pill, ReasonDialog, When, useAction, useLoad } from './kit';
+import { ConfirmDialog, Loading, Notice, PageHead, Pill, ReasonDialog, When, useAction, useLoad } from './kit';
 
 export const MARK = { MIGRATION: 'Database change', WORKFLOW: 'CI workflow', RELEASE: 'Release scripts', ACCESS: 'Sign-in or permissions', BOOKS: 'Books' };
 const can = (me, need) => ['VIEWER', 'ENGINEER', 'OWNER'].indexOf(me.role) >= ['VIEWER', 'ENGINEER', 'OWNER'].indexOf(need);
@@ -97,7 +97,7 @@ export default function Releases({ me }) {
             <span><strong>{running.kind}</strong> started by {running.actor}, <When at={running.at} /> <Pill tone="warn">{runWord(running)}</Pill></span>
             <span className="con-row-actions">
               <a className="con-link" href={running.url} target="_blank" rel="noreferrer">Open on GitHub</a>
-              {approvable && owner ? <button type="button" className="ui-btn con-btn-primary ui-btn-sm" disabled={Boolean(act.busy)} onClick={() => act.run('approve', () => api.approve(running.id), 'Approved. The run is continuing.')}>Approve</button> : null}
+              {approvable && owner ? <button type="button" className="ui-btn con-btn-primary ui-btn-sm" disabled={Boolean(act.busy)} onClick={() => setAsk({ kind: 'approve', id: running.id, what: running.kind })}>Approve</button> : null}
             </span>
           </div>
           {running.status === 'waiting' && !approvable ? <p className="con-quiet">Waiting for an owner to approve.</p> : null}
@@ -158,6 +158,9 @@ export default function Releases({ me }) {
 
       {ask?.kind === 'release' ? (
         <ReasonDialog title={`Release ${data.head.short}`} lede={`Customers move from ${data.serving} to ${data.staged.revision}. The web app and the website are published too. An owner approval follows on this page.`} label="What is in this release" confirm="Release" onClose={() => setAsk(null)} onConfirm={(reason) => act.through(() => api.release(reason), 'The release has started. Approve it below to let it run.')} />
+      ) : null}
+      {ask?.kind === 'approve' ? (
+        <ConfirmDialog title="Approve this run?" lede={`The ${String(ask.what || 'run').toLowerCase()} carries on now${data.staged ? `, and customers move to ${data.staged.revision}` : ''}. Once it has run it cannot be stopped from here; use Roll back to undo a release.`} confirm="Approve run" cancel="Not yet" onClose={() => setAsk(null)} onConfirm={() => act.through(() => api.approve(ask.id), 'Approved. The run is continuing.')} />
       ) : null}
       {ask?.kind === 'rollback' ? (
         <ReasonDialog title="Roll back the API" lede={`Every customer moves from ${data.serving} to ${ask.revision}. A database change made since then stays as it is.`} label="Why" confirm="Roll back" danger onClose={() => setAsk(null)} onConfirm={(reason) => act.through(() => api.rollback(ask.revision, reason), 'The rollback has started.')} />

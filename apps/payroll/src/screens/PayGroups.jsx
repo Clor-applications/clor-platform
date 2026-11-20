@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, History, Plus, Repeat, Trash2, Users } from '@ui/components/ui/lineIcons';
+import { Plus, Trash2, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -11,6 +11,8 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayGroups, createPayGroup, updatePayGroup, deletePayGroup } from '../api/payrollCalendar';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { payDayWarning } from '@ui/picks/round66';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Populations paid on the same rhythm.
@@ -75,7 +77,7 @@ export default function PayGroups() {
         setAll(v);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load pay groups.')));
+      .catch((e) => setError(errorWords(e, 'load pay groups')));
   }, []);
 
   useEffect(() => {
@@ -86,8 +88,8 @@ export default function PayGroups() {
     const ok = await confirmDialog({
       title: `Delete ${row.name}?`,
       message:
-        'A group nothing has been paid on can be deleted. One with payroll behind it must be made inactive instead, so those runs keep a population you can name.',
-      confirmLabel: 'Yes, delete',
+        'A group nothing has been paid on can be deleted. One with payroll behind it must be made inactive instead, so past pay runs still show who was paid.',
+      confirmLabel: 'Delete pay group',
     });
     if (!ok) return;
     try {
@@ -95,7 +97,7 @@ export default function PayGroups() {
       notify.success(`${row.name} deleted.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not delete that pay group.'));
+      notify.error(errorWords(e, 'delete that pay group'));
     }
   };
 
@@ -122,10 +124,9 @@ export default function PayGroups() {
     <DocumentListShell
       entity="payGroup"
       title="Pay groups"
-      description="Populations paid on the same rhythm: monthly staff, weekly labour, contractors."
+      description="People paid on the same schedule: monthly staff, weekly labour, contractors."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search pay groups…', label: 'Search pay groups' }}
       moreItems={all?.length ? [exportMenuItem('Export pay groups')] : null}
       onMoreSelect={(k) => {
@@ -138,12 +139,12 @@ export default function PayGroups() {
           <Plus size={16} aria-hidden="true" /> New pay group
         </button>
       }
-      cards={[
-        { label: 'Active groups', value: counts.ACTIVE, count: true, tone: 'paid', Icon: Users, onSelect: () => setStatus('ACTIVE') },
-        { label: 'Paid monthly', value: figures.monthly, count: true, tone: 'sent', Icon: CalendarDays },
-        { label: 'Other cycles', value: figures.other, count: true, tone: 'partial', Icon: Repeat },
-        { label: 'Used by payroll', value: figures.inUse, count: true, tone: 'outstanding', Icon: History },
-      ]}
+      countLine={countItems([
+        { label: 'Active groups', value: counts.ACTIVE, count: true, tone: 'paid', onSelect: () => setStatus('ACTIVE') },
+        { label: 'Paid monthly', value: figures.monthly, count: true, tone: 'sent' },
+        { label: 'Other cycles', value: figures.other, count: true, tone: 'partial' },
+        { label: 'Used by payroll', value: figures.inUse, count: true, tone: 'outstanding' },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -176,7 +177,7 @@ export default function PayGroups() {
                       <EmptyState
                         icon={Users}
                         title={status ? `No ${status.toLowerCase()} pay groups` : 'No pay groups yet'}
-                        description="A payroll run is drawn from a pay group. Add the rhythms this company pays on, and a run can name who it is for."
+                        description="A pay run is for one pay group. Add the schedules this company pays on, and a pay run can name who it is for."
                         routes={status ? undefined : [{ label: 'New pay group', description: 'E.g. Monthly staff, Weekly site labour.', onSelect: create }]}
                       />
                     )}
@@ -255,7 +256,7 @@ const PayGroupForm = ({ initial, onClose, onSaved }) => {
       notify.success(`${form.name} saved.`);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not save that pay group.'));
+      notify.error(errorWords(err, 'save that pay group'));
     } finally {
       setSaving(false);
     }

@@ -1407,7 +1407,7 @@ attendanceInsightsRouter.post(`${base}/overtime/requests/:id/:decision`, overtim
   if (!(await attendanceRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const decision = String(req.params.decision);
-  if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'approve or reject.' });
+  if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'Choose approve or reject.' });
   /* A team-scoped role decides its own team's overtime and comp-off only, as the bulk review does. */
   const id = String(req.params.id);
   const row = await peoplePrisma.overtimeRequest.findFirst({ where: { id, orgId }, select: { employeeId: true, managerApprovedAt: true } });

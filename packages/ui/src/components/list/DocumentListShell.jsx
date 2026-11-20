@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { PageHeader } from '../ui/Primitives';
 import { ListSearch, MoreButton, StatCards } from './ListPageParts';
 import CopyListLink from './CopyListLink';
+import { CountLine } from '../ui/CountLine';
 
 /**
  * The shape of a document list page, in one place.
@@ -62,6 +63,9 @@ export default function DocumentListShell({
    * Opt-in, so a list that has not been looked at on a phone keeps its layout.
    */
   phoneCompact = false,
+  /* The count line (DESIGN.md "Page header"), directly under the title: CountLine items
+     ([{ label, value, tone?, onClick?, active? }]) or a node of the caller's own. Optional. */
+  countLine = null,
   above = null,
   /*
    * Where the rows sit. Almost every list is a table and takes the card;
@@ -85,7 +89,8 @@ export default function DocumentListShell({
     return () => window.clearTimeout(timer);
   }, [headerPortalId]);
 
-  const header = (
+  const countLineNode = Array.isArray(countLine) ? <CountLine items={countLine} /> : countLine;
+  const heading = (
     <PageHeader
       entity={entity}
       title={title}
@@ -123,6 +128,7 @@ export default function DocumentListShell({
       }
     />
   );
+  const header = countLineNode ? <>{heading}{countLineNode}</> : heading;
 
   return (
     <div className={`${compact ? (tight ? 'space-y-2' : 'space-y-3') : 'space-y-6'} ${tight ? 'document-list-tight' : ''} ${className}`}>

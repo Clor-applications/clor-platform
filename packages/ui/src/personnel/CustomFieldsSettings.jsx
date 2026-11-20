@@ -8,6 +8,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { getCustomFieldDefs, saveCustomFieldDef } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Custom fields (CORE-08): the company's own fields on a person — text,
@@ -43,7 +44,7 @@ export default function CustomFieldsSettings() {
       await saveCustomFieldDef({ id: f.id, active: !f.active });
       notify.success(f.active ? `${f.label} turned off.` : `${f.label} turned on.`);
       req.reload();
-    } catch (err) { notify.error(String(err?.message || 'Not changed.')); }
+    } catch (err) { notify.error(errorWords(err, 'change the field')); }
   };
   const columns = [
     { key: 'label', label: 'Field', always: true, render: (f) => <span className="min-w-0"><span className="block font-medium">{f.label}{f.required ? ' *' : ''}</span><span className="block ui-caption tabular-nums">{f.key}</span></span> },

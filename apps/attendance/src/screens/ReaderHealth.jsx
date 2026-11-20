@@ -4,10 +4,12 @@ import { AlertTriangle, BellRing, ChevronDown, Cpu, Fingerprint, History, Refres
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
-import { StatCards } from '@ui/components/list/ListPageParts';
+import { CountLine } from '@ui/components/ui/CountLine';
+import { countItems } from '../components/countItems';
 import { notify } from '@ui/components/ui/notify';
 import { getReaderHealth, getReaderTimeline, saveReaderAlertSettings } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 
 const ago = (iso) => {
   if (!iso) return 'never';
@@ -19,7 +21,7 @@ const ago = (iso) => {
 };
 const STATUS = {
   ok: { label: 'Healthy', dot: 'rgb(var(--pos))', pill: 'ui-pill-pos' },
-  delayed: { label: 'Late checking in', dot: 'rgb(var(--warn-ink, 180 120 0))', pill: 'ui-pill-warn' },
+  delayed: { label: 'Slow to report', dot: 'rgb(var(--warn-ink, 180 120 0))', pill: 'ui-pill-warn' },
   warn: { label: 'Needs a look', dot: 'rgb(var(--warn-ink, 180 120 0))', pill: 'ui-pill-warn' },
   bad: { label: 'Problem', dot: 'rgb(var(--neg))', pill: 'ui-pill-neg' },
   offline: { label: 'Offline', dot: 'rgb(var(--neg))', pill: 'ui-pill-neg' },
@@ -53,7 +55,7 @@ const clock = (sec) => {
 /**
  * Every reader at a glance: is it reporting, is its clock right, how full is
  * it, is anything stuck — and is attendance arriving at all today. Problems
- * are e-mailed once when they start and once when they clear.
+ * are emailed once when they start and once when they clear.
  */
 export default function ReaderHealth() {
   const [data, setData] = useState(null);
@@ -61,7 +63,7 @@ export default function ReaderHealth() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [timelineOf, setTimelineOf] = useState(null);
   const load = useCallback(() => {
-    getReaderHealth().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load reader health.')));
+    getReaderHealth().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load reader health')));
   }, []);
   useEffect(() => {
     load();
@@ -86,7 +88,7 @@ export default function ReaderHealth() {
       <PageHeader
         entity="reader"
         title="Reader health"
-        description="Is each reader reporting, is its clock right, how full is it. Problems are e-mailed once when they start and once when they clear."
+        description="Is each reader reporting, is its clock right, how full is it. Problems are emailed once when they start and once when they clear."
         actions={
           <>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={load}><RefreshCw size={16} aria-hidden="true" /> Refresh</button>
@@ -95,16 +97,13 @@ export default function ReaderHealth() {
         }
       />
 
-      <StatCards
-        dense
-        cards={[
+      <CountLine label="Reader figures" items={countItems([
           { label: 'Readers', value: data.readers.length, count: true, tone: 'sent', Icon: Cpu },
           { label: 'Online now', value: data.readers.filter((r) => r.online).length, count: true, tone: 'paid', Icon: Wifi },
           { label: 'Need a look', value: problems, count: true, tone: 'overdue', Icon: AlertTriangle },
           { label: 'Punches today', value: data.punchesToday, count: true, tone: 'partial', Icon: Fingerprint },
           { label: 'Open alerts', value: open.length, count: true, tone: 'outstanding', Icon: BellRing },
-        ]}
-      />
+        ])} />
 
       <div className="pb-8 space-y-6">
       {data.collection.map((i) => (
@@ -115,7 +114,7 @@ export default function ReaderHealth() {
       ))}
       {!data.settings.alertEmails ? (
         <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
-          <span>Nobody is e-mailed when a reader goes offline. Name who should be.</span>
+          <span>Nobody is emailed when a reader goes offline. Name who should be.</span>
           <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={() => setSettingsOpen(true)}>Set up alerts</button>
         </div>
       ) : null}
@@ -141,8 +140,8 @@ export default function ReaderHealth() {
                   <span className="ui-caption block">
                     since {new Date(a.openedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                     {a.resolvedAt ? ` · cleared ${ago(a.resolvedAt)}` : ''}
-                    {a.notifiedAt ? ' · e-mailed' : ''}
-                    {a.lastError ? ` · e-mail failed: ${a.lastError}` : ''}
+                    {a.notifiedAt ? ' · emailed' : ''}
+                    {a.lastError ? ` · email failed: ${a.lastError}` : ''}
                   </span>
                 </span>
                 <ExceptionTag label={a.resolvedAt ? '' : 'open'} normal="cleared" pill={SEVERITY_PILL[a.severity]} />
@@ -363,7 +362,7 @@ function ReaderTimeline({ reader, onClose }) {
     const key = `${reader.id}:${days}`;
     getReaderTimeline(reader.id, days)
       .then((d) => !off && setResult({ for: key, data: d, error: '' }))
-      .catch((e) => !off && setResult({ for: key, data: null, error: String(e?.message || 'Could not load the timeline.') }));
+      .catch((e) => !off && setResult({ for: key, data: null, error: errorWords(e, 'load the timeline') }));
     return () => { off = true; };
   }, [reader.id, days]);
   const current = result.for === `${reader.id}:${days}`;
@@ -407,7 +406,7 @@ function ReaderTimeline({ reader, onClose }) {
                         <span className="ui-caption">{new Date(e.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <p className="ui-caption">
-                        <span className={`ui-pill ui-pill-${TONE[e.tone] || 'neutral'} mr-1.5`}>{KIND_WORD[e.kind] || e.kind}</span>
+                        <span className={`ui-pill ui-pill-${TONE[e.tone] || 'neutral'} mr-1.5`}>{KIND_WORD[e.kind] || enumWords(e.kind)}</span>
                         {e.detail}{e.traceId ? <span className="ui-mono"> · trace {e.traceId.slice(0, 8)}</span> : null}
                       </p>
                     </div>
@@ -433,7 +432,7 @@ function AlertSettings({ initial, onClose, onSaved }) {
       notify.success('Alert settings saved.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     }
   };
   return (
@@ -442,7 +441,7 @@ function AlertSettings({ initial, onClose, onSaved }) {
       open
       onClose={onClose}
       title="Reader alerts"
-      description="One e-mail when a problem starts, one when it clears."
+      description="One email when a problem starts, one when it clears."
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
@@ -452,9 +451,9 @@ function AlertSettings({ initial, onClose, onSaved }) {
     >
       <form id="alert-form" onSubmit={save} className="grid gap-4">
         <label className="block">
-          <span className="ui-label">E-mail these people</span>
+          <span className="ui-label">Email these people</span>
           <input className="ui-input w-full" value={form.alertEmails} onChange={(e) => setForm({ ...form, alertEmails: e.target.value })} placeholder="it@company.com, hr@company.com" />
-          <span className="ui-caption">Separate with commas. Empty = no e-mails (problems still show here).</span>
+          <span className="ui-caption">Separate with commas. Empty = no emails (problems still show here).</span>
         </label>
         <label className="block">
           <span className="ui-label">A reader is offline after (minutes)</span>

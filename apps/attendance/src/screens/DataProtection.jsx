@@ -7,6 +7,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getDataProtection, listBreaches, listEmployees, notifyBreach, recordBreach, saveDataProtection, updateBreach } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * How this company meets the Digital Personal Data Protection Act, 2023 and
@@ -47,7 +48,7 @@ function Announcement() {
         <li><strong>Nobody under 18</strong> has their location read for phone punches or a fingerprint copy kept. Add dates of birth so CLOR can tell.</li>
         <li><strong>Employees see a privacy notice</strong> in the portal, built from your settings, and are asked to read each new version. Set your privacy contact below.</li>
         <li><strong>People can use their rights in the portal:</strong> download their data, correct it, ask for erasure, withdraw consent, name a nominee and raise a grievance. Each request shows an answer-by date 30 days out.</li>
-        <li><strong>Breach register:</strong> record a breach, tell the affected people by e-mail, and track the Data Protection Board’s 72-hour report.</li>
+        <li><strong>Breach register:</strong> record a breach, tell the affected people by email, and track the Data Protection Board’s 72-hour report.</li>
         <li><strong>Retention:</strong> phone-punch locations go after 13 months (the punch stays), originals of what readers sent after 13 months, selfies as set. Logs are kept at least a year.</li>
       </ul>
     </section>
@@ -65,7 +66,7 @@ export default function DataProtection({ openScreen }) {
   const load = useCallback(() => {
     getDataProtection()
       .then((d) => { setData(d); setError(''); setForm({ privacyContactName: d.settings.privacyContactName || '', privacyContactEmail: d.settings.privacyContactEmail || '', privacyContactPhone: d.settings.privacyContactPhone || '' }); })
-      .catch((e) => setError(String(e?.message || 'Could not load data protection.')));
+      .catch((e) => setError(errorWords(e, 'load data protection')));
     listBreaches().then(setBreaches).catch(() => setBreaches([]));
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -78,7 +79,7 @@ export default function DataProtection({ openScreen }) {
       setAttest(false);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setBusy('');
     }
@@ -114,7 +115,7 @@ export default function DataProtection({ openScreen }) {
         <p className="ui-caption">Who employees reach about their data and grievances. It is printed in their privacy notice (the DPDP Rules ask for a published contact).</p>
         <div className="grid gap-3 md:grid-cols-3">
           <label className="block"><span className="ui-label">Name or role</span><input className="ui-input w-full" maxLength={120} value={form.privacyContactName} onChange={(e) => setForm({ ...form, privacyContactName: e.target.value })} placeholder="e.g. HR Manager" /></label>
-          <label className="block"><span className="ui-label">E-mail</span><input type="email" className="ui-input w-full" maxLength={200} value={form.privacyContactEmail} onChange={(e) => setForm({ ...form, privacyContactEmail: e.target.value })} placeholder="privacy@yourcompany.in" /></label>
+          <label className="block"><span className="ui-label">Email</span><input type="email" className="ui-input w-full" maxLength={200} value={form.privacyContactEmail} onChange={(e) => setForm({ ...form, privacyContactEmail: e.target.value })} placeholder="privacy@yourcompany.in" /></label>
           <label className="block"><span className="ui-label">Phone</span><input className="ui-input w-full" maxLength={40} value={form.privacyContactPhone} onChange={(e) => setForm({ ...form, privacyContactPhone: e.target.value })} /></label>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -220,14 +221,14 @@ function BreachRow({ b, onChanged }) {
       notify.success(ok(r));
       onChanged();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     } finally {
       setBusy(false);
     }
   };
   const tell = async () => {
-    if (!(await confirmDialog({ title: `E-mail the ${b.affected} affected people?`, message: 'Each gets what happened, when, what it may mean, what was done, what they can do, and your privacy contact.', confirmLabel: 'Send' }))) return;
-    run(() => notifyBreach(b.id), (r) => `Sent to ${r.sent}.${r.noEmail.length ? ` ${r.noEmail.length} have no e-mail address: tell them another way (${r.noEmail.slice(0, 5).map((x) => x.name).join(', ')}${r.noEmail.length > 5 ? '…' : ''}).` : ''}`);
+    if (!(await confirmDialog({ title: `Email the ${b.affected} affected people?`, message: 'Each gets what happened, when, what it may mean, what was done, what they can do, and your privacy contact.', confirmLabel: 'Send' }))) return;
+    run(() => notifyBreach(b.id), (r) => `Sent to ${r.sent}.${r.noEmail.length ? ` ${r.noEmail.length} have no email address: tell them another way (${r.noEmail.slice(0, 5).map((x) => x.name).join(', ')}${r.noEmail.length > 5 ? '…' : ''}).` : ''}`);
   };
   const now = () => new Date().toISOString();
   return (
@@ -239,7 +240,7 @@ function BreachRow({ b, onChanged }) {
       </div>
       <p className="ui-caption">Found {fmt(b.discoveredAt)} · {b.affected} people · {b.categories}</p>
       <p className="ui-caption">
-        Board: {b.boardIntimatedAt ? `told ${fmt(b.boardIntimatedAt)}` : 'not told yet'} · report {b.boardReportAt ? `sent ${fmt(b.boardReportAt)}` : `due by ${fmt(b.boardReportDue)}`}{b.boardReference ? ` · ref ${b.boardReference}` : ''} · People: {b.peopleNotifiedAt ? `${b.notifiedCount} e-mailed ${fmt(b.peopleNotifiedAt)}` : 'not told yet'}
+        Board: {b.boardIntimatedAt ? `told ${fmt(b.boardIntimatedAt)}` : 'not told yet'} · report {b.boardReportAt ? `sent ${fmt(b.boardReportAt)}` : `due by ${fmt(b.boardReportDue)}`}{b.boardReference ? ` · ref ${b.boardReference}` : ''} · People: {b.peopleNotifiedAt ? `${b.notifiedCount} emailed ${fmt(b.peopleNotifiedAt)}` : 'not told yet'}
       </p>
       {b.status === 'OPEN' ? (
         <div className="flex flex-wrap gap-2">
@@ -265,7 +266,7 @@ function BreachForm({ onClose, onSaved }) {
       notify.success('Recorded. Tell the Board and the affected people next.');
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not recorded.'));
+      notify.error(errorWords(err, 'record it'));
     }
   };
   return (

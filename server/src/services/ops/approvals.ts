@@ -68,7 +68,7 @@ async function tellApprovers(askedBy: string, a: { id: string; summary: string; 
       transactional: true,
       relatedType: 'OpsApproval',
       relatedId: a.id,
-      data: { userName: u.fullName || u.email, askedBy: asker?.fullName || asker?.email || 'A colleague', customer: customerName, summary: a.summary, reason: a.reason, opsUrl: `${OPS_URL()}/#/approvals` },
+      data: { userName: u.fullName || '', askedBy: asker?.fullName || asker?.email || 'A colleague', customer: customerName, summary: a.summary, reason: a.reason, opsUrl: `${OPS_URL()}/#/approvals` },
     })
       .then(() => (sent += 1))
       .catch(() => null);

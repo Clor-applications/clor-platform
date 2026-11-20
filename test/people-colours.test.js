@@ -74,8 +74,10 @@ describe('tints are named by meaning, not handed out by position', () => {
     expect(people).not.toMatch(/:nth-child\([^)]*\)[^{\n]*\{[^}\n]*(--tint|-ink\))/);
   });
   it('the shared figure cards on People screens each name a tint; only "To decide" is marigold', () => {
-    const revisions = Object.fromEntries(tintsIn(read('apps/payroll/src/screens/SalaryRevisions.jsx')));
-    expect(revisions).toMatchObject({ 'To decide': 'butter', Approved: 'mint', 'Yearly rise': 'sky', 'Average rise': 'lilac' });
+    /* Salary revisions moved from figure tiles to a count line (calm register, 20 Nov 2026): no tints left to name. */
+    const revisions = read('apps/payroll/src/screens/SalaryRevisions.jsx');
+    expect(revisions).toMatch(/countLine=\{countItems\(/);
+    expect(Object.fromEntries(tintsIn(revisions))).toEqual({});
     /* R&D tiles (14 Nov 2026): each tile names its categorical accent in the source, never by its index. */
     const report = read('apps/people/src/screens/PeopleReports.jsx');
     expect(report).toMatch(/label: 'Headcount today', [^\n]*accent: 1/);

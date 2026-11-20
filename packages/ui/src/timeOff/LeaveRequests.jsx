@@ -36,6 +36,7 @@ import {
   shortenLeave, swatchOf, updateLeaveRequest, listPeople,
 } from './api';
 import { addDaysIso as addDays } from '@ui/utils/dates';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Time & Leave → Requests (TIME-LEAVE-DECISIONS.md). Everything the list
@@ -46,7 +47,7 @@ import { addDaysIso as addDays } from '@ui/utils/dates';
  * away and what happened to it; HR enters leave for someone with the same
  * date-by-date preview the employee app shows.
  */
-const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Not approved'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
+const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Rejected'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
 /* Round 60 toastwords A: the done message names whose leave and which days. */
 const leaveDone = (r, verb) => decidedLine({ name: r.employeeName, what: r.leaveTypeName ? r.leaveTypeName.toLowerCase() : 'leave', from: r.fromDate, to: r.toDate, verb });
 const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
@@ -143,7 +144,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
       notify.success(out?.stage === 'NEXT' ? 'Your step is approved. It moves on to the next step.' : leaveDone(r, 'approved'));
       decided();
     } catch (e) {
-      notify.error(String(e?.message || 'Not approved.'));
+      notify.error(errorWords(e, 'approve the request'));
     } finally {
       setDeciding(false);
     }
@@ -164,7 +165,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
       else notify.success(done === 1 ? 'Approved.' : `${done} approved.`);
       decided();
     } catch (e) {
-      notify.error(String(e?.message || 'Not approved.'));
+      notify.error(errorWords(e, 'approve the requests'));
     } finally {
       setDeciding(false);
     }
@@ -177,7 +178,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
   const tiles = [
     { key: 'waiting', label: 'Waiting for a decision', value: counts.PENDING ?? '—', accent: 'warn', tone: Number(counts.PENDING) > 0 ? 'warn' : null, Icon: TILE_ICON.waiting, sub: oldest == null ? 'In this leave period' : oldest === 0 ? 'Oldest asked today' : `Oldest ${oldest} day${oldest === 1 ? '' : 's'}`, busy: list.loading && !list.data },
     { key: 'approved', label: 'Approved', value: counts.APPROVED ?? '—', accent: 2, Icon: TILE_ICON.done, sub: 'In this leave period', busy: list.loading && !list.data },
-    { key: 'rejected', label: 'Not approved', value: counts.REJECTED ?? '—', accent: 3, sub: 'In this leave period', busy: list.loading && !list.data },
+    { key: 'rejected', label: 'Rejected', value: counts.REJECTED ?? '—', accent: 3, sub: 'In this leave period', busy: list.loading && !list.data },
     awayToday == null ? null : { key: 'away', label: 'Away today', value: awayToday, accent: 4, Icon: TILE_ICON.away, sub: ov?.upcoming?.length ? `${new Set(ov.upcoming.map((x) => x.employeeId)).size} more in the next 7 days` : 'Nobody else in the next 7 days', onClick: openScreen ? () => openScreen('leaveCalendar') : null },
   ];
   /* The first thin day ahead, today and the next fourteen (M4): two or more of one department away at once. */
@@ -189,7 +190,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
       const columns_ = [['employeeName', 'Employee'], ['employeeCode', 'Employee ID'], ['department', 'Department'], ['leaveTypeName', 'Leave type'], ['fromDate', 'From'], ['toDate', 'To'], ['days', 'Days'], ['reason', 'Reason'], ['statusLabel', 'Status'], ['reviewNote', 'Note']].map(([key, label]) => ({ key, label }));
       runListExport({ format: 'xlsx', title: 'Leave requests', fileName: `leave-requests-${year}`, label: 'Requests', rows: all.map((r) => ({ ...r, reason: r.reason ?? '', statusLabel: STATUS_LABEL[r.status] || r.status })), columns: columns_ });
     } catch (e) {
-      notify.error(String(e?.message || 'Could not export.'));
+      notify.error(errorWords(e, 'export the requests'));
     }
   };
 
@@ -329,7 +330,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
       notify.success(done);
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'update the request'));
       req.reload();
     } finally {
       setBusy(false);
@@ -348,7 +349,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
       /* Round 47 approvalattach A: it opens inside the request, no download. */
       setShownDoc(doc.dataUrl);
     } catch (e) {
-      notify.error(String(e?.message || 'The document did not open.'));
+      notify.error(errorWords(e, 'open the document'));
     }
   };
   /* A rejection says why: the person reads it in the employee app. */
@@ -376,7 +377,8 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
     const ok = await confirmDialog({
       title: r.status === 'APPROVED' ? 'Cancel this leave?' : 'Withdraw this request?',
       message: r.status === 'APPROVED' ? `The days come off the attendance record and go back to the balance${d.parts?.length > 1 ? ', for every part of this leave' : ''}.` : d.parts?.length > 1 ? 'Every part of this leave is withdrawn.' : undefined,
-      confirmLabel: r.status === 'APPROVED' ? 'Cancel leave' : 'Withdraw',
+      confirmLabel: r.status === 'APPROVED' ? 'Cancel leave' : 'Withdraw request',
+      cancelLabel: r.status === 'APPROVED' ? 'Keep leave' : 'Keep request',
     });
     if (ok) act(() => cancelLeave(r.id, r.status === 'APPROVED' ? note.trim() : null), r.status === 'APPROVED' ? 'Leave cancelled.' : 'Request withdrawn.');
   };
@@ -655,7 +657,7 @@ export function EnterLeave({ onClose, onDone, request = null, parts = [], openSc
     const n = ++seq.current;
     setPreviewing(true);
     const t = setTimeout(() => {
-      previewLeave(editing ? { ...body, editing: request.id } : body).then((r) => { if (n === seq.current) setPreview(editing ? ownPreview(r, request, form.leaveTypeId) : r); }).catch((e) => { if (n === seq.current) setPreview({ problems: [{ code: 'ERR', message: String(e?.message || 'Could not work out the days.') }], parts: [] }); }).finally(() => { if (n === seq.current) setPreviewing(false); });
+      previewLeave(editing ? { ...body, editing: request.id } : body).then((r) => { if (n === seq.current) setPreview(editing ? ownPreview(r, request, form.leaveTypeId) : r); }).catch((e) => { if (n === seq.current) setPreview({ problems: [{ code: 'ERR', message: errorWords(e, 'work out the days') }], parts: [] }); }).finally(() => { if (n === seq.current) setPreviewing(false); });
     }, 300);
     return () => clearTimeout(t);
   }, [form.employeeId, form.leaveTypeId, form.fromDate, form.toDate, form.halfDay, form.startHalf, form.endHalf, form.fromTime, form.toTime]);
@@ -681,7 +683,7 @@ export function EnterLeave({ onClose, onDone, request = null, parts = [], openSc
     } catch (err) {
       /* A closed month says so in the form, with the way to Month close; anything else is a toast. */
       if (err?.code === MONTH_CLOSED) setPreview((p) => ({ ...(p || { parts: [] }), problems: [{ code: MONTH_CLOSED, message: String(err.message), month: err.data?.month }] }));
-      else notify.error(String(err?.message || 'Not saved.'));
+      else notify.error(errorWords(err, 'send the request'));
     } finally {
       setSaving(false);
     }

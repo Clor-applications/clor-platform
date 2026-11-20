@@ -20,6 +20,7 @@ import { NextTask, PersonCell, can, crumbs } from './shared';
 import PlanDrawer from './Plan';
 import { LateNotice, StepsMeter } from './StepsMeter';
 import { istDay } from '@ui/utils/dates';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Joining & Leaving → Joining: everyone joining or recently joined. Before
@@ -63,7 +64,7 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
       notify.success(r?.sent ? `${r.sent === 1 ? 'One joiner’s' : `${r.sent} joiners’`} details sent to Payroll.` : 'Nothing was waiting to go to Payroll.');
       invites.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not sent.'));
+      notify.error(errorWords(e, 'send the details to Payroll'));
     } finally {
       setSending(false);
     }

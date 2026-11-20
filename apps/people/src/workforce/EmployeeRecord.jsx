@@ -1,3 +1,4 @@
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { rememberPerson } from '@ui/components/ui/recents';
 import CopyWord from '@ui/components/ui/CopyWord';
@@ -185,7 +186,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       notify.success(`${person.name} removed.`);
       backToDirectory();
     } catch (e) {
-      notify.error(String(e?.message || 'Not deleted.'));
+      notify.error((errorWords(e, 'delete the record').startsWith('Could not') ? `${person.name} was not deleted. A record Payroll has used cannot be deleted; mark them as left instead.` : errorWords(e, 'delete the record')));
     }
   };
   /* A resignation taken back, a termination reversed before the day: active again, the leaving tasks closed as not needed. */
@@ -196,7 +197,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       notify.success(`${person.name} stays on.`);
       setPerson({ ...person, ...r.employee });
       rec.reload();
-    } catch (e) { notify.error(String(e?.message || 'Not changed.')); }
+    } catch (e) { notify.error(errorWords(e, 'make the change')); }
   };
   /* Probation still to decide: the same test the Employment tab's Probation section uses. */
   const probationDue = Boolean(person.probationEndDate && !person.confirmedOn && person.status !== 'LEFT' && !(person.dateOfJoining && String(person.dateOfJoining).slice(0, 10) > todayIst()));
@@ -299,7 +300,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       {/* Round 59 quickadd A: what is still missing on a record added in a hurry. */}
       <ToFinish person={person} canEdit={editable} go={(patch) => leaveTo(patch, true)} />
 
-      <LeftBand person={person} leavingWord={person.leavingType ? LEAVING_TYPES[person.leavingType] || person.leavingType : ''} payrollOn={hasApp('payroll')} openScreen={openScreen} />
+      <LeftBand person={person} leavingWord={person.leavingType ? LEAVING_TYPES[person.leavingType] || enumWords(person.leavingType) : ''} payrollOn={hasApp('payroll')} openScreen={openScreen} />
       {printing?.salary ? <PrintSalaryLine person={person} /> : null}
       {(rec.data.permits || []).filter((p) => p.daysLeft <= 30).map((p, i) => (
         <Alert key={p.id || `hidden-${i}`} tone={p.expired ? 'neg' : 'warn'} title={p.expired ? `${p.title} expired on ${formatDate(p.expiresOn)}` : `${p.title} expires in ${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'}`}>{p.restrictsWork ? `Until renewed: ${p.restrictsWork}.` : 'Add the renewed copy on Documents.'}</Alert>
@@ -388,7 +389,7 @@ function SignInSection({ person, canEdit, editing, setEditing, onSaved }) {
       setEditing(null);
       notify.success(userId ? 'Sign-in linked.' : 'Sign-in link removed.');
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setBusy(false);
     }
@@ -399,17 +400,17 @@ function SignInSection({ person, canEdit, editing, setEditing, onSaved }) {
       {editing ? (
         <div className="space-y-3 ui-panel-in">
           {candidates.loading ? <span className="ui-skel ui-skel-text" /> : (
-            <div className="max-w-md"><PopupSelect showValueSubtext={false} label="Login" value={choice} placeholder={candidates.data?.length ? 'Choose a login' : 'No unlinked logins in this company'} alwaysSearch onChange={(v) => setChoice(v || '')}
+            <div className="max-w-md"><PopupSelect showValueSubtext={false} label="Sign-in" value={choice} placeholder={candidates.data?.length ? 'Choose a sign-in' : 'Every sign-in in this company is already linked'} alwaysSearch onChange={(v) => setChoice(v || '')}
               options={(candidates.data || []).map((u) => ({ value: u.id, label: u.name === u.email ? u.email : `${u.name} · ${u.email}` }))} /></div>
           )}
           <div className="flex flex-wrap gap-2 justify-end">
             {linked ? <button type="button" className="ui-btn ui-btn-secondary mr-auto" disabled={busy} onClick={() => save(null)}>Remove link</button> : null}
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing(null)}>Cancel</button>
-            <button type="button" className="ui-btn ui-btn-secondary" disabled={busy || !choice} onClick={() => save(choice)}>{busy ? 'Saving…' : 'Link'}</button>
+            <button type="button" className="ui-btn ui-btn-secondary" disabled={busy || !choice} onClick={() => save(choice)}>{busy ? 'Saving…' : 'Link sign-in'}</button>
           </div>
         </div>
       ) : (
-        <dl className="ui-field-grid"><Field label="Login" value={linked ? `${linked.name}${linked.email && linked.email !== linked.name ? ` · ${linked.email}` : ''}` : 'Not linked'} /></dl>
+        <dl className="ui-field-grid"><Field label="Sign-in" value={linked ? `${linked.name}${linked.email && linked.email !== linked.name ? ` · ${linked.email}` : ''}` : 'Not linked'} /></dl>
       )}
     </Section>
   );
@@ -479,7 +480,7 @@ function PhotoControl({ person, canEdit, onSaved }) {
       onSaved(r.employee);
       notify.success(photoUrl ? 'Photo updated.' : 'Photo removed.');
     } catch (e) {
-      notify.error(String(e?.status === 409 ? 'Someone else changed this record. Reload and try again.' : e?.message || 'Photo not saved.'));
+      notify.error(e?.status === 409 ? 'Someone else changed this record. Reload and try again.' : errorWords(e, 'save the photo'));
     } finally {
       setBusy(false);
     }
@@ -505,7 +506,7 @@ function PhotoControl({ person, canEdit, onSaved }) {
         const f = e.target.files?.[0];
         e.target.value = '';
         if (!f) return;
-        try { await save(await shrinkPhoto(f)); } catch (err) { notify.error(String(err?.message || 'Could not use that photo.')); }
+        try { await save(await shrinkPhoto(f)); } catch (err) { notify.error(errorWords(err, 'use that photo')); }
       }} />
     </>
   );
@@ -526,7 +527,7 @@ function TagLine({ person, tags, canEdit, onSaved }) {
       const r = await updateEmployee(person.id, { tagIds: next, version: person.version });
       onSaved(r.employee);
     } catch (e) {
-      notify.error(String(e?.message || 'Tags not saved.'));
+      notify.error(errorWords(e, 'save the tags'));
     } finally {
       setBusy(false);
     }
@@ -683,7 +684,7 @@ function CommentBox({ employeeId, onPosted }) {
       setText('');
       onPosted?.();
     } catch (e) {
-      notify.error(String(e?.message || 'Comment not saved. It is still in the box.'));
+      notify.error(`${errorWords(e, 'save the comment')} It is still in the box.`);
     } finally {
       setBusy(false);
     }
@@ -738,7 +739,7 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
       const r = await updateEmployee(person.id, { ...body, version: conflict?.version ?? person.version });
       refreshSuggestions();
       setConflict(null);
-      notify.success('Saved.');
+      notify.success(`${person.name} saved.`);
       onSaved(r.employee);
     } catch (e) {
       if (e?.status === 409 && e?.data?.code === 'STALE') setConflict(e.data.employee);
@@ -851,10 +852,10 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
   /* Personal and contact details stay correctable after someone leaves: a settlement, a certificate or a reference still needs them right. */
   const canEdit = allowed('PEOPLE::Employees::EDIT');
   const value = (s, f) => {
-    if (f.key === 'gender') return GENDER_WORDS[person.gender] || person.gender;
+    if (f.key === 'gender') return GENDER_WORDS[person.gender] || enumWords(person.gender);
     if (f.key === 'maritalStatus') return MARITAL.find(([k]) => k === person.maritalStatus)?.[1] || person.maritalStatus;
     if (f.key === 'permSameAsPresent') return person.permSameAsPresent ? 'Yes, same as present' : 'No';
-    if (f.key === 'foodPreference') return FOOD_WORDS[person.foodPreference] || person.foodPreference;
+    if (f.key === 'foodPreference') return FOOD_WORDS[person.foodPreference] || enumWords(person.foodPreference);
     if (f.kind === 'chips') return (person[f.key] || []).length ? <span className="flex flex-wrap gap-1">{person[f.key].map((l) => <span key={l} className="ui-chip">{l}</span>)}</span> : null;
     if (f.kind === 'date') return person[f.key] ? formatDate(String(person[f.key]).slice(0, 10)) : null;
     return person[f.key];
@@ -914,11 +915,11 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
       setRenewTo('');
       onSaved(r.employee);
       reload();
-    } catch (e) { notify.error(String(e?.message || 'Not renewed.')); }
+    } catch (e) { notify.error(errorWords(e, 'renew it')); }
   };
   const withdraw = async (c) => {
     if (!(await confirmDialog({ title: `Withdraw the change due ${formatDate(c.effectiveOn)}?`, confirmLabel: 'Withdraw' }))) return;
-    try { await withdrawScheduled(person.id, c.id); notify.success('Withdrawn.'); reload(); } catch (e) { notify.error(String(e?.message || 'Not withdrawn.')); }
+    try { await withdrawScheduled(person.id, c.id); notify.success('Scheduled change withdrawn.'); reload(); } catch (e) { notify.error(errorWords(e, 'withdraw it')); }
   };
   const rehire = async () => {
     if (!(await confirmDialog({ title: `Rehire ${person.name} from ${formatDate(rejoin)}?`, message: 'A new period of employment starts on that date; the earlier one stays in History.', confirmLabel: 'Rehire', tone: 'primary' }))) return;
@@ -927,7 +928,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
       notify.success(`${person.name} rehired.`);
       setRejoin('');
       reload();
-    } catch (e) { notify.error(String(e?.message || 'Not rehired.')); }
+    } catch (e) { notify.error(errorWords(e, 'rehire them')); }
   };
   const fields = [
     { key: 'code', label: 'Employee ID', required: true, max: 40 },
@@ -957,7 +958,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
             {dates.probation || person.probationEndDate || person.confirmedOn ? <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn ? formatDate(person.confirmedOn) : person.probationEndDate ? formatDate(person.probationEndDate) : null} mono /> : null}
             {dates.contract || person.contractEndDate ? <Field label={dates.contractLabel} value={person.contractEndDate ? formatDate(person.contractEndDate) : null} mono /> : null}
             {person.resignedOn ? <Field label="Resignation received" value={`${formatDate(String(person.resignedOn).slice(0, 10))}${person.noticeWaived ? ' · notice waived' : ''}`} mono /> : null}
-            {person.dateOfLeaving ? <Field label={person.status === 'LEFT' ? 'Left' : 'Last day'} value={`${formatDate(person.dateOfLeaving)}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || person.leavingType}` : ''}${person.leavingReason ? ` · ${person.leavingReason}` : ''}`} /> : null}
+            {person.dateOfLeaving ? <Field label={person.status === 'LEFT' ? 'Left' : 'Last day'} value={`${formatDate(person.dateOfLeaving)}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || enumWords(person.leavingType)}` : ''}${person.leavingReason ? ` · ${person.leavingReason}` : ''}`} /> : null}
           </dl>
         )}
       </Section>
@@ -987,7 +988,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
             {data.scheduledChanges.map((c) => (
               <li key={c.id} className="py-2 flex flex-wrap items-center gap-2">
                 <span className="tabular-nums">{formatDate(c.effectiveOn)}</span>
-                <span>{SCHEDULED_LABELS[c.field] || c.field}: <span className="ui-muted">{c.fromLabel || 'None'}</span> → <strong>{c.toLabel || 'None'}</strong></span>
+                <span>{SCHEDULED_LABELS[c.field] || enumWords(c.field)}: <span className="ui-muted">{c.fromLabel || 'None'}</span> → <strong>{c.toLabel || 'None'}</strong></span>
                 {c.reason ? <span className="ui-caption">{c.reason}</span> : null}
                 {canEdit ? <button type="button" className="ui-link ml-auto" onClick={() => withdraw(c)}>Withdraw</button> : null}
               </li>
@@ -1179,7 +1180,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`${target ? (target === 'ACTIVE' ? 'Reactivate' : 'Suspend') : op.title}: ${person.name}`} dirty={Object.keys(form).some((k) => (form[k] || '') !== (initial[k] || '')) || Boolean(reason)}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !Object.keys(changed).length} onClick={submit}>{busy ? 'Saving…' : 'Confirm change'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !Object.keys(changed).length} onClick={submit}>{busy ? 'Saving…' : target ? (target === 'ACTIVE' ? 'Reactivate' : 'Suspend') : op.title}</button></>}>
       <div className="grid gap-4">
         {error ? (error?.status === 409 && error?.data?.code === 'STALE'
           ? <Alert tone="warn" title="This record was updated elsewhere">Close this, reload the record, and make the change again. Nothing was overwritten.</Alert>
@@ -1264,7 +1265,7 @@ function HistoryCompare({ person, lists }) {
       if (!d) continue;
       employeeAsOf(person.id, d)
         .then((r) => live && setSnap((x) => ({ ...x, [k]: { date: d, employee: r.employee } })))
-        .catch((e) => live && setSnap((x) => ({ ...x, [k]: { date: d, error: e?.status === 404 ? 'Not with the company yet on this day.' : String(e?.message || 'Could not load.') } })));
+        .catch((e) => live && setSnap((x) => ({ ...x, [k]: { date: d, error: e?.status === 404 ? 'Not with the company yet on this day.' : errorWords(e, 'load this') } })));
     }
     return () => { live = false; };
   }, [person.id, person.version, a, b]);
@@ -1326,7 +1327,7 @@ function Activity({ person, canComment }) {
   const older = async () => {
     setMore(true);
     const mine = seq.current;
-    try { const r = await employeeActivity(person.id, next); if (seq.current !== mine) return; setEvents((e) => [...e, ...r.events]); setNext(r.nextBefore); } catch (e) { notify.error(String(e?.message || 'Could not load older activity.')); } finally { setMore(false); }
+    try { const r = await employeeActivity(person.id, next); if (seq.current !== mine) return; setEvents((e) => [...e, ...r.events]); setNext(r.nextBefore); } catch (e) { notify.error(errorWords(e, 'load older activity')); } finally { setMore(false); }
   };
   /* A comment its author takes back (or HR, with the delete grant): asked once, gone from the list at once. */
   const removeNote = async (e) => {
@@ -1335,7 +1336,7 @@ function Activity({ person, canComment }) {
       await deleteNote(e.noteId);
       setEvents((list) => (list || []).filter((x) => x.id !== e.id));
       notify.success('Comment deleted.');
-    } catch (err) { notify.error(String(err?.message || 'Not deleted.')); }
+    } catch (err) { notify.error(errorWords(err, 'delete it')); }
   };
   if (error && !events) return <ErrorState error={error} onRetry={load} />;
   if (!events) return <SkeletonCard lines={5} />;

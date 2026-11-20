@@ -23,6 +23,7 @@ import {
 } from './api';
 import ColorDots from '@ui/components/ui/ColorDots';
 import { LeaveQuestions, SettingHelp } from '@ui/picks/round64';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * People → Settings → Leave Policy (founder, 22 Oct 2026: the full leave
@@ -505,7 +506,7 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
       notify.success(`${start.name} deleted.`);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not deleted.'));
+      notify.error(errorWords(err, 'delete the leave type'));
     }
   };
 

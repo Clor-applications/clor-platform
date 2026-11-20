@@ -45,7 +45,7 @@ it('reads each kind’s main rule in words, naming auto-approve, step-in, own re
   });
   render(<ApprovalRules />);
   expect(await screen.findByRole('heading', { name: 'Approval rules' })).toBeTruthy();
-  expect((await screen.findAllByText('Their manager (2 d)')).length).toBeGreaterThan(0);
+  expect((await screen.findAllByText('Their manager (2 days)')).length).toBeGreaterThan(0);
   const line = screen.getAllByText(/Their department head and HR \(anyone who may edit people\), all \(8 h\) → The owner \(2 d\)/)[0].textContent;
   expect(line).toContain('approves some on its own');
   expect(line).toContain('approves on its own when late');

@@ -11,6 +11,7 @@ import CompanyDetail from './CompanyDetail';
 import './workspace.css';
 import './ws-home.css';
 import './ws-security.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('classical-building');
@@ -58,7 +59,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
       })
       .catch((e) => {
         setData({ companies: [], plan: null, usage: null });
-        setError(String(e?.message || 'Could not load the companies.'));
+        setError(errorWords(e, 'load the companies'));
       });
   }, []);
   useEffect(load, [load]);
@@ -219,7 +220,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
             </section>
             <section className="ws-activity-box">
               <p className="ws-activity-box-title">Members</p>
-              <p className="ws-activity-big"><span className="ui-num">{companies.reduce((n, c) => n + (c.people || 0), 0)}</span> seats</p>
+              <p className="ws-activity-big"><span className="ui-num">{companies.reduce((n, c) => n + (c.people || 0), 0)}</span> members, counted by company</p>
               <p className="ws-side-note">One person in two companies counts in each.</p>
               {openScreen ? (
                 <button type="button" className="ws-row-link" onClick={() => openScreen('members')}>
@@ -292,7 +293,7 @@ export function AddCompanyForm({ onAdd, onCancel }) {
         try {
           await onAdd({ name: name.trim(), gstin: gstinClean || undefined, state: effectiveState });
         } catch (err) {
-          setError(String(err?.message || 'Could not add the company.'));
+          setError(errorWords(err, 'add the company'));
         } finally {
           setBusy(false);
         }

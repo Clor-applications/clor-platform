@@ -5,6 +5,7 @@ import { notify } from "@ui/components/ui/notify";
 import SuggestInput from "@ui/components/ui/SuggestInput";
 import { requestOpenScreen } from "@platform/context";
 import { recordStatutoryWaiver } from "../api/payrollRuns";
+import { errorWords } from "@ui/utils/errorWords";
 
 const warnStyle = { background: "rgb(var(--warn-soft))", color: "rgb(var(--warn-ink))" };
 const infoStyle = { background: "rgb(var(--info-soft))", color: "rgb(var(--info))" };
@@ -52,7 +53,7 @@ export default function StatutoryGapsPanel({ run, gaps, canWaive, onSaved }) {
       if (onSaved) await onSaved();
       setReason("");
     } catch (e) {
-      notify.error(String(e?.message || "Could not record it."));
+      notify.error(errorWords(e, "record the reason"));
     } finally {
       setSaving(false);
     }

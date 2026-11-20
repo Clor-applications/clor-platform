@@ -10,6 +10,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 
 import { can } from './shared';
 import { WEEKDAYS, getWorkingWeek, listLeaveTypes, saveWorkingWeek } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Settings → Working week (TIME-LEAVE-DECISIONS M2). A People-only company has
@@ -78,7 +79,7 @@ export default function WorkingWeek() {
     } catch (err) {
       setError(err);
       /* A refusal (a closed month, say) is also said where the eye is, as every Attendance schedule screen does. */
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the working week'));
     } finally {
       setSaving(false);
     }

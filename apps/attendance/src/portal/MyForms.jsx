@@ -5,6 +5,7 @@ import FormFields from '@ui/requests/FormFields';
 import { missingIn, openFile } from '@ui/requests/formFiles';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { SignedOut, askFormRequest, getFormFile, getForms, replyFormRequest, withdrawFormRequest } from './portalApi';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Requests HR set up, in the employee app (People, FEATURE-UI-AUDIT gap 25),
@@ -25,7 +26,7 @@ const when = (v) => {
   const [y, m, d] = new Date(new Date(v).getTime() + 330 * 60_000).toISOString().slice(0, 10).split('-');
   return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`;
 };
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 const newKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 
 export default function MyForms({ guard }) {
@@ -37,7 +38,7 @@ export default function MyForms({ guard }) {
   const load = useCallback(() => {
     guard(getForms())
       .then((d) => { setData({ forms: d?.forms || [], requests: d?.requests || [] }); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not load your requests.')));
+      .catch((e) => setFailed(errText(e, 'load your requests')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
 
@@ -81,7 +82,7 @@ function Ask({ form, guard, onCancel, onSent }) {
       await guard(askFormRequest(form.id, { answers, files: Object.fromEntries(Object.entries(files).filter(([, v]) => v)), idempotencyKey: key }));
       onSent(`Sent. HR decides within ${form.slaDays} working days; the answer shows here.`);
     } catch (err) {
-      const t = errText(err, 'Not sent.');
+      const t = errText(err, 'send it');
       if (t) setError(t);
     } finally {
       setBusy(false);
@@ -114,7 +115,7 @@ function Row({ r, open, onToggle, guard, onDone }) {
       setText('');
       onDone(what === 'reply' ? 'Answer sent.' : 'Withdrawn.');
     } catch (e) {
-      const t = errText(e, 'Not done.');
+      const t = errText(e, 'do that');
       if (t) onDone(t, false);
     } finally {
       setBusy('');

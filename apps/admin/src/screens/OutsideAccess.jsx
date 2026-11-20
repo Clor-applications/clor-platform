@@ -11,11 +11,12 @@ import {
 import { APP_LABEL, STATUS, actionsFor, appsText } from './outsideAccessModel';
 import { requestOpenScreen } from '@platform/context';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { Avatar, Loading, PageHead, StatusPill } from './wsKit';
+import { Avatar, Empty, Loading, PageHead, StatusPill } from './wsKit';
 import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
 import './ws-access.css';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Workspace → Outside access (GAP-006).
@@ -56,7 +57,7 @@ function Change({ action, row, apps, onDone, onClose }) {
         onDone('Ended.');
       }
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'make the change'));
     } finally {
       setBusy(false);
     }
@@ -87,7 +88,7 @@ function Change({ action, row, apps, onDone, onClose }) {
             </label>
           </>
         ) : (
-          <label className="block"><span className="ui-label">Why</span><input className="ui-input w-full" maxLength={150} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Optional — kept in the history" /></label>
+          <label className="block"><span className="ui-label">Why <span className="ui-caption">(optional)</span></span><input className="ui-input w-full" maxLength={150} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Kept in the history" /></label>
         )}
         <div className="flex gap-2">
           <button type="submit" className={`ws-btn ${action === 'end' ? 'ws-btn--danger' : 'ws-btn--primary'}`} disabled={busy || (action === 'change' && !chosen.length)}>{busy ? 'Working…' : ACTION_LABEL[action]}</button>
@@ -122,7 +123,7 @@ export default function OutsideAccess() {
         setData({ ...r, readAt: Date.now() });
         setFailed('');
       })
-      .catch((e) => setFailed(String(e?.message || 'Could not load outside access.')));
+      .catch((e) => setFailed(errorWords(e, 'load accountant access')));
   }, []);
   useEffect(() => {
     load();
@@ -130,7 +131,7 @@ export default function OutsideAccess() {
 
   const act = async (row, action) => {
     if (action === 'resume') {
-      await resumeOutsideAccess(row.id).then(() => notify.success('Resumed.')).catch((e) => notify.error(String(e?.message || 'Not done.')));
+      await resumeOutsideAccess(row.id).then(() => notify.success('Resumed.')).catch((e) => notify.error(errorWords(e, 'resume it')));
       return load();
     }
     return setChange({ action, row });
@@ -144,7 +145,7 @@ export default function OutsideAccess() {
       <div className="ws-inner">
         <PageHead
           crumbs={['Users & access', 'Accountants']}
-          title="Accountant access"
+          title="Accountants"
           description="Let your CA firm or auditor work in this company with limited, time-bound access, separate from your staff."
           actions={
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => requestOpenScreen('users')}>
@@ -227,7 +228,7 @@ export default function OutsideAccess() {
             </table>
           </div>
         ) : (
-          <p className="ws-card-blurb">Nobody from outside. Add an accountant or auditor under Users.</p>
+          <Empty compact action={{ label: 'Add accountant', onClick: () => requestOpenScreen('users') }}>No accountant or auditor has access yet.</Empty>
         )}
           </section>
           <aside className="ws-flat ws-side" aria-labelledby="ws-how-title">

@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -98,7 +99,7 @@ export default function WorkspaceList({ kind, params }) {
   const open = (r) => setEditing({ ...r, details: { ...r.details } });
   const remove = async (row) => {
     if (!(await confirmDialog({ title: `Delete ${row.title}?`, message: 'Only closed, cancelled, archived or draft records can be deleted. Close an active one first.', confirmLabel: 'Delete' }))) return;
-    try { await deleteRecord(kind, row.id); notify.success('Deleted.'); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
+    try { await deleteRecord(kind, row.id); notify.success(`${row.title} deleted.`); req.reload(); } catch (e) { notify.error(errorWords(e, 'delete it')); }
   };
   const exportRows = () => runListExport({
     format: 'csv', title: cfg.title, fileName: cfg.title, label: cfg.title,
@@ -121,7 +122,7 @@ export default function WorkspaceList({ kind, params }) {
   const addLabel = cfg.addLabel || `New ${cfg.singular}`;
   const empty = q || type || status !== 'ALL'
     ? <EmptyState kind="filtered" title={`No ${noun} match`} description={kind === 'events' && !q && status !== 'ALL' ? 'No events here. Try another tab.' : 'Nothing here matches the search or the tab.'} />
-    : <EmptyState title={`No ${noun} yet`} description={`The first ${cfg.singular} starts the list.`} routes={canCreate ? [{ label: addLabel, onSelect: () => setEditing(blank()) }] : undefined} />;
+    : <EmptyState title={`No ${noun} yet`} description={`Each ${cfg.singular} you add appears here.`} routes={canCreate ? [{ label: addLabel, onSelect: () => setEditing(blank()) }] : undefined} />;
   const failed = req.error && !req.data;
   const table = (list, extra = {}) => (
     <DataTable

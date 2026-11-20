@@ -10,7 +10,7 @@ const LINK_NOTE = {
   'github-taken': 'That GitHub account already belongs to another member.',
   'other-clor': 'That is a different CLOR login from the one linked to you.',
   'clor-taken': 'That CLOR login already belongs to another member.',
-  failed: 'That did not work. Try again.',
+  failed: 'The sign-in was not linked. Start again from this page; if it keeps failing, tell engineering.',
 };
 
 /*

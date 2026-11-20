@@ -11,7 +11,7 @@ export const PRODUCT_CONTENT = {
       'Raise GST invoices, e-invoices and e-way bills, keep stock across warehouses, reconcile the bank and close the month. The ledger posts itself as you work.',
     problems: [
       ['Invoices in one tool, books in another', 'Every invoice, bill, receipt and stock movement posts its own journal, so the books are never a month behind the business.'],
-      ['GST filing as a monthly scramble', 'GSTR-1 and GSTR-3B are built from the documents you already raised, with e-invoice and e-way bill details kept on each one.'],
+      ['GST filing as a monthly scramble', 'GSTR-1 and GSTR-3B are prepared from the documents you already raised, with e-invoice and e-way bill details kept on each one.'],
       ['Payments chased by phone', 'Send a reminder with a link that opens the invoice, and a UPI payment link that closes with it.'],
     ],
     features: [
@@ -28,18 +28,18 @@ export const PRODUCT_CONTENT = {
         ['Raise the invoice', 'GST is worked out from the place of supply; the e-invoice is generated with it.'],
         ['Send it', 'The customer gets a link to the invoice and, if you use UPI, a link to pay.'],
         ['Record the receipt', 'Allocate it against the invoice; the balance and the ledger update together.'],
-        ['File', 'The month’s returns are already made from what was raised.'],
+        ['Prepare the returns', 'The month’s GSTR-1 and GSTR-3B are already prepared from what was raised.'],
       ],
     },
     roles: 'Owners and accountants see everything; a salesperson can be limited to their own customers and documents, a branch to its own books. Approvals can sit in front of invoices above an amount.',
     faq: [
-      ['Can I bring my data from Tally?', 'Yes. Masters and opening balances can be imported, and the Tally connector can keep Tally in step while you move.'],
+      ['Can I bring my data from Tally?', 'Yes. Masters and opening balances can be imported, and the on-site connector can keep Tally in step while you move.'],
       ['Does it handle more than one branch or GSTIN?', 'Yes. Each branch keeps its own GSTIN, series and stock, and reports can be read per branch or together.'],
-      ['Can my accountant work in it?', 'Yes. Invite them from your Workspace (Access, then Invitations) with their own login; you decide what they can see and change, and can end it at any time.'],
+      ['Can my accountant work in it?', 'Yes. Invite them from your Workspace (Access, then Invitations) with their own sign-in; you decide what they can see and change, and can end it at any time.'],
     ],
   },
   people: {
-    title: 'Every employee, one record, every app.',
+    title: 'Every employee, one record, every product.',
     intro:
       'Keep each person’s details, documents and history in one place. Onboard new joiners with a checklist, issue letters, and give every employee an app for their own requests.',
     problems: [
@@ -50,7 +50,7 @@ export const PRODUCT_CONTENT = {
     features: [
       ['Employee records', 'Personal, job and statutory details with a dated history of every change.'],
       ['Documents', 'Offer letters, IDs and certificates, with expiry reminders and who may see each one.'],
-      ['Onboarding and exits', 'Joining and leaving checklists, notice periods and final settlement handed to Payroll.'],
+      ['Joining and leaving', 'Checklists, notice periods and final settlement handed to Payroll.'],
       ['Org chart', 'Departments, managers and reporting lines, kept current from the records.'],
       ['Letters', 'Templates for offer, appointment and experience letters, filled from the record.'],
       ['Employee app', 'Payslips, leave, attendance, documents and requests on the employee’s own phone.'],
@@ -60,13 +60,13 @@ export const PRODUCT_CONTENT = {
       steps: [
         ['Add the person', 'HR enters the joining details; the record is the start of everything else.'],
         ['Run the checklist', 'IT, HR and the manager each see their tasks; nothing depends on someone remembering.'],
-        ['Invite to the app', 'The employee activates their app and completes their own details.'],
+        ['Invite to the employee app', 'The employee activates the app and completes their own details.'],
         ['On the reader and payroll', 'Attendance enrols them on the readers; Payroll takes them from the joining date.'],
       ],
     },
     roles: 'HR sees the whole company; managers see their teams; each employee sees only themselves. Sensitive documents and fields, such as bank details and IDs, can be limited to the people who need them.',
     faq: [
-      ['Do employees need a login to the workspace?', 'No. They use the employee app with an activation code from HR; it opens only their own data.'],
+      ['Do employees need their own CLOR sign-in?', 'No. They use the employee app with an activation code from HR; it opens only their own data.'],
       ['Can I use People without Payroll?', 'Yes. Each CLOR product works on its own; together they share the employee record.'],
       ['Can we import our employee list?', 'Yes, from a spreadsheet, with a preview before anything is saved.'],
     ],
@@ -77,7 +77,7 @@ export const PRODUCT_CONTENT = {
       'Run salaries with PF, ESI, professional tax and TDS worked out, publish payslips to every employee’s app, and post the run and the payment straight into Books.',
     problems: [
       ['Attendance re-typed into payroll', 'Paid days, overtime and leave arrive from the closed attendance month.'],
-      ['Statutory files built by hand', 'PF ECR, ESI contributions, PT and Form 16 come out of the payslips themselves.'],
+      ['Statutory files built by hand', 'PF ECR, ESI contributions and Form 16 come out of the payslips themselves, and PT is totalled by state for each return.'],
       ['Salary journals entered twice', 'Locking the run posts its journal to Books; paying salaries posts the payment.'],
     ],
     features: [
@@ -100,7 +100,7 @@ export const PRODUCT_CONTENT = {
     roles: 'Payroll staff run the payroll; changes to bank details wait for a second person’s approval; sensitive figures can need an authenticator code to open.',
     faq: [
       ['Do I need Books to use Payroll?', 'No. Payroll works on its own; with Books, the postings happen for you.'],
-      ['Which states’ professional tax is covered?', 'Professional tax is set per state for each employee’s work location.'],
+      ['Which states’ professional tax is covered?', 'Every state that charges professional tax on salaries. Each employee pays the rate of the state they work in, and you can correct a state’s rates from a date if they change.'],
       ['Can I correct a locked run?', 'Corrections go into the next run as adjustments, so the locked payslips stay as issued.'],
     ],
   },
@@ -139,7 +139,7 @@ export const PRODUCT_CONTENT = {
   },
   projects: {
     title: 'Projects is on its way.',
-    intro: 'Plan work, track tasks and see what each project costs, using the same login, employees and books as the rest of CLOR.',
+    intro: 'Plan work, track tasks and see what each project costs, using the same sign-in, employees and books as the rest of CLOR.',
     planned: ['Projects, tasks and milestones', 'Team assignment from People', 'Costs and billing through Books'],
   },
   timesheet: {

@@ -10,6 +10,8 @@ import Drawer from '@ui/components/ui/Drawer';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { getMonthReadiness, resolveMonthDispute, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Employees confirm their month in the app, or say what is wrong with it.
@@ -61,7 +63,7 @@ export default function MonthConfirmations() {
     setMessage('');
   }
   const load = useCallback(() => {
-    getMonthReadiness(month).then((d) => { setData(d.confirmations); setError(''); }).catch((e) => setError(String(e?.message || 'Could not load.')));
+    getMonthReadiness(month).then((d) => { setData(d.confirmations); setError(''); }).catch((e) => setError(errorWords(e, 'load this')));
   }, [month]);
   useEffect(() => { load(); }, [load]);
 
@@ -82,7 +84,7 @@ export default function MonthConfirmations() {
       close();
       load();
     } catch (e) {
-      setSendError(String(e?.message || 'Not sent.'));
+      setSendError(errorWords(e, 'send it'));
       /* Answered by someone else, or written again since: show the dispute as it is now. */
       if (e?.status === 409 || e?.code === 'DISPUTE_RESOLVED' || e?.code === 'DISPUTE_CHANGED') load();
     } finally {
@@ -97,21 +99,20 @@ export default function MonthConfirmations() {
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
-        if (format) runListExport({ format, title: 'Employee confirmations', fileName: 'Month disputes', label: 'dispute/disputes', columns: EXPORT_COLUMNS, rows: rows });
+        if (format) runListExport({ format, title: 'Employee confirmations', fileName: 'Employee confirmations', label: 'dispute/disputes', columns: EXPORT_COLUMNS, rows: rows });
       }}
       description="Who has confirmed their month in the app, and who says something is wrong. Answer each before the month closes."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search disputes…', label: 'Search disputes' }}
       headerExtras={<input type="month" className="ui-input ui-ctl-compact !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
-      cards={data ? [
+      countLine={countItems(data ? [
         { label: 'Using the app', value: data.portalPeople, count: true, tone: 'all', Icon: Smartphone },
         { label: 'Confirmed', value: data.confirmed, count: true, tone: 'paid', Icon: CheckCheck },
         { label: 'Say it is wrong', value: disputed.length, count: true, tone: 'partial', Icon: MessageSquare },
         { label: 'Not answered', value: open, count: true, tone: 'overdue', Icon: MessageSquareWarning },
         { label: 'Not yet', value: data.notYet, count: true, tone: 'partial', Icon: Clock },
-      ] : null}
+      ] : null)}
     >
       <LoadFailed message={error} onRetry={load} />
       {message ? <p className="text-sm font-medium" role="status" style={{ color: 'rgb(var(--pos))' }}>{message}</p> : null}

@@ -90,7 +90,7 @@ describe('Pricing in the operator console', () => {
     fireEvent.click(within(table).getByRole('button', { name: 'Books Starter' }));
     const monthly = await screen.findByLabelText('Monthly price, ₹');
     fireEvent.change(monthly, { target: { value: '349.50' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep changes' }));
     expect(screen.getByText('Changes not saved')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled();
 
@@ -109,7 +109,7 @@ describe('Pricing in the operator console', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Books Starter' }));
     fireEvent.click(await screen.findByLabelText(/Twelve months of the monthly price/));
     fireEvent.change(screen.getByLabelText('Yearly discount, percent'), { target: { value: '20' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep changes' }));
     /* ₹300 × 12 less 20% = ₹2,880, worked out as the engine does. */
     expect(screen.getByText('₹2,880')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
@@ -154,7 +154,7 @@ describe('Settings, Tax', () => {
     expect(screen.getByLabelText('State')).toHaveValue('29');
     fireEvent.change(screen.getByLabelText('Legal name'), { target: { value: 'Clor Applications Pvt Ltd' } });
     fireEvent.change(screen.getByLabelText('SAC code'), { target: { value: '998314' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save tax settings' }));
     await waitFor(() => expect(api.saveTax).toHaveBeenCalledWith({ registered: true, gstin: '29AABCU9603R1ZJ', legalName: 'Clor Applications Pvt Ltd', state: '29', sac: '998314', ratePercent: 18 }));
   });
 });

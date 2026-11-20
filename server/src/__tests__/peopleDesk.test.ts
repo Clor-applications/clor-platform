@@ -156,7 +156,7 @@ describe('help desk', () => {
     await people(hr).post(`/desk/${r.id}/messages`, { body: 'Taking this to the committee.', internal: true }).expect(201);
     const moved = (await people(hr).post(`/desk/${r.id}/move-to-case`, {}).expect(200)).body.request;
     expect(moved.status).toBe('MOVED');
-    expect(moved.subject).toMatch(/^Moved on \d{4}-\d{2}-\d{2}$/);
+    expect(moved.subject).toMatch(/^Moved on \d{1,2} [A-Z][a-z]{2} \d{4}$/);
     expect(moved.description).toBe('');
     expect(moved.messages).toEqual([]);
     expect(JSON.stringify(moved)).not.toContain('remarks');

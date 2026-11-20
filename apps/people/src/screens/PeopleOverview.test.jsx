@@ -125,11 +125,11 @@ it('offers only the actions this reader may use', async () => {
   const { unmount } = render(as(['PEOPLE::Employees::VIEW', 'ATTENDANCE::Leave Requests::VIEW']));
   expect(await screen.findByText('Probation due')).toBeTruthy();
   expect(screen.getByRole('button', { name: /Leave requests/ })).toBeTruthy();
-  for (const name of [/Announce/, /Post one/, /HR cases/, /Add an employee/, /All events/]) expect(screen.queryByRole('button', { name })).toBeNull();
+  for (const name of [/Announce/, /Post one/, /Help desk/, /Add an employee/, /All events/]) expect(screen.queryByRole('button', { name })).toBeNull();
   unmount();
   render(as([], true));
   expect(await screen.findByRole('button', { name: /Announce/ })).toBeTruthy();
-  for (const name of [/Post one/, /HR cases/, /Add an employee/, /All events/]) expect(screen.getByRole('button', { name })).toBeTruthy();
+  for (const name of [/Post one/, /Help desk/, /Add an employee/, /All events/]) expect(screen.getByRole('button', { name })).toBeTruthy();
 });
 
 /* UI audit, 7 Nov 2026: a failed Home list said "All caught up" and "Everyone is in today". A failure is said as one, with Retry. */

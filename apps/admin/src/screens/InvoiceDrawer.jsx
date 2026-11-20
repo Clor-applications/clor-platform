@@ -5,6 +5,7 @@ import { apiFetch } from '@platform/http';
 import { printElement } from '@ui/utils/printElement';
 import { WsDrawer } from './wsKit';
 import { InvoiceDocument, inr } from './InvoiceDocument';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * CLOR's invoices to this account (roadmap item 8, server: routes/billing.ts),
@@ -26,7 +27,7 @@ export function useInvoices() {
     setOpen({ loading: true });
     apiFetch(`/billing/invoices/${encodeURIComponent(id)}`)
       .then((inv) => setOpen({ inv }))
-      .catch((e) => setOpen({ error: String(e?.message || e) }));
+      .catch((e) => setOpen({ error: errorWords(e, 'open this invoice') }));
   }, []);
 
   /* A ref, not the effect's own flag: Try again reads the list from outside the effect. */
@@ -95,7 +96,7 @@ export function useInvoices() {
       const r = await apiFetch(`/billing/invoices/${encodeURIComponent(inv.id)}/pay`, { method: 'POST', body: { returnTo: here.toString() } });
       window.location.assign(r.url);
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(`${errorWords(e, 'open the payment page')} Nothing was charged.`);
       setPaying(false);
     }
   };

@@ -48,7 +48,7 @@ export function PayChanges({ slips, byEmployee }) {
           const entry = byEmployee?.get(slip.employeeId);
           return (
             <li key={slip.id}>
-              <span className="ui-pay-changes-name">{entry?.employee?.name || "Unknown"}</span>
+              <span className="ui-pay-changes-name">{entry?.employee?.name || "Name missing"}</span>
               <span className="ui-pay-changes-amt tabular-nums">
                 {change == null ? money(slip.netPay) : `${change > 0 ? "+" : "−"}${money(Math.abs(change))}`}
               </span>

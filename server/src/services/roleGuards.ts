@@ -33,7 +33,7 @@ export const ANTI_LOCKOUT_KEYS: readonly string[] = [
 ];
 
 export const LAST_ADMIN_ERROR = {
-  error: 'This would leave the organisation without an administrator',
+  error: 'This would leave the company without an administrator',
   code: 'last_admin',
 };
 

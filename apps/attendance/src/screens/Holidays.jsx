@@ -12,6 +12,8 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { listBranches, listStructure } from '@ui/personnel/api';
 import { CalendarImport, RestrictedPicks } from './HolidayDrawers';
 import { freshFirst, useFreshRow } from '@ui/picks/round57';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const weekday = (iso) => WEEKDAY[new Date(`${iso}T00:00:00Z`).getUTCDay()];
@@ -73,7 +75,7 @@ export default function Holidays({ openScreen } = {}) {
   }, []);
 
   const load = useCallback(() => {
-    getHolidayYear(year).then((v) => { setAll(v.holidays); setMinimum(v.stateMinimum); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load holidays.')));
+    getHolidayYear(year).then((v) => { setAll(v.holidays); setMinimum(v.stateMinimum); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load holidays')));
   }, [year]);
   useEffect(() => {
     load();
@@ -105,7 +107,7 @@ export default function Holidays({ openScreen } = {}) {
       dateRef.current?.focus();
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not added.'));
+      notify.error(errorWords(err, 'add it'));
     }
   };
 
@@ -114,18 +116,18 @@ export default function Holidays({ openScreen } = {}) {
       await updateHoliday(h.id, { date: h.date, name: h.name, isOptional: !h.isOptional, branchId: h.branchId, areaId: h.areaId });
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     }
   };
 
   const remove = async (h) => {
-    const ok = await confirmDialog({ title: `Delete ${h.name}?`, message: 'Days already marked as this holiday keep their status.', confirmLabel: 'Yes, delete' });
+    const ok = await confirmDialog({ title: `Delete ${h.name}?`, message: 'Days already marked as this holiday keep their status.', confirmLabel: 'Delete holiday' });
     if (!ok) return;
     try {
       await deleteHoliday(h.id);
       load();
     } catch (err) {
-      notify.error(String(err?.message || 'Not deleted.'));
+      notify.error(errorWords(err, 'delete it'));
     }
   };
 
@@ -143,14 +145,13 @@ export default function Holidays({ openScreen } = {}) {
       description="Paid days off: for everyone, or only one branch’s or area’s people (a branch in another state keeps its own). Optional holidays do not change anyone's attendance."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search holidays…', label: 'Search holidays' }}
-      cards={[
+      countLine={countItems([
         { label: `Holidays in ${year}`, value: counts[''], count: true, tone: 'all', Icon: CalendarDays },
         { label: 'Paid', value: counts.PAID, count: true, tone: 'paid', Icon: CalendarCheck, onSelect: () => setKind('PAID') },
         { label: 'Optional', value: counts.OPTIONAL, count: true, tone: 'cancelled', Icon: CalendarMinus, onSelect: () => setKind('OPTIONAL') },
         { label: 'Still to come', value: upcoming, count: true, tone: 'sent', Icon: CalendarClock },
-      ]}
+      ])}
       tabs={TABS}
       statusValue={kind}
       statusCounts={counts}

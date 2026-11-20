@@ -152,7 +152,7 @@ it('browser clock-in: switched off hides the addresses; a refusal is shown', asy
   saveWebClock.mockRejectedValue(new Error('300.1.1.1 is not an address or a block like 49.205.10.0/24.'));
   render(<WebClockSettings onClose={() => {}} />);
   await screen.findByLabelText('Address 1');
-  fireEvent.click(screen.getByLabelText(/Clock in and out from a browser/));
+  fireEvent.click(screen.getByLabelText(/Punch in and out from a browser/));
   expect(screen.queryByLabelText('Address 1')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   expect((await screen.findByRole('alert')).textContent).toMatch(/is not an address/);

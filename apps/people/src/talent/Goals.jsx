@@ -1,4 +1,5 @@
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
@@ -76,7 +77,7 @@ export default function Goals({ params = {} }) {
   return (
     <div className="space-y-6">
       <ListHeader
-        module="Talent"
+        module="Performance"
         title="Goals"
         description="What each person is working towards, how it is measured, by when, and how it is going."
         primary={canAdd ? { label: 'New goal', icon: Plus, onClick: () => setEditing(blank) } : null}
@@ -126,7 +127,7 @@ function GoalDrawer({ id, onEdit, onClose, onChanged }) {
   };
   const close = async (status) => {
     if (!(await confirmDialog({ title: status === 'DONE' ? 'Mark this goal done?' : 'Drop this goal?', message: status === 'DONE' ? 'It is set to 100% and leaves the active list.' : 'It leaves the active list; its check-ins stay.', confirmLabel: status === 'DONE' ? 'Mark done' : 'Drop', tone: status === 'DONE' ? 'neutral' : 'danger' }))) return;
-    try { await updateGoal(id, { status }); notify.success('Saved.'); reload(); } catch (e) { notify.error(String(e?.message || 'Not saved.')); }
+    try { await updateGoal(id, { status }); notify.success('Goal updated.'); reload(); } catch (e) { notify.error(errorWords(e, 'save the changes')); }
   };
   /* A teammate's goal is read only (round 53 pick: goals open to the team). */
   const active = g?.status === 'ACTIVE' && g?.canAct !== false;

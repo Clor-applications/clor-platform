@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import Drawer from '@ui/components/ui/Drawer';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
+import { errorWords, dayText } from '@ui/utils/errorWords';
 
 const num = (n) => (Number.isInteger(n) ? String(n) : Number(n).toFixed(1).replace(/\.0$/, ''));
 const monthLabel = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' });
@@ -19,7 +20,7 @@ export default function LeaveExplain({ open, onClose, load }) {
     Promise.resolve()
       .then(load)
       .then((d) => !off && setResult({ for: load, data: d, error: '' }))
-      .catch((e) => !off && setResult({ for: load, data: null, error: String(e?.message || 'Could not explain this balance.') }));
+      .catch((e) => !off && setResult({ for: load, data: null, error: errorWords(e, 'explain this balance') }));
     return () => {
       off = true;
     };
@@ -29,7 +30,7 @@ export default function LeaveExplain({ open, onClose, load }) {
   const b = data?.balance;
 
   return (
-    <Drawer open={open} onClose={onClose} title={data ? `${data.type.name}, ${data.year}` : 'Leave balance'} description={data ? `${data.employee.name}, as of ${data.asOf}` : ''} widthClass="w-[min(32rem,96vw)]">
+    <Drawer open={open} onClose={onClose} title={data ? `${data.type.name}, ${data.year}` : 'Leave balance'} description={data ? `${data.employee.name}, as of ${dayText(data.asOf)}` : ''} widthClass="w-[min(32rem,96vw)]">
       {error ? <p className="ui-caption" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       {!data && !error ? <SkeletonCard lines={5} /> : null}
       {data ? (

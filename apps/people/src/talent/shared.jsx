@@ -19,7 +19,7 @@ export const STAGES = [
   ['INTERVIEW', 'Interview', 'ui-pill-info'],
   ['OFFER', 'Offer', 'ui-pill-warn'],
   ['HIRED', 'Hired', 'ui-pill-pos'],
-  ['REJECTED', 'Not taken forward', 'ui-pill-neutral'],
+  ['REJECTED', 'Rejected', 'ui-pill-neutral'],
   ['WITHDRAWN', 'Withdrew', 'ui-pill-neutral'],
 ];
 export const OPEN_STAGES = ['APPLIED', 'SCREENING', 'INTERVIEW', 'OFFER'];

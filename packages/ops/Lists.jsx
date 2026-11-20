@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { dayTimeText } from '@ui/utils/errorWords';
 import { AlertTriangle, Search, X } from '@ui/components/ui/lineIcons';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
-import { APP_NAMES, Empty, Err, Loading, Pager, REASON, when } from './kit';
+import { APP_NAMES, Empty, Err, Loading, Pager, REASON, reasonShort, when, errorWords } from './kit';
 import { opsDenials, opsFeatureSwitches, opsOrganisations, opsUsers } from './api';
 import './lists.css';
 
@@ -24,7 +25,7 @@ function useList(load, view) {
     const t = setTimeout(() => {
       load(view)
         .then((r) => live && (setData(r), setError('')))
-        .catch((e) => live && setError(String(e?.message || e)));
+        .catch((e) => live && setError(errorWords(e, 'load the list')));
     }, 200);
     return () => {
       live = false;
@@ -104,12 +105,12 @@ export function Organisations({ account = '', openAccount, clearAccount }) {
   return (
     <>
       <PageHead
-        title="Organizations"
-        description="Companies, across every account. Every row of customer data belongs to exactly one organization, and the database refuses a row from any other."
-        meta={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'organization' : 'organizations'}` : null}
+        title="Companies"
+        description="Every company, across every account. Each company’s data is kept apart: nobody in one company can read another’s."
+        meta={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'company' : 'companies'}` : null}
       />
       <div className="ops-filters" role="search">
-        <SearchBox label="Search organizations" value={view.q} onChange={(q) => set({ q })} placeholder="Search organization, ID or GSTIN" />
+        <SearchBox label="Search companies" value={view.q} onChange={(q) => set({ q })} placeholder="Search company, company ID or GSTIN" />
         <Filter
           label="Status"
           value={view.status}
@@ -136,14 +137,14 @@ export function Organisations({ account = '', openAccount, clearAccount }) {
       {!data ? (
         error ? null : <Loading />
       ) : !data.organisations.length ? (
-        <Empty>{view.q ? 'No organization matches that search.' : 'No organization here.'}</Empty>
+        <Empty>{view.q ? 'No company matches that search.' : 'No company has this status.'}</Empty>
       ) : (
         <div className="ws-table-wrap">
           <table className="ws-table">
-            <caption className="sr-only">Organizations</caption>
+            <caption className="sr-only">Companies</caption>
             <thead>
               <tr>
-                <th>Organization</th>
+                <th>Company</th>
                 <th className="hidden md:table-cell">Account</th>
                 <th className="hidden lg:table-cell">GSTIN</th>
                 <th className="hidden xl:table-cell">Apps on</th>
@@ -184,14 +185,14 @@ export function Organisations({ account = '', openAccount, clearAccount }) {
       <Pager page={view.page} pages={pages} onPage={(page) => setView((v) => ({ ...v, page }))} />
       <p className="ops-callout">
         <AlertTriangle size={16} aria-hidden="true" />
-        Row-level security is on for every company: each row carries its organization’s ID and the database refuses rows from another. Archived organizations are read-only and off the plan’s count.
+        Each company’s data is kept apart: nobody in one company can read another’s. Archived companies are read-only and do not count towards the plan.
       </p>
     </>
   );
 }
 
 /* ------------------------------------------------------------------ users */
-const ROLE_WORD = { OWNER: 'Owner', ADMIN: 'Admin', BILLING_ADMIN: 'Billing admin', MEMBER: 'Member' };
+const ROLE_WORD = { OWNER: 'Owner', ADMIN: 'Administrator', BILLING_ADMIN: 'Billing administrator', MEMBER: 'Member' };
 const USER_STATUS = {
   active: ['Active', 'ws-pill ws-pill--ok'],
   never: ['Never signed in', 'ws-pill ws-pill--off'],
@@ -201,7 +202,7 @@ const USER_STATUS = {
   left: ['Left', 'ws-pill ws-pill--off'],
   'no-membership': ['No membership', 'ws-pill ws-pill--off'],
 };
-const signInWords = (s) => [s.method === 'sso' ? `SSO${s.provider ? ` (${s.provider})` : ''}` : 'Password', s.twoFactor ? '2FA' : null].filter(Boolean).join(' · ');
+const signInWords = (s) => [s.method === 'sso' ? `Single sign-on${s.provider ? ` (${s.provider})` : ''}` : 'Password', s.twoFactor ? 'authenticator' : null].filter(Boolean).join(' · ');
 const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
 export function Users({ openAccount }) {
@@ -224,7 +225,7 @@ export function Users({ openAccount }) {
       const lines = [['Name', 'Email', 'Accounts', 'Companies', 'Highest role', 'Sign-in', 'Last sign-in', 'Status'].map(csvCell).join(',')];
       for (const u of rows) {
         lines.push(
-          [u.name, u.email, u.accounts.map((a) => a.name).join('; '), u.companies, ROLE_WORD[u.role] || u.role || '', signInWords(u.signIn), u.lastLoginAt ? new Date(u.lastLoginAt).toISOString() : '', USER_STATUS[u.status]?.[0] || u.status]
+          [u.name, u.email, u.accounts.map((a) => a.name).join('; '), u.companies, ROLE_WORD[u.role] || u.role || '', signInWords(u.signIn), dayTimeText(u.lastLoginAt), USER_STATUS[u.status]?.[0] || u.status]
             .map(csvCell)
             .join(','),
         );
@@ -260,8 +261,8 @@ export function Users({ openAccount }) {
           onChange={(signIn) => set({ signIn })}
           options={[
             ['all', 'All'],
-            ['twofactor', 'With 2FA'],
-            ['password', 'Without 2FA'],
+            ['twofactor', 'With an authenticator'],
+            ['password', 'Without an authenticator'],
             ['sso', 'Single sign-on'],
           ]}
         />
@@ -282,7 +283,7 @@ export function Users({ openAccount }) {
       {!data ? (
         error ? null : <Loading />
       ) : !data.users.length ? (
-        <Empty>{view.q ? 'Nobody matches that search.' : 'Nobody here.'}</Empty>
+        <Empty>{view.q ? 'Nobody matches that search.' : 'Nobody with this sign-in or status.'}</Empty>
       ) : (
         <div className="ws-table-wrap">
           <table className="ws-table">
@@ -346,8 +347,8 @@ export function Users({ openAccount }) {
 
 /* ---------------------------------------------------------------- denials */
 const TILES = [
-  ['', 'Denials today', 1, null],
-  ['APP_NOT_SUBSCRIBED', 'App not subscribed', 2, 'Could add the app'],
+  ['', 'Refused today', 1, null],
+  ['APP_NOT_SUBSCRIBED', 'App not on their plan', 2, 'Could add the app'],
   ['NO_ROLE_GRANT', 'Role does not allow it', 3, 'Their role needs changing'],
   ['SUBSCRIPTION_LAPSED', 'Subscription lapsed', 4, 'Renew to reopen', 'warn'],
 ];
@@ -368,7 +369,7 @@ export function Denials({ account = '', openAccount, clearAccount }) {
   const codes = [...new Set([...(data?.codes || []), ...Object.keys(REASON)])].sort();
   return (
     <>
-      <PageHead title="Entitlement denials" description="Every time the platform said no, with the reason code. Use it to answer “why can’t I open this?” in one search." />
+      <PageHead title="Access refused" description="Every time CLOR refused someone, with the reason. Use it to answer “why can’t I open this?” in one search." />
       <div className="ops-kpis">
         {TILES.map(([code, label, cat, note, state]) => {
           const value = code ? data?.today?.byCode?.[code] || 0 : data?.today?.total || 0;
@@ -394,8 +395,8 @@ export function Denials({ account = '', openAccount, clearAccount }) {
         })}
       </div>
       <div className="ops-filters" role="search">
-        <SearchBox label="Search denials" value={view.q} onChange={(q) => set({ q })} placeholder="Search user, org or correlation ID" />
-        <Filter label="Reason" value={view.code} onChange={(code) => set({ code })} options={[['', 'All'], ...codes.map((c) => [c, c])]} />
+        <SearchBox label="Search refusals" value={view.q} onChange={(q) => set({ q })} placeholder="Search person, company or request ID" />
+        <Filter label="Reason" value={view.code} onChange={(code) => set({ code })} options={[['', 'All'], ...codes.map((c) => [c, reasonShort(c)])]} />
         <Filter
           label="App"
           value={view.app}
@@ -427,10 +428,9 @@ export function Denials({ account = '', openAccount, clearAccount }) {
               <tr>
                 <th>Time</th>
                 <th>Who</th>
-                <th className="hidden md:table-cell">Organization</th>
-                <th>Reason code</th>
-                <th className="num hidden sm:table-cell">HTTP</th>
-                <th className="hidden lg:table-cell">Correlation ID</th>
+                <th className="hidden md:table-cell">Company</th>
+                <th>Reason</th>
+                <th className="hidden lg:table-cell">Request ID</th>
               </tr>
             </thead>
             <tbody>
@@ -451,13 +451,10 @@ export function Denials({ account = '', openAccount, clearAccount }) {
                   </td>
                   <td className="hidden md:table-cell">{d.org?.name || '—'}</td>
                   <td style={{ whiteSpace: 'normal' }} title={REASON[d.code] || undefined}>
-                    <span className="ops-code">{d.code}</span>
+                    <span className="ops-strong">{reasonShort(d.code)}</span>
                     {d.app || d.feature ? <span className="ops-code-sub"> · {d.feature || APP_NAMES[d.app] || d.app}</span> : null}
-                    <div className="ws-item-sub ops-clip">
-                      {d.method} {d.route}
-                    </div>
+                    {REASON[d.code] ? <div className="ws-item-sub">{REASON[d.code]}</div> : null}
                   </td>
-                  <td className="num hidden sm:table-cell">{d.status}</td>
                   <td className="hidden lg:table-cell ui-mono" style={{ maxWidth: 220, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
                     {d.requestId || '—'}
                   </td>
@@ -470,7 +467,7 @@ export function Denials({ account = '', openAccount, clearAccount }) {
       <Pager page={view.page} pages={pages} onPage={(page) => setView((v) => ({ ...v, page }))} />
       <p className="ops-callout">
         <AlertTriangle size={16} aria-hidden="true" />
-        Kept for 30 days. A customer quotes the correlation ID from their error; paste it in the search to see who was refused, where, and why.
+        Kept for 30 days. A customer quotes the request ID from their error; paste it in the search to see who was refused, where, and why.
       </p>
     </>
   );
@@ -509,11 +506,11 @@ export function FeatureSwitches({ openAccount }) {
     <>
       <PageHead
         title="Feature switches"
-        description="Every module, who gets it, and the accounts CLOR switched it for. Switch one for an account on that account’s Limits tab; every change needs a reason and is logged."
+        description="Every feature, who gets it, and the accounts CLOR switched it for. Switch one for an account on that account’s Limits tab; every change needs a reason and is logged."
         meta={data ? `${data.accountsChanged} ${data.accountsChanged === 1 ? 'account has' : 'accounts have'} a switch set by CLOR` : null}
       />
       <div className="ops-filters" role="search">
-        <SearchBox label="Search switches" value={view.q} onChange={(q) => set({ q })} placeholder="Search a module or its key" />
+        <SearchBox label="Search switches" value={view.q} onChange={(q) => set({ q })} placeholder="Search a feature" />
         <Filter label="App" value={view.app} onChange={(app) => set({ app })} options={[['', 'All'], ...Object.entries(APP_NAMES)]} />
         <Filter
           label="Show"
@@ -529,7 +526,7 @@ export function FeatureSwitches({ openAccount }) {
       {!data ? (
         error ? null : <Loading />
       ) : !data.switches.length ? (
-        <Empty>{view.changed === 'changed' ? 'CLOR has not switched any module for any account.' : 'No switch matches.'}</Empty>
+        <Empty>{view.changed === 'changed' ? 'CLOR has not switched any feature for any account.' : 'No switch matches.'}</Empty>
       ) : (
         <div className="ws-table-wrap">
           <table className="ws-table">
@@ -582,7 +579,7 @@ export function FeatureSwitches({ openAccount }) {
       <Pager page={view.page} pages={pages} onPage={(page) => setView((v) => ({ ...v, page }))} />
       <p className="ops-callout">
         <AlertTriangle size={16} aria-hidden="true" />
-        A switch CLOR sets takes effect at once and survives a renewal. Customers never see switch keys; a refused module shows as MODULE_OFF in Entitlement denials.
+        A switch CLOR sets takes effect at once and survives a renewal. Customers never see these names. When a feature is off, the refusal is listed under Access refused as “Feature switched off”.
       </p>
     </>
   );

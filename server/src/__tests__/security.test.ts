@@ -406,7 +406,7 @@ describe('signing in with OpenID Connect', () => {
       const cookie2 = String(start2.headers['set-cookie']).split(';')[0];
       const back2 = new URL((await fetch(start2.headers.location, { redirect: 'manual' })).headers.get('location') || '');
       const refused = await request(app).get(`/api/auth/sso/callback?${back2.searchParams.toString()}`).set('Cookie', cookie2).expect(302);
-      expect(decodeURIComponent(refused.headers.location)).toMatch(/has no CLOR login yet/);
+      expect(decodeURIComponent(refused.headers.location)).toMatch(/has no CLOR sign-in yet/);
       await issuer2.close();
     } finally {
       await issuer.close();

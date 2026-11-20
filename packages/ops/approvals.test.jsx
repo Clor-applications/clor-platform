@@ -62,7 +62,7 @@ describe('operator console: approvals', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Change the limit' }));
     fireEvent.change(screen.getByLabelText(/Ask a second person when a subscription takes off more than/), { target: { value: '30' } });
     fireEvent.change(screen.getByLabelText('Why'), { target: { value: 'Festival season' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save limit' }));
     await waitFor(() => expect(api.opsApprovalLimit).toHaveBeenCalledWith(30, 'Festival season'));
   });
 });

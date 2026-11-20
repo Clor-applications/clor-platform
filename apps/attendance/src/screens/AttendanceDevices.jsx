@@ -36,6 +36,8 @@ import {
 } from '../api/attendance';
 import ReaderEvidence, { ReaderCompatibility, SupportPill } from '../components/ReaderEvidence';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const DIRECTIONS = {
   both: 'In and out (the reader’s keys decide)',
@@ -78,7 +80,7 @@ const TIME_STAMPS = [
 /** Not readers: punches sent with an API key, and from the employee portal on phones. */
 const VIRTUAL = {
   API: { label: 'API key', title: 'Punches sent with an API key. Manage it under Integrations' },
-  MOBILE: { label: 'Employee portal', title: 'Punches from phones in the employee portal. See Portal access and Work sites' },
+  MOBILE: { label: 'Employee portal', title: 'Punches from phones in the employee portal. See Employee portal access and Punch areas' },
 };
 
 /**
@@ -92,10 +94,10 @@ function NetworkApproval({ device, yourNetwork, onDone }) {
     setBusy(true);
     try {
       await approveDeviceNetwork(device.id);
-      notify.success(`${device.name} approved on this network. Its punches come across on its next heartbeat.`);
+      notify.success(`${device.name} approved on this network. Its punches arrive within about 30 seconds.`);
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not approved.'));
+      notify.error(errorWords(e, 'approve it'));
     } finally {
       setBusy(false);
     }
@@ -166,7 +168,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
   const [tab, setTab] = useState('');
 
   const load = useCallback(() => {
-    listDevices().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load readers.')));
+    listDevices().then((v) => { setData(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load readers')));
   }, []);
   useEffect(() => {
     load();
@@ -199,15 +201,13 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
       description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office, all landing on the same days."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search readers…', label: 'Search readers' }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" onClick={() => setAdding(true)}>
           <Plus size={16} aria-hidden="true" /> Add reader
         </button>
       }
-      cards={
-        data
+      countLine={countItems(data
           ? [
               { label: 'Readers', value: physical.length, count: true, tone: 'all', Icon: Cpu },
               { label: 'Online', value: physical.filter((d) => d.online).length, count: true, tone: 'paid', Icon: Wifi },
@@ -215,8 +215,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
               { label: 'Punches today', value: all.reduce((a, d) => a + Number(d.punchesToday || 0), 0), count: true, tone: 'sent', Icon: Fingerprint },
               { label: 'Unmatched', value: data.unmatchedPunches || 0, count: true, tone: 'outstanding', Icon: UserX, onSelect: openScreen ? () => openScreen('unmatched') : undefined },
             ]
-          : null
-      }
+          : null)}
       tabs={TABS}
       statusValue={tab}
       statusCounts={counts}
@@ -264,7 +263,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
                   <ColumnHeader label="Model" col="model" state={columns} className="hidden md:table-cell" />
                   <th scope="col" className="ui-num hidden 2xl:table-cell" title="People and fingerprints held on the reader">Enrolled</th>
                   <th scope="col" className="ui-num">Punches today</th>
-                  <th scope="col" className="ui-num hidden md:table-cell">Commands waiting</th>
+                  <th scope="col" className="ui-num hidden md:table-cell">Changes waiting</th>
                 </tr>
               </thead>
               <tbody className="ui-rows">
@@ -274,7 +273,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
                       {inTabRows.length ? (
                         <EmptyState kind="filtered" totalCount={inTabRows.length} title="No readers match" description="Nothing in this tab matches the search or the column filters." />
                       ) : all.length ? (
-                        <EmptyState icon={Cpu} title="No readers here" description="Try another tab." />
+                        <EmptyState icon={Cpu} title={tab === 'working' ? 'No readers working' : tab === 'attention' ? 'No readers need a look' : 'No readers switched off'} description="Pick All to see every reader." />
                       ) : (
                         <EmptyState
                           icon={Cpu}
@@ -294,25 +293,25 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
                     <td>{directionWord(d)}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
                       {!d.isActive ? (
-                        <span className="ui-pill ui-pill-neutral">off</span>
+                        <span className="ui-pill ui-pill-neutral">Off</span>
                       ) : VIRTUAL[d.vendor] ? (
-                        <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `used ${ago(d.lastSeenAt)}` : 'not used yet'}</span>
+                        <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `Used ${ago(d.lastSeenAt)}` : 'Not used yet'}</span>
                       ) : MAPPED[d.vendor] ? (
                         !d.mapping ? (
-                          <span className="ui-pill ui-pill-warn" title="Open it and set where each field is">mapping needed</span>
+                          <span className="ui-pill ui-pill-warn" title="Open it and set where each field is">Fields to match</span>
                         ) : d.lastError ? (
-                          <span className="ui-pill ui-pill-neg" title={d.lastError}>last push failed</span>
+                          <span className="ui-pill ui-pill-neg" title={d.lastError}>Last push failed</span>
                         ) : (
-                          <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `${d.vendor === 'FILE' ? 'imported' : 'pushed'} ${ago(d.lastSeenAt)}` : d.vendor === 'FILE' ? 'nothing imported yet' : 'nothing received yet'}</span>
+                          <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `${d.vendor === 'FILE' ? 'Imported' : 'Received'} ${ago(d.lastSeenAt)}` : d.vendor === 'FILE' ? 'Nothing imported yet' : 'Nothing received yet'}</span>
                         )
                       ) : d.vendor === 'ETIMEOFFICE' || (PULL[d.vendor] && !MAPPED[d.vendor]) ? (
-                        <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : d.lastFetchedAt ? 'ui-pill-pos' : 'ui-pill-neutral'}`} title={d.lastError || ''}>{d.lastError ? 'pull failing' : d.lastFetchedAt ? `pulled ${ago(d.lastFetchedAt)}` : 'not pulled yet'}</span>
+                        <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : d.lastFetchedAt ? 'ui-pill-pos' : 'ui-pill-neutral'}`} title={d.lastError || ''}>{d.lastError ? 'Not collecting' : d.lastFetchedAt ? `Collected ${ago(d.lastFetchedAt)}` : 'Not collected yet'}</span>
                       ) : d.awaitingNetwork ? (
-                        <span className="ui-pill ui-pill-warn" title={`Calling from ${d.awaitingNetwork}, which is not approved`}>new network</span>
+                        <span className="ui-pill ui-pill-warn" title={`Calling from ${d.awaitingNetwork}, which is not approved`}>New network</span>
                       ) : d.online ? (
                         <span className="ui-caption">online</span>
                       ) : (
-                        <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>{d.lastSeenAt ? `last seen ${ago(d.lastSeenAt)}` : 'never connected'}</span>
+                        <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>{d.lastSeenAt ? `Last seen ${ago(d.lastSeenAt)}` : 'Never connected'}</span>
                       )}
                     </td>
                     <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
@@ -339,7 +338,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
           <li>Set the reader’s date and time to Indian time. Punches are recorded at the reader’s clock.</li>
           <li>
             Add it here with the serial number from <strong>Menu → System Info → Device Info</strong>, from a computer or phone on the same internet connection as the
-            reader (the office Wi-Fi). Its stored punches come across on the first heartbeat.
+            reader (the office Wi-Fi). Its stored punches arrive within about 30 seconds.
           </li>
           <li>
             A reader only sends to CLOR from networks you approved, so someone who learns its serial number cannot use it. If it moves to a new internet connection,
@@ -409,7 +408,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
     try {
       setTested(pull ? await testPull(pullBody()) : await testEtimeOffice(creds()));
     } catch (err) {
-      setTested({ ok: false, message: String(err?.message || 'Could not test.') });
+      setTested({ ok: false, message: errorWords(err, 'test the connection') });
     }
   };
   const save = async (e) => {
@@ -433,7 +432,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
       );
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Not added.'));
+      notify.error(errorWords(err, 'add it'));
     } finally {
       setSaving(false);
     }
@@ -450,7 +449,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={onSaved}>Done</button>}
       >
         <PushUrl url={made.url} />
-        {matrix ? <MatrixSetupNote /> : hikPush ? <HikvisionSetupNote /> : <p className="ui-caption mt-4">Send punches with POST, as JSON, in whatever shape the device uses. The first thing it sends is kept so you can set where each field is. Open the reader afterwards and choose <strong>Set up fields</strong>.</p>}
+        {matrix ? <MatrixSetupNote /> : hikPush ? <HikvisionSetupNote /> : <div className="ui-caption mt-4 space-y-1"><p>Give this address to whoever set up the device or software. The first punch it sends is kept so you can match its fields: open the reader afterwards and choose <strong>Set up fields</strong>.</p><p>For your IT person: send punches with HTTP POST, as JSON, in any shape.</p></div>}
       </Drawer>
     );
   }
@@ -597,7 +596,7 @@ function PushUrl({ url }) {
 }
 
 const TIME_FORMATS = [
-  ['auto', 'Work it out (ISO, YYYY-MM-DD, epoch)'],
+  ['auto', 'Work it out for me'],
   ['DMY', 'Day first: 31/12/2026 09:05'],
   ['MDY', 'Month first: 12/31/2026 09:05'],
   ['epoch', 'Seconds since 1970'],
@@ -647,7 +646,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
     try {
       await fn();
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'do that'));
     } finally {
       setBusy('');
     }
@@ -742,8 +741,9 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === 'rotate'} onClick={rotate}>Make a new URL</button>
             <div className="space-y-1 pt-2">
               <h4 className="text-sm font-medium">Signed pushes {signing.on ? <span className="ui-pill ui-pill-pos">required</span> : <span className="ui-pill ui-pill-neutral">off</span>}</h4>
+              <p className="ui-caption">Only punches signed with the secret below are accepted, so nobody else can send punches to this address.</p>
               <p className="ui-caption">
-                When on, each push must carry <code className="ui-mono">X-Clor-Timestamp</code> (Unix seconds) and <code className="ui-mono">X-Clor-Signature: sha256=…</code>, an HMAC-SHA256 of <code className="ui-mono">timestamp.body</code> with the secret. A changed body, or one sent again after five minutes, is refused.
+                For your IT person: each push must carry <code className="ui-mono">X-Clor-Timestamp</code> (Unix seconds) and <code className="ui-mono">X-Clor-Signature: sha256=…</code>, an HMAC-SHA256 of <code className="ui-mono">timestamp.body</code> with the secret. A changed body, or one sent again after five minutes, is refused.
               </p>
               {signing.secret ? <p className="text-sm">Secret, shown once: <code className="ui-mono break-all">{signing.secret}</code></p> : null}
               <div className="flex flex-wrap gap-2">
@@ -766,7 +766,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
                 <input type="file" accept=".csv,.txt,text/csv" className="sr-only" onChange={pickFile} />
               </label>
             ) : (
-              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === 'last'} onClick={loadLast}>Load last payload</button>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === 'last'} onClick={loadLast}>Show what it last sent</button>
             )}
             {fileName ? <span className="ui-caption">{fileName}</span> : null}
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!map.employeeCode || busy === 'preview' || (isFile && !sample)} onClick={() => run(false)}>Preview</button>
@@ -864,7 +864,7 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
     try {
       await fn();
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'do that'));
     } finally {
       setBusy('');
     }
@@ -960,7 +960,7 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
             <select className="ui-select w-full" value={form.direction} onChange={set('direction')}>
               {Object.entries(DIRECTIONS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
             </select>
-            <span className="ui-caption">The terminal’s check-in / check-out status says entry or exit; “Entry only” or “Exit only” overrides it.</span>
+            <span className="ui-caption">The reader’s in / out status says entry or exit; “Entry only” or “Exit only” overrides it.</span>
           </label>
           <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
           <label className="flex items-center gap-2 text-sm">
@@ -1004,7 +1004,7 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
     try {
       await fn();
     } catch (err) {
-      notify.error(String(err?.message || 'Not done.'));
+      notify.error(errorWords(err, 'do that'));
     } finally {
       setBusy('');
     }
@@ -1065,7 +1065,7 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
             <div className="flex justify-between gap-3"><dt className="ui-muted">Users on it</dt><dd>{device.userCount ?? '—'}</dd></div>
             <div className="flex justify-between gap-3"><dt className="ui-muted">Last event number</dt><dd>{cfg.lastSeq ?? '—'}</dd></div>
             <div className="flex justify-between gap-3"><dt className="ui-muted">Clock</dt><dd>{clockWords(device.clockOffsetSec)}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="ui-muted">Commands waiting</dt><dd>{device.commandsWaiting || '0'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="ui-muted">Changes waiting</dt><dd>{device.commandsWaiting || '0'}</dd></div>
           </dl>
           <p className="ui-caption">The clock is measured from each live event. When it is a minute or more out, CLOR sends the controller the time on its next poll.</p>
           <div className="flex flex-wrap gap-2">
@@ -1084,10 +1084,10 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
                 })
               }
             >
-              Send new staff
+              Send new people
             </button>
           </div>
-          <p className="ui-caption">People go to the controller with their Reader ID (else employee code), name and card number; fingerprints, cards and palms are enrolled at the door. Sync status shows who it holds.</p>
+          <p className="ui-caption">People go to the controller with their Reader ID (else employee code), name and card number; fingerprints, cards and palms are enrolled at the door. Sync monitoring shows who it holds.</p>
         </section>
 
         <section className="space-y-2" aria-labelledby="mx-url-h">
@@ -1141,7 +1141,7 @@ function CloudDrawer({ device, onClose, onChanged }) {
       onChanged();
       onClose();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     }
   };
   const sync = async (fromDate) => {
@@ -1151,7 +1151,7 @@ function CloudDrawer({ device, onClose, onChanged }) {
       notify.success(`${r.received} punches received, ${r.added} new.`);
       onChanged();
     } catch (err) {
-      notify.error(String(err?.message || 'Sync failed.'));
+      notify.error(errorWords(err, 'sync the reader'));
     } finally {
       setBusy(false);
     }
@@ -1172,7 +1172,7 @@ function CloudDrawer({ device, onClose, onChanged }) {
     >
       <div className="space-y-4">
         <ReaderEvidence device={device} />
-        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last pull failed: {device.lastError}</div> : null}
+        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>CLOR could not collect punches last time. Check the address and sign-in details, then choose Sync now.<span className="ui-caption block mt-1">For your IT person: {device.lastError}</span></div> : null}
         <section className="space-y-2" aria-labelledby="sync-h">
           <h3 id="sync-h" className="ui-t-sec">Punches</h3>
           <p className="ui-caption">Pulled every few minutes. Sync now pulls at once; a date fetches older punches (up to 31 days back).</p>
@@ -1214,7 +1214,7 @@ function PullControls({ device, onChanged }) {
       notify.success(`${r.added} new punch${r.added === 1 ? '' : 'es'} (${r.received} record${r.received === 1 ? '' : 's'} received${r.readable != null ? `, ${r.readable} readable` : ''}).`);
       onChanged();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not pull.'));
+      notify.error(errorWords(err, 'collect the punches'));
     } finally {
       setBusy(false);
     }
@@ -1248,14 +1248,14 @@ function PullDrawer({ device, onClose, onChanged }) {
       notify.success('Connection saved.');
       onChanged();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     }
   };
   const test = async () => {
     try {
       setTested(await testPull({ vendor: device.vendor, name: device.name, direction: form.direction, sourceTimezone: form.sourceTimezone, baseUrl: form.baseUrl, username: form.username, password: form.password || null, deviceId: device.id }));
     } catch (err) {
-      setTested({ ok: false, message: String(err?.message || 'Could not test.') });
+      setTested({ ok: false, message: errorWords(err, 'test the connection') });
     }
   };
   return (
@@ -1274,8 +1274,8 @@ function PullDrawer({ device, onClose, onChanged }) {
     >
       <div className="space-y-4">
         <ReaderEvidence device={device} />
-        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last pull failed: {device.lastError}</div> : null}
-        <p className="ui-caption">This driver follows the maker’s published API and has not been tried on a real device by CLOR. If a pull fails, send us the error shown above.</p>
+        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>CLOR could not collect punches last time. Check the address and sign-in details, then choose Sync now.<span className="ui-caption block mt-1">For your IT person: {device.lastError}</span></div> : null}
+        <p className="ui-caption">CLOR has not yet tested this make of reader. If punches do not arrive, send us the message shown above.</p>
         <PullControls device={device} onChanged={onChanged} />
         <form id="pull-form" onSubmit={save} className="grid gap-4">
           <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} /></label>
@@ -1324,7 +1324,7 @@ const QUEUE_STATUS = {
   PENDING: { label: 'Waiting', pill: 'ui-pill-warn' },
   SENT: { label: 'Sent', pill: 'ui-pill-info' },
   DONE: { label: 'Done', pill: 'ui-pill-pos' },
-  FAILED: { label: 'Failed', pill: 'ui-pill-neg' },
+  FAILED: { label: 'Not delivered', pill: 'ui-pill-neg' },
   CANCELLED: { label: 'Cancelled', pill: 'ui-pill-neutral' },
 };
 
@@ -1353,7 +1353,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
     e.preventDefault();
     try {
       const r = await updateDevice(device.id, { ...form, areaId: form.areaId || null, ...(hasAllowList ? { ipAllowList: allowListOf(allowList) } : {}) });
-      notify.success(r?.areaChanged ? 'Reader saved. Its area changed. See Sync status to add the new people and remove the rest.' : 'Reader saved.');
+      notify.success(r?.areaChanged ? 'Reader saved. Its area changed. See Sync monitoring to add the new people and remove the rest.' : 'Reader saved.');
       /* Saved as asked, but the real reader is outside the list: say so before the punches stop arriving. */
       if (r?.readerOutsideAllowList) {
         notify.error(`This reader last called from ${r.readerOutsideAllowList}, which is not in the list you saved. Its punches will be refused until that address is added.`);
@@ -1361,7 +1361,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
       onChanged();
       onClose();
     } catch (err) {
-      notify.error(String(err?.message || 'Not saved.'));
+      notify.error(errorWords(err, 'save the changes'));
     }
   };
   const run = async (action, done) => {
@@ -1371,18 +1371,18 @@ function ReaderDrawer({ device, onClose, onChanged }) {
       loadDetail();
       onChanged();
     } catch (err) {
-      notify.error(String(err?.message || 'Not queued.'));
+      notify.error(errorWords(err, 'send it to the reader'));
     }
   };
   const remove = async () => {
-    const ok = await confirmDialog({ title: `Remove ${device.name}?`, message: 'Only a reader with no punches can be removed; otherwise switch it off.', confirmLabel: 'Yes, remove' });
+    const ok = await confirmDialog({ title: `Remove ${device.name}?`, message: 'Only a reader with no punches can be removed; otherwise switch it off.', confirmLabel: 'Remove reader' });
     if (!ok) return;
     try {
       await deleteDevice(device.id);
       onChanged();
       onClose();
     } catch (err) {
-      notify.error(String(err?.message || 'Not removed.'));
+      notify.error(errorWords(err, 'remove it'));
     }
   };
 
@@ -1430,7 +1430,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
 
         <section aria-labelledby="actions-h">
           <h3 id="actions-h" className="ui-t-sec mb-2">Send to the reader</h3>
-          <p className="ui-caption mb-2">Delivered on its next heartbeat (about 30 seconds).</p>
+          <p className="ui-caption mb-2">Reaches the reader within about 30 seconds.</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('FETCH_PUNCHES', 'Asked for every punch it holds. Duplicates are ignored.')}>Fetch all punches</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('FETCH_USERS', 'Asked for its user list.')}>Fetch its users</button>
@@ -1439,14 +1439,14 @@ function ReaderDrawer({ device, onClose, onChanged }) {
               className="ui-btn ui-btn-secondary ui-btn-sm"
               onClick={() => run('SEND_STAFF', (r) => (r.queued ? `${r.queued} new ${r.queued === 1 ? 'person' : 'people'} queued for the reader.` : 'Everyone is already on the reader.'))}
             >
-              Send new staff
+              Send new people
             </button>
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('READ_ALL', 'Asked for its users, fingerprints, faces and counts. Sync status fills in as they arrive.')}>Read what is on it</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('READ_ALL', 'Asked for its users, fingerprints, faces and counts. Sync monitoring fills in as they arrive.')}>Read what is on it</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('INFO', 'Asked for its counts and capacity.')}>Refresh counts</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('SET_TIME', 'Time set queued. Its drift is measured again from its next live punch.')}>Set the time</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => run('REBOOT', 'Reboot queued.')}>Reboot</button>
           </div>
-          <p className="ui-caption mt-2">“Send new staff” adds people the reader does not have, by employee code or Reader ID. Fetch its users first so people already on it are skipped.</p>
+          <p className="ui-caption mt-2">“Send new people” adds people the reader does not have, by employee code or Reader ID. Fetch its users first so people already on it are skipped.</p>
         </section>
 
         <ReaderMessage device={device} onSent={() => { loadDetail(); onChanged(); }} />
@@ -1465,7 +1465,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
             <button
               type="button"
               className="ui-btn ui-btn-secondary ui-btn-sm"
-              onClick={() => run('COPY_TEMPLATES', (r) => (r.people ? `Copying ${r.people} ${r.people === 1 ? 'person' : 'people'}’s fingerprints and faces to this reader (${r.queued} commands).` : 'No fingerprints or faces stored yet. Fetch them from a reader first.'))}
+              onClick={() => run('COPY_TEMPLATES', (r) => (r.people ? `Copying ${r.people} ${r.people === 1 ? 'person' : 'people'}’s fingerprints and faces to this reader (${r.queued} changes).` : 'No fingerprints or faces stored yet. Fetch them from a reader first.'))}
             >
               Copy everyone’s fingerprints &amp; faces here
             </button>
@@ -1509,7 +1509,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
                     {c.lastError ? <span className="ui-caption block" style={{ color: 'rgb(var(--neg))' }}>{c.lastError}</span> : null}
                   </span>
                   {c.status === 'DONE' ? <span className="sr-only">Done</span> : <span className={`ui-pill shrink-0 ${QUEUE_STATUS[c.status]?.pill || 'ui-pill-neutral'}`} title={c.attempts > 1 ? `Sent ${c.attempts} times` : ''}>
-                    {QUEUE_STATUS[c.status]?.label || c.status}
+                    {QUEUE_STATUS[c.status]?.label || enumWords(c.status)}
                   </span>}
                 </li>
               ))}
@@ -1565,7 +1565,7 @@ function ReaderMessage({ device, onSent }) {
       setText('');
       onSent?.();
     } catch (err) {
-      notify.error(String(err?.message || 'Not queued.'));
+      notify.error(errorWords(err, 'send it to the reader'));
     } finally {
       setBusy(false);
     }

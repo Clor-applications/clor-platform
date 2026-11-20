@@ -38,7 +38,7 @@ export { default as UnmatchedPunches } from './screens/UnmatchedPunches';
 export { default as Enrolments } from './screens/Enrolments';
 export { default as Transactions, Punches } from './screens/Transactions';
 /* One audit trail for the company, in Workspace (ADR-010); this opens it on People and Attendance's share. */
-export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 'Audit Logs', screen: 'audit', forApp: 'attendance' });
+export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 'Audit logs', screen: 'audit', forApp: 'attendance' });
 export { default as PayrollReadiness } from './screens/PayrollReadiness';
 export { default as LifecycleTasks } from '@ui/lifecycle/Tasks';
 export { default as JourneySteps } from '@ui/lifecycle/Steps';
@@ -62,7 +62,7 @@ export { default as DataExport } from './screens/DataExport';
 export { default as DataRequests } from './screens/DataRequests';
 export { default as DataProtection } from './screens/DataProtection';
 /* Sign-in, SSO, users and roles are the company's: they live in Workspace (ADR-010), and this entry opens it. */
-export const SsoSettings = () => React.createElement(OpenInCompanyAdmin, { title: 'Users & Security', screen: 'sso' });
+export const SsoSettings = () => React.createElement(OpenInCompanyAdmin, { title: 'Users & security', screen: 'sso' });
 export { default as Exceptions } from './screens/Exceptions';
 export { default as MonthClose } from './screens/MonthClose';
 export { default as OvertimeRequests } from './screens/OvertimeRequests';
@@ -75,9 +75,9 @@ export { default as AttendanceSetup } from './screens/AttendanceSetup';
 export { default as ReportInsights } from './screens/ReportInsights';
 export { default as CloseCompany } from '@ui/company/CloseCompany';
 /* This app's roles and permissions, in Workspace's one role editor, opened on Attendance's share (ADR-010). */
-export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'attendance' });
+export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & access', screen: 'permissions', forApp: 'attendance' });
 /* Settings → Automations: Attendance's own recipes on the shared list (server: services/attendance/automations.ts). */
 export const Automations = ({ openScreen }) => React.createElement(AutomationsList, { module: 'attendance', openScreen, readOnlyNote: 'Whoever sets attendance rules changes these.' });
 /* Which of the company's emails go out is set once for every app, in Workspace (automations B5). */
-export const EmailNotifications = () => React.createElement(OpenInCompanyAdmin, { title: 'Email Notifications', screen: 'notifications' });
+export const EmailNotifications = () => React.createElement(OpenInCompanyAdmin, { title: 'Email notifications', screen: 'notifications' });
 

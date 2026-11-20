@@ -85,7 +85,7 @@ describe('invoices in Workspace, Billing', () => {
   it('says so when there are none', async () => {
     fetches.call.mockResolvedValue({ invoices: [] });
     render(<BillingPreview />);
-    expect(await screen.findByText('No invoices yet.')).toBeTruthy();
+    expect(await screen.findByText(/^No invoices yet./)).toBeTruthy();
   });
 });
 

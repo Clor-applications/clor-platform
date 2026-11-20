@@ -1,7 +1,8 @@
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { checkSchedule } from '../api/attendance';
+import { dayText } from '@ui/utils/errorWords';
 
-const range = (from, to) => (to ? `${from} to ${to}` : `from ${from}`);
+const range = (from, to) => (to ? `${dayText(from)} to ${dayText(to)}` : `from ${dayText(from)}`);
 
 /**
  * Ask the server what a schedule change would do before saving it, and let

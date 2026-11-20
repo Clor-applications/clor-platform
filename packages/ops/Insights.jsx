@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ICON, PageHead, Panel, Stat } from '../../apps/admin/src/screens/wsKit';
 import { opsInsights } from './api';
 import { inr } from './money';
-import { APP_NAMES, Empty, Err, Loading, when } from './kit';
+import { APP_NAMES, Empty, Err, Loading, when, errorWords } from './kit';
 
 /**
  * Insights (server: routes/opsInsights.ts): how CLOR is doing as a business,
@@ -10,7 +10,7 @@ import { APP_NAMES, Empty, Err, Loading, when } from './kit';
  * priced; a yearly price counts as a twelfth a month. A bundle's money is
  * shared evenly across its apps.
  */
-const STATE_WORD = { trialing: 'On trial', active: 'Paying', past_due: 'Payment late', paused: 'Paused', cancelled: 'Cancelled' };
+const STATE_WORD = { trialing: 'Trial', active: 'Active', past_due: 'Overdue', paused: 'Paused', cancelled: 'Cancelled' };
 const monthWord = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 const Num = ({ children }) => <td className="num tabular-nums" style={{ textAlign: 'right' }}>{children}</td>;
 const NumHead = ({ children }) => <th className="num" style={{ textAlign: 'right' }}>{children}</th>;
@@ -19,7 +19,7 @@ export function Insights() {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   useEffect(() => {
-    opsInsights().then(setD).catch((e) => setError(String(e?.message || e)));
+    opsInsights().then(setD).catch((e) => setError(errorWords(e, 'load the insights')));
   }, []);
   if (!d) {
     return (
@@ -34,8 +34,8 @@ export function Insights() {
         <div className="ws-stats">
           <Stat icon={ICON.payments} label="Monthly recurring revenue" value={inr(d.mrr)} note={`${inr(d.arr)} a year at this rate`} />
           <Stat icon={ICON.companies} label="Paying customers" value={d.paying} note={d.paying ? `${inr(d.averagePerCustomer)} a month on average` : 'No priced subscription yet'} />
-          <Stat icon={ICON.plan} tone={d.trialsEndingSoon ? 'warn' : null} label="On trial" value={d.byState.trialing || 0} note={d.trialsEndingSoon ? `${d.trialsEndingSoon} end in the next 7 days` : 'None end this week'} />
-          <Stat icon={ICON.warning} tone={d.byState.past_due ? 'warn' : null} label="Payment late" value={d.byState.past_due || 0} note={`${d.byState.cancelled || 0} cancelled in all`} />
+          <Stat icon={ICON.plan} tone={d.trialsEndingSoon ? 'warn' : null} label="Trial" value={d.byState.trialing || 0} note={d.trialsEndingSoon ? `${d.trialsEndingSoon} end in the next 7 days` : 'None end this week'} />
+          <Stat icon={ICON.warning} tone={d.byState.past_due ? 'warn' : null} label="Overdue" value={d.byState.past_due || 0} note={`${d.byState.cancelled || 0} cancelled in all`} />
         </div>
 
         <Panel title="By app">

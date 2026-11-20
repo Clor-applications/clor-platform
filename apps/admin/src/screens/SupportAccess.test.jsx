@@ -53,7 +53,7 @@ describe('CLOR support access', () => {
     api.endSupportGrant.mockResolvedValue({ ok: true });
     show([g({ id: 'g2', state: 'ACTIVE', expiresAt: '2026-11-15T04:00:00Z' }), g({ id: 'g3', state: 'EXPIRED', staff: 'Arun', expiresAt: '2026-11-01T04:00:00Z' })]);
     expect(await screen.findByText('Open')).toBeInTheDocument();
-    expect(screen.getByText('Ran out')).toBeInTheDocument();
+    expect(screen.getByText('Expired')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'End access for Arun' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'End access for Divya' }));
     await waitFor(() => expect(api.endSupportGrant).toHaveBeenCalledWith('g2', null));

@@ -49,7 +49,7 @@ describe('Send employee app access', () => {
     expect(screen.getByText('Employee app access for 3 people')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send access' }));
     expect(wf.sendAppAccess).toHaveBeenCalledWith(['e1', 'e2', 'e3']);
-    const mailed = await screen.findByRole('region', { name: 'Sent by e-mail' });
+    const mailed = await screen.findByRole('region', { name: 'Sent by email' });
     expect(mailed).toHaveTextContent('mail@example.com');
     expect(mailed).not.toHaveTextContent('ABCD');
     const handed = screen.getByRole('region', { name: 'To hand over' });
@@ -72,7 +72,7 @@ describe('Send an offer', () => {
     const user = userEvent.setup();
     render(<OfferDrawer employee={employee} onClose={() => {}} onSent={onSent} />);
     await screen.findByText(/Payroll is not on/);
-    expect(screen.getByLabelText('E-mail *')).toHaveValue('neha@example.com');
+    expect(screen.getByLabelText('Email *')).toHaveValue('neha@example.com');
     await user.type(screen.getByLabelText('Annual CTC *'), '600000');
     await user.type(screen.getByLabelText('Line 1 a month'), '25000');
     await user.type(screen.getByLabelText('Line 2 a month'), '12500');
@@ -94,7 +94,7 @@ describe('Send an offer', () => {
     const user = userEvent.setup();
     render(<OfferDrawer candidate={{ id: 'c1', title: 'Meera K', details: { email: 'meera@example.com' } }} onClose={() => {}} />);
     await waitFor(() => expect(screen.queryByText('Monthly lines')).not.toBeInTheDocument());
-    await user.type(screen.getByLabelText('Position *'), 'Accountant');
+    await user.type(screen.getByLabelText('Designation *'), 'Accountant');
     await user.type(screen.getByLabelText('Annual CTC *'), '600000');
     await user.click(screen.getByRole('button', { name: 'Show the pay annexure' }));
     expect(await screen.findByLabelText('Pay annexure')).toHaveTextContent('Basic: Rs 25,000');

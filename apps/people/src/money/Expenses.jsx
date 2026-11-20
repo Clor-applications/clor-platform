@@ -1,4 +1,5 @@
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import RangePresets from '@ui/components/ui/RangePresets';
 import MoneyInput from '@ui/components/ui/MoneyInput';
@@ -37,8 +38,8 @@ const TABS = [['pay', 'To pay'], ['advances', 'Advances'], ['salary', 'Salary ad
 const yearAgo = () => { const d = new Date(`${today()}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() - 1); return d.toISOString().slice(0, 10); };
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
 const PILL = { WITH_SALARY: 'warn', SUBMITTED: 'warn', WAITING: 'warn', APPROVED: 'warn', PAYING: 'warn', PAID: 'pos', SETTLED: 'neutral', CLOSED: 'neutral', REJECTED: 'neg', WITHDRAWN: 'neutral' };
-const HR_WORDS = { WITH_SALARY: 'Waiting for Payroll', APPROVED: 'To pay', SUBMITTED: 'Waiting for approval', PAID: 'Paid', SETTLED: 'Set against advance', REJECTED: 'Not approved', PAYING: 'Being paid', WAITING: 'Waiting for approval', CLOSED: 'Settled', WITHDRAWN: 'Withdrawn' };
-const Pill = ({ status, label }) => <span className={`ui-pill ui-pill-${PILL[status] || 'neutral'}`}>{label || HR_WORDS[status] || status}</span>;
+const HR_WORDS = { WITH_SALARY: 'Waiting for Payroll', APPROVED: 'To pay', SUBMITTED: 'Waiting for approval', PAID: 'Paid', SETTLED: 'Set against advance', REJECTED: 'Rejected', PAYING: 'Being paid', WAITING: 'Waiting for approval', CLOSED: 'Settled', WITHDRAWN: 'Withdrawn' };
+const Pill = ({ status, label }) => <span className={`ui-pill ui-pill-${PILL[status] || 'neutral'}`}>{label || HR_WORDS[status] || enumWords(status)}</span>;
 const METHOD = { CASH: 'Cash', BANK: 'Bank transfer', UPI: 'UPI' };
 
 export default function Expenses({ params = {}, updateParams }) {
@@ -53,11 +54,11 @@ export default function Expenses({ params = {}, updateParams }) {
   const [recording, setRecording] = useState(null);
   const toPay = useRequest(() => listClaims('TO_PAY'), []);
 
-  const exportBooks = () => downloadCsv('books').catch((e) => notify.error(String(e?.message || 'Not downloaded.')));
+  const exportBooks = () => downloadCsv('books').catch((e) => notify.error(errorWords(e, 'download the file')));
   return (
     <div className="space-y-6">
       <ListHeader
-        section="Pay & assets"
+        section="Pay & benefits"
         title="Expenses"
         description="Claims approved in the Inbox, waiting to be paid or to go into Books, and the advances given out."
         primary={mayPay ? { label: 'Record a claim', icon: Plus, onClick: () => setRecording({ step: 'person' }) } : null}
@@ -106,7 +107,7 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
       setSelected(new Set());
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     }
   };
   const amountOf = (c) => (tab === 'pay' ? c.toPay : c.approved ?? c.claimed);
@@ -172,7 +173,7 @@ function ClaimDrawer({ claim: c, reimbursement, mayPay, onClose, onDone }) {
       notify.success(mode === 'SALARY' ? 'Sent to Payroll with this month’s salary.' : 'Marked paid. It waits under For Books.');
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not paid.'));
+      notify.error((errorWords(e, 'pay the claim').startsWith('Could not') ? 'The claim was not marked paid and nothing went to Payroll. Try again.' : errorWords(e, 'pay the claim')));
     } finally {
       setBusy('');
     }
@@ -211,7 +212,7 @@ function ClaimDrawer({ claim: c, reimbursement, mayPay, onClose, onDone }) {
                   <span className="ui-caption block">{day(l.spentOn)} · {l.category}</span>
                   {l.companyGstin ? <span className="ui-caption block">GSTIN {l.supplierGstin || 'not given'}{l.taxAmount != null ? ` · GST ${money(l.taxAmount)}` : ''}{l.creditBlocked ? ' · credit usually not available' : ''}</span> : null}
                   {l.cutReason ? <span className="ui-caption block">Allowed less: {l.cutReason}</span> : null}
-                  {l.billId ? <button type="button" className="ui-link text-xs" onClick={() => openBill(l.billId).catch((e) => notify.error(String(e?.message || 'Could not open the bill.')))}>See the bill</button> : <span className="ui-caption block">No bill</span>}
+                  {l.billId ? <button type="button" className="ui-link text-xs" onClick={() => openBill(l.billId).catch((e) => notify.error(errorWords(e, 'open the bill')))}>See the bill</button> : <span className="ui-caption block">No bill</span>}
                 </td>
                 <td className="py-2 pr-3 text-right tabular-nums">{money(l.amount)}</td>
                 <td className="py-2 text-right tabular-nums">{money(l.approvedAmount ?? l.amount)}</td>
@@ -268,7 +269,7 @@ function AdvanceDrawer({ advance: a, mayPay, onClose, onDone }) {
       notify.success(typeof done === 'function' ? done(r) : done);
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'finish that'));
     } finally {
       setBusy('');
     }
@@ -321,7 +322,7 @@ function SalaryAdvanceList({ params: p, set, mayPay }) {
       notify.success(`Payroll loan ${r.number || ''} made.`.replace('  ', ' '));
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not sent.'));
+      notify.error(errorWords(e, 'send it'));
     }
   };
   const loanText = (a) => (a.loan ? `${a.loan.number} · ${a.loan.status === 'DRAFT' ? 'waiting for Payroll to approve' : `${money(a.loan.outstanding)} left`}` : a.payrollNote || '');
@@ -340,7 +341,7 @@ function SalaryAdvanceList({ params: p, set, mayPay }) {
         </span>
       )}
       toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null })} placeholder="Search name" label="Search salary advances" className="w-full sm:w-72" />}
-      empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState icon={Receipt} title="No salary advances" description="Staff ask from the employee app, within half their pay. You decide in Approvals." />} />
+      empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState icon={Receipt} title="No salary advances" description="Staff ask from the employee app, within half their pay. You decide in the Inbox." />} />
   );
 }
 
@@ -370,7 +371,7 @@ function Report({ mayExport }) {
         <div className="w-full"><RangePresets from={range.from} to={range.to} maxTo={today()} onPick={(f, t) => setRange({ ...range, from: f, to: t })} /></div>
         <label className="block"><span className="ui-label">From</span><input type="date" className="ui-input" value={range.from} max={range.to} onChange={(e) => setRange({ ...range, from: e.target.value })} /></label>
         <label className="block"><span className="ui-label">To</span><input type="date" className="ui-input" value={range.to} min={range.from} max={today()} onChange={(e) => setRange({ ...range, to: e.target.value })} /></label>
-        {mayExport ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadCsv('claims', range.from, range.to).catch((e) => notify.error(String(e?.message || 'Not downloaded.')))}>Download bills (CSV)</button> : null}
+        {mayExport ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadCsv('claims', range.from, range.to).catch((e) => notify.error(errorWords(e, 'download the file')))}>Download bills (CSV)</button> : null}
       </div>
       {req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : !r ? <div className="ui-skel ui-skel-text" aria-busy="true" /> : (
         <>
@@ -413,12 +414,12 @@ function CategoriesDrawer({ onClose }) {
     setBusy(true);
     try {
       await saveCategory(row);
-      notify.success('Saved.');
+      notify.success(`${row.name} saved.`);
       setEdit({});
       setAdding({ name: '', limitPerBill: '', creditBlocked: false });
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setBusy(false);
     }
@@ -454,7 +455,7 @@ function CategoriesDrawer({ onClose }) {
           <form className="grid gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); save(adding); }}>
             <label className="block"><span className="ui-label">New category</span><SuggestInput value={adding.name} onChange={(v) => setAdding({ ...adding, name: v })} maxLength={60} placeholder="e.g. Site supplies" suggestions={[]} /></label>
             <label className="block"><span className="ui-label">Limit per bill</span><MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" placeholder="No limit" value={adding.limitPerBill} onChange={(e) => setAdding({ ...adding, limitPerBill: e.target.value.replace(/[^\d.]/g, '') })} /></label>
-            <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !adding.name.trim()}>Add</button>
+            <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !adding.name.trim()}>Add category</button>
           </form>
           <p className="ui-caption">A bill over its limit can still be sent; the approver sees the warning and decides.</p>
         </div>

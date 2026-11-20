@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Building2, CalendarClock, Receipt, TriangleAlert } from 'lucide-react';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, day, may } from './kit';
+import { Err, Loading, day, may, errorWords } from './kit';
 import { workerName } from './Health';
 import { daysLeft } from './Trials';
 import { inr } from './money';
@@ -33,7 +33,7 @@ function usePart(fetch) {
     let live = true;
     fetch()
       .then((d) => live && setState({ d, error: '' }))
-      .catch((e) => live && setState({ d: null, error: String(e?.message || e) }));
+      .catch((e) => live && setState({ d: null, error: errorWords(e, 'load this part of Overview') }));
     return () => {
       live = false;
     };
@@ -103,9 +103,9 @@ function Kpis({ d, error, go, has }) {
     {
       k: 'legacy',
      
-      label: 'Legacy all-apps accounts',
+      label: 'Older accounts with no plan',
       value: d.legacy ?? 0,
-      note: d.legacy ? 'Fail-open: must move to a plan' : 'Every account is on a plan',
+      note: d.legacy ? 'Every app is open to them: move each to a plan' : 'Every account is on a plan',
       state: d.legacy ? 'neg' : null,
       open: () => go('customers'),
     },
@@ -139,7 +139,7 @@ function Services({ d, error, go, has }) {
         <h2 id="ops-services" className="ops-h2">Services</h2>
         {has('health') ? (
           <button type="button" className="ops-link" onClick={() => go('health')}>
-            All jobs →
+            Background jobs →
           </button>
         ) : null}
       </div>
@@ -157,7 +157,7 @@ function Services({ d, error, go, has }) {
               <tr>
                 <th>Service</th>
                 <th>Now</th>
-                <th className="num">Failed (24 h)</th>
+                <th className="num">Failed, last 24 hours</th>
                 <th className="hidden md:table-cell">Last ran</th>
                 <th className="hidden lg:table-cell">Last error</th>
               </tr>
@@ -428,7 +428,7 @@ function RecentActions({ d, error, go, has }) {
         <h2 id="ops-recent" className="ops-h2">Recent staff actions</h2>
         {has('audit') ? (
           <button type="button" className="ops-link" onClick={() => go('audit')}>
-            Audit log →
+            Staff audit log →
           </button>
         ) : null}
       </div>
@@ -479,7 +479,7 @@ function Handover({ canWrite }) {
     let live = true;
     opsHandover()
       .then((r) => live && setState({ note: r.note || null, error: '' }))
-      .catch((e) => live && setState({ note: null, error: String(e?.message || e) }));
+      .catch((e) => live && setState({ note: null, error: errorWords(e, 'load the handover note') }));
     return () => {
       live = false;
     };
@@ -492,7 +492,7 @@ function Handover({ canWrite }) {
       setState({ note: r.note, error: '' });
       setDraft(null);
     } catch (e) {
-      setSaveError(String(e?.message || e));
+      setSaveError(errorWords(e, 'save the handover note'));
     } finally {
       setBusy(false);
     }

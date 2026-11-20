@@ -221,7 +221,7 @@ signupRouter.post('/public/signup/confirm', ...signupLinkLimiter, (req: Request,
     if (!apps.length) return res.status(400).json({ error: 'Choose at least one app.', code: 'NO_APPS' });
     const state = String(d.state || '').trim();
     if (apps.includes('accounting') && !deriveStateCodeFromInput(state)) return res.status(400).json({ error: 'Choose the state of your head office. It decides CGST and SGST or IGST on every invoice.', code: 'STATE_REQUIRED' });
-    if (state && !deriveStateCodeFromInput(state)) return res.status(400).json({ error: `Unknown state: ${state}`, code: 'STATE_REQUIRED' });
+    if (state && !deriveStateCodeFromInput(state)) return res.status(400).json({ error: `Choose a state from the list. “${state}” is not one of them.`, code: 'STATE_REQUIRED' });
 
     /* The trial's length comes from the plan that carries these apps, the shortest among them as a quote does. */
     const trial = await trialOffer(apps, row.planCode);
@@ -310,7 +310,7 @@ const PAGE = 25;
 opsSignupsRouter.get('/ops/signups', (req, res) =>
   outsideTenant('ops: trial sign-ups', async () => {
     const parsed = listQuery.safeParse(req.query);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
+    if (!parsed.success) return res.status(400).json({ error: 'Those filters are not right. Clear them and try again.' });
     const { status = 'all', page = 0 } = parsed.data;
     const where = status === 'all' ? {} : { status };
     const [total, rows, counts, offer] = await Promise.all([

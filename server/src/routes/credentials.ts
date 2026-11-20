@@ -29,6 +29,7 @@ import { scopeRefusal } from '../services/apiKeyScopes.js';
 import { automaticRoleRefusal } from '../services/roleGuards.js';
 import { stepUpIfHeld } from '../services/stepUp.js';
 import { permKey } from '../constants/permissionCatalog.js';
+import { otherCompany } from '../utils/companyWords.js';
 
 /**
  * Workspace → Credentials (Batch 5, R18): every key and token other
@@ -52,7 +53,7 @@ const MACHINE = ['SCIM', 'API_KEY', 'AGENT', 'DEVICE_PUSH'];
 
 const orgOk = (req: Request, res: Response) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;

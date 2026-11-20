@@ -69,7 +69,7 @@ export default function CompanySetup({ onLanding } = {}) {
 
   const toModules = (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return setError('The company these books belong to.');
+    if (!form.name.trim()) return setError('Enter the company name.');
     if (!form.state.trim()) return setError('The state decides how GST splits, so it is not optional.');
     setStep(1);
   };
@@ -93,7 +93,7 @@ export default function CompanySetup({ onLanding } = {}) {
       });
       clearAppIntent();
     } catch (err) {
-      setError(String(err?.message || 'Could not create that company.'));
+      setError(String(err?.message || 'Could not create that company. Try again.'));
       setBusy(false);
     }
   };
@@ -158,7 +158,7 @@ export default function CompanySetup({ onLanding } = {}) {
                   value={form.state}
                   onChange={(e) => set({ state: e.target.value })}
                 >
-                  <option value="">Select a state</option>
+                  <option value="">Choose a state</option>
                   {GST_STATES.map((name) => (
                     <option key={name} value={name}>{name}</option>
                   ))}
@@ -227,7 +227,7 @@ export default function CompanySetup({ onLanding } = {}) {
                     >
                       <app.icon size={18} aria-hidden="true" />
                     </span>
-                    <span className="ui-pill ui-pill-neutral">Coming</span>
+                    <span className="ui-pill ui-pill-neutral">Coming soon</span>
                   </div>
                   <span className="mt-3 block" style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'rgb(var(--fg))' }}>{app.name}</span>
                   <span className="mt-1 block" style={{ fontSize: '0.8125rem', lineHeight: '1.25rem', fontWeight: 400, color: 'rgb(var(--fg-muted))' }}>{app.blurb}</span>

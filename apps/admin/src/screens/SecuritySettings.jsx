@@ -15,6 +15,7 @@ import AuthenticatorCard from '@ui/profile/AuthenticatorCard';
 import { Avatar, DeviceMark, Empty, FilterSelect, ICON, Loading, PageHead, Panel, StatusPill, ago, device, ipText } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
+import { enumWords, errorWords } from '@ui/utils/errorWords';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('desktop-computer');
@@ -34,7 +35,7 @@ const NUMBERS = [
   { key: 'maxFailedLogins', label: 'Failed attempts before lockout', min: 3, max: 50 },
   { key: 'lockoutMinutes', label: 'Lockout duration (minutes)', min: 1, max: 1440 },
   { key: 'sessionDays', label: 'Stay signed in for (days)', min: 1, max: 30 },
-  { key: 'accessTokenMinutes', label: 'Access token lifetime (minutes)', min: 5, max: 1440 },
+  { key: 'accessTokenMinutes', label: 'Apply access changes within (minutes)', min: 5, max: 1440 },
 ];
 const PASSWORD_RULES = [
   { key: 'passwordRequireMixedCase', label: 'Mix upper and lower case' },
@@ -43,7 +44,7 @@ const PASSWORD_RULES = [
 ];
 const GATES = [
   { key: 'requireVerifiedEmail', label: 'Require a confirmed email address' },
-  { key: 'requireAdminTwoFactor', label: 'Owners and admins need two-step sign-in' },
+  { key: 'requireAdminTwoFactor', label: 'Owners and administrators must use an authenticator app' },
   { key: 'requirePayrollStepUp', label: 'Ask for an authenticator code before approving payments and pay runs' },
 ];
 const EMPTY_PW = { current: '', next: '', confirm: '' };
@@ -57,7 +58,16 @@ const savedNote = (keptOut) => {
 };
 const stamp = (d) => (d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 const eventTone = (t) => (/FAILED|LOCKED|DENIED/.test(t) ? 'danger' : /SUCCESS|VERIFIED|CHANGED|ENABLED/.test(t) ? 'ok' : /REFRESH/.test(t) ? 'info' : /DISABLED|LOGOUT|REVOKED/.test(t) ? 'warn' : 'neutral');
-const eventWords = (t) => String(t || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+const EVENT_WORDS = {
+  LOGIN_SUCCESS: 'Signed in', LOGIN_FAILED: 'Wrong password', LOGIN_REFUSED: 'Sign-in refused', LOCKED_OUT: 'Account locked', LOGOUT: 'Signed out',
+  SESSION_REVOKED: 'Signed out by an administrator', TOKEN_REFRESHED: 'Stayed signed in', REFRESH_REFUSED: 'Sign-in ended',
+  PASSWORD_CHANGED: 'Password changed', PASSWORD_CHANGE_FAILED: 'Password not changed', PASSWORD_RESET: 'Password reset', PASSWORD_RESET_REQUESTED: 'Password reset asked for',
+  EMAIL_VERIFIED: 'Email confirmed', VERIFICATION_RESENT: 'Confirmation email sent again', POLICY_CHANGED: 'Sign-in rules changed',
+  TWO_FACTOR_ENABLED: 'Authenticator switched on', TWO_FACTOR_DISABLED: 'Authenticator switched off', TWO_FACTOR_SETUP_REFUSED: 'Authenticator not set up',
+  STEP_UP: 'Authenticator code accepted', STEP_UP_FAILED: 'Wrong authenticator code', PROVIDER_ADDED: 'Single sign-on added', PROVIDER_UPDATED: 'Single sign-on changed', PROVIDER_REMOVED: 'Single sign-on removed',
+  USER_PROVISIONED: 'Added by directory sync', USER_DEPROVISIONED: 'Removed by directory sync', USER_MARKED_LEFT: 'Marked as left', USER_REACTIVATED: 'Reactivated',
+};
+const eventWords = (t) => EVENT_WORDS[t] || enumWords(t).replace(/\blogin\b/gi, 'sign-in').replace(/\btoken\b/gi, 'session');
 
 /** A section on the page under one hairline (no card): a title, then its body. */
 function Section({ title, id, action, children }) {
@@ -100,7 +110,7 @@ export const SecuritySettings = ({ openScreen }) => {
         setPolicy(p?.policy || null);
         setBaseline(p?.policy || null);
       })
-      .catch((e) => !cancelled && setError(String(e?.message || e)));
+      .catch((e) => !cancelled && setError(errorWords(e, 'load the sign-in rules')));
     getProviders().then((d) => !cancelled && setMethods(d)).catch(() => !cancelled && setMethods({ providers: [] }));
     getMySessions().then((d) => !cancelled && setSessions(d?.sessions || [])).catch(() => !cancelled && setSessions([]));
     getAuthEvents().then((d) => !cancelled && setEvents(d?.events || [])).catch(() => !cancelled && setEvents([]));
@@ -120,7 +130,7 @@ export const SecuritySettings = ({ openScreen }) => {
       const said = await fn();
       if (said || note) setNotice(said || note);
     } catch (e) {
-      setError(String(e?.message || e));
+      setError(errorWords(e, 'save the change'));
     } finally {
       setBusy('');
     }
@@ -187,7 +197,7 @@ export const SecuritySettings = ({ openScreen }) => {
             {sessions?.length ? <span className="ws-head-meta">{sessions.length} signed in</span> : null}
           </div>
           {sessions === null ? (
-            <Loading shape="rows" rows={3} label="Loading…" />
+            <Loading shape="rows" rows={3} label="Loading your devices…" />
           ) : sessions.length ? (
             <div className="ws-table-wrap">
               <table className="ws-table ws-sec-table">
@@ -239,7 +249,7 @@ export const SecuritySettings = ({ openScreen }) => {
             {events?.length ? <span className="ws-head-meta">{events.length} recent</span> : null}
           </div>
           {events === null ? (
-            <Loading shape="rows" rows={3} label="Loading…" />
+            <Loading shape="rows" rows={3} label="Loading sign-in activity…" />
           ) : events.length ? (
             <div className="ws-table-wrap">
               <table className="ws-table ws-sec-table">

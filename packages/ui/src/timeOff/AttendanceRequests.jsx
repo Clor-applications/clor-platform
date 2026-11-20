@@ -25,6 +25,7 @@ import {
   MONTH_NAMES, STATUS_LABEL, STATUS_PILL, bulkReviewRequests, cancelRequest, createMyRequest, createRequest, decideRequest, getRequest, getRequestRules, listPeople,
   pageRequests, requestUsage, todayIst, updateMyRequest, updateRequest,
 } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Time & Leave → Attendance requests (TIME-LEAVE-DECISIONS.md, advanced build):
@@ -34,7 +35,7 @@ import {
  * quota it takes, what happened to it, and the decision. HR enters a request
  * for someone with the same form the employee app has.
  */
-const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Not approved'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
+const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Rejected'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
 export const KINDS = ['MISSED_PUNCH', 'WFH', 'ON_DUTY', 'PERMISSION', 'SHIFT_CHANGE'];
 export const KIND_NAME = { MISSED_PUNCH: 'Missed punch', WFH: 'Work from home', ON_DUTY: 'On duty', PERMISSION: 'Permission', SHIFT_CHANGE: 'Shift change' };
 const KIND_OPTIONS = [{ value: '', label: 'Every kind' }, ...KINDS.map((k) => ({ value: k, label: KIND_NAME[k] }))];
@@ -151,7 +152,7 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
       setBulkNote('');
       list.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'review the requests'));
     } finally {
       setBulkBusy(false);
     }
@@ -182,7 +183,7 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
     <div className="space-y-6">
       <ListHeader
         breadcrumb={homeCrumbs()}
-        title="Attendance fixes"
+        title="Attendance corrections"
         description="Missed punches, work from home, on duty and permission hours asked for: waiting for a decision, or decided."
         primary={allowed('ATTENDANCE::Attendance Requests::CREATE') ? { label: 'Enter request', icon: Plus, onClick: () => setAdding(true) } : null}
         toolbar={<>
@@ -293,7 +294,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
       notify.success(typeof done === 'function' ? done(out) : done);
       onDone();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'update the request'));
       req.reload();
     } finally {
       setBusy(false);
@@ -309,7 +310,8 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
     const ok = await confirmDialog({
       title: r.status === 'APPROVED' ? 'Cancel this request?' : 'Withdraw this request?',
       message: r.status === 'APPROVED' ? 'The days go back to what the punches say.' : undefined,
-      confirmLabel: r.status === 'APPROVED' ? 'Cancel request' : 'Withdraw',
+      confirmLabel: r.status === 'APPROVED' ? 'Cancel request' : 'Withdraw request',
+      cancelLabel: 'Keep request',
     });
     if (ok) act(() => cancelRequest(r.id, note.trim() || undefined), r.status === 'APPROVED' ? 'Request cancelled.' : 'Request withdrawn.');
   };
@@ -459,7 +461,7 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
       onDone();
     } catch (err) {
       if (err?.code === MONTH_CLOSED) setClosed({ message: String(err.message), month: err.data?.month });
-      else notify.error(String(err?.message || 'Not saved.'));
+      else notify.error(errorWords(err, 'send the request'));
     } finally {
       setSaving(false);
     }

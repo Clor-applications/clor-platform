@@ -10,6 +10,7 @@ import { todayIst } from '@ui/utils/dates';
 import StatutoryDues from '../components/StatutoryDues';
 import { MonthTodo } from '../components/round59';
 import { MinimumWageReminder } from '../components/MinimumWagesSection';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Where payroll is this month, and what is in the way.
@@ -59,7 +60,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
       setSetup(readiness);
       setError('');
     } catch (e) {
-      setError(String(e?.message || 'Could not load payroll.'));
+      setError(errorWords(e, 'load Payroll'));
     } finally {
       setLoading(false);
     }
@@ -74,7 +75,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
   if (error) {
     return (
       <div className="space-y-3">
-        <PageHeader entity="payroll" title="Payroll" description="Where this month is, and what is in the way." />
+        <PageHeader entity="payroll" title="Overview" description="Where this month is, and what is in the way." />
         <div className="px-5 lg:px-7 pb-8 space-y-4">
         <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
           {error}
@@ -96,13 +97,13 @@ export default function PayrollOverview({ onOpen = () => {} }) {
     <div className="space-y-3">
       <PageHeader
         entity="payroll"
-        title="Payroll"
+        title="Overview"
         description={
           currentPeriod
             ? `${currentPeriod.name} · ${shownDate(currentPeriod.startDate)} to ${shownDate(currentPeriod.endDate)}${
                 currentPeriod.paymentDate ? ` · paid on ${shownDate(currentPeriod.paymentDate)}` : ''
               }`
-            : 'No open payroll period.'
+            : 'No open period in the pay calendar.'
         }
         actions={
           notReady && !currentRun ? (
@@ -136,7 +137,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
             <div className="ui-sec-head">Payroll is not ready to run yet</div>
             <p className="ui-caption">
               {setup.done} of {setup.total} steps done
-              {setup.nextStep ? ` · next: ${setup.nextStep.title} — ${setup.nextStep.detail}` : ''}
+              {setup.nextStep ? ` · next: ${setup.nextStep.title}: ${setup.nextStep.detail}` : ''}
             </p>
           </div>
           {/* The header's primary already says "Finish setting up" unless a run is open: one button for one job. */}
@@ -152,8 +153,14 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           period" picture under it only repeated the header. */}
       {!currentPeriod && !notReady ? (
         <EmptyState
-          title="No open payroll period"
-          description="Payroll runs for a month. Add one under Settings → Payroll → Payroll periods and this month has something to run for."
+          title="No open period in the pay calendar"
+          description="A pay run is for a month. Add one under Settings → Pay calendar."
+          describe
+          action={
+            <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen('periods')}>
+              Open Pay calendar
+            </button>
+          }
         />
       ) : null}
 

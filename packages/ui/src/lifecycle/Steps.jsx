@@ -12,6 +12,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 
 import { OWNER_WORD, employeeTypes, getSteps, resetSteps, saveSteps } from './api';
 import { can } from './shared';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /**
  * Settings → Joining & Leaving Steps (was the template half of Onboarding &
@@ -45,7 +46,7 @@ function Editor({ kind, template, types, editable, onSaved }) {
       onSaved(kind, await saveSteps(kind, items.map((it) => ({ ...it, title: it.title.trim(), dueDays: Number(it.dueDays) || 0 }))));
       notify.success(`${COPY[kind].title} steps saved.`);
     } catch (e) {
-      setError(String(e?.message || 'Not saved.'));
+      setError(errorWords(e, 'save the steps'));
     } finally {
       setSaving(false);
     }
@@ -53,7 +54,7 @@ function Editor({ kind, template, types, editable, onSaved }) {
   const reset = async () => {
     const ok = await confirmDialog({ title: 'Back to CLOR’s steps?', message: `Your own steps are replaced by CLOR’s for people who ${COPY[kind].verb} from now on.`, confirmLabel: 'Use CLOR’s steps' });
     if (!ok) return;
-    try { onSaved(kind, await resetSteps(kind)); } catch (e) { setError(String(e?.message || 'Not saved.')); }
+    try { onSaved(kind, await resetSteps(kind)); } catch (e) { setError(errorWords(e, 'go back to CLOR’s steps')); }
   };
   return (
     <section className="space-y-4" aria-label={`${COPY[kind].title} steps`}>

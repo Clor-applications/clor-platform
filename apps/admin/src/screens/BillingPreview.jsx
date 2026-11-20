@@ -13,6 +13,7 @@ import { seatsByApp } from './overviewFigures';
 import PlanChange from './PlanChange';
 import './workspace.css';
 import './ws-plan.css';
+import { planWord } from './planWords';
 
 /**
  * Workspace → Plan → Billing & seats (redesign W-R8, R&D hand-off CLOR-03).
@@ -32,10 +33,10 @@ import './ws-plan.css';
 const used = (n, limit) => `${n ?? '—'}${limit ? ` / ${limit}` : ''}`;
 /** What a seat is in each app, in words; seats are counted from the account's members. */
 const SEAT_IS = {
-  accounting: 'A seat = a person who can sign in to Accounting.',
-  people: 'A seat = a person who can open People.',
-  payroll: 'A seat = a person who can open Payroll.',
-  attendance: 'A seat = a person who can open Attendance; devices are free.',
+  accounting: 'A seat is one person who can open Books.',
+  people: 'A seat is one person who can open People.',
+  payroll: 'A seat is one person who can open Payroll.',
+  attendance: 'A seat is one person who can open Attendance. Devices are free.',
 };
 /** How many invoices Billing & seats lists; the Invoices page has them all. */
 const RECENT = 3;
@@ -118,7 +119,7 @@ export default function BillingPreview() {
             <span className="ws-plan-label">Plan</span>
             <span className="ws-plan-value">{plan?.name || '—'}</span>
             <span className="ws-plan-sub">
-              {plan ? (plan.inGoodStanding === false ? `Status: ${plan.status}` : ['Active', planWhen].filter(Boolean).join(' · ')) : planFailed ? 'Not read' : 'Reading the plan…'}
+              {plan ? (plan.inGoodStanding === false ? planWord(plan.status) : ['Active', planWhen].filter(Boolean).join(' · ')) : planFailed ? 'Could not load' : 'Loading the plan…'}
             </span>
           </div>
           {runRate ? (
@@ -139,7 +140,7 @@ export default function BillingPreview() {
           <div>
             <span className="ws-plan-label">To pay</span>
             <span className="ws-plan-value ws-plan-money">{invoices === null ? '—' : inr(unpaid.reduce((n, i) => n + Number(i.total || 0), 0))}</span>
-            <span className="ws-plan-sub">{invoices === null ? (invoicesFailed ? 'Not read' : 'Reading invoices…') : unpaid.length ? `${unpaid.length === 1 ? 'One invoice' : `${unpaid.length} invoices`} unpaid` : 'Nothing unpaid'}</span>
+            <span className="ws-plan-sub">{invoices === null ? (invoicesFailed ? 'Could not load' : 'Loading invoices…') : unpaid.length ? `${unpaid.length === 1 ? 'One invoice' : `${unpaid.length} invoices`} unpaid` : 'Nothing unpaid'}</span>
           </div>
           <div>
             <span className="ws-plan-label">Usage</span>
@@ -177,9 +178,9 @@ export default function BillingPreview() {
           {invoicesFailed ? (
             <LoadError onRetry={reloadInvoices}>Invoices could not be loaded. Try again in a minute.</LoadError>
           ) : invoices === null ? (
-            <Loading shape="rows" rows={3} label="Reading invoices…" />
+            <Loading shape="rows" rows={3} label="Loading invoices…" />
           ) : !invoices.length ? (
-            <Empty icon={EMPTY_ICON} compact>No invoices yet.</Empty>
+            <Empty icon={EMPTY_ICON} compact>No invoices yet. CLOR’s tax invoices for your plan will appear here.</Empty>
           ) : (
             <InvoiceTable invoices={invoices.slice(0, RECENT)} onOpen={openInvoice} />
           )}

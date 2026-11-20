@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SignedOut, getHolidays, getSchedule } from './portalApi';
+import { errorWords } from '@ui/utils/errorWords';
 
 /*
  * Round 48 picks (18 Nov 2026), the employee app:
@@ -64,7 +65,7 @@ export function useNextDays(guard, today, n = 14, retry = 0) {
     let live = true;
     Promise.all(monthsFor(today, n).map((m) => guard(getSchedule(m))))
       .then((all) => { if (live) setState({ days: nextDays(all.flatMap((d) => d?.days || []), today, n), error: '' }); })
-      .catch((e) => { if (live && !(e instanceof SignedOut)) setState({ days: null, error: String(e?.message || 'Could not load your schedule.') }); });
+      .catch((e) => { if (live && !(e instanceof SignedOut)) setState({ days: null, error: errorWords(e, 'load your schedule') }); });
     return () => { live = false; };
   }, [guard, today, n, retry]);
   return state;

@@ -13,6 +13,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { z } from 'zod';
 import { check, id, idParams, jsonObject, list, q, rawText, text, ym, ymd } from '../middleware/validate.js';
 import { ComplianceError, REGISTRATION_TYPES, addOwnObligation, addProof, checkRule, employeeRegister, leaveRegister, obligationsOf, proofFile, registrationLabel, registrationsOf, removeProof, rulesOf, saveRuleVersion, updateObligation } from '../services/people/complianceRules.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Compliance (docs/people/02-PRD.md COMP-01..06): the rule library with
@@ -30,7 +31,7 @@ const base = '/orgs/:orgId/people/compliance';
 const sendError = (res: any, e: unknown) => {
   if (e instanceof ComplianceError) return res.status(e.status).json({ error: e.message });
   console.error('[people-compliance]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 

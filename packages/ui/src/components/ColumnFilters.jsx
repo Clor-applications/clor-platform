@@ -23,7 +23,7 @@ import { getDecimalPlaces, getNumberLocale } from '../utils/money';
  */
 
 const CONDITIONS = [
-  { id: '', label: 'Choose One' },
+  { id: '', label: 'Choose a condition' },
   { id: 'contains', label: 'Contains' },
   { id: 'notContains', label: 'Does not contain' },
   { id: 'equals', label: 'Equals' },
@@ -313,7 +313,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
             className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ui-hover-sunken ${state.sort?.key === key && state.sort?.dir === 'asc' ? 'ui-sunken' : ''}`}
           >
             <span className="w-5 text-center font-medium ui-muted" aria-hidden="true">A↓</span>
-            {isDate ? 'Sort Oldest to Newest' : isNumber ? 'Sort Smallest to Largest' : 'Sort A to Z'}
+            {isDate ? 'Sort oldest to newest' : isNumber ? 'Sort smallest to largest' : 'Sort A to Z'}
           </button>
           <button
             type="button"
@@ -324,14 +324,14 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
             className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ui-hover-sunken ${state.sort?.key === key && state.sort?.dir === 'desc' ? 'ui-sunken' : ''}`}
           >
             <span className="w-5 text-center font-medium ui-muted" aria-hidden="true">Z↓</span>
-            {isDate ? 'Sort Newest to Oldest' : isNumber ? 'Sort Largest to Smallest' : 'Sort Z to A'}
+            {isDate ? 'Sort newest to oldest' : isNumber ? 'Sort largest to smallest' : 'Sort Z to A'}
           </button>
         </div>
       </div>
 
       <details className="border-b py-1" style={{ borderColor: 'rgb(var(--border))' }}>
         <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg px-2 py-1.5 text-xs ui-hover-sunken">
-          <span>{isDate ? 'Date Filters' : isNumber ? 'Number Filters' : isChoice ? 'Select Values' : 'Text Filters'}</span>
+          <span>{isDate ? 'Date filters' : isNumber ? 'Number filters' : isChoice ? 'Choose values' : 'Text filters'}</span>
           <span aria-hidden="true">›</span>
         </summary>
         <div className="px-2 pb-2 pt-1">
@@ -384,8 +384,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
         className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ui-hover-sunken disabled:opacity-40"
       >
         <span className="w-5 text-center" aria-hidden="true">⌫</span>
-        Clear Filter From “{column.label || key}”
-        <span className="sr-only">Clear Filter</span>
+        Clear the filter on “{column.label || key}”
       </button>
 
       <div className="relative mt-1">
@@ -395,7 +394,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="ui-input w-full pl-7 pr-2 text-xs ui-ctl-compact"
-          placeholder="Search (All)"
+          placeholder="Search values"
           aria-label="Search values"
         />
       </div>
@@ -451,7 +450,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
           Cancel
         </button>
         <button type="button" onClick={applyNow} className="ui-btn ui-btn-primary ui-btn-sm text-xs">
-          OK<span className="sr-only">Apply Filter</span>
+          Apply filter
         </button>
       </div>
     </div>

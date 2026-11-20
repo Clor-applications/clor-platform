@@ -30,7 +30,7 @@ export function Faq({ items, title = 'Questions people ask' }) {
 }
 
 /** The page's last word: one demo request, and a way to just write to us. */
-export function Closing({ title = 'See CLOR with your own company’s figures.', text = 'Tell us what you use today and we will show you the same work in CLOR.', demoHref = SITE.demoUrl, children }) {
+export function Closing({ title = 'See CLOR doing work like yours.', text = 'Tell us what you use today and we will show you the same work in CLOR.', demoHref = SITE.demoUrl, children }) {
   return (
     <section className="section closing">
       <div className="wrap closing-inner">

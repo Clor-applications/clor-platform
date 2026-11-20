@@ -1,4 +1,5 @@
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import { FileText, Plus, X } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState, SegmentedControl } from '@ui/components/list/ListHeader';
@@ -139,13 +140,13 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
     ) },
     { key: 'where', label: 'Where', render: (o) => where(o) },
     { key: 'owner', label: 'Owner', render: (o) => <span className={o.ownerSet ? '' : 'ui-muted'}>{o.owner}</span> },
-    { key: 'status', label: 'Status', render: (o) => <ExceptionTag label={o.status === 'DONE' || o.status === 'CHECKED' ? '' : STATUS[o.status]?.[0] || o.status} normal={STATUS[o.status]?.[0]} pill={`${STATUS[o.status]?.[1] || 'ui-pill-neutral'}`} /> },
+    { key: 'status', label: 'Status', render: (o) => <ExceptionTag label={o.status === 'DONE' || enumWords(o.status) === 'CHECKED' ? '' : STATUS[o.status]?.[0] || enumWords(o.status)} normal={STATUS[o.status]?.[0]} pill={`${STATUS[o.status]?.[1] || 'ui-pill-neutral'}`} /> },
   ];
 
   return (
     <div className="space-y-6">
       <ListHeader
-        section="Settings"
+        section="Insights"
         title="Compliance calendar"
         description="What the company owes under labour law and to Payroll, when, and whose job it is, with the registrations and rules behind it."
         secondary={actions}
@@ -228,7 +229,7 @@ function ObligationDrawer({ o, known = [], canAct, owners, onClose, onSaved }) {
       onSaved();
       if (status) onClose();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setBusy(false);
     }
@@ -244,7 +245,7 @@ function ObligationDrawer({ o, known = [], canAct, owners, onClose, onSaved }) {
       notify.success('Proof attached.');
       onSaved();
     } catch (e) {
-      notify.error(String(e?.message || 'Not attached.'));
+      notify.error(errorWords(e, 'attach the proof'));
     } finally {
       setBusy(false);
     }
@@ -255,11 +256,11 @@ function ObligationDrawer({ o, known = [], canAct, owners, onClose, onSaved }) {
       setProofs((list) => list.filter((x) => x.id !== p.id));
       onSaved();
     } catch (e) {
-      notify.error(String(e?.message || 'Not removed.'));
+      notify.error(errorWords(e, 'remove it'));
     }
   };
   const view = async (p) => {
-    try { showFile(await api.openProof(o.id, p.id), p.name); } catch (e) { notify.error(String(e?.message || 'Could not open it.')); }
+    try { showFile(await api.openProof(o.id, p.id), p.name); } catch (e) { notify.error(errorWords(e, 'open it')); }
   };
   const primary = !canAct ? null
     : OPEN.includes(o.status) ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={() => save('DONE', 'Marked done.')}>Mark done</button>
@@ -343,14 +344,14 @@ function AddDrawer({ owners, sites, known, onClose, onDone }) {
       notify.success('Deadline added.');
       onDone(o);
     } catch (e) {
-      setError(String(e?.message || 'Not added.'));
+      setError(errorWords(e, 'add it'));
     } finally {
       setBusy(false);
     }
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(32rem,96vw)] ui-drawer-sheet" title="Add a deadline" dirty={Boolean(form.title || form.dueOn || form.owner || form.note)}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={add}>{busy ? 'Adding…' : 'Add'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={add}>{busy ? 'Adding…' : 'Add deadline'}</button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); add(); }}>
         {error ? <p role="alert" className="ui-text-neg text-sm sm:col-span-2">{error}</p> : null}
         <label className="block sm:col-span-2"><span className="ui-label">What *</span><SuggestInput autoFocus maxLength={200} placeholder="Trade licence renewal" value={form.title} onChange={(v) => setF('title', v)} suggestions={titles} /></label>
@@ -410,7 +411,7 @@ function Rules({ req, canRules, onEdit }) {
       notify.success('Marked as checked by you.');
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the changes'));
     } finally {
       setBusy('');
     }
@@ -440,7 +441,7 @@ function Rules({ req, canRules, onEdit }) {
           <span className="block ui-caption">{[reach(r.jurisdiction), dueWords(r.dueRule), `version ${r.version}`, r.checkedLine].join(' · ')}</span>
         </span>
       )}
-      empty={<EmptyState title="No rules" description="The library fills the first time it opens." />}
+      empty={<EmptyState title="No rules yet" description="CLOR adds its rules when this page first loads. Reload the page, or add a rule of your own with Add a rule." />}
     />
   );
 }
@@ -482,7 +483,7 @@ function RuleDrawer({ value, rules, sites, onClose, onDone }) {
       notify.success(isNew ? 'Rule added. Check it with your adviser.' : `Version ${value.version + 1} saved. Check it with your adviser.`);
       onDone();
     } catch (e) {
-      setError(String(e?.message || 'Not saved.'));
+      setError(errorWords(e, 'save the changes'));
     } finally {
       setBusy(false);
     }

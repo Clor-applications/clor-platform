@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { apiFetch } from '@platform/http';
 import { Panel, WsDrawer } from './wsKit';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Workspace → Plan → Billing: changing the plan (platform audit, 11 Nov 2026).
@@ -89,7 +90,7 @@ export default function PlanChange({ asButton = false, onInvoice }) {
       notify.success('Renewal is back on.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || e));
+      notify.error(errorWords(e, 'switch renewal back on'));
     }
   };
 
@@ -267,7 +268,7 @@ function AddSeatsDrawer({ seats, onClose, onDone }) {
         .catch((e) => {
           if (!live) return;
           setQuote(null);
-          setQuoteError(String(e?.message || e));
+          setQuoteError(`${errorWords(e, 'work out the price')} Nothing was charged.`);
         });
     }, 250);
     return () => {
@@ -287,7 +288,7 @@ function AddSeatsDrawer({ seats, onClose, onDone }) {
       notify.success(r.invoice ? `${heads(seats.unit, n)} added. Invoice ${r.invoice.number} is open to pay.` : `${heads(seats.unit, n)} added.`);
       onDone(r);
     } catch (err) {
-      setError(String(err?.message || err));
+      setError(`${errorWords(err, 'make the change')} Nothing was charged.`);
       setBusy(false);
     }
   };
@@ -302,7 +303,7 @@ function AddSeatsDrawer({ seats, onClose, onDone }) {
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
           <button type="submit" form="ws-add-seats" className="ws-btn ws-btn--primary" disabled={!ready || busy}>
-            {busy ? 'Adding…' : valid ? `Add ${heads(seats.unit, n)}` : `Add ${word}`}
+            {busy ? 'Adding…' : ready ? `Add ${heads(seats.unit, n)} · pay ${inr(quote.total)}` : valid ? `Add ${heads(seats.unit, n)}` : `Add ${word}`}
           </button>
         </>
       }
@@ -397,7 +398,7 @@ function AddAppDrawer({ apps, onClose, onDone }) {
         .catch((e) => {
           if (!live) return;
           setQuote(null);
-          setQuoteError(String(e?.message || e));
+          setQuoteError(`${errorWords(e, 'work out the price')} Nothing was charged.`);
         });
     }, 250);
     return () => {
@@ -417,7 +418,7 @@ function AddAppDrawer({ apps, onClose, onDone }) {
       notify.success(r.invoice ? `${option.appName} added. Invoice ${r.invoice.number} is open to pay.` : `${option.appName} added.`);
       onDone(r);
     } catch (err) {
-      setError(String(err?.message || err));
+      setError(`${errorWords(err, 'make the change')} Nothing was charged.`);
       setBusy(false);
     }
   };
@@ -432,7 +433,7 @@ function AddAppDrawer({ apps, onClose, onDone }) {
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
           <button type="submit" form="ws-add-app" className="ws-btn ws-btn--primary" disabled={!ready || busy}>
-            {busy ? 'Adding…' : `Add ${option.appName}`}
+            {busy ? 'Adding…' : ready ? `Add ${option.appName} · pay ${inr(quote.total)}` : `Add ${option.appName}`}
           </button>
         </>
       }
@@ -527,7 +528,7 @@ function AskDrawer({ first, owned, onClose }) {
       notify.success(`Sent to CLOR sales as ticket ${r.ticket.code}. They reply by email.`);
       onClose();
     } catch (err) {
-      setError(String(err?.message || err));
+      setError(errorWords(err, 'send it to CLOR'));
       setBusy(false);
     }
   };
@@ -572,7 +573,7 @@ function AskDrawer({ first, owned, onClose }) {
           </>
         )}
         <label className="grid">
-          <span>Anything sales should know (optional)</span>
+          <span>Anything sales should know <span className="ui-caption">(optional)</span></span>
           <textarea className="ui-input" rows={4} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} placeholder="How many employees, and from when" />
         </label>
       </form>
@@ -593,7 +594,7 @@ function StopDrawer({ endsOn, trial, onClose, onDone }) {
       onDone();
       onClose();
     } catch (err) {
-      setError(String(err?.message || err));
+      setError(errorWords(err, 'stop the renewal'));
       setBusy(false);
     }
   };
@@ -615,7 +616,7 @@ function StopDrawer({ endsOn, trial, onClose, onDone }) {
       <div className="grid gap-5">
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
         <label className="grid">
-          <span>Why are you stopping? (optional)</span>
+          <span>Why are you stopping? <span className="ui-caption">(optional)</span></span>
           <textarea className="ui-input" rows={4} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={2000} />
         </label>
       </div>

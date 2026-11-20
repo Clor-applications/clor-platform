@@ -80,7 +80,7 @@ export async function runTrialReminders(now = new Date(), only?: string[]): Prom
         relatedType: 'TrialReminder',
         relatedId: key(step),
         data: {
-          userName: user.fullName || user.email,
+          userName: user.fullName || '',
           companyName: account?.name || 'your company',
           days: `${days} day${days === 1 ? '' : 's'}`,
           endsOn: words(endsAt),

@@ -3,18 +3,18 @@ import React, { useEffect, useState } from 'react';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsAccounts, opsBreaches, opsNotifyBreach, opsRecordBreach } from './api';
-import { Empty, Err, Loading, day, may, when } from './kit';
+import { Empty, Err, Loading, day, may, when, errorWords } from './kit';
 
 /**
  * Data breaches (round 67 "breachops"; server: routes/opsBreaches.ts): a
  * breach of customer data that CLOR, as the processor, has to record and tell
  * the customers about. Recording keeps what happened, when, what data and
- * what was done; "Tell their admins" emails every owner and administrator of
+ * what was done; "Email their administrators" emails every owner and administrator of
  * each customer named, once. Staff only: customers never see this list.
  */
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-const msg = (e) => String(e?.message || e);
+const msg = (e, what) => errorWords(e, what);
 
 export function Breaches({ me, openCustomer }) {
   const [rows, setRows] = useState(null);
@@ -25,7 +25,7 @@ export function Breaches({ me, openCustomer }) {
   useEffect(() => {
     opsBreaches()
       .then((r) => (setRows(r.breaches || []), setError('')))
-      .catch((e) => setError(msg(e)));
+      .catch((e) => setError(msg(e, 'load the breaches')));
   }, [again]);
   const mayChange = may(me.role, 'SUPPORT');
   const tell = async (b) => {
@@ -37,7 +37,7 @@ export function Breaches({ me, openCustomer }) {
       notify.success(`${r.notifiedCount} ${r.notifiedCount === 1 ? 'administrator was' : 'administrators were'} emailed.`);
       setAgain((x) => x + 1);
     } catch (e) {
-      notify.error(msg(e));
+      notify.error(msg(e, 'send the emails'));
     } finally {
       setBusy('');
     }
@@ -47,7 +47,7 @@ export function Breaches({ me, openCustomer }) {
       <PageHead
         crumbs={['Trust']}
         title="Data breaches"
-        meta={rows ? (rows.length ? `${rows.filter((b) => !b.notifiedAt).length} not told yet` : 'None recorded') : null}
+        meta={rows ? (rows.length ? (rows.some((b) => !b.notifiedAt) ? `${rows.filter((b) => !b.notifiedAt).length} not told yet` : 'All customers told') : 'None recorded') : null}
         actions={
           mayChange ? (
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => setRecording(true)}>
@@ -61,7 +61,7 @@ export function Breaches({ me, openCustomer }) {
       {!rows ? (
         error ? null : <Loading />
       ) : !rows.length ? (
-        <Empty>No breaches recorded.</Empty>
+        <Empty>No breaches recorded. If customer data reaches someone it should not, record it here with Record a breach.</Empty>
       ) : (
         <ul className="r67-breaches">
           {rows.map((b) => (
@@ -77,7 +77,7 @@ export function Breaches({ me, openCustomer }) {
                   <span className="ws-pill ws-pill--ok">Told {b.notifiedCount} on {day(b.notifiedAt)}</span>
                 ) : mayChange ? (
                   <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={busy === b.id} onClick={() => tell(b)}>
-                    Tell their admins
+                    Email their administrators
                   </button>
                 ) : (
                   <span className="ws-pill ws-pill--warn">Not told yet</span>
@@ -153,10 +153,10 @@ function RecordBreach({ onClose, onSaved }) {
     setError('');
     try {
       await opsRecordBreach({ ...f, stepsForCustomer: f.stepsForCustomer.trim() || null, accountIds: chosen.map((c) => c.id) });
-      notify.success('Recorded. Tell their admins when the facts are clear.');
+      notify.success('Recorded. Email their administrators when the facts are clear.');
       onSaved();
     } catch (e) {
-      setError(msg(e));
+      setError(msg(e, 'record the breach'));
       setBusy(false);
     }
   };

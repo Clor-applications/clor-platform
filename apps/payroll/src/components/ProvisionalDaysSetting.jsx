@@ -3,6 +3,7 @@ import { Info } from '@ui/components/ui/lineIcons';
 
 import { notify } from "@ui/components/ui/notify";
 import { getProvisionalDays, saveProvisionalDays } from "../api/payrollSetup";
+import { errorWords } from "@ui/utils/errorWords";
 
 /** 1st, 2nd, 3rd, 25th: the same words the server uses on the run screen. */
 const ordinal = (n) => {
@@ -32,7 +33,7 @@ export function ProvisionalDaysSetting() {
         setEnabled(Boolean(s.enabled));
         setCutoffDay(String(s.cutoffDay ?? 25));
       })
-      .catch((e) => setFailed(String(e?.message || "Could not read this setting.")));
+      .catch((e) => setFailed(errorWords(e, "read this setting")));
   }, []);
 
   if (failed) return <p className="ui-caption" role="alert">{failed}</p>;
@@ -51,7 +52,7 @@ export function ProvisionalDaysSetting() {
       setCutoffDay(String(next.cutoffDay));
       notify.success(next.enabled ? `Days after the ${ordinal(day)} are counted as present, and corrected next month.` : "Payroll counts only the days that have happened.");
     } catch (e) {
-      notify.error(String(e?.message || "Could not save this setting."));
+      notify.error(errorWords(e, "save this setting"));
     } finally {
       setSaving(false);
     }

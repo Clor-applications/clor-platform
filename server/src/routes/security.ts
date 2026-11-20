@@ -28,6 +28,7 @@ import { automaticRoleRefusal } from '../services/roleGuards.js';
 import { hasSecondFactor } from '../services/twoFactorPolicy.js';
 import { SmsError, indianMobile, maskPhone, smsReady } from '../services/sms.js';
 import { SmsLimitError, issueSmsCode, useSmsCode } from '../services/smsCodes.js';
+import { SIGNED_OUT_TEXT, otherCompany } from '../utils/companyWords.js';
 
 /**
  * Security administration: the policy an organisation enforces, the sign-in
@@ -45,7 +46,7 @@ const EDIT = requirePermission('SETTINGS', PermissionAction.EDIT, 'Users');
 
 const orgOk = (req: any, res: any) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
-    res.status(403).json({ error: 'orgId mismatch' });
+    otherCompany(res);
     return false;
   }
   return true;
@@ -363,7 +364,7 @@ securityRouter.patch('/orgs/:orgId/security/providers/:providerId', EDIT, async 
   const existing = await platformPrisma.authProvider.findFirst({
     where: { id: String(req.params.providerId), accountId, orgId },
   });
-  if (!existing) return res.status(404).json({ error: 'Sign-in method not found' });
+  if (!existing) return res.status(404).json({ error: 'No such sign-in method.' });
 
   const body = providerSchema.parse({ ...req.body, kind: req.body.kind || existing.kind });
   const problem = validateProvider(body, Boolean(existing.clientSecretEnc), Boolean(existing.certificate));
@@ -416,7 +417,7 @@ securityRouter.post('/orgs/:orgId/security/providers/:providerId/verify-domains'
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const p = await platformPrisma.authProvider.findFirst({ where: { id: String(req.params.providerId), accountId, orgId } });
-  if (!p) return res.status(404).json({ error: 'Sign-in method not found' });
+  if (!p) return res.status(404).json({ error: 'No such sign-in method.' });
   const token = p.domainVerifyToken || newDomainToken();
   const results = await checkDomains(accountId, token, p.emailDomains);
   const verified = results.filter((r) => r.verified).map((r) => r.domain).join(',') || null;
@@ -430,7 +431,7 @@ securityRouter.delete('/orgs/:orgId/security/providers/:providerId', EDIT, async
   const existing = await platformPrisma.authProvider.findFirst({
     where: { id: String(req.params.providerId), accountId, orgId },
   });
-  if (!existing) return res.status(404).json({ error: 'Sign-in method not found' });
+  if (!existing) return res.status(404).json({ error: 'No such sign-in method.' });
   const steppedUp = await stepUpIfHeld(req, 'Enter the code from your authenticator app to change single sign-on.');
   if (steppedUp) return res.status(steppedUp.status).json(steppedUp.body);
   await platformPrisma.authProvider.delete({ where: { id: existing.id } });
@@ -480,7 +481,7 @@ securityRouter.post('/orgs/:orgId/security/change-password', async (req, res) =>
     where: { id: req.auth!.userId },
     select: { id: true, passwordHash: true },
   });
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!user) return res.status(401).json({ error: SIGNED_OUT_TEXT });
 
   const ok = await bcrypt.compare(body.currentPassword, user.passwordHash);
   if (!ok) {
@@ -549,7 +550,7 @@ securityRouter.get('/orgs/:orgId/security/two-factor', async (req, res) => {
 securityRouter.post('/orgs/:orgId/security/two-factor/setup', ...codeLimiter, async (req, res) => {
   if (!orgOk(req, res)) return;
   const u = await me2fa(req);
-  if (!u) return res.status(401).json({ error: 'Unauthorized' });
+  if (!u) return res.status(401).json({ error: SIGNED_OUT_TEXT });
   if (u.totpEnabledAt) return res.status(409).json({ error: 'An authenticator is already set up. Turn it off first to set up another.', code: 'ALREADY_ENABLED' });
   if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) {
     await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_SETUP_REFUSED', ip: clientIp(req), detail: 'Wrong password' });
@@ -636,7 +637,10 @@ securityRouter.post('/orgs/:orgId/security/two-factor/disable', ...codeLimiter, 
 
 const smsRefusal = (res: any, e: unknown) => {
   if (e instanceof SmsLimitError) return res.status(429).json({ error: e.message, code: 'SMS_HELD', retryAfter: e.retryAfterS });
-  if (e instanceof SmsError) return res.status(503).json({ error: e.message, code: 'SMS_NOT_SENT' });
+  if (e instanceof SmsError) {
+    console.error('[security] code not sent:', e.message);
+    return res.status(503).json({ error: 'We could not send the code by text message just now. Try again in a few minutes, or use an authenticator app.', code: 'SMS_NOT_SENT' });
+  }
   throw e;
 };
 
@@ -644,7 +648,7 @@ const smsRefusal = (res: any, e: unknown) => {
 securityRouter.post('/orgs/:orgId/security/two-factor/sms/start', ...codeLimiter, async (req, res) => {
   if (!orgOk(req, res)) return;
   const u = await me2fa(req);
-  if (!u) return res.status(401).json({ error: 'Unauthorized' });
+  if (!u) return res.status(401).json({ error: SIGNED_OUT_TEXT });
   if (u.smsTwoFactorEnabledAt) return res.status(409).json({ error: 'Codes by text message are already on. Turn them off first to use another number.', code: 'ALREADY_ENABLED' });
   if (!(await smsReady())) return res.status(503).json({ error: 'Codes by text message are not available yet. Use an authenticator app.', code: 'SMS_NOT_AVAILABLE' });
   if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) {
@@ -665,7 +669,7 @@ securityRouter.post('/orgs/:orgId/security/two-factor/sms/start', ...codeLimiter
 securityRouter.post('/orgs/:orgId/security/two-factor/sms/enable', ...codeLimiter, async (req, res) => {
   if (!orgOk(req, res)) return;
   const u = await me2fa(req);
-  if (!u) return res.status(401).json({ error: 'Unauthorized' });
+  if (!u) return res.status(401).json({ error: SIGNED_OUT_TEXT });
   if (u.smsTwoFactorEnabledAt) return res.status(409).json({ error: 'Already on.', code: 'ALREADY_ENABLED' });
   const phone = await useSmsCode(u.id, 'SETUP', String(req.body?.code || ''));
   if (!phone) return res.status(400).json({ error: 'That code is not right, or has run out. Ask for a new one.', code: 'BAD_CODE' });

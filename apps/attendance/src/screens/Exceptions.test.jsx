@@ -70,7 +70,7 @@ it('asks the server for one kind, and the figures count every item, not just tho
   render(<Exceptions />);
   await screen.findByRole('checkbox', { name: `Select all ${ITEMS} open items` });
   expect(screen.getAllByText(String(ITEMS + 2)).length).toBeGreaterThan(0);
-  fireEvent.click(screen.getByRole('tab', { name: /^No check-out/ }));
+  fireEvent.click(screen.getByRole('tab', { name: /^No punch out/ }));
   await waitFor(() => expect(listExceptions).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'MISSING_OUT' })));
 });
 
@@ -118,7 +118,7 @@ it('drops an answer that arrives after a quicker one for the kind now chosen', a
     .mockResolvedValueOnce(answer(ITEMS));
   render(<Exceptions />);
   await screen.findByRole('checkbox', { name: `Select all ${ITEMS} open items` });
-  fireEvent.click(screen.getByRole('tab', { name: /^No check-out/ }));
+  fireEvent.click(screen.getByRole('tab', { name: /^No punch out/ }));
   fireEvent.click(screen.getByRole('tab', { name: /^All/ }));
   await waitFor(() => expect(listExceptions).toHaveBeenCalledTimes(3));
   late({ counts: {}, figures: { high: 0, medium: 0, low: 0, unowned: 0 }, total: 0, exceptions: [], truncated: false });

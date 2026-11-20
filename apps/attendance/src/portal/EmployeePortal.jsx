@@ -89,6 +89,7 @@ import { AddToHome, LeaveCalendar } from './round58';
 import { sentWords, useBackClose } from '@ui/picks/round58';
 import { LeaveRules } from './LeaveRules';
 import { LANGUAGES, LANGUAGE_CHOICE_ON, isLanguage, rememberLanguage, savedLanguage, usePageLanguage } from '@ui/i18n';
+import { errorWords, enumWords } from '@ui/utils/errorWords';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -122,10 +123,10 @@ export default function EmployeePortal() {
   usePageLanguage(language);
 
   useEffect(() => {
-    document.title = 'Employee portal · Clor';
+    document.title = 'Employee portal · CLOR';
     document.documentElement.setAttribute('data-app', 'attendance');
     return () => {
-      document.title = 'Clor';
+      document.title = 'CLOR';
       document.documentElement.removeAttribute('data-app');
     };
   }, []);
@@ -143,7 +144,7 @@ export default function EmployeePortal() {
     if (!isLanguage(code)) return;
     setLanguageNow(code);
     rememberLanguage(code);
-    if (save) guard(setLanguage(code)).catch((e) => !(e instanceof SignedOut) && notify.error(String(e?.message || 'Not saved.')));
+    if (save) guard(setLanguage(code)).catch((e) => !(e instanceof SignedOut) && notify.error(errorWords(e, 'save the changes')));
   }, [guard]);
 
   const loadMe = useCallback(() => {
@@ -154,7 +155,7 @@ export default function EmployeePortal() {
         /* The language kept on the person wins: a new phone opens in it too. */
         if (LANGUAGE_CHOICE_ON && d?.language && isLanguage(d.language)) chooseLanguage(d.language, { save: false });
       })
-      .catch((e) => !(e instanceof SignedOut) && setError(String(e?.message || 'Could not load.')));
+      .catch((e) => !(e instanceof SignedOut) && setError(errorWords(e, 'load this')));
   }, [guard, chooseLanguage]);
   useEffect(() => {
     if (signedIn) loadMe();
@@ -287,7 +288,7 @@ export function PortalSignIn({ onDone }) {
       else await signIn(form);
       onDone();
     } catch (err) {
-      setError(String(err?.message || 'Could not sign in.'));
+      setError(err?.status === 401 || /^Could not/.test(errorWords(err, 'sign in')) ? 'Could not sign in. Check the company code, employee code and password, or ask HR for a new activation code.' : errorWords(err, 'sign in'));
     } finally {
       setBusy(false);
     }
@@ -376,7 +377,7 @@ export function PortalSignIn({ onDone }) {
 // ---------------------------------------------------------------------------
 
 function Today({ me, reload, guard, onAskInstead }) {
-  if (!me) return <div className="ui-card p-6 ui-caption">Loading…</div>;
+  if (!me) return <div className="ui-card p-6 ui-caption">Loading your day…</div>;
   const r = me.record;
   const s = me.shift;
 
@@ -386,7 +387,7 @@ function Today({ me, reload, guard, onAskInstead }) {
       <section className="ui-card space-y-3 p-5">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="ui-t-sec">{new Date(`${me.today}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}</h2>
-          {r ? <span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span> : null}
+          {r ? <span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span> : null}
         </div>
         <p className="ui-shift-card">
           <span className="ui-shift-card-k">Today’s shift</span>
@@ -458,7 +459,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
     const n = ++latest.current;
     guard(getAttendance(month))
       .then((d) => n === latest.current && (setData(d), setError('')))
-      .catch((e) => n === latest.current && setError(String(e?.message || 'Could not load your days.')));
+      .catch((e) => n === latest.current && setError(errorWords(e, 'load your days')));
   }, [month, guard]);
   useEffect(() => {
     load();
@@ -472,7 +473,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
       </div>
       <LoadFailed message={error} onRetry={load} />
       {!data ? (
-        error ? null : <div className="ui-card p-6 ui-caption">Loading…</div>
+        error ? null : <div className="ui-card p-6 ui-caption">Loading your days…</div>
       ) : (
         <>
           <div className="grid grid-cols-5 gap-1 text-center text-xs">
@@ -508,9 +509,9 @@ function MyDays({ guard, fix = null, onFixUsed }) {
                         <td className="whitespace-nowrap">{dayLabel(d.date)}{d.shiftLabel ? <span className="ui-caption block">{d.shiftLabel}</span> : null}</td>
                         <td>
                           {open ? (
-                            <span className="ui-pill ui-pill-warn">No check-out</span>
+                            <span className="ui-pill ui-pill-warn">No punch out</span>
                           ) : (
-                            <span className={`ui-pill ${STATUS[d.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[d.status]?.label || d.status}</span>
+                            <span className={`ui-pill ${STATUS[d.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[d.status]?.label || enumWords(d.status)}</span>
                           )}
                           {d.lateMinutes ? <span className="block"><span className="ui-late-tag">Late {d.lateMinutes} min</span></span> : null}
                           <EarlyGoTag minutes={d.earlyOutMinutes} block />
@@ -545,7 +546,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
 
 const REQUEST_PILL = { PENDING: 'ui-pill-warn', APPROVED: 'ui-pill-pos', REJECTED: 'ui-pill-neg', CANCELLED: 'ui-pill-neutral' };
 const REQUEST_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', CANCELLED: 'Cancelled' };
-const RequestPill = ({ status }) => <span className={`ui-pill ${REQUEST_PILL[status] || 'ui-pill-neutral'}`}>{REQUEST_LABEL[status] || status}</span>;
+const RequestPill = ({ status }) => <span className={`ui-pill ${REQUEST_PILL[status] || 'ui-pill-neutral'}`}>{REQUEST_LABEL[status] || enumWords(status)}</span>;
 /* Approved leave I asked to cancel (round 47): still approved, waiting on the approver. */
 const LeavePill = ({ r }) => (r.status === 'APPROVED' && r.cancelAsked ? <span className="ui-pill ui-pill-warn">Approved · cancellation asked</span> : <RequestPill status={r.status} />);
 
@@ -588,7 +589,7 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
     /* The list is every recent request of mine, whatever month is on view; the month decides only the usage line. */
     Promise.all([guard(requestRules(month)), guard(listRequests())])
       .then(([r, l]) => { if (n !== latest.current) return; setRules(r); setList(l); setError(''); })
-      .catch((e) => n === latest.current && !(e instanceof SignedOut) && setError(String(e?.message || 'Could not load your requests.')));
+      .catch((e) => n === latest.current && !(e instanceof SignedOut) && setError(errorWords(e, 'load your requests')));
   }, [month, guard]);
   useEffect(() => { load(); }, [load]);
   const formRef = useRef(null);
@@ -636,7 +637,7 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
       load();
       onChanged?.();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
     } finally {
       setBusy('');
     }
@@ -651,7 +652,7 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
       load();
       onChanged?.();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not done.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'do that') });
     } finally {
       setBusy('');
     }
@@ -762,7 +763,7 @@ function MySchedule({ guard }) {
     let off = false;
     guard(getSchedule(month))
       .then((d) => !off && (setData(d), setError('')))
-      .catch((e) => !off && setError(String(e?.message || 'Could not load your schedule.')));
+      .catch((e) => !off && setError(errorWords(e, 'load your schedule')));
     return () => {
       off = true;
     };
@@ -782,7 +783,7 @@ function MySchedule({ guard }) {
       </div>
       <LoadFailed message={view === 'next' ? next.error : error} onRetry={() => setAttempt((n) => n + 1)} />
       {!(view === 'next' ? next.days : data) ? (
-        (view === 'next' ? next.error : error) ? null : <div className="ui-card p-6 ui-caption">Loading…</div>
+        (view === 'next' ? next.error : error) ? null : <div className="ui-card p-6 ui-caption">Loading your schedule…</div>
       ) : (
         <ul className="ui-card divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
           {(view === 'next' ? next.days : data.days).map((d) => (
@@ -831,7 +832,7 @@ function useLeavePreview(run, form, type) {
       run(JSON.parse(key))
         .then((p) => { if (!off) setGot({ ...p, key }); })
         .catch((e) => {
-          if (!off && !(e instanceof SignedOut)) setGot({ key, ok: false, total: 0, parts: [], problems: [{ code: 'INPUT', message: String(e?.message || 'The days could not be worked out.') }] });
+          if (!off && !(e instanceof SignedOut)) setGot({ key, ok: false, total: 0, parts: [], problems: [{ code: 'INPUT', message: errorWords(e, 'work out the days') }] });
         });
     }, 300);
     return () => { off = true; clearTimeout(timer); };
@@ -910,7 +911,7 @@ function MyLeave({ guard }) {
   const load = useCallback(() => {
     guard(getLeave())
       .then((d) => (setData(d), setError('')))
-      .catch((e) => setError(String(e?.message || 'Could not load your leave.')));
+      .catch((e) => setError(errorWords(e, 'load your leave')));
   }, [guard]);
   useEffect(() => {
     load();
@@ -939,7 +940,7 @@ function MyLeave({ guard }) {
       setForm(BLANK_LEAVE);
       load();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
     } finally {
       setSending(false);
     }
@@ -956,7 +957,7 @@ function MyLeave({ guard }) {
       setNote({ ok: true, text: 'Request withdrawn.' });
       load();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not cancelled.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'cancel it') });
     }
   };
   const askCancel = async (e) => {
@@ -967,7 +968,7 @@ function MyLeave({ guard }) {
       setNote({ ok: true, text: 'Asked to cancel. Your leave stays approved until it is agreed.' });
       load();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
     }
   };
   /* Round 18/47: remind whoever it waits on, once a day. */
@@ -977,7 +978,7 @@ function MyLeave({ guard }) {
       setNote({ ok: true, text: 'Reminder sent.' });
       load();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
     }
   };
   /* Round 27: the approver sent it back with a question; the answer sends it back to them. */
@@ -991,7 +992,7 @@ function MyLeave({ guard }) {
       setNote({ ok: true, text: 'Answer sent.' });
       load();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
     }
   };
   /* Change a waiting request: the ask form, prefilled, saves over it. */
@@ -1028,7 +1029,7 @@ function MyLeave({ guard }) {
       stopChange();
       load();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not changed.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'make the change') });
     } finally {
       setSending(false);
     }
@@ -1047,7 +1048,7 @@ function MyLeave({ guard }) {
       setShortTo('');
       load();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not changed.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'make the change') });
     } finally {
       setSending(false);
     }
@@ -1056,7 +1057,7 @@ function MyLeave({ guard }) {
   const sentRow = note?.sentId ? (data?.requests || []).find((x) => x.id === note.sentId) : null;
   const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && !r.fromTime && r.fromDate <= data?.today && r.toDate > data?.today;
   const dayBefore = (iso) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
-  if (!data) return error ? <LoadFailed message={error} onRetry={load} /> : <div className="ui-card p-6 ui-caption">Loading…</div>;
+  if (!data) return error ? <LoadFailed message={error} onRetry={load} /> : <div className="ui-card p-6 ui-caption">Loading your leave…</div>;
   return (
     <>
       <h2 className="ui-t-sec">My leave {data.year}</h2>
@@ -1216,7 +1217,7 @@ function Account({ me, guard, onSignOut, language = 'en', onLanguage }) {
       setForm({ current: '', next: '', confirm: '' });
       setNote({ ok: true, text: 'Password changed. Other phones signed in as you are signed out.' });
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not changed.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'make the change') });
     }
   };
   return (
@@ -1298,19 +1299,19 @@ function Devices({ guard }) {
         setD(r);
         setFailed('');
       })
-      .catch((e) => !(e instanceof SignedOut) && setFailed(String(e?.message || 'Could not load your devices.')));
+      .catch((e) => !(e instanceof SignedOut) && setFailed(errorWords(e, 'load your devices')));
   }, [guard]);
   useEffect(() => {
     load();
   }, [load]);
   const endOne = async (s) => {
     if (!(await confirmDialog({ title: `Sign out ${s.deviceLabel}?`, message: 'That device will need your password to get back in.', confirmLabel: 'Sign out' }))) return;
-    await guard(endSession(s.id)).catch((e) => !(e instanceof SignedOut) && setFailed(String(e?.message || 'Not done.')));
+    await guard(endSession(s.id)).catch((e) => !(e instanceof SignedOut) && setFailed(errorWords(e, 'do that')));
     load();
   };
   const endOthers = async () => {
     if (!(await confirmDialog({ title: 'Sign out all other devices?', message: 'Every phone and browser except this one will need your password to get back in.', confirmLabel: 'Sign them out' }))) return;
-    await guard(endOtherSessions()).catch((e) => !(e instanceof SignedOut) && setFailed(String(e?.message || 'Not done.')));
+    await guard(endOtherSessions()).catch((e) => !(e instanceof SignedOut) && setFailed(errorWords(e, 'do that')));
     load();
   };
   const when = (v) => new Date(v).toLocaleDateString('en-IN', { dateStyle: 'medium' });
@@ -1319,7 +1320,7 @@ function Devices({ guard }) {
     <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="dev-h">
       <h2 id="dev-h" className="ui-t-sec">Signed-in devices</h2>
       {failed ? <p className="text-sm" role="alert">{failed}</p> : null}
-      {!d && !failed ? <p className="ui-caption">Loading…</p> : null}
+      {!d && !failed ? <p className="ui-caption">Loading your devices…</p> : null}
       {d ? (
         <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
           {d.sessions.map((s) => (
@@ -1372,7 +1373,7 @@ function MyTax({ guard }) {
   const load = useCallback(() => {
     guard(getTax())
       .then((r) => { take(r); setFailed(''); })
-      .catch((e) => !(e instanceof SignedOut) && setFailed(String(e?.message || 'Could not load your tax declaration.')));
+      .catch((e) => !(e instanceof SignedOut) && setFailed(errorWords(e, 'load your tax declaration')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
   if (failed) return <LoadFailed message={failed} onRetry={load} />;
@@ -1400,7 +1401,7 @@ function MyTax({ guard }) {
       );
       setNote({ ok: true, text: 'Sent to HR. Tax from the next payslip uses it.' });
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not saved.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'save the changes') });
     } finally {
       setBusy(false);
     }
@@ -1496,7 +1497,7 @@ function Approvals({ guard }) {
   const load = useCallback(() => {
     guard(getApprovals())
       .then((d) => { setData(d); setError(''); })
-      .catch((e) => !(e instanceof SignedOut) && setError(String(e?.message || 'Could not load.')));
+      .catch((e) => !(e instanceof SignedOut) && setError(errorWords(e, 'load this')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
 
@@ -1510,7 +1511,7 @@ function Approvals({ guard }) {
       load();
     } catch (e) {
       /* 409 means another approver got there first — worth saying, then showing the fresh queue. */
-      if (!(e instanceof SignedOut)) setError(String(e?.message || 'That decision was not recorded.'));
+      if (!(e instanceof SignedOut)) setError(errorWords(e, 'record the decision'));
       load();
     } finally {
       setBusy('');
@@ -1518,7 +1519,7 @@ function Approvals({ guard }) {
   };
 
   if (error && !data) return <LoadFailed message={error} onRetry={load} />;
-  if (!data) return <div className="ui-card p-6 ui-caption">Loading…</div>;
+  if (!data) return <div className="ui-card p-6 ui-caption">Loading what is waiting for you…</div>;
   /* Field punches and overtime wait here too (time depth, gap 18): the phone app always showed them. */
   const items = [...data.leaves, ...(data.cancellations || []), ...data.corrections, ...(data.requests || []), ...(data.punches || []), ...(data.overtime || [])].sort((a, b) => String(a.askedAt).localeCompare(String(b.askedAt)));
   const fmt = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -1531,7 +1532,7 @@ function Approvals({ guard }) {
           <span className="ui-caption">{data.team} report{data.team === 1 ? 's' : ''} to you</span>
         </div>
         {error ? <p className="mt-2 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
-        {!items.length ? <p className="ui-caption mt-2">Nothing waiting. Leave, attendance requests, field punches and overtime from your team appear here.</p> : null}
+        {!items.length ? <p className="ui-caption mt-2">Nothing waiting. Leave, corrections, field punches and overtime from your team appear here.</p> : null}
       </section>
       {items.map((item) => {
         const key = `${item.type}:${item.id}`;
@@ -1601,7 +1602,7 @@ function MyDocuments({ guard }) {
         setAsks((a?.pending || []).filter((p) => p.targetType === 'DOCUMENT'));
         setLoadFailed('');
       })
-      .catch((e) => !(e instanceof SignedOut) && setLoadFailed(String(e?.message || 'Could not load your documents.')));
+      .catch((e) => !(e instanceof SignedOut) && setLoadFailed(errorWords(e, 'load your documents')));
   }, [guard]);
   useEffect(() => {
     load();
@@ -1612,7 +1613,7 @@ function MyDocuments({ guard }) {
       await guard(acceptItem(ack.id));
       load();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setFailed(String(err?.message || 'Not accepted.'));
+      if (!(err instanceof SignedOut)) setFailed(errorWords(err, 'accept it'));
     }
   };
   const open = async (d) => {
@@ -1623,7 +1624,7 @@ function MyDocuments({ guard }) {
       a.download = d.title;
       a.click();
     } catch (err) {
-      if (!(err instanceof SignedOut)) notify.error(String(err?.message || 'Could not open this document.'));
+      if (!(err instanceof SignedOut)) notify.error(errorWords(err, 'open this document'));
     }
   };
   if (loadFailed) return <LoadFailed message={loadFailed} onRetry={load} />;
@@ -1693,7 +1694,7 @@ function PrivacyNoticeCard({ guard, onRead, always = false }) {
   return (
     <section className="ui-card space-y-3 p-5" aria-labelledby="notice-h" style={always ? undefined : { borderColor: 'rgb(var(--accent))' }}>
       <h2 id="notice-h" className="ui-t-sec">{always ? 'Privacy notice' : `How ${n?.notice.company || 'your employer'} uses your attendance data`}</h2>
-      {!n ? <p className="ui-caption">Loading…</p> : (
+      {!n ? <p className="ui-caption">Loading the privacy notice…</p> : (
         <>
           {n.notice.sections.map((x) => (
             <div key={x.id} className="text-sm">
@@ -1726,7 +1727,7 @@ function MyData({ guard }) {
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Could not prepare your data.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'prepare your data') });
     }
   };
   const withdraw = async (what) => {
@@ -1742,7 +1743,7 @@ function MyData({ guard }) {
       setOpen(false);
       load();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not done.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'do that') });
     }
   };
   const send = async (e) => {
@@ -1755,7 +1756,7 @@ function MyData({ guard }) {
       setNote({ ok: true, text: 'Sent to HR. The answer appears here.' });
       load();
     } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
     }
   };
   return (

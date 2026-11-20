@@ -54,7 +54,7 @@ it('still lists the runs and offers a run when only the pay groups are refused',
   vi.mocked(listPayrollPeriods).mockResolvedValue([{ id: 'p1', name: 'November 2026' }]);
   vi.mocked(listPayGroups).mockRejectedValue(new Error('Permission denied'));
   render(<PayRuns />);
-  expect(await screen.findByText('No payroll has been run yet')).toBeTruthy();
+  expect(await screen.findByText('No pay runs yet')).toBeTruthy();
   expect(screen.getAllByRole('button', { name: /Run payroll/ })[0]).not.toBeDisabled();
   expect(screen.queryByRole('alert')).toBeNull();
 });
@@ -68,7 +68,7 @@ it('approving with tax withheld without a PAN names the people and sends who was
   vi.mocked(confirmDialog).mockResolvedValue(true);
   const user = userEvent.setup();
   render(<RunPrimaryAction run={{ ...calculated, status: 'REVIEW', number: 'PR-0001', netTotal: 100, employeeCount: 1 }} busy="" act={act} runId="r1" setIssues={() => {}} />);
-  await user.click(screen.getByRole('button', { name: 'Approve payroll' }));
+  await user.click(screen.getByRole('button', { name: 'Approve pay run' }));
   await waitFor(() => expect(approvePayrollRun).toHaveBeenLastCalledWith('r1', { noPanAcknowledged: ['e7'] }));
   expect(vi.mocked(confirmDialog).mock.calls[1][0].message).toMatch(/Ravi Kumar has no valid PAN/);
 });

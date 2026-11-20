@@ -15,6 +15,7 @@ import {
   ACCESS_KINDS, PrivacyError, accessReport, auditorEvidence, createAuditorGrant, decideDeletion, deletionReview,
   hasLiveAuditorGrant, openAuditorDocument, retentionSchedule, revokeAuditorGrant, saveRetention,
 } from '../services/people/privacy.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Privacy (docs/people/02-PRD.md PRV-03, 06, 07): the access audit, the
@@ -31,7 +32,7 @@ const base = '/orgs/:orgId/people/privacy';
 const sendError = (res: Response, e: unknown) => {
   if (e instanceof PrivacyError || e instanceof AnonymiseError) return res.status(e.status).json({ error: e.message, code: e.code });
   console.error('[people-privacy]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 const run = (fn: (req: Request, res: Response) => Promise<unknown>) => async (req: Request, res: Response) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -88,7 +89,7 @@ peoplePrivacyRouter.post(`${base}/deletion-review/:id`, can(PermissionAction.EDI
   const { accountId, orgId } = req.tenant!;
   const decision = String(req.body?.decision || '').toUpperCase();
   if (decision === 'APPROVE') {
-    if (await authorize(req, PEOPLE_MODULE, PermissionAction.DELETE, PRIVACY)) return res.status(403).json({ error: 'Erasing needs the Privacy delete grant.', code: 'FORBIDDEN' });
+    if (await authorize(req, PEOPLE_MODULE, PermissionAction.DELETE, PRIVACY)) return res.status(403).json({ error: 'Your role does not allow erasing personal data. Ask an administrator of this company.', code: 'FORBIDDEN' });
   }
   res.json({ item: await decideDeletion({ accountId, orgId, userId: req.auth!.userId, id: String(req.params.id), decision, note: req.body?.note }) });
 }));

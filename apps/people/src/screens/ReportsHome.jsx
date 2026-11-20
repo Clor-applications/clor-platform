@@ -76,8 +76,8 @@ export default function ReportsHome({ openScreen, navItems = [] }) {
   return (
     <div className="space-y-6 pb-8">
       <ListHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Reports' }]}
-        title="Reports"
+        breadcrumb={[{ label: 'People' }, { label: 'Insights' }]}
+        title="All reports"
         description="Every People and Time report. Open one to set its dates and filters, see the chart and export the rows."
         entity="report"
         toolbar={<SearchField value={q} onSearch={setQ} delay={150} placeholder="Search reports" label="Search reports" className="w-full sm:w-80" />}

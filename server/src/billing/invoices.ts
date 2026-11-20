@@ -212,7 +212,7 @@ export async function issueInvoice(id: string, userId: string | null, opts: { du
   const t = await totalsFor(inv.lines as Line[], buyer.stateCode);
   const gst = await taxSetting();
   const settings = await invoicing();
-  const seller = { legalName: gst.legalName || 'Clor Applications Private Limited', gstin: gst.registered ? gst.gstin : null, stateCode: gst.sellerStateCode || null, sac: gst.sac || null, address: settings.address, footer: settings.footer };
+  const seller = { legalName: gst.legalName || 'CLOR Applications Private Limited', gstin: gst.registered ? gst.gstin : null, stateCode: gst.sellerStateCode || null, sac: gst.sac || null, address: settings.address, footer: settings.footer };
   const now = new Date();
   const fy = financialYear(now);
   /* Round 67 "ponumber": the customer's purchase order covering the period (or today) prints on the invoice. */

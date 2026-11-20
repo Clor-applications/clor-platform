@@ -19,7 +19,7 @@ import { openingFocus } from '@ui/picks/round61';
 const EXIT_MS = 140;
 
 /* `footer`: fixed actions under the scrolling body. `dirty`: unsaved edits — the backdrop then does not close it, and Escape or × asks first (spec v1 §5.1). */
-const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl', headerActions = null, showCloseIcon = true, footer = null, dirty = false }) => {
+const Modal = ({ children, onClose, title = '', maxWidthClass = 'max-w-4xl', headerActions = null, showCloseIcon = true, footer = null, dirty = false }) => {
   /*
    * Closing is a state, not an event.
    *
@@ -61,6 +61,7 @@ const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl',
   const panelRef = useRef(null);
   const returnFocusRef = useRef(null);
   const titleId = useId();
+  if (!title && import.meta.env?.DEV) console.warn('modal-untitled'); // give it a title that says what the dialog is for
 
   /**
    * onClose through a ref, so the key handler below never has to re-subscribe.

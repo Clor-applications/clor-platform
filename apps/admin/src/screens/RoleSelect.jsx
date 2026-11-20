@@ -39,7 +39,7 @@ export default function RoleSelect({ id, roles, value, onChange, allowCreate = f
           onChange(e.target.value);
         }}
       >
-        <option value="">— No role —</option>
+        <option value="">No role</option>
         {ordered.map((g) => (
           <optgroup key={g} label={g}>
             {groups.get(g).map((r) => (
@@ -50,7 +50,7 @@ export default function RoleSelect({ id, roles, value, onChange, allowCreate = f
             ))}
           </optgroup>
         ))}
-        {allowCreate ? <option value="__new__">+ Create new role…</option> : null}
+        {allowCreate ? <option value="__new__">Create a role…</option> : null}
       </select>
       {selected?.description ? (
         <div id={`${id}-about`} className="ui-subtle text-xs mt-1">

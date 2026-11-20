@@ -21,7 +21,7 @@ describe('lockexplain A: what locking does, before it happens', () => {
     expect(nextMonthName('2026-12-31T00:00:00.000Z')).toBe('January');
     const w = lockWords({ period: { name: 'October 2026', endDate: '2026-10-31' } });
     expect(w.title).toBe('Lock October 2026?');
-    expect(w.message).toContain('nobody can change this payroll');
+    expect(w.message).toContain('nobody can change this pay run');
     expect(w.message).toContain("November's payroll as an adjustment");
     expect(lockWords({}).message).toContain("next month's payroll");
   });

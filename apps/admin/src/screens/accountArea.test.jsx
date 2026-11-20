@@ -101,13 +101,13 @@ describe('the account overview', () => {
   it('shows each company address and says it does not resolve yet', async () => {
     render(<AccountOverview currentCompany={COMPANY} />);
     await waitFor(() => expect(screen.getByText('cla.clor.in')).toBeInTheDocument());
-    expect(screen.getByText(/Preview — company subdomains is not connected yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Preview\W+company subdomains is not connected yet/)).toBeInTheDocument();
   });
 
   it('says so when the account cannot be read', async () => {
     overview.mockRejectedValue(new Error('no'));
     render(<AccountOverview currentCompany={COMPANY} />);
-    await waitFor(() => expect(screen.getByText(/could not be read/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Could not load Workspace settings. Try again.')).toBeInTheDocument());
   });
 });
 
@@ -118,7 +118,7 @@ describe('billing', () => {
    */
   it('says it is not connected, and shows no invented money', async () => {
     render(<BillingPreview currentCompany={COMPANY} />);
-    await waitFor(() => expect(screen.getByText(/Preview — card payment is not connected yet/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Preview\W+card payment is not connected yet/)).toBeInTheDocument());
     expect(screen.queryByText(/sample/i)).toBeNull();
     expect(screen.queryByRole('table')).toBeNull();
     expect(screen.getByText(/No invoices/)).toBeInTheDocument();

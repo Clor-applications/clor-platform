@@ -65,7 +65,7 @@ export const openTasksFor = (id) => apiFetch(`${base()}/employees/${encodeURICom
 export const listTags = () => apiFetch(`${base()}/tags`, opts).then((r) => r?.tags || []);
 export const listContractors = () => apiFetch(`${base()}/contractors`, opts).then((r) => r?.contractors || []).catch(() => []);
 export const workforcePending = () => apiFetch(`${base()}/workforce/pending`, opts);
-/* Employee app access in bulk (HR-VIEW gap 3): codes by e-mail, or once for a printed sheet and WhatsApp. */
+/* Employee app access in bulk (HR-VIEW gap 3): codes by email, or once for a printed sheet and WhatsApp. */
 export const sendAppAccess = (employeeIds) => send('/app-access/send', 'POST', { employeeIds });
 export const appAccessSends = (employeeId) => apiFetch(`${base()}/app-access/sends${qs({ employeeId })}`, opts).then((r) => r?.sends || []);
 /* Offers with an accept link (HR-VIEW gap 5). */

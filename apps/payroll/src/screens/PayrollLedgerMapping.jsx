@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { notify } from '@ui/components/ui/notify';
 import { listSalaryComponents, setComponentLedgers } from '../api/payrollComponents';
 import { expenseAccounts, withheldToAccounts } from '../api/payrollAccounting';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Where each part of a salary lands in the books.
@@ -65,7 +66,7 @@ export default function PayrollLedgerMapping() {
       setWithheldTo(withheld);
       setError('');
     } catch (e) {
-      setError(String(e?.message || 'Could not load the ledger mapping.'));
+      setError(errorWords(e, 'load the ledger mapping'));
     } finally {
       setLoading(false);
     }
@@ -100,7 +101,7 @@ export default function PayrollLedgerMapping() {
       notify.success(`${component.name} mapped.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not save that mapping.'));
+      notify.error(errorWords(e, 'save that mapping'));
     } finally {
       setBusy('');
     }
@@ -156,9 +157,9 @@ export default function PayrollLedgerMapping() {
                 <thead>
                   <tr>
                     <th scope="col">Component</th>
-                    <th scope="col">Kind</th>
+                    <th scope="col">Type</th>
                     <th scope="col">Expense account</th>
-                    <th scope="col">Withheld to</th>
+                    <th scope="col">Liability account</th>
                     <th scope="col" className="ui-col-h-center">Ready</th>
                   </tr>
                 </thead>

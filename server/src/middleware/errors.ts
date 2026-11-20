@@ -5,27 +5,37 @@ import path from 'node:path';
 import { reportError } from '../utils/log.js';
 import { safeUrl } from '../utils/safeUrl.js';
 import { noteApiError } from '../services/ops/apiErrors.js';
+import { issueWords } from './validate.js';
+
+/* The fallbacks a person may see (UX copy audit, 20 Nov 2026): what happened and what to do, never a library's words. */
+export const NO_SUCH_PAGE = 'No such page or record. It may have been removed, or the link is out of date.';
+export const OUR_FAULT = 'Something went wrong on our side. Try again in a moment.';
+export const ALREADY_THERE = 'Something with this name or number already exists. Change it and save again.';
+export const UNREADABLE = 'The request could not be read. Reload the page and try again.';
+
+/** The 500 sentence, with the reference support can look up. */
+export const ourFault = (requestId?: string | null) => (requestId ? `${OUR_FAULT} If it keeps happening, give CLOR support this reference: ${requestId}.` : OUR_FAULT);
 
 export function notFound(req: Request, res: Response) {
-  res.status(404).json({ error: 'Not found' });
+  res.status(404).json({ error: NO_SUCH_PAGE });
 }
 
 export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
   // Default
   let status = Number(err?.status || 500);
-  let message = String(err?.message || 'Server error');
+  let message = String(err?.message || OUR_FAULT);
 
   // Body parser / JSON parse errors
   if (err instanceof SyntaxError && String((err as any)?.type || '').includes('entity.parse.failed')) {
     status = 400;
-    message = 'Invalid JSON body';
+    message = UNREADABLE;
   }
 
   // Zod validation errors
   if (err instanceof ZodError) {
     status = 400;
-    const first = err.issues?.[0];
-    message = first?.message ? `Validation error: ${first.message}` : 'Validation error';
+    /* The schema's own words when it gave some; otherwise the answer named in words (middleware/validate.ts). */
+    message = issueWords(err.issues?.[0]);
   }
 
   // Prisma known errors (avoid importing Prisma types; check shape)
@@ -34,7 +44,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
   if (prismaName === 'PrismaClientKnownRequestError') {
     if (prismaCode === 'P2002') {
       status = 409;
-      message = 'Already exists';
+      message = ALREADY_THERE;
     }
   }
 
@@ -67,7 +77,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
   // never hand those to the client in production.
   /* `expose`: a plain sentence written for the person (a 503 "not changed", auditMutations.ts), never internals. */
   if (status >= 500 && process.env.NODE_ENV === 'production' && !err?.expose) {
-    message = 'Server error';
+    message = ourFault((req as any).id);
   }
 
   /* The id lets whoever saw the error quote it, and support find it in the logs. */

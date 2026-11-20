@@ -22,6 +22,7 @@ import { inScope, teamScope, type TeamScope } from '../people/scope.js';
 import { isFeatureEnabled } from '../features.js';
 import { addDays, eachDay } from '../../utils/istDate.js';
 import { ATTENDANCE_SOURCE, closeOnEngine, decideOnEngine, engineChain, engineChains, engineOf, onEngine, openOnEngine, restartOnEngine, syncFromRow, timeStepView } from './attendanceEngine.js';
+import { statusWords } from '../../utils/statusWords.js';
 
 /**
  * Attendance requests (TIME-LEAVE-DECISIONS.md, advanced build): four kinds on
@@ -392,7 +393,7 @@ export async function decideRequest(accountId: string, orgId: string, r: any, ap
   if (r.status !== 'PENDING') {
     /* Decided meanwhile by an older API (a rollback): its engine request, if any, closes to match. */
     await peopleWrite(orgId, () => syncFromRow(accountId, orgId, ATTENDANCE_SOURCE, r.id));
-    throw fail(409, `This request was already ${String(r.status).toLowerCase()}.`);
+    throw fail(409, `This request was already ${statusWords(r.status)}.`);
   }
   /* Nobody decides their own request: not HR, not the owner, not a manager or stand-in (closure audit, 27 Oct 2026). */
   const subject = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true } });
@@ -592,7 +593,7 @@ export type Canceller = { userId: string; /** The person's own employee file, fr
 export async function cancelRequest(accountId: string, orgId: string, r: any, by: Canceller, note: string | null = null) {
   const own = Boolean(by.employeeId && by.employeeId === r.employeeId);
   const kind = r.kind as Kind;
-  if (r.status !== 'PENDING' && r.status !== 'APPROVED') throw fail(409, `This request was already ${String(r.status).toLowerCase()}.`);
+  if (r.status !== 'PENDING' && r.status !== 'APPROVED') throw fail(409, `This request was already ${statusWords(r.status)}.`);
   if (!own && !by.hr) throw fail(403, 'This request is not yours to withdraw.');
   if (r.status === 'APPROVED') {
     if (kind === 'MISSED_PUNCH') throw fail(409, 'An approved correction cannot be cancelled; change the day instead.');

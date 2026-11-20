@@ -85,7 +85,7 @@ import { Approvals } from './Approvals';
 import { AccessRequests } from './AccessRequests';
 import { OpsSearch } from './OpsSearch';
 import { Denials, FeatureSwitches, Organisations, Users } from './Lists';
-import { ROLE } from './kit';
+import { ROLE, errorWords } from './kit';
 import { opsEnableTwoFactor, opsHome, opsMe, opsMySupportGrants, opsStartTwoFactor } from './api';
 import { ConsoleGrant, consoleGrantState } from './ConsoleGrant';
 
@@ -177,7 +177,7 @@ export const NAV = [
     rail: 'customers',
     items: [
       ['customers', 'Accounts', NI.accounts],
-      ['orgs', 'Organizations', NI.orgs],
+      ['orgs', 'Companies', NI.orgs],
       ['users', 'Users', NI.users],
       ['subscriptions', 'Subscriptions', NI.subscriptions],
       ['tickets', 'Tickets', NI.tickets],
@@ -197,15 +197,15 @@ export const NAV = [
     label: 'Platform',
     rail: 'platform',
     items: [
-      ['health', 'Jobs & workers', NI.jobs],
-      ['denials', 'Entitlement denials', NI.denials],
+      ['health', 'Background jobs', NI.jobs],
+      ['denials', 'Access refused', NI.denials],
       ['switches', 'Feature switches', NI.switches],
       ['alerts', 'Alerts', NI.alerts],
       ['status', 'Status page', NI.status],
     ],
   },
   {
-    label: 'Comms',
+    label: 'Messages',
     rail: 'platform',
     items: [
       ['announcements', 'Announcements', NI.announcements],
@@ -368,7 +368,7 @@ function EnrolAuthenticator({ onDone }) {
     try {
       await fn();
     } catch (e) {
-      setError(String(e?.message || 'Not done.'));
+      setError(errorWords(e, 'set up the authenticator'));
     } finally {
       setBusy(false);
     }
@@ -405,7 +405,7 @@ function EnrolAuthenticator({ onDone }) {
   }
   return (
     <div className="ops-enrol">
-      <p className="ws-card-blurb">CLOR operators sign in with a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password). Set one up now; it takes a minute.</p>
+      <p className="ws-card-blurb">CLOR staff sign in with a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password). Set one up now; it takes a minute.</p>
       {setup ? (
         <form onSubmit={confirm} className="ops-enrol-scan">
           {qr ? <img src={qr} alt="QR code to scan with your authenticator app" width={192} height={192} /> : null}
@@ -464,7 +464,7 @@ function Console() {
     if (!user) return;
     opsMe()
       .then(setMe)
-      .catch((e) => setRefused({ code: e?.code || e?.data?.code, message: String(e?.message || e) }));
+      .catch((e) => setRefused({ code: e?.code || e?.data?.code, message: errorWords(e, 'open the staff console') }));
   }, [user, reload]);
 
   /*
@@ -579,7 +579,7 @@ function Console() {
             </button>
           ))}
         </nav>
-        <nav className="ops-side" data-open={menuOpen || undefined} aria-label="Operator console">
+        <nav className="ops-side" data-open={menuOpen || undefined} aria-label="Staff console">
           <div className="ops-side-scroll">
             <div className="ops-side-head">
               <span className="ops-side-title">{sectionName}</span>

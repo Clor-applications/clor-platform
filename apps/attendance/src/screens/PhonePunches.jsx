@@ -13,6 +13,8 @@ import { notify } from '@ui/components/ui/notify';
 import { getPhonePunches, getPunchPhoto, reviewFieldPunch, setFieldPunchApproval, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { latestPlaces, placeOf } from '../components/round41';
+import { errorWords, dayTimeText } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Punches from phones, the way readers are watched: who punched, from which
@@ -22,10 +24,10 @@ import { latestPlaces, placeOf } from '../components/round41';
  * leave no trace.
  */
 const REFUSED = {
-  OUTSIDE: 'Outside the work sites',
-  ROUGH_LOCATION: 'Location too rough',
+  OUTSIDE: 'Outside the punch areas',
+  ROUGH_LOCATION: 'Location not accurate enough',
   NO_LOCATION: 'No location',
-  NO_SITE: 'No work site set up',
+  NO_SITE: 'No punch area set up',
   TOO_SOON: 'Less than a minute after the last',
   BAD_PHOTO: 'Selfie not usable',
   PHONE_OFF: 'Phone punch switched off',
@@ -45,7 +47,7 @@ const COLUMNS = {
   kind: kindLabel,
   site: (p) => p.site,
   review: reviewLabel,
-  why: (r) => REFUSED[r.code] || r.code,
+  why: (r) => REFUSED[r.code] || 'Refused',
 };
 const metres = (m) => (m == null ? '—' : m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`);
 const mapUrl = (lat, lon) => `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`;
@@ -61,7 +63,7 @@ const EXPORT_COLUMNS = [
   { key: 'nearest', label: 'Nearest site', value: (r) => (r.nearest ? `${r.nearest.name} (${metres(r.nearest.distance)})` : '') },
   { key: 'distance', label: 'From centre', value: (r) => (r.distance != null ? metres(r.distance) : '') },
   { key: 'accuracy', label: 'Accuracy', value: (r) => (r.accuracy != null ? `±${metres(r.accuracy)}` : '') },
-  { key: 'review', label: 'Status', value: (r) => r.review || (r.code ? REFUSED[r.code] || r.code : '') },
+  { key: 'review', label: 'Status', value: (r) => r.review || (r.code ? REFUSED[r.code] || 'Refused' : '') },
   { key: 'message', label: 'Why refused', value: (r) => r.message || '' },
   { key: 'latitude', label: 'Latitude' },
   { key: 'longitude', label: 'Longitude' },
@@ -84,16 +86,16 @@ export default function PhonePunches({ menuLabel } = {}) {
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
   const load = useCallback(() => {
-    getPhonePunches(range).then((d) => { setData(d); setError(''); }).catch((e) => setError(String(e?.message || 'Could not load phone punches.')));
+    getPhonePunches(range).then((d) => { setData(d); setError(''); }).catch((e) => setError(errorWords(e, 'load phone punches')));
   }, [range]);
   useEffect(() => { load(); }, [load]);
   const review = async (p, approve) => {
     try {
       await reviewFieldPunch(p.id, approve);
-      notify.success(approve ? `${p.name}'s punch at ${p.time.slice(11, 16)} counts now.` : `${p.name}'s punch was refused; it stays on record.`);
+      notify.success(approve ? `${p.name}'s punch at ${dayTimeText(p.time)} counts now.` : `${p.name}'s punch was refused; it stays on record.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not done.'));
+      notify.error(errorWords(e, 'do that'));
     }
   };
   const toggleApproval = async (on) => {
@@ -102,15 +104,15 @@ export default function PhonePunches({ menuLabel } = {}) {
       notify.success(on ? 'Field punches now wait for approval.' : 'Field punches now count at once.');
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Not changed.'));
+      notify.error(errorWords(e, 'make the change'));
     }
   };
   const view = async (p) => {
     try {
       const r = await getPunchPhoto(p.photoId);
-      setPhoto({ src: r.photo, caption: `${p.name} · ${p.time}${p.site ? ` · ${p.site}` : ''}` });
+      setPhoto({ src: r.photo, caption: `${p.name} · ${dayTimeText(p.time)}${p.site ? ` · ${p.site}` : ''}` });
     } catch (e) {
-      notify.error(String(e?.message || 'The selfie could not be loaded.'));
+      notify.error(errorWords(e, 'load the selfie'));
     }
   };
 
@@ -135,19 +137,17 @@ export default function PhonePunches({ menuLabel } = {}) {
   return (
     <DocumentListShell
       entity="reader"
-      title={menuLabel || 'Mobile punches'}
+      title={menuLabel || 'Phone punches'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
-        if (format) runListExport({ format, title: 'Mobile punches', fileName: 'Mobile punches', label: 'punch/punches', columns: EXPORT_COLUMNS, rows: rows });
+        if (format) runListExport({ format, title: 'Phone punches', fileName: 'Phone punches', label: 'punch/punches', columns: EXPORT_COLUMNS, rows: rows });
       }}
       description="Punches made from phones, where they were made, and the attempts that were refused."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search phone punches…', label: 'Search phone punches' }}
-      cards={
-        data
+      countLine={countItems(data
           ? [
               { label: 'Punches', value: data.summary.punches, count: true, tone: 'all', Icon: Smartphone },
               { label: 'People', value: data.summary.people, count: true, tone: 'paid', Icon: Users },
@@ -155,8 +155,7 @@ export default function PhonePunches({ menuLabel } = {}) {
               { label: 'Refused', value: data.summary.refused, count: true, tone: 'overdue', Icon: Ban, hint: data.summary.outside ? `${data.summary.outside} outside the sites` : null, onSelect: () => setTab('refused') },
               { label: 'Field punches', value: data.summary.field || 0, count: true, tone: 'partial', Icon: Navigation, hint: data.summary.waiting ? `${data.summary.waiting} waiting for approval` : null, onSelect: () => setTab('field') },
             ]
-          : null
-      }
+          : null)}
       tabs={TABS}
       statusValue={tab}
       statusCounts={counts}
@@ -285,11 +284,11 @@ export default function PhonePunches({ menuLabel } = {}) {
               </tr>
             </thead>
             <tbody className="ui-rows">
-              {!rows.length ? empty(6, Ban, 'Nothing refused', 'Every phone punch in these days was inside a work site. Attempts the server refuses (outside every site, a rough location, too soon after the last) list here.') : rows.map((r) => (
+              {!rows.length ? empty(6, Ban, 'Nothing refused', 'Every phone punch in these days was inside a punch area. Punches CLOR refuses (outside every punch area, location not accurate enough, or within a minute of the last one) are listed here.') : rows.map((r) => (
                 <tr key={r.id}>
                   <td className="ui-col-date whitespace-nowrap tabular-nums">{r.time}</td>
                   <td className="ui-col-entity">{r.name}</td>
-                  <td><span className="ui-pill ui-pill-warn mr-1.5">{REFUSED[r.code] || r.code}</span><span className="ui-caption">{r.message}</span></td>
+                  <td><span className="ui-pill ui-pill-warn mr-1.5">{REFUSED[r.code] || 'Refused'}</span><span className="ui-caption">{r.message}</span></td>
                   <td>{r.nearest ? <span>{r.nearest.name}<span className="ui-caption"> · {metres(r.nearest.distance)} away (allowed {metres(r.nearest.radius)})</span></span> : <span className="ui-caption">—</span>}</td>
                   <td className="ui-num">{r.accuracy != null ? `±${metres(r.accuracy)}` : '—'}</td>
                   <td className="ui-col-meta text-end">{r.latitude != null ? <a className="ui-icon-btn" href={mapUrl(r.latitude, r.longitude)} target="_blank" rel="noreferrer" aria-label="On a map" title="On a map"><ExternalLink size={14} aria-hidden="true" /></a> : null}</td>

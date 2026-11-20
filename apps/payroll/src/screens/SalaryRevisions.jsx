@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
-import { AlertTriangle, ArrowLeft, Check, Clock, Percent, Plus, TrendingUp } from '@ui/components/ui/lineIcons';
+import { AlertTriangle, ArrowLeft, Plus, TrendingUp } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -22,6 +22,8 @@ import {
 } from '../api/payrollRevisions';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { wholeRupees as money } from '@ui/utils/money';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * Increments, and what they really cost.
@@ -43,7 +45,7 @@ const STATUS = {
   REVIEWED: { label: 'Reviewed', tone: 'ui-pill-neutral' },
   APPROVED: { label: 'Approved', tone: 'ui-pill-pos' },
   APPLIED: { label: 'In effect', tone: 'ui-pill-pos' },
-  REJECTED: { label: 'Not approved', tone: 'ui-pill-neutral' },
+  REJECTED: { label: 'Rejected', tone: 'ui-pill-neutral' },
 };
 
 
@@ -64,8 +66,15 @@ const TABS = [
   { value: 'OPEN', label: 'To decide', tone: 'outstanding' },
   { value: 'APPROVED', label: 'Approved', tone: 'sent' },
   { value: 'APPLIED', label: 'In effect', tone: 'paid' },
-  { value: 'REJECTED', label: 'Not approved', tone: 'cancelled' },
+  { value: 'REJECTED', label: 'Rejected', tone: 'cancelled' },
 ];
+/* One written title per tab: a title built from the tab label read "No to decide revisions". */
+const EMPTY_TITLES = {
+  OPEN: 'No revisions waiting for a decision',
+  APPROVED: 'No approved revisions waiting',
+  APPLIED: 'No revisions in effect yet',
+  REJECTED: 'No rejected revisions',
+};
 const inTabOf = (r, tab) => !tab || (tab === 'OPEN' ? ['DRAFT', 'REVIEWED'].includes(r.status) : r.status === tab);
 const COLUMNS = {
   employee: (r) => r.employeeName,
@@ -75,9 +84,9 @@ const EXPORT_COLUMNS = [
   { key: 'employeeCode', label: 'Code' },
   { key: 'currentAnnualCtc', label: 'From (a year)', value: (r) => Number(r.currentAnnualCtc || 0) },
   { key: 'proposedAnnualCtc', label: 'To (a year)', value: (r) => Number(r.proposedAnnualCtc || 0) },
-  { key: 'incrementPercent', label: 'Rise %', value: (r) => r.incrementPercent ?? '' },
+  { key: 'incrementPercent', label: 'Raise %', value: (r) => r.incrementPercent ?? '' },
   { key: 'effectiveFrom', label: 'In effect from' },
-  { key: 'reason', label: 'Why' },
+  { key: 'reason', label: 'Reason' },
   { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
 ];
 
@@ -99,7 +108,7 @@ export default function SalaryRevisions({ params } = {}) {
         setStructures(structureRows);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load salary revisions.')));
+      .catch((e) => setError(errorWords(e, 'load salary revisions')));
   }, []);
 
   useEffect(() => {
@@ -140,10 +149,9 @@ export default function SalaryRevisions({ params } = {}) {
     <DocumentListShell
       entity="salaryRevision"
       title="Salary revisions"
-      description="Increments, with what each one does to net pay and to the company's cost before anybody agrees to it."
+      description="Raises, with what each one does to net pay and to the company's cost before anybody agrees to it."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search revisions…', label: 'Search revisions' }}
       moreItems={all?.length ? [exportMenuItem('Export revisions')] : null}
       onMoreSelect={(k) => {
@@ -156,12 +164,12 @@ export default function SalaryRevisions({ params } = {}) {
           <Plus size={16} aria-hidden="true" /> New revision
         </button>
       }
-      cards={[
-        { label: 'To decide', value: counts.OPEN || 0, count: true, tone: 'outstanding', tint: 'butter', Icon: Clock, onSelect: () => setStatus('OPEN') },
-        { label: 'Approved', value: counts.APPROVED || 0, count: true, tone: 'sent', tint: 'mint', Icon: Check, onSelect: () => setStatus('APPROVED') },
-        { label: 'Yearly rise', value: figures.rise, whole: true, tone: 'partial', tint: 'sky', Icon: TrendingUp },
-        { label: 'Average rise', value: `${figures.avg}%`, count: true, tone: 'paid', tint: 'lilac', Icon: Percent },
-      ]}
+      countLine={countItems([
+        { label: 'To decide', value: counts.OPEN || 0, count: true, tone: 'outstanding', onSelect: () => setStatus('OPEN') },
+        { label: 'Approved', value: counts.APPROVED || 0, count: true, tone: 'sent', onSelect: () => setStatus('APPROVED') },
+        { label: 'Yearly raise', value: figures.rise, whole: true, tone: 'partial' },
+        { label: 'Average raise', value: `${figures.avg}%`, count: true, tone: 'paid' },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -194,9 +202,9 @@ export default function SalaryRevisions({ params } = {}) {
                 <ColumnHeader label="Employee" col="employee" state={filters} />
                 <th scope="col" className="ui-col-h-right">From</th>
                 <th scope="col" className="ui-col-h-right">To</th>
-                <th scope="col" className="ui-col-h-right">Rise</th>
+                <th scope="col" className="ui-col-h-right">Raise</th>
                 <th scope="col" className="ui-col-h-center">In effect from</th>
-                <th scope="col" className="ui-col-grow">Why</th>
+                <th scope="col" className="ui-col-grow">Reason</th>
                 <th scope="col" className="ui-col-h-center">Status</th>
               </tr>
             </thead>
@@ -211,8 +219,8 @@ export default function SalaryRevisions({ params } = {}) {
                     ) : (
                       <EmptyState
                         icon={TrendingUp}
-                        title={status ? `No ${TABS.find((t) => t.value === status)?.label.toLowerCase()} revisions` : 'No revisions yet'}
-                        description="Propose an increment and see what it does to net pay, to deductions and to what the company spends, before anybody agrees to it."
+                        title={EMPTY_TITLES[status] || 'No revisions yet'}
+                        description="Propose a raise and see what it does to net pay, to deductions and to what the company spends, before anybody agrees to it."
                         routes={canStart && !status ? [{ label: 'New revision', description: 'The impact shows as you type.', onSelect: start }] : undefined}
                       />
                     )}
@@ -306,7 +314,7 @@ const RevisionForm = ({ people, structures, onCancel, onCreated, initialEmployee
         })
       );
     } catch (err) {
-      notify.error(String(err?.message || 'Could not create that revision.'));
+      notify.error(errorWords(err, 'create that revision'));
     } finally {
       setSaving(false);
     }
@@ -318,7 +326,7 @@ const RevisionForm = ({ people, structures, onCancel, onCreated, initialEmployee
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
-          <label className="ui-label" htmlFor="rev-employee">Who</label>
+          <label className="ui-label" htmlFor="rev-employee">Employee</label>
           <select id="rev-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
             {people.map((p) => (
               <option key={p.id} value={p.id}>
@@ -362,7 +370,7 @@ const RevisionForm = ({ people, structures, onCancel, onCreated, initialEmployee
       </div>
 
       <div>
-        <label className="ui-label" htmlFor="rev-reason">Why</label>
+        <label className="ui-label" htmlFor="rev-reason">Reason</label>
         <input
           id="rev-reason"
           className="ui-input w-full"
@@ -426,7 +434,7 @@ const Impact = ({ impact, compact = false }) => (
             <thead>
               <tr>
                 <th scope="col">Component</th>
-                <th scope="col">Kind</th>
+                <th scope="col">Type</th>
                 <th scope="col" className="ui-col-h-right">Now</th>
                 <th scope="col" className="ui-col-h-right">After</th>
                 <th scope="col" className="ui-col-h-right">Change</th>
@@ -472,7 +480,7 @@ const RevisionDetail = ({ revisionId, onBack }) => {
     try {
       setRevision(await getSalaryRevision(revisionId));
     } catch (e) {
-      notify.error(String(e?.message || 'Could not load that revision.'));
+      notify.error(errorWords(e, 'load that revision'));
     } finally {
       setLoading(false);
     }
@@ -489,7 +497,7 @@ const RevisionDetail = ({ revisionId, onBack }) => {
       notify.success(done);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not do that.'));
+      notify.error(errorWords(e, 'update this revision'));
     } finally {
       setBusy('');
     }
@@ -501,18 +509,18 @@ const RevisionDetail = ({ revisionId, onBack }) => {
       message: `From ${shownDate(revision.effectiveFrom)}, ${revision.employeeName} is on ${money(
         revision.proposedAnnualCtc
       )} a year. Their current salary closes the day before, and payroll pays the new one from then on.`,
-      confirmLabel: 'Yes, apply it',
+      confirmLabel: 'Put into effect',
       tone: 'default',
     });
     if (!ok) return;
-    act(() => applySalaryRevision(revisionId), 'Applied. This is their salary now.', 'apply');
+    act(() => applySalaryRevision(revisionId), 'In effect. This is their salary now.', 'apply');
   };
 
   const reject = async () => {
     const ok = await confirmDialog({
       title: 'Reject this revision?',
-      message: 'It stays in the list, marked rejected, so the decision is visible.',
-      confirmLabel: 'Yes, reject',
+      message: 'It stays in the list under Rejected, so the decision is visible. Their salary does not change.',
+      confirmLabel: 'Reject revision',
     });
     if (!ok) return;
     act(() => rejectSalaryRevision(revisionId), 'Rejected.', 'reject');

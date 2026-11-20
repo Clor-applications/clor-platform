@@ -10,6 +10,8 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { getReaderPhoto, listBiometrics } from '../api/attendance';
 import { notify } from '@ui/components/ui/notify';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 const COLUMNS = {
   employee: (r) => r.employeeName || 'Not matched',
@@ -45,11 +47,11 @@ export default function Enrolments({ menuLabel } = {}) {
       const p = await getReaderPhoto(r.pin);
       setPhoto({ src: p.photo, caption: `${r.employeeName || r.pin} · from the reader` });
     } catch (e) {
-      notify.error(String(e?.message || 'No photo.'));
+      notify.error(errorWords(e, 'load the photo'));
     }
   };
   useEffect(() => {
-    listBiometrics().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(String(e?.message || 'Could not load enrolments.')));
+    listBiometrics().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load enrolments')));
   }, [attempt]);
   const search = useListSearch(rows || [], ['employeeName', 'employeeCode', 'pin']);
   const filters = useColumnFilters();
@@ -69,23 +71,22 @@ export default function Enrolments({ menuLabel } = {}) {
   return (
     <DocumentListShell
       entity="reader"
-      title={menuLabel || 'Device enrolment'}
+      title={menuLabel || 'Reader enrolment'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
-        if (format) runListExport({ format, title: 'Device enrolment', fileName: 'Enrolments', label: 'person/people', columns: EXPORT_COLUMNS, rows: shown });
+        if (format) runListExport({ format, title: 'Reader enrolment', fileName: 'Reader enrolment', label: 'person/people', columns: EXPORT_COLUMNS, rows: shown });
       }}
       description="Fingerprints and faces enrolled on the readers. Enrol once on any reader; it is copied to the others."
       compact
       tight
-      denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search enrolments…', label: 'Search enrolments' }}
-      cards={[
+      countLine={countItems([
         { label: 'Enrolled', value: figures.enrolled, count: true, tone: 'all', Icon: Users },
         { label: 'With fingerprints', value: figures.fingers, count: true, tone: 'paid', Icon: Fingerprint },
         { label: 'With a face', value: figures.faces, count: true, tone: 'sent', Icon: ScanFace },
         { label: 'Not matched', value: figures.unmatched, count: true, tone: 'outstanding', Icon: UserX },
-      ]}
+      ])}
     >
       <LoadFailed message={loadError} onRetry={() => setAttempt((n) => n + 1)} />
       {!rows ? (

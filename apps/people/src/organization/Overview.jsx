@@ -1,3 +1,4 @@
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { tintOf } from './tints';
 import { Building2, GitBranch, MapPin, Plus, UserMinus, UserX } from '@ui/components/ui/lineIcons';
@@ -38,7 +39,7 @@ export default function OrganizationOverview({ openScreen }) {
       await apiFetch(`/orgs/${encodeURIComponent(orgId())}/features`, { method: 'PUT', body: { features: { peopleOrgDetail: on } }, skipWarehouseHeader: true });
       notify.success(on ? 'Detailed structure is on: its lists are in the sidebar.' : 'Detailed structure is off.');
       window.location.reload();
-    } catch (e) { notify.error(String(e?.message || 'Not changed.')); setSwitching(false); }
+    } catch (e) { notify.error(errorWords(e, 'make the change')); setSwitching(false); }
   };
 
   if (req.error) return <div className="space-y-6"><Header openScreen={openScreen} perms={perms} /><ErrorState error={req.error} onRetry={req.reload} /></div>;
@@ -116,7 +117,7 @@ export default function OrganizationOverview({ openScreen }) {
               </li>
             ))}
           </ul>
-        ) : <EmptyState title="No departments yet" description="Add the first department, or import people and their departments come with them." />}
+        ) : <EmptyState title="No departments yet" description="Add the first department, or import people and their departments come with them." action={<button type="button" className="ui-btn ui-btn-secondary" onClick={go('departments')}>Open departments</button>} />}
       </section>
 
       <section className="space-y-2" aria-labelledby="org-branches">
@@ -138,7 +139,7 @@ export default function OrganizationOverview({ openScreen }) {
               </li>
             ))}
           </ul>
-        ) : <EmptyState title="No branches yet" description="Branches are the company’s registered places." />}
+        ) : <EmptyState title="No branches yet" description="Branches are the company’s registered places." action={<button type="button" className="ui-btn ui-btn-secondary" onClick={go('branches')}>Open branches</button>} />}
       </section>
 
       <section className="space-y-2" aria-labelledby="org-lists">

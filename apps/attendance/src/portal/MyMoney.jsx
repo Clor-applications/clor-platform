@@ -13,6 +13,7 @@ import { rupees as money } from '@ui/utils/money';
 import PfWithdrawSteps from './PfWithdrawSteps';
 import { SKIP_ASK_HINT } from '@ui/picks/payLines';
 import { RUPEE_HINT, billTooOld, oldestBillDay, tooOldText } from './round51';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Money in the employee app's Me tab (WORKFLOW-GAP-RESEARCH 4.1, 4.2):
@@ -27,7 +28,7 @@ const day = (iso) => {
   const [y, m, d] = String(iso || '').slice(0, 10).split('-');
   return y && m && d ? `${Number(d)} ${MONTHS[Number(m) - 1]}${y !== todayIst().slice(0, 4) ? ` ${y}` : ''}` : '';
 };
-const errText = (e, fallback) => (e instanceof SignedOut ? '' : String(e?.message || fallback));
+const errText = (e, what) => (e instanceof SignedOut ? '' : errorWords(e, what));
 const TONE = { WITH_SALARY: 'warn', DRAFT: 'neutral', SUBMITTED: 'warn', WAITING: 'warn', APPROVED: 'pos', PAYING: 'warn', PAID: 'pos', SETTLED: 'neutral', CLOSED: 'neutral', REJECTED: 'neg', WITHDRAWN: 'neutral' };
 const Pill = ({ row }) => <span className={`ui-pill ui-pill-${row.canReply ? 'warn' : TONE[row.status] || 'neutral'} shrink-0`}>{row.statusLabel}</span>;
 
@@ -37,7 +38,7 @@ export default function MyMoney({ guard }) {
   const load = useCallback(() => {
     guard(getMoney())
       .then((d) => { setData(d); setFailed(''); })
-      .catch((e) => setFailed(errText(e, 'Could not load your expenses.')));
+      .catch((e) => setFailed(errText(e, 'load your expenses')));
   }, [guard]);
   useEffect(() => { load(); }, [load]);
   if (failed) return <LoadFailed message={failed} onRetry={load} />;
@@ -76,7 +77,7 @@ function SpentForWork({ data, guard, reload }) {
       setAdvanceId('');
       reload();
     } catch (e) {
-      const m = errText(e, 'Not sent.');
+      const m = errText(e, 'send it');
       if (m) notify.error(m);
     } finally {
       setBusy(false);
@@ -88,7 +89,7 @@ function SpentForWork({ data, guard, reload }) {
       await guard(removeBill(line.id));
       reload();
     } catch (e) {
-      const m = errText(e, 'Not removed.');
+      const m = errText(e, 'remove it');
       if (m) notify.error(m);
     }
   };
@@ -205,7 +206,7 @@ function BillForm({ data, guard, onDone, onCancel }) {
       notify.success(out.overLimit ? `Added. It is over the ${money(out.overLimit)} limit; your approver decides.` : 'Bill added.');
       onDone();
     } catch (err) {
-      const m = errText(err, 'Not added.');
+      const m = errText(err, 'add it');
       if (m) notify.error(m);
     } finally {
       setBusy(false);
@@ -290,7 +291,7 @@ function ClaimRow({ claim: c, guard, reload }) {
       setAnswer('');
       reload();
     } catch (e) {
-      const m = errText(e, 'Not done.');
+      const m = errText(e, 'do that');
       if (m) notify.error(m);
     } finally {
       setBusy(false);
@@ -302,7 +303,7 @@ function ClaimRow({ claim: c, guard, reload }) {
       window.open(url, '_blank', 'noopener');
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e) {
-      notify.error(errText(e, 'Could not open the bill.'));
+      notify.error(errText(e, 'open the bill'));
     }
   };
   const paid = c.status === 'WITH_SALARY' ? `Goes with your salary${c.payrollPeriodName ? ` for ${c.payrollPeriodName}` : ''}, once Payroll approves it` : c.status === 'PAID' ? (c.payMode === 'SALARY' ? `With your salary${c.payrollPeriodName ? ` for ${c.payrollPeriodName}` : ''}` : `Paid${c.paidOn ? ` on ${day(c.paidOn)}` : ''}${c.paidMethod ? ` by ${c.paidMethod === 'BANK' ? 'bank transfer' : c.paidMethod === 'UPI' ? 'UPI' : 'cash'}` : ''}`) : null;
@@ -371,7 +372,7 @@ function Advances({ data, guard, reload }) {
       setForm({ purpose: '', amount: '', neededBy: '' });
       reload();
     } catch (err) {
-      const m = errText(err, 'Not sent.');
+      const m = errText(err, 'send it');
       if (m) notify.error(m);
     } finally {
       setBusy(false);
@@ -383,7 +384,7 @@ function Advances({ data, guard, reload }) {
       await guard(withdrawMoney('advances', a.id));
       reload();
     } catch (e) {
-      const m = errText(e, 'Not withdrawn.');
+      const m = errText(e, 'withdraw it');
       if (m) notify.error(m);
     }
   };
@@ -463,7 +464,7 @@ function SalaryAdvance({ info, guard, reload }) {
       setForm({ amount: '', months: 3, reason: '' });
       reload();
     } catch (err) {
-      const m = errText(err, 'Not sent.');
+      const m = errText(err, 'send it');
       if (m) notify.error(m);
     } finally {
       setBusy(false);
@@ -475,7 +476,7 @@ function SalaryAdvance({ info, guard, reload }) {
       await guard(withdrawMoney('salary-advance', a.id));
       reload();
     } catch (e) {
-      const m = errText(e, 'Not withdrawn.');
+      const m = errText(e, 'withdraw it');
       if (m) notify.error(m);
     }
   };
@@ -560,7 +561,7 @@ function SkipNext({ loan, guard, reload }) {
       setOpen(false);
       reload();
     } catch (err) {
-      const m = errText(err, 'Not sent.');
+      const m = errText(err, 'send it');
       if (m) notify.error(m);
     } finally {
       setBusy(false);

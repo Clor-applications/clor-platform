@@ -1,4 +1,5 @@
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { FileText } from '@ui/components/ui/lineIcons';
 
@@ -62,7 +63,7 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
       notify.success(`Offer to ${o.name} withdrawn.`);
       req.reload();
     } catch (e) {
-      notify.error(String(e?.message || 'Not withdrawn.'));
+      notify.error(errorWords(e, 'withdraw it'));
       req.reload();
     }
   };
@@ -86,7 +87,7 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
         title="Offers"
         description="Every offer sent with an accept link, and where each one stands."
         primary={canWithdraw ? { label: 'Make an offer', icon: FileText, onClick: () => setPicking(true) } : null}
-        toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null, page: null })} placeholder="Search name, designation or e-mail" label="Search offers" className="w-full sm:w-72" />}
+        toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null, page: null })} placeholder="Search name, designation or email" label="Search offers" className="w-full sm:w-72" />}
         tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' ? counts[k] : 0 }))}
         tab={view}
         onTab={(k) => set({ view: k === 'open' ? null : k, page: null }, true)}
@@ -123,7 +124,7 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
             : <EmptyState icon={FileText} title={view === 'open' ? 'No offer is waiting for an answer' : view === 'accepted' ? 'No offer accepted yet' : view === 'closed' ? 'Nothing declined or withdrawn' : 'No offers sent yet'} description={view === 'open' || view === 'all' ? 'An offer goes to a joiner with a joining date ahead, or to a candidate from Talent.' : undefined} />}
       />
       {picking ? (
-        <PickPersonDrawer title="Make an offer" description="A joiner whose joining date is ahead. For a candidate, offer from Talent › Candidates." action="Write the offer" filter={notStarted}
+        <PickPersonDrawer title="Make an offer" description="A joiner whose joining date is ahead. For a candidate, offer from Hiring › Candidates." action="Write the offer" filter={notStarted}
           onClose={() => setPicking(false)} onPick={(person) => { setPicking(false); openScreen?.('employee', { id: person.id, action: 'offer' }); }} />
       ) : null}
     </div>

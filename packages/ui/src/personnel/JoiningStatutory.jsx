@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { hasApp } from '@platform/context';
 import { approveJoiningStatutory, joiningStatutory, listEmployeeInvites, rejectJoiningStatutory, sendHeldToPayroll } from './api';
+import { errorWords } from '@ui/utils/errorWords.js';
 
 /*
  * The statutory half of a joiner's form (HR-VIEW gap 2): PAN, UAN, ESIC,
@@ -36,7 +37,7 @@ export default function JoiningStatutory({ invite, canView, canApprove, onDecide
     try {
       setFull(await joiningStatutory(invite.id));
     } catch (e) {
-      notify.error(String(e?.message || 'Could not open them.'));
+      notify.error(errorWords(e, 'open them'));
     } finally {
       setBusy(false);
     }
@@ -51,7 +52,7 @@ export default function JoiningStatutory({ invite, canView, canApprove, onDecide
       notify.success(approve ? (r.payroll === 'SENT' ? `On the Payroll record.${s.bankOutcome === 'PENDING' ? ' The bank change waits for approval in Payroll.' : ''}` : 'Approved. Kept in People until Payroll is switched on.') : 'Marked as not accepted.');
       onDecided?.(s);
     } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
+      notify.error(errorWords(e, 'save the details'));
     } finally {
       setBusy(false);
     }
@@ -70,7 +71,7 @@ export default function JoiningStatutory({ invite, canView, canApprove, onDecide
         onDecided?.(fresh);
       }
     } catch (e) {
-      notify.error(String(e?.message || 'Not sent.'));
+      notify.error(errorWords(e, 'send it'));
     } finally {
       setBusy(false);
     }

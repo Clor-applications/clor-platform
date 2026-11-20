@@ -65,6 +65,6 @@ describe('operator console: customer limits', () => {
     expect(screen.queryByRole('button', { name: 'Change limits' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Show all 3 features' }));
     expect(screen.queryByRole('button', { name: /Turn off/ })).toBeNull();
-    expect(screen.getByText(/Billing changes them/)).toBeInTheDocument();
+    expect(screen.getByText(/Finance changes them/)).toBeInTheDocument();
   });
 });

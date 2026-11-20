@@ -10,6 +10,7 @@ import { inScope, teamScope } from '../services/people/scope.js';
 import { DESK_STATUSES, DeskError, URGENCIES, addMessage, assignRequest, categoriesOf, listRequests, moveToCase, raiseRequest, reopenRequest, requestDetail, resolveRequest, saveCategory, saveTemplate, templatesOf } from '../services/people/desk.js';
 import { z } from 'zod';
 import { check, flag, id, idParams, num, q, rawText, text } from '../middleware/validate.js';
+import { ourFault } from '../middleware/errors.js';
 
 /**
  * Help desk, HR's side (docs/people/02-PRD.md DESK-01..06). The HR Cases
@@ -28,7 +29,7 @@ const scoped = async (req: Request) => ({ ...who(req), scope: await teamScope(re
 const sendError = (res: any, e: unknown) => {
   if (e instanceof DeskError) return res.status(e.status).json({ error: e.message });
   console.error('[people-desk]', e instanceof Error ? e.message : e);
-  return res.status(500).json({ error: 'Something went wrong.' });
+  return res.status(500).json({ error: ourFault((res.req as any)?.id) });
 };
 
 /*
@@ -49,7 +50,7 @@ peopleDeskRouter.get(base, can(PermissionAction.VIEW), check({ query: z.object({
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const status = String(req.query.status || '').toUpperCase();
-  if (status && status !== 'OPEN' && !DESK_STATUSES.includes(status as any)) return res.status(400).json({ error: 'Unknown status.' });
+  if (status && status !== 'OPEN' && !DESK_STATUSES.includes(status as any)) return res.status(400).json({ error: 'Choose a status from the list.' });
   const [requests, categories] = await Promise.all([
     listRequests(orgId, { status: status || undefined, queue: String(req.query.queue || '') || undefined, assigneeUserId: req.query.mine === '1' ? req.auth!.userId : String(req.query.assignee || '') || undefined, employeeId: String(req.query.employeeId || '') || undefined, q: String(req.query.q || ''), scope: await teamScope(req) }),
     categoriesOf(accountId, orgId),

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, CalendarClock, CalendarDays, Lock, LockOpen, Plus, Trash2 } from '@ui/components/ui/lineIcons';
+import { CalendarDays, Lock, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -17,6 +17,8 @@ import {
 } from '../api/payrollCalendar';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { CLOSED_MONTH_NOTE } from '@ui/picks/round54';
+import { errorWords } from '@ui/utils/errorWords';
+import { countItems } from '../components/countItems';
 
 /**
  * The pay cycles a run is filed against.
@@ -36,6 +38,15 @@ const FREQUENCIES = [
 ];
 
 const labelFor = (id) => FREQUENCIES.find((f) => f.id === id)?.label || id;
+
+/* The consequence of closing a month that still has deductions nobody took, written here rather than shown as the server's text. */
+const untakenWords = (untaken, name) => {
+  const list = Array.isArray(untaken) ? untaken : [];
+  const n = list.length;
+  const total = list.reduce((t, u) => t + (Number(u.amount) || 0), 0);
+  const what = n ? `${n} ${n === 1 ? 'deduction' : 'deductions'} due in ${name}, ₹${total.toLocaleString('en-IN')} in all, ${n === 1 ? 'was' : 'were'} not taken by any payslip.` : `Some deductions due in ${name} were not taken by any payslip.`;
+  return `${what} Once the month is closed they are never taken, unless you move them to an open month first.`;
+};
 
 /** Read the way this country writes a date; the ISO value stays underneath. */
 const shown = (iso) => {
@@ -98,7 +109,7 @@ export default function PayrollPeriods({ menuLabel } = {}) {
         setAll(v);
         setError('');
       })
-      .catch((e) => setError(String(e?.message || 'Could not load payroll periods.')));
+      .catch((e) => setError(errorWords(e, 'load the pay calendar')));
   }, []);
 
   useEffect(() => {
@@ -113,7 +124,7 @@ export default function PayrollPeriods({ menuLabel } = {}) {
         title: `Reopen ${row.name}?`,
         message:
           'A closed period has usually been paid and reported. Reopening it allows new payroll for a month that has already been filed.',
-        confirmLabel: 'Yes, reopen',
+        confirmLabel: 'Reopen period',
       });
       if (!ok) return;
     }
@@ -125,8 +136,8 @@ export default function PayrollPeriods({ menuLabel } = {}) {
         /* A recovery due this month that no payslip took (QA of #82, F5): said first, closed only when told to. */
         if (e?.code !== 'UNTAKEN_RECOVERIES') throw e;
         const ok = await confirmDialog({
-          title: `Close ${row.name} with items not taken?`,
-          message: String(e.message || ''),
+          title: `Close ${row.name} with deductions not taken?`,
+          message: untakenWords(e?.data?.untaken, row.name),
           confirmLabel: 'Close anyway',
         });
         if (!ok) return;
@@ -135,7 +146,7 @@ export default function PayrollPeriods({ menuLabel } = {}) {
       notify.success(row.isLocked ? `${row.name} reopened.` : `${row.name} closed.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not change that period.'));
+      notify.error(errorWords(e, 'change that period'));
     } finally {
       setBusy('');
     }
@@ -145,7 +156,7 @@ export default function PayrollPeriods({ menuLabel } = {}) {
     const ok = await confirmDialog({
       title: `Delete ${row.name}?`,
       message: 'A period with no payroll behind it can be deleted. One that has been run cannot.',
-      confirmLabel: 'Yes, delete',
+      confirmLabel: 'Delete period',
     });
     if (!ok) return;
     try {
@@ -153,7 +164,7 @@ export default function PayrollPeriods({ menuLabel } = {}) {
       notify.success(`${row.name} deleted.`);
       load();
     } catch (e) {
-      notify.error(String(e?.message || 'Could not delete that period.'));
+      notify.error(errorWords(e, 'delete that period'));
     }
   };
 
@@ -178,29 +189,28 @@ export default function PayrollPeriods({ menuLabel } = {}) {
   return (
     <DocumentListShell
       entity="payPeriod"
-      title={menuLabel || 'Payroll periods'}
+      title={menuLabel || 'Pay calendar'}
       description={`The pay cycles a run belongs to, and which of them are closed. ${CLOSED_MONTH_NOTE}`}
       compact
       tight
-      denseCards
-      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search periods…', label: 'Search payroll periods' }}
+      search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search periods…', label: 'Search the pay calendar' }}
       moreItems={all?.length ? [exportMenuItem('Export periods')] : null}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (!format) return;
-        runListExport({ format, title: 'Payroll periods', fileName: 'Payroll periods', label: 'period/periods', columns: EXPORT_COLUMNS, rows });
+        runListExport({ format, title: 'Pay calendar', fileName: 'Pay calendar', label: 'period/periods', columns: EXPORT_COLUMNS, rows });
       }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" onClick={create}>
           <Plus size={16} aria-hidden="true" /> New period
         </button>
       }
-      cards={[
-        { label: 'Open', value: counts.OPEN, count: true, tone: 'outstanding', Icon: LockOpen, onSelect: () => setStatus('OPEN') },
-        { label: 'Closed', value: counts.CLOSED, count: true, tone: 'cancelled', Icon: Lock, onSelect: () => setStatus('CLOSED') },
-        { label: 'Payroll run', value: figures.run, count: true, tone: 'paid', Icon: CalendarCheck },
-        { label: 'Not run yet', value: figures.waiting, count: true, tone: 'partial', Icon: CalendarClock },
-      ]}
+      countLine={countItems([
+        { label: 'Open', value: counts.OPEN, count: true, tone: 'outstanding', onSelect: () => setStatus('OPEN') },
+        { label: 'Closed', value: counts.CLOSED, count: true, tone: 'cancelled', onSelect: () => setStatus('CLOSED') },
+        { label: 'With a pay run', value: figures.run, count: true, tone: 'paid' },
+        { label: 'Not run yet', value: figures.waiting, count: true, tone: 'partial' },
+      ])}
       tabs={TABS}
       statusValue={status}
       statusCounts={counts}
@@ -234,7 +244,7 @@ export default function PayrollPeriods({ menuLabel } = {}) {
                     ) : (
                       <EmptyState
                         icon={CalendarDays}
-                        title={status ? `No ${status.toLowerCase()} periods` : 'No payroll periods yet'}
+                        title={status === 'OPEN' ? 'No open periods' : status === 'CLOSED' ? 'No closed periods yet' : 'No periods in the pay calendar yet'}
                         description="Every payslip is filed against a period. Add the first one and payroll has a month to run for."
                         routes={status ? undefined : [{ label: 'New period', description: `Starts with ${suggestion.name}.`, onSelect: create }]}
                       />
@@ -244,7 +254,7 @@ export default function PayrollPeriods({ menuLabel } = {}) {
               ) : (
                 rows.map((p) => (
                   <tr key={p.id} className={p.isLocked ? '' : 'ui-row-click'} onClick={p.isLocked ? undefined : () => setEditing(p)}>
-                    <td className="ui-col-entity">{p.name}{p.isLocked ? <span className="ui-lock-tag"><Lock size={11} aria-hidden="true" />Locked</span> : null}</td>
+                    <td className="ui-col-entity">{p.name}</td>
                     <td className="ui-col-meta">{labelFor(p.frequency)}</td>
                     <td className="ui-col-date ui-col-h-center">{shown(p.startDate)}</td>
                     <td className="ui-col-date ui-col-h-center">{shown(p.endDate)}</td>
@@ -286,7 +296,7 @@ export default function PayrollPeriods({ menuLabel } = {}) {
       <Drawer
         open={Boolean(editing)}
         onClose={() => setEditing(null)}
-        title={editing?.id ? 'Edit period' : 'New payroll period'}
+        title={editing?.id ? 'Edit period' : 'New period'}
         description="The days this payroll covers, and when it is paid."
       >
         {editing ? (
@@ -330,7 +340,7 @@ const PeriodForm = ({ initial, onClose, onSaved }) => {
       notify.success(`${form.name} saved.`);
       onSaved();
     } catch (err) {
-      notify.error(String(err?.message || 'Could not save that period.'));
+      notify.error(errorWords(err, 'save that period'));
     } finally {
       setSaving(false);
     }

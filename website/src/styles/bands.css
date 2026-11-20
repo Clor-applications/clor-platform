@@ -80,8 +80,6 @@ body:has(.fx-secnav) .nav {
 .fx-eyebrow {
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--ink-2);
   margin-bottom: var(--s-4);
 }
@@ -1586,10 +1584,8 @@ body:has(.fx-secnav) .nav {
   margin-inline: var(--s-5);
 }
 .pg .fix-label {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--ink-3);
   margin-top: var(--s-5);
 }
@@ -1647,10 +1643,8 @@ body:has(.fx-secnav) .nav {
 .pg .steps > div dt::before {
   content: 'Step ' counter(step) ' ';
   display: block;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--accent-text);
   margin-bottom: 4px;
 }
@@ -2324,8 +2318,6 @@ body:has(.fx-secnav) .nav {
 .tcard-role {
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--app-2) 85%, #000);
 }
 .tcard-name {
@@ -2454,10 +2446,8 @@ body:has(.fx-secnav) .nav {
 .fx .setup-copy::before {
   content: 'Step ' counter(setup);
   display: block;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--accent-text);
   margin-bottom: var(--s-2);
 }
@@ -2734,8 +2724,6 @@ body:has(.fx-secnav) .nav {
   margin-bottom: var(--s-4);
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: #ffb08a;
 }
 .ft-col ul {
@@ -3116,8 +3104,6 @@ body:has(.fx-secnav) .nav {
 .mega-cat {
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--accent-text);
 }
 .pg .legal h2 {

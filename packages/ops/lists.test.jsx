@@ -9,7 +9,7 @@ import { Denials, FeatureSwitches, Organisations, Users } from './Lists';
 beforeEach(() => Object.values(api).forEach((f) => f.mockReset()));
 
 describe('the lists across every account', () => {
-  it('Organizations: account, GSTIN, apps, members and state; the account opens', async () => {
+  it('Companies: account, GSTIN, apps, members and state; the account opens', async () => {
     api.opsOrganisations.mockResolvedValue({
       total: 1,
       page: 0,
@@ -27,7 +27,7 @@ describe('the lists across every account', () => {
     expect(open).toHaveBeenCalledWith('a1');
   });
 
-  it('Users: role, sign-in with 2FA, last seen and state; filters ask the server', async () => {
+  it('Users: role, sign-in with authenticator, last seen and state; filters ask the server', async () => {
     api.opsUsers.mockResolvedValue({
       total: 1,
       page: 0,
@@ -38,13 +38,13 @@ describe('the lists across every account', () => {
     const row = (await screen.findByText('Rahul Iyer')).closest('tr');
     expect(row).toHaveTextContent('3 accounts');
     expect(row).toHaveTextContent('Admin');
-    expect(row).toHaveTextContent('Password · 2FA');
+    expect(row).toHaveTextContent('Password · authenticator');
     expect(row).toHaveTextContent('Never signed in');
     fireEvent.change(screen.getByLabelText('Sign-in'), { target: { value: 'twofactor' } });
     await waitFor(() => expect(api.opsUsers).toHaveBeenLastCalledWith(expect.objectContaining({ signIn: 'twofactor', page: 0 })));
   });
 
-  it('Entitlement denials: today’s counts, the reason code with its app, HTTP and correlation id', async () => {
+  it('Access refused: today’s counts, the plain reason with its app and the request ID', async () => {
     api.opsDenials.mockResolvedValue({
       total: 1,
       page: 0,
@@ -55,11 +55,11 @@ describe('the lists across every account', () => {
     });
     render(<Denials openAccount={() => {}} />);
     const row = (await screen.findByText('Priya Shah')).closest('tr');
-    expect(row).toHaveTextContent('APP_NOT_SUBSCRIBED · Projects');
-    expect(row).toHaveTextContent('402');
+    expect(row).toHaveTextContent('App not on their plan · Projects');
+    expect(row).not.toHaveTextContent('402');
     expect(row).toHaveTextContent('c-7f2b04');
-    expect(screen.getByRole('button', { name: /Denials today/ })).toHaveTextContent('7');
-    fireEvent.click(screen.getByRole('button', { name: /^App not subscribed/ }));
+    expect(screen.getByRole('button', { name: /Refused today/ })).toHaveTextContent('7');
+    fireEvent.click(screen.getByRole('button', { name: /^App not on their plan/ }));
     await waitFor(() => expect(api.opsDenials).toHaveBeenLastCalledWith(expect.objectContaining({ code: 'APP_NOT_SUBSCRIBED' })));
   });
 

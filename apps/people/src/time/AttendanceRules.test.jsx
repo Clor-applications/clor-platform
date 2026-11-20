@@ -91,7 +91,7 @@ it('late marks: HR applies an ended month; a waiver needs a reason', async () =>
   render(<LateMarks params={{ month: '2026-09' }} />);
   expect((await screen.findAllByText('Asha Rao')).length).toBeGreaterThan(0);
   expect(screen.getAllByText('To apply').length).toBeGreaterThan(0);
-  fireEvent.click(screen.getByRole('button', { name: 'Apply September' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Apply September penalties' }));
   await waitFor(() => expect(api.applyPenalties).toHaveBeenCalledWith('2026-09'));
   fireEvent.click(screen.getAllByRole('button', { name: 'Waive' })[0]);
   const dialog = await screen.findByRole('dialog');
