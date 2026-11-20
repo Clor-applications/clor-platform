@@ -93,7 +93,11 @@ export function Health({ go, request = '' }) {
                       <td style={{ whiteSpace: 'normal' }}>{s.label}</td>
                       <td className={`num ops-count${s.count ? ' ops-count--bad' : ''}`}>{s.count}</td>
                       <td className="num">
-                        {s.screen && s.count ? (
+                        {s.screen === 'connections' && s.count ? (
+                          <button type="button" className="ops-link" onClick={() => go('connections')}>
+                            See which customers
+                          </button>
+                        ) : s.screen && s.count ? (
                           <button type="button" className="ops-link" onClick={() => go('emailLog', { status: 'FAILED' })}>
                             See failed emails
                           </button>

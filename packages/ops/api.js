@@ -104,6 +104,7 @@ export const opsCustomerConnections = (id) => apiFetch(`${acct(id)}/connections`
 /* Jobs & workers, the search box and the request-ID lookup (server: routes/opsHealth.ts). */
 export const opsHealth = () => apiFetch('/ops/health', o);
 export const opsBooksCheck = () => apiFetch('/ops/books-check', o);
+export const opsBrokenConnections = () => apiFetch('/ops/connections/broken', o);
 export const opsSearch = (q) => apiFetch(`/ops/search?q=${encodeURIComponent(q)}`, o);
 export const opsRequestLookup = (id) => apiFetch(`/ops/request-lookup?id=${encodeURIComponent(id)}`, o);
 /* Home, the audit log and staff (server: routes/ops.ts). */
