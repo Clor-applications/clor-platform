@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import React, { useMemo, useRef, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -60,7 +61,7 @@ export default function HelpDesk({ params = {} }) {
     { key: 'waiting', label: 'Waiting', render: (r) => <span className="tabular-nums whitespace-nowrap ui-muted r52-desk-waiting">{waitingWords(r).replace(/^Waiting /, '')}</span> },
     { key: 'reply', label: 'Reply by', render: (r) => (r.firstReplyAt ? <span className="ui-muted">Replied</span> : <span className={`tabular-nums whitespace-nowrap ${late(r.replyOverdue)}`}>{when(r.replyBy)}</span>) },
     { key: 'resolve', label: 'Resolve by', render: (r) => <span className={`tabular-nums whitespace-nowrap ${late(r.resolveOverdue)}`}>{day(r.resolveBy)}{r.resolveOverdue ? ' (late)' : ''}</span> },
-    { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || r.status}</span> },
+    { key: 'status', label: 'Status', render: (r) => <ExceptionTag label={r.status === 'RESOLVED' ? '' : STATUS[r.status]?.[0] || r.status} normal={STATUS[r.status]?.[0]} pill={`${STATUS[r.status]?.[1] || 'ui-pill-neutral'}`} /> },
   ];
   /* A tab whose rows all share one status already says it; Open keeps the column while a reopened case sits among them. */
   const rowsShown = data?.requests || [];
@@ -102,7 +103,7 @@ export default function HelpDesk({ params = {} }) {
           onRowClick={(r) => setOpen(r.id)}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.subject}</span><span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || r.status}</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.subject}</span><ExceptionTag label={r.status === 'RESOLVED' ? '' : STATUS[r.status]?.[0] || r.status} normal={STATUS[r.status]?.[0]} pill={`${STATUS[r.status]?.[1] || 'ui-pill-neutral'}`} /></span>
               <span className="block truncate ui-caption">{[r.employeeName, catLabel(r.category), r.resolveBy ? `resolve by ${day(r.resolveBy)}` : null].filter(Boolean).join(' · ')}</span>
             </span>
           )}

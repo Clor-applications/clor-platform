@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import React, { useState } from 'react';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
@@ -52,7 +53,7 @@ export default function Referrals({ params = {}, openScreen }) {
   const bonusCell = (r) => (!r.hasBonus ? <span className="ui-muted">—</span> : (
     <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
       {money && r.bonusAmount != null ? <span className="tabular-nums">{rupees(r.bonusAmount)}</span> : null}
-      <Pill map={BONUS} value={r.bonusStatus} />
+      <ExceptionTag label={r.bonusStatus === 'PAID' ? '' : BONUS[r.bonusStatus]?.[0] || r.bonusStatus} normal={BONUS[r.bonusStatus]?.[0]} pill={`${BONUS[r.bonusStatus]?.[1] || 'ui-pill-neutral'}`} />
     </span>
   ));
   const columns = [
@@ -98,7 +99,7 @@ export default function Referrals({ params = {}, openScreen }) {
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.candidate}</span><Pill map={STAGES} value={r.stage} /></span>
               <span className="block truncate ui-caption">{[r.job, `by ${r.referrer}`].join(' · ')}</span>
-              {r.hasBonus ? <span className="mt-1 flex items-center gap-1.5 text-sm">{money && r.bonusAmount != null ? <span className="tabular-nums">{rupees(r.bonusAmount)}</span> : null}<Pill map={BONUS} value={r.bonusStatus} /></span> : null}
+              {r.hasBonus ? <span className="mt-1 flex items-center gap-1.5 text-sm">{money && r.bonusAmount != null ? <span className="tabular-nums">{rupees(r.bonusAmount)}</span> : null}<ExceptionTag label={r.bonusStatus === 'PAID' ? '' : BONUS[r.bonusStatus]?.[0] || r.bonusStatus} normal={BONUS[r.bonusStatus]?.[0]} pill={`${BONUS[r.bonusStatus]?.[1] || 'ui-pill-neutral'}`} /></span> : null}
             </span>
           )}
           empty={q || opening || status !== 'all'

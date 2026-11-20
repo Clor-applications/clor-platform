@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import React, { useMemo, useRef, useState } from 'react';
 import { FileText, Plus, X } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState, SegmentedControl } from '@ui/components/list/ListHeader';
@@ -138,7 +139,7 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
     ) },
     { key: 'where', label: 'Where', render: (o) => where(o) },
     { key: 'owner', label: 'Owner', render: (o) => <span className={o.ownerSet ? '' : 'ui-muted'}>{o.owner}</span> },
-    { key: 'status', label: 'Status', render: (o) => <span className={`ui-pill ${STATUS[o.status]?.[1] || ''}`}>{STATUS[o.status]?.[0] || o.status}</span> },
+    { key: 'status', label: 'Status', render: (o) => <ExceptionTag label={o.status === 'DONE' || o.status === 'CHECKED' ? '' : STATUS[o.status]?.[0] || o.status} normal={STATUS[o.status]?.[0]} pill={`${STATUS[o.status]?.[1] || 'ui-pill-neutral'}`} /> },
   ];
 
   return (
@@ -167,7 +168,7 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
             loading={owed.loading} refreshing={owed.refreshing} onRowClick={(o) => set({ id: o.id })}
             card={(o) => (
               <span className="min-w-0 flex-1">
-                <span className="flex items-start justify-between gap-2"><span className="font-medium">{o.title}</span><span className={`ui-pill shrink-0 ${STATUS[o.status]?.[1] || ''}`}>{STATUS[o.status]?.[0]}</span></span>
+                <span className="flex items-start justify-between gap-2"><span className="font-medium">{o.title}</span><ExceptionTag label={o.status === 'DONE' || o.status === 'CHECKED' ? '' : STATUS[o.status]?.[0] || o.status} normal={STATUS[o.status]?.[0]} pill={`shrink-0 ${STATUS[o.status]?.[1] || 'ui-pill-neutral'}`} /></span>
                 <span className="block ui-caption">{[o.period === 'STANDING' ? 'Standing' : `Due ${day(o.dueOn)}`, o.owner, o.establishment].filter(Boolean).join(' · ')}</span>
               </span>
             )}
