@@ -271,7 +271,7 @@ export default function PayRuns() {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <th scope="col">Pay run</th>
@@ -308,16 +308,16 @@ export default function PayRuns() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id} className="ui-row-click" onClick={() => setOpenId(r.id)}>
-                    <td className="ui-col-id">{r.number}</td>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-id" data-phone="sub">{r.number}</td>
+                    <td className="ui-col-entity" data-phone="name">
                       {r.period?.name || "—"}
                       {r.kind === "OFF_CYCLE" ? <span className="ui-caption block">Extra pay run</span> : null}
                     </td>
                     <td className="ui-col-date ui-col-h-center hidden md:table-cell">{shownDate(r.payrollDate)}</td>
                     <td className="ui-col-amount hidden md:table-cell">{r.employeeCount}</td>
                     <td className="ui-col-amount hidden md:table-cell">{money(r.grossTotal)}</td>
-                    <td className="ui-col-amount">{money(r.netTotal)}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-col-amount" data-phone="key">{money(r.netTotal)}</td>
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag
                         label={["PAID", "POSTED"].includes(r.status) ? "" : STATUS_LABEL[r.status] || r.status}
                         normal={STATUS_LABEL[r.status]}
