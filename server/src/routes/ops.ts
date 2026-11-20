@@ -756,8 +756,47 @@ opsRouter.get('/ops/home', (_req, res) =>
     const lastSeen = renewalRows.length
       ? new Map((await platformPrisma.user.groupBy({ by: ['accountId'], where: { accountId: { in: renewalRows.map((r) => r.accountId) } }, _max: { lastLoginAt: true } })).map((g) => [g.accountId, g._max.lastLoginAt]))
       : new Map<string, Date | null>();
+    /*
+     * Two lists no other screen has (20 Nov 2026). Quiet: a paying customer nobody has signed in to for
+     * 14 days, longest silence first, with what they pay a month. Stalled: a trial opened 7 to 30 days ago
+     * that nobody came back to after the first day. Both read the last sign-in of anybody in the account.
+     */
+    const quietSince = new Date(now - 14 * DAY);
+    const [payingSubs, youngTrials] = await Promise.all([
+      platformPrisma.subscription.findMany({ where: { status: 'active' }, select: { accountId: true, billingInterval: true, periodAmount: true } }),
+      platformPrisma.subscription.findMany({
+        where: { status: 'trialing', trialEndsAt: { gte: at }, createdAt: { gte: new Date(now - 30 * DAY), lte: new Date(now - 7 * DAY) } },
+        select: { accountId: true, createdAt: true, trialEndsAt: true },
+      }),
+    ]);
+    const watched = [...new Set([...payingSubs, ...youngTrials].map((x) => x.accountId))];
+    const signIns = watched.length
+      ? new Map((await platformPrisma.user.groupBy({ by: ['accountId'], where: { accountId: { in: watched } }, _max: { lastLoginAt: true } })).map((g) => [g.accountId, g._max.lastLoginAt]))
+      : new Map<string, Date | null>();
+    const quietAll = payingSubs
+      .map((x) => ({ ...x, lastActiveAt: signIns.get(x.accountId) || null }))
+      .filter((x) => !x.lastActiveAt || x.lastActiveAt < quietSince)
+      .sort((a, b) => (a.lastActiveAt?.getTime() || 0) - (b.lastActiveAt?.getTime() || 0));
+    const stalledAll = youngTrials
+      .map((x) => ({ ...x, lastActiveAt: signIns.get(x.accountId) || null }))
+      .filter((x) => !x.lastActiveAt || x.lastActiveAt.getTime() < x.createdAt.getTime() + DAY)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const quietRows = quietAll.slice(0, HOME_ITEMS);
+    const stalledRows = stalledAll.slice(0, HOME_ITEMS);
+    /* A ticket with CLOR that nobody has touched for a day: the customer has waited that long for an answer. */
+    const ticketsOverADay = await platformPrisma.supportTicket.count({ where: { status: 'OPEN', updatedAt: { lt: new Date(now - DAY) } } });
+    /* Yesterday (India time), in four numbers: who came, what was collected, who left. */
+    const startOfYesterday = new Date(startOfDay.getTime() - DAY);
+    const yesterdayIs = { gte: startOfYesterday, lt: startOfDay };
+    const [signUps, demosYesterday, collected, lost] = await Promise.all([
+      platformPrisma.account.count({ where: { createdAt: yesterdayIs } }),
+      platformPrisma.demoRequest.count({ where: { createdAt: yesterdayIs } }),
+      platformPrisma.billingInvoice.aggregate({ where: { paidAt: yesterdayIs }, _sum: { paidAmount: true }, _count: true }),
+      platformPrisma.subscription.count({ where: { status: 'cancelled', updatedAt: yesterdayIs } }),
+    ]);
+    const yesterday = { signUps, demos: demosYesterday, collected: collected._sum.paidAmount || 0, invoicesPaid: collected._count, lost };
     const [titles, askers] = await Promise.all([
-      customerTitles([...trialRows, ...invoiceRows, ...ticketRows, ...approvalRows, ...paymentRows, ...renewalRows].map((r) => r.accountId)),
+      customerTitles([...trialRows, ...invoiceRows, ...ticketRows, ...approvalRows, ...paymentRows, ...renewalRows, ...quietRows, ...stalledRows].map((r) => r.accountId)),
       approvalRows.length ? platformPrisma.user.findMany({ where: { id: { in: [...new Set(approvalRows.map((a) => a.requestedBy))] } }, select: { id: true, fullName: true, email: true } }) : [],
     ]);
     const asker = new Map(askers.map((u) => [u.id, u.fullName || u.email]));
@@ -789,8 +828,22 @@ opsRouter.get('/ops/home', (_req, res) =>
           lastActiveAt: lastSeen.get(r.accountId) || null,
         })),
       },
+      quiet: {
+        total: quietAll.length,
+        items: quietRows.map((x) => ({
+          accountId: x.accountId,
+          customer: customer(x.accountId),
+          lastActiveAt: x.lastActiveAt,
+          /* What they pay a month before GST: a yearly plan divided by twelve. */
+          monthly: x.periodAmount == null ? null : x.billingInterval === 'year' ? Math.round(x.periodAmount / 12) : x.periodAmount,
+        })),
+      },
+      stalled: {
+        total: stalledAll.length,
+        items: stalledRows.map((x) => ({ accountId: x.accountId, customer: customer(x.accountId), signedUpAt: x.createdAt, trialEndsAt: x.trialEndsAt, lastActiveAt: x.lastActiveAt })),
+      },
     };
-    res.json({ newDemos, demosToday, followUpsDue, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen, approvalsWaiting, invoicesOverdue, renewalsDue, work });
+    res.json({ newDemos, demosToday, followUpsDue, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen, approvalsWaiting, invoicesOverdue, renewalsDue, ticketsOverADay, yesterday, work });
   }),
 );
 

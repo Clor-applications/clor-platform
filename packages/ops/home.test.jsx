@@ -134,6 +134,36 @@ describe('Overview', () => {
     expect(screen.queryByRole('button', { name: 'Open Trials ending this week' })).toBeNull();
   });
 
+  it('lists paying customers gone quiet and trials nobody came back to, and says yesterday in numbers', async () => {
+    api.opsHome.mockResolvedValue({
+      ...quiet,
+      ticketsOverADay: 2,
+      yesterday: { signUps: 12, demos: 1, collected: 12000000, invoicesPaid: 3, lost: 0 },
+      work: {
+        tickets: { total: 1, items: [{ id: 't1', code: 'T-9', subject: 'Payroll will not run', priority: 'URGENT', assigned: false, createdAt: new Date().toISOString(), customer: 'Kaveri Foods' }] },
+        quiet: { total: 7, items: [{ accountId: 'a1', customer: 'Neev Textiles', lastActiveAt: '2026-10-20T05:00:00Z', monthly: 1800000 }, { accountId: 'a2', customer: 'Asha Traders', lastActiveAt: null, monthly: null }] },
+        stalled: { total: 1, items: [{ accountId: 'a3', customer: 'Vels Stores', signedUpAt: '2026-11-10T05:00:00Z', trialEndsAt: '2026-12-10T05:00:00Z', lastActiveAt: null }] },
+      },
+    });
+    const go = vi.fn();
+    render(<Home go={go} has={() => true} />);
+    const quietList = within(await screen.findByRole('list', { name: 'Paying customers gone quiet' }));
+    /* What they pay a month sits beside the name: that is what is at stake. */
+    expect(quietList.getByText(/18,000/)).toBeInTheDocument();
+    expect(quietList.getByText(/Nobody has signed in since/)).toBeInTheDocument();
+    expect(quietList.getByText('Nobody has ever signed in')).toBeInTheDocument();
+    fireEvent.click(quietList.getByRole('button', { name: 'Neev Textiles' }));
+    expect(go).toHaveBeenCalledWith('customers', {}, 'a1');
+    fireEvent.click(screen.getByRole('button', { name: 'See all 7: Paying customers gone quiet' }));
+    expect(go).toHaveBeenCalledWith('customers', { status: 'active' });
+    const stalledList = within(screen.getByRole('list', { name: 'Trials nobody came back to' }));
+    expect(stalledList.getByText(/never signed in/)).toBeInTheDocument();
+    fireEvent.click(stalledList.getByRole('button', { name: 'Vels Stores' }));
+    expect(go).toHaveBeenCalledWith('customers', {}, 'a3');
+    expect(screen.getByRole('heading', { name: /2 have waited over a day/ })).toBeInTheDocument();
+    expect(screen.getByLabelText('Yesterday').textContent).toMatch(/12 sign-ups · 1 demo request · .*1,20,000.* collected on 3 invoices · 0 customers left/);
+  });
+
   it('shows only the groups that have something in them', async () => {
     api.opsHome.mockResolvedValue({
       ...quiet,
