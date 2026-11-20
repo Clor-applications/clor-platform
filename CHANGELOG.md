@@ -94,6 +94,13 @@ API revision `clor-api-00147-n8w`. Previous release `rel-f5a3c97` (roll back the
 
 - #350 Payroll: statutory bonus, minimum wages, weekly wages, extra pay run; Hindi employee app
 
+## rel-f5a3c97 - 2026-11-19
+
+API revision `clor-api-00146-dk7`. Previous release `rel-785a0dc` (roll back there).
+
+- #347 Customers add apps themselves: on at once, prorated invoice, renewals carry it
+- #348 Release record: rel-785a0dc
+
 ## rel-785a0dc - 2026-11-19
 
 API revision `clor-api-00145-twx`. Previous release `rel-644865e` (roll back there).
