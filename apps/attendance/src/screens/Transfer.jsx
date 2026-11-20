@@ -3,10 +3,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRightLeft, CheckCheck } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listContractors, listEmployees, listStructure, transferEmployees } from '@ui/personnel/api';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
+import { dateWords } from '@ui/utils/dates';
 
 const FIELDS = {
   departmentId: { label: 'Department', list: 'departments', current: 'department' },
@@ -60,12 +61,22 @@ export default function Transfer() {
     });
 
   const move = async () => {
+    if (saving || !picked.size || !target) return;
+    const n = picked.size;
+    const to = target === '__none' ? `no ${cfg.label.toLowerCase()}` : options.find((o) => o.id === target)?.name || cfg.label.toLowerCase();
+    const ok = await confirmDialog({
+      title: `Move ${n.toLocaleString('en-IN')} ${n === 1 ? 'person' : 'people'} to ${to}?`,
+      message: `It counts from ${dateWords(effectiveDate)}, and goes on each person’s employment history.`,
+      confirmLabel: `Move ${n === 1 ? 'person' : 'people'}`,
+      tone: 'primary',
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       const r = await transferEmployees({ employeeIds: [...picked], field, targetId: target === '__none' ? null : target, effectiveDate, note: note || null });
       const parts = [];
       if (r.changed) parts.push(`${r.changed} moved`);
-      if (r.scheduled) parts.push(`${r.scheduled} to move on ${r.effectiveFrom}`);
+      if (r.scheduled) parts.push(`${r.scheduled} to move on ${dateWords(r.effectiveFrom)}`);
       if (r.skipped?.length) parts.push(`${r.skipped.length} not moved (${r.skipped.map((s) => `${s.name} ${s.why}`).join(', ')})`);
       notify.success(parts.length ? `${parts.join('; ')}.` : 'Nothing changed: they were already there.');
       setPicked(new Set());
@@ -84,7 +95,7 @@ export default function Transfer() {
         title="Transfers"
         description="Move people to another department, area, position or contractor in one go."
         actions={
-          <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !picked.size || !target} onClick={move}>
+          <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !picked.size || !target} aria-busy={saving || undefined} onClick={move}>
             <ArrowRightLeft size={16} aria-hidden="true" /> {saving ? 'Moving…' : `Move ${picked.size || ''}`}
           </button>
         }

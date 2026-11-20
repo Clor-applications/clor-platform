@@ -165,23 +165,31 @@ export function PayslipAsk({ slip, onAsk }) {
   const [open, setOpen] = useState(false);
   const [line, setLine] = useState('');
   const [what, setWhat] = useState('');
+  const [saving, setSaving] = useState(false);
   const lines = [...(slip.earnings || []).map((l) => l.name), ...(slip.deductions || []).map((l) => l.name)];
   if (!onAsk) return null;
   if (!open) return <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={() => setOpen(true)}>Ask about this payslip</button>;
-  const send = (e) => {
+  /* Sent once: a second press while the question is on its way does nothing. */
+  const send = async (e) => {
     e.preventDefault();
+    if (saving) return;
     const about = line || 'the whole payslip';
-    onAsk({
-      category: 'PAYROLL',
-      subject: `Payslip ${slip.period}: ${line || 'question'}`.slice(0, 120),
-      description: `About my payslip for ${slip.period}${slip.number ? ` (${slip.number})` : ''}, ${about}: ${what.trim()}`,
-    });
-    setOpen(false);
-    setLine('');
-    setWhat('');
+    setSaving(true);
+    try {
+      await onAsk({
+        category: 'PAYROLL',
+        subject: `Payslip ${slip.period}: ${line || 'question'}`.slice(0, 120),
+        description: `About my payslip for ${slip.period}${slip.number ? ` (${slip.number})` : ''}, ${about}: ${what.trim()}`,
+      });
+      setOpen(false);
+      setLine('');
+      setWhat('');
+    } finally {
+      setSaving(false);
+    }
   };
   return (
-    <form className="ui-slip-ask space-y-3" onSubmit={send} aria-label="Ask about this payslip">
+    <form className="ui-slip-ask space-y-3" onSubmit={send} aria-label="Ask about this payslip" aria-busy={saving || undefined}>
       <label className="block">
         <span className="ui-label">Which line?</span>
         <select className="ui-select w-full" value={line} onChange={(e) => setLine(e.target.value)}>
@@ -196,7 +204,7 @@ export function PayslipAsk({ slip, onAsk }) {
       </label>
       <p className="ui-caption">HR gets the month and the line with your question.</p>
       <div className="flex gap-2">
-        <button type="submit" className="ui-btn ui-btn-primary flex-1">Ask HR</button>
+        <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Ask HR'}</button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
       </div>
     </form>

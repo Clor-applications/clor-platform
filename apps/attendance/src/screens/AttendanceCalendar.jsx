@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { getCalendar, listReports, runReport, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * The month as a calendar: each day carries how many were in, out, on leave,
@@ -16,6 +17,18 @@ const shiftMonth = (ym, by) => {
   return d.toISOString().slice(0, 7);
 };
 const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const longDay = (iso) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+
+/* What a day cell says to a screen reader: the date and what is shown on it. */
+const dayLabelFor = (d, today) => {
+  const parts = [longDay(d.date)];
+  if (d.date === today) parts.push('today');
+  if (d.holiday) parts.push(`holiday, ${d.holiday}`);
+  else if (d.off) parts.push('weekly off');
+  if (!(d.off || d.future)) parts.push(`${d.present + d.halfDay} in, ${d.absent} absent, ${d.leave} on leave`);
+  else if (d.future && d.leave) parts.push(`${d.leave} on leave`);
+  return parts.join(', ');
+};
 
 export default function AttendanceCalendar() {
   const [month, setMonth] = useState(todayIst().slice(0, 7));
@@ -25,15 +38,26 @@ export default function AttendanceCalendar() {
   const [error, setError] = useState(null);
   const [picked, setPicked] = useState(null);
   const [day, setDay] = useState(null);
+  const [dayError, setDayError] = useState('');
+  /* The day the arrow keys are on: the one cell in the Tab order (a roving tab stop). */
+  const [focusDate, setFocusDate] = useState(null);
+  const grid = useRef(null);
+  const asked = useRef(0);
 
   useEffect(() => {
     listReports().then((d) => setDepartments(d?.departments || [])).catch(() => {});
   }, []);
   /* No synchronous resets in the effect: the old month stays until the new one arrives, then the picked day clears. */
+  /* A day that did not load says so, with a retry: "Nobody employed that day" is only for a day that loaded empty. */
   const open = useCallback((d) => {
+    const n = ++asked.current;
     setPicked(d.date);
+    setFocusDate(d.date);
     setDay(null);
-    runReport('daily', { date: d.date, ...(departmentId ? { departmentId } : {}) }).then(setDay).catch(() => setDay({ rows: [] }));
+    setDayError('');
+    runReport('daily', { date: d.date, ...(departmentId ? { departmentId } : {}) })
+      .then((r) => { if (n === asked.current) setDay(r); })
+      .catch((e) => { if (n === asked.current) setDayError(errorWords(e, 'load that day')); });
   }, [departmentId]);
   /* The side panel opens on today (or the month's last day so far), not on an
      empty "tap a day" — the first question here is always "who is in today". */
@@ -44,13 +68,29 @@ export default function AttendanceCalendar() {
       const shown = (d?.days || []).filter((x) => x.date <= (d.today || todayIst()));
       const first = shown.find((x) => x.date === d.today) || shown[shown.length - 1];
       if (first) open(first); else { setPicked(null); setDay(null); }
-    }).catch(setError),
+    }).catch((e) => setError(errorWords(e, 'load the calendar'))),
     [month, departmentId, open]
   );
   useEffect(() => { load(); }, [load]);
   const loading = !data || data.month !== month;
 
-  if (error && !data) return <LoadFailed error={error} onRetry={load} />;
+  /* Arrow keys move a day (left, right) or a week (up, down); Home and End go to the month's first and last day. */
+  const onGridKey = (e) => {
+    const days = data?.days || [];
+    if (!days.length) return;
+    const at = Math.max(0, days.findIndex((x) => x.date === focusDate));
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
+    let to = null;
+    if (step !== undefined) to = Math.min(days.length - 1, Math.max(0, at + step));
+    else if (e.key === 'Home') to = 0;
+    else if (e.key === 'End') to = days.length - 1;
+    if (to === null) return;
+    e.preventDefault();
+    const date = days[to].date;
+    setFocusDate(date);
+    grid.current?.querySelector(`[data-date="${date}"]`)?.focus();
+  };
+
   const title = new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   /* Monday-first grid: blanks before the 1st. */
   const lead = (new Date(`${month}-01T00:00:00Z`).getUTCDay() + 6) % 7;
@@ -76,10 +116,12 @@ export default function AttendanceCalendar() {
         }
       />
       <div className="pb-8 space-y-6">
-      {loading ? <SkeletonCard lines={8} /> : (
+      {/* A failed month shows under the page header, with a retry, not in place of the page. */}
+      <LoadFailed message={error} onRetry={load} />
+      {loading ? (error ? null : <SkeletonCard lines={8} />) : (
         <div className="grid items-start gap-3 xl:grid-cols-[1fr_22rem]">
           <div className="ui-card p-2 sm:p-3">
-            <div className="ui-calendar">
+            <div className="ui-calendar" ref={grid} role="group" aria-label={`${title}: days`} onKeyDown={onGridKey}>
               {WEEK.map((w) => <div key={w} className="ui-calendar-head">{w}</div>)}
               {Array.from({ length: lead }).map((_, i) => <div key={`lead-${i}`} />)}
               {data.days.map((d) => {
@@ -90,6 +132,9 @@ export default function AttendanceCalendar() {
                     key={d.date}
                     type="button"
                     className="ui-calendar-day"
+                    data-date={d.date}
+                    tabIndex={d.date === (focusDate && data.days.some((x) => x.date === focusDate) ? focusDate : data.days[0]?.date) ? 0 : -1}
+                    aria-label={dayLabelFor(d, data.today)}
                     aria-pressed={on}
                     data-off={d.off || undefined}
                     data-today={d.date === data.today || undefined}
@@ -113,8 +158,8 @@ export default function AttendanceCalendar() {
           <aside className="ui-card p-4 space-y-3" aria-live="polite">
             {!picked ? <p className="ui-caption">Tap a day to see who was in.</p> : (
               <>
-                <h2 className="ui-t-sec">{new Date(`${picked}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}</h2>
-                {!day ? <SkeletonCard lines={4} /> : !day.rows?.length ? <p className="ui-caption">Nobody employed that day.</p> : (
+                <h2 className="ui-t-sec">{longDay(picked)}</h2>
+                {dayError ? <LoadFailed message={dayError} onRetry={() => open({ date: picked })} /> : !day ? <SkeletonCard lines={4} /> : !day.rows?.length ? <p className="ui-caption">Nobody employed that day.</p> : (
                   <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
                     {day.rows.map((r) => (
                       <li key={`${r.code}-${r.name}`} className="flex items-center justify-between gap-2 py-2 text-sm">

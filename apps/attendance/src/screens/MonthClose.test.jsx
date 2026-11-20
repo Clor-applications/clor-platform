@@ -188,7 +188,7 @@ it('does not call a month with no-record days ready, and closes only once they a
   render(<MonthClose params={{ month: '2026-09' }} />);
   expect((await screen.findAllByText('3 working days with no record would be docked as unpaid absence')).length).toBe(1);
   expect(screen.queryByText(/is ready to close/)).toBeNull();
-  expect(document.querySelector('.ui-readiness').className).toContain('is-warn');
+  expect(document.querySelector('.att-month-state .ui-pill').textContent).toBe('Check days');
   const confirm = screen.getByRole('group', { name: '3 working days with no record will be docked as unpaid absence' });
   expect(within(confirm).getByText('Asha Rao')).toBeTruthy();
   expect(within(confirm).getByText(/3, 4, 7 Sept|3, 4, 7 Sep/)).toBeTruthy();

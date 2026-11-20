@@ -2,12 +2,16 @@ import React, { useCallback, useEffect, useState } from 'react';
 import TickList from '@ui/components/ui/TickList';
 import { Plus, ShieldCheck, X } from '@ui/components/ui/lineIcons';
 
-import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { CountLine } from '@ui/components/ui/CountLine';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getDataProtection, listBreaches, listEmployees, notifyBreach, recordBreach, saveDataProtection, updateBreach } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
+import { dateWords } from '@ui/utils/dates';
+import { countItems } from '../components/countItems';
+import useSaving, { useDirty } from '../components/useSaving';
 
 /**
  * How this company meets the Digital Personal Data Protection Act, 2023 and
@@ -38,7 +42,7 @@ function Announcement() {
     setHidden(true);
   };
   return (
-    <section className="ui-card p-4 text-sm" aria-labelledby="dpdp-new-h" style={{ borderColor: 'rgb(var(--accent))' }}>
+    <section className="ui-card p-4 text-sm" aria-labelledby="dpdp-new-h">
       <div className="flex items-start justify-between gap-3">
         <h2 id="dpdp-new-h" className="ui-t-sec flex items-center gap-2"><ShieldCheck size={16} aria-hidden="true" /> What changed for data protection (19 October 2026)</h2>
         <button type="button" className="ui-icon-btn" aria-label="Hide this" onClick={hide}><X size={16} aria-hidden="true" /></button>
@@ -72,6 +76,7 @@ export default function DataProtection({ openScreen }) {
   useEffect(() => { load(); }, [load]);
 
   const save = async (body, done) => {
+    if (busy) return;
     setBusy(Object.keys(body)[0]);
     try {
       const r = await saveDataProtection(body);
@@ -103,15 +108,20 @@ export default function DataProtection({ openScreen }) {
       <div className="pb-8 space-y-6 max-w-3xl">
       <Announcement />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile label="Read the current notice" value={`${s.noticeReadCurrent} / ${s.employees}`} hint={s.noticeRead > s.noticeReadCurrent ? `${s.noticeRead - s.noticeReadCurrent} read an older one` : null} />
-        <StatTile label="Requests waiting" value={s.requestsWaiting} tone={s.requestsOverdue ? 'neg' : s.requestsWaiting ? 'warn' : 'neutral'} hint={s.requestsOverdue ? `${s.requestsOverdue} past the answer-by date` : null} />
-        <StatTile label="Open breaches" value={s.breachesOpen} tone={s.breachesOpen ? 'warn' : 'neutral'} />
-        <StatTile label="Under 18" value={s.minors.length} hint={s.noBirthDate ? `${s.noBirthDate} without a date of birth` : null} />
-      </div>
+      {/* Totals in the count line under the title, not tiles; a figure at zero is left out (DESIGN.md "Page header"). */}
+      <CountLine label="Data protection figures" items={countItems([
+        s.employees ? { label: `of ${s.employees.toLocaleString('en-IN')} read the current notice`, value: s.noticeReadCurrent } : null,
+        { label: 'read an older notice', value: Math.max(0, (s.noticeRead || 0) - (s.noticeReadCurrent || 0)) },
+        { label: s.requestsWaiting === 1 ? 'request waiting' : 'requests waiting', value: s.requestsWaiting, tone: s.requestsOverdue ? 'overdue' : 'outstanding', onSelect: openScreen ? () => openScreen('dataRequests') : undefined },
+        { label: 'past the answer-by date', value: s.requestsOverdue, tone: 'overdue' },
+        { label: s.breachesOpen === 1 ? 'open breach' : 'open breaches', value: s.breachesOpen, tone: 'outstanding' },
+        { label: 'under 18', value: s.minors.length },
+        { label: 'without a date of birth', value: s.noBirthDate },
+      ])} />
 
-      <section className="ui-card space-y-3 p-4" aria-labelledby="contact-h">
-        <h2 id="contact-h" className="ui-t-sec">Privacy contact</h2>
+      <section className="ui-form-part" aria-labelledby="contact-h">
+        <div className="ui-form-part-head"><div className="min-w-0"><h2 id="contact-h" className="ui-t-sec">Privacy contact</h2></div></div>
+        <div className="ui-form-part-body space-y-3">
         <p className="ui-caption">Who employees reach about their data and grievances. It is printed in their privacy notice (the DPDP Rules ask for a published contact).</p>
         <div className="grid gap-3 md:grid-cols-3">
           <label className="block"><span className="ui-label">Name or role</span><input className="ui-input w-full" maxLength={120} value={form.privacyContactName} onChange={(e) => setForm({ ...form, privacyContactName: e.target.value })} placeholder="e.g. HR Manager" /></label>
@@ -119,16 +129,20 @@ export default function DataProtection({ openScreen }) {
           <label className="block"><span className="ui-label">Phone</span><input className="ui-input w-full" maxLength={40} value={form.privacyContactPhone} onChange={(e) => setForm({ ...form, privacyContactPhone: e.target.value })} /></label>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={Boolean(busy)} onClick={() => save({ ...form, publishNotice: true }, () => 'Saved. Employees will be asked to read the updated notice.')}>Save and publish the notice</button>
+          <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={Boolean(busy)} aria-busy={busy === 'privacyContactName' || undefined} onClick={() => save({ ...form, publishNotice: true }, () => 'Saved. Employees will be asked to read the updated notice.')}>{busy === 'privacyContactName' ? 'Saving…' : 'Save and publish the notice'}</button>
           {data.settings.privacyNoticeAt ? <span className="ui-caption self-center">Last published {fmt(data.settings.privacyNoticeAt)}</span> : <span className="ui-caption self-center">Not published yet</span>}
+        </div>
         </div>
       </section>
 
-      <section className="ui-card space-y-3 p-4" aria-labelledby="bio-h">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section className="ui-form-part" aria-labelledby="bio-h">
+        <div className="ui-form-part-head">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
           <h2 id="bio-h" className="ui-t-sec">Fingerprint and face copies</h2>
           <span className={`ui-pill ${data.settings.biometricCopy ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{data.settings.biometricCopy ? 'CLOR keeps copies' : 'CLOR keeps none'}</span>
         </div>
+        </div>
+        <div className="ui-form-part-body space-y-3">
         <p className="text-sm">Readers hold fingerprints and faces to recognise people. With copying on, CLOR keeps an encrypted copy so a person enrolled at one reader is put on the company’s other readers. It is biometric data, so it is off unless you switch it on, never kept for anyone under 18 or anyone who withdrew, and deleted when they leave.</p>
         {data.settings.biometricCopy ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -137,36 +151,44 @@ export default function DataProtection({ openScreen }) {
           </div>
         ) : (
           <div className="space-y-2">
-            {data.status.biometricGraceUntil ? <p className="text-sm" role="status">{s.templatesStored} cop{s.templatesStored === 1 ? 'y' : 'ies'} kept before this rule {s.templatesStored === 1 ? 'is' : 'are'} not used, and will be deleted on {data.status.biometricGraceUntil} unless you switch copying on. <button type="button" className="ui-link" onClick={copyOff}>Delete now</button></p> : null}
+            {data.status.biometricGraceUntil ? <p className="text-sm" role="status">{s.templatesStored} cop{s.templatesStored === 1 ? 'y' : 'ies'} kept before this rule {s.templatesStored === 1 ? 'is' : 'are'} not used, and will be deleted on {dateWords(data.status.biometricGraceUntil)} unless you switch copying on. <button type="button" className="ui-link" onClick={copyOff}>Delete now</button></p> : null}
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="ui-checkbox mt-0.5" checked={attest} onChange={(e) => setAttest(e.target.checked)} /> <span>Employees were told that CLOR keeps an encrypted copy of their fingerprints and face to put them on all our readers, and they agreed. Each of them can withdraw in the portal.</span></label>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!attest || Boolean(busy)} onClick={() => save({ biometricCopy: true, attest: true }, () => 'Copying on. Your confirmation is recorded in the audit log.')}>Switch copying on</button>
           </div>
         )}
+        </div>
       </section>
 
       {s.minors.length ? (
-        <section className="ui-card space-y-2 p-4" aria-labelledby="minor-h">
-          <h2 id="minor-h" className="ui-t-sec">Under 18</h2>
+        <section className="ui-form-part" aria-labelledby="minor-h">
+          <div className="ui-form-part-head"><div className="min-w-0"><h2 id="minor-h" className="ui-t-sec">Under 18</h2></div></div>
+          <div className="ui-form-part-body space-y-3">
           <p className="ui-caption">The DPDP Act forbids tracking children. For these people the phone never reads a location, and CLOR keeps no fingerprint copy.</p>
           <ul className="text-sm">{s.minors.map((m) => <li key={m.id}>{m.name}{m.mobilePunch ? <span className="ui-caption"> · phone punching switched on, but refused while under 18</span> : null}</li>)}</ul>
+          </div>
         </section>
       ) : null}
 
-      <section className="ui-card space-y-3 p-4" aria-labelledby="breach-h">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section className="ui-form-part" aria-labelledby="breach-h">
+        <div className="ui-form-part-head">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
           <h2 id="breach-h" className="ui-t-sec">Breach register</h2>
           <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setRecording(true)}><Plus size={14} aria-hidden="true" /> Record a breach</button>
         </div>
+        </div>
+        <div className="ui-form-part-body space-y-3">
         <p className="ui-caption">If personal data is lost, stolen, or seen by someone who should not: record it here at once. Tell the Data Protection Board without delay and send it the full report within 72 hours of becoming aware, and tell each affected person.</p>
         {breaches.length ? (
           <ul className="divide-y">
             {breaches.map((b) => <BreachRow key={b.id} b={b} onChanged={load} />)}
           </ul>
         ) : <p className="ui-caption">Nothing recorded.</p>}
+        </div>
       </section>
 
-      <section className="ui-card space-y-2 p-4" aria-labelledby="ret-h">
-        <h2 id="ret-h" className="ui-t-sec">How long data is kept</h2>
+      <section className="ui-form-part" aria-labelledby="ret-h">
+        <div className="ui-form-part-head"><div className="min-w-0"><h2 id="ret-h" className="ui-t-sec">How long data is kept</h2></div></div>
+        <div className="ui-form-part-body space-y-3">
         <table className="ui-table w-full text-sm">
           <tbody>
             <tr><td>Selfies from phone punches</td><td className="text-end">{data.retention.selfieDays} days</td></tr>
@@ -177,13 +199,17 @@ export default function DataProtection({ openScreen }) {
             <tr><td>Logs of processing</td><td className="text-end">at least 1 year</td></tr>
           </tbody>
         </table>
+        </div>
       </section>
 
-      <section className="ui-card space-y-2 p-4" aria-labelledby="notice-h">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <section className="ui-form-part" aria-labelledby="notice-h">
+        <div className="ui-form-part-head">
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-2">
           <h2 id="notice-h" className="ui-t-sec">The employee privacy notice</h2>
           <span className="ui-caption">Version {data.notice.version}</span>
         </div>
+        </div>
+        <div className="ui-form-part-body space-y-3">
         <p className="ui-caption">What employees see in the portal. It changes with your settings; each change asks them to read it again.</p>
         <div className="space-y-3 text-sm">
           {data.notice.sections.map((x) => (
@@ -193,10 +219,12 @@ export default function DataProtection({ openScreen }) {
             </div>
           ))}
         </div>
+        </div>
       </section>
 
-      <section className="ui-card space-y-2 p-4 text-sm" aria-labelledby="clor-h">
-        <h2 id="clor-h" className="ui-t-sec">What CLOR does as your Data Processor</h2>
+      <section className="ui-form-part" aria-labelledby="clor-h">
+        <div className="ui-form-part-head"><div className="min-w-0"><h2 id="clor-h" className="ui-t-sec">What CLOR does as your Data Processor</h2></div></div>
+        <div className="ui-form-part-body space-y-3">
         <ul className="list-disc space-y-1 ps-5">
           <li>Processes your employees’ data only to run attendance for you, never for anything else, and never sells it or uses it for advertising.</li>
           <li>Stores it in India (Google Cloud, Mumbai). Each company’s data is kept apart, and every request is checked against the company it belongs to.</li>
@@ -204,6 +232,7 @@ export default function DataProtection({ openScreen }) {
           <li>Tells you without delay of any breach affecting your data, with what you need to tell the Board and your employees.</li>
           <li>When you leave CLOR, ask us for an export of your records and for the rest to be deleted, apart from what the law makes us keep.</li>
         </ul>
+        </div>
       </section>
 
       {recording ? <BreachForm onClose={() => setRecording(false)} onSaved={() => { setRecording(false); load(); }} /> : null}
@@ -258,20 +287,24 @@ function BreachForm({ onClose, onSaved }) {
   const [people, setPeople] = useState([]);
   const [f, setF] = useState({ title: '', description: '', discoveredAt: new Date().toISOString().slice(0, 16), categories: [], employeeIds: [], everyone: false, consequences: '', mitigation: '', stepsForPeople: '' });
   useEffect(() => { listEmployees().then(setPeople).catch(() => setPeople([])); }, []);
+  const [saving, runSave] = useSaving();
+  const [dirty] = useDirty(f);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const submit = async (e) => {
+  const submit = (e) => {
     e.preventDefault();
-    try {
-      await recordBreach({ ...f, discoveredAt: new Date(f.discoveredAt).toISOString(), employeeIds: f.everyone ? people.map((p) => p.id) : f.employeeIds });
-      notify.success('Recorded. Tell the Board and the affected people next.');
-      onSaved();
-    } catch (err) {
-      notify.error(errorWords(err, 'record it'));
-    }
+    return runSave(async () => {
+      try {
+        await recordBreach({ ...f, discoveredAt: new Date(f.discoveredAt).toISOString(), employeeIds: f.everyone ? people.map((p) => p.id) : f.employeeIds });
+        notify.success('Recorded. Tell the Board and the affected people next.');
+        onSaved();
+      } catch (err) {
+        notify.error(errorWords(err, 'record it'));
+      }
+    });
   };
   return (
-    <Drawer open onClose={onClose} title="Record a breach" widthClass="w-[min(42rem,96vw)]" actions={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="breach-form" className="ui-btn ui-btn-primary">Record</button></>}>
-      <form id="breach-form" onSubmit={submit} className="grid gap-3">
+    <Drawer open onClose={onClose} title="Record a breach" widthClass="w-[min(42rem,96vw)]" dirty={dirty} actions={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="breach-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Record'}</button></>}>
+      <form id="breach-form" onSubmit={submit} className="grid gap-3" aria-busy={saving || undefined}>
         <label className="block"><span className="ui-label">What happened, in a line *</span><input className="ui-input w-full" required maxLength={160} value={f.title} onChange={set('title')} /></label>
         <label className="block"><span className="ui-label">Details *</span><textarea className="ui-input w-full" rows={3} required value={f.description} onChange={set('description')} /></label>
         <label className="block"><span className="ui-label">When you became aware *</span><input type="datetime-local" className="ui-input w-full" required value={f.discoveredAt} onChange={set('discoveredAt')} /></label>

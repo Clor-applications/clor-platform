@@ -8,6 +8,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { dayLabel, getRules, hm, listRuleVersions, listShifts, recompute, recomputeTrust, saveRules, simulateRules, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
+import useSaving from '../components/useSaving';
 
 const monthStart = () => `${todayIst().slice(0, 7)}-01`;
 
@@ -33,19 +34,22 @@ export default function AttendanceRules({ menuLabel } = {}) {
   const [shifts, setShifts] = useState([]);
   const [range, setRange] = useState({ from: monthStart(), to: todayIst() });
   const [busy, setBusy] = useState(false);
+  const [saving, runSave] = useSaving();
   useEffect(() => {
     getRules().then((v) => { setRules(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load the rules')));
     listShifts().then((s) => setShifts(s.filter((x) => x.isActive))).catch(() => setShifts([]));
   }, [attempt]);
 
-  const save = async (e) => {
+  const save = (e) => {
     e.preventDefault();
-    try {
-      setRules(await saveRules({ ...rules, defaultShiftId: rules.defaultShiftId || null, readerLateUploadHours: Number(rules.readerLateUploadHours) || 24 }));
-      notify.success('Rules saved. Past days keep their figures until you recalculate them below.');
-    } catch (err) {
-      notify.error(errorWords(err, 'save the changes'));
-    }
+    return runSave(async () => {
+      try {
+        setRules(await saveRules({ ...rules, defaultShiftId: rules.defaultShiftId || null, readerLateUploadHours: Number(rules.readerLateUploadHours) || 24 }));
+        notify.success('Rules saved. Past days keep their figures until you recalculate them below.');
+      } catch (err) {
+        notify.error(errorWords(err, 'save the changes'));
+      }
+    });
   };
   /* Reader trust for days recorded before it was on (or before the window changed): only the trust changes. */
   const runTrust = async () => {
@@ -91,9 +95,10 @@ export default function AttendanceRules({ menuLabel } = {}) {
       {/* Round 61 "sectionjump" A: the page's sections listed on the right, following the scroll, on a wide screen. */}
       <SectionJump>
       <div className="pb-8 max-w-3xl space-y-6">
-      <form onSubmit={save} className="space-y-3">
-        <section className="ui-card space-y-3 p-4" aria-labelledby="rules-default-h">
-          <h2 id="rules-default-h" className="ui-t-sec">Default shift</h2>
+      <form onSubmit={save} className="space-y-6" aria-busy={saving || undefined}>
+        <section className="ui-form-part" aria-labelledby="rules-default-h">
+          <div className="ui-form-part-head"><div className="min-w-0"><h2 id="rules-default-h" className="ui-t-sec">Default shift</h2></div></div>
+          <div className="ui-form-part-body space-y-3">
           <label className="block">
             <span className="ui-label">For anyone with no schedule</span>
             <select className="ui-select w-full" value={rules.defaultShiftId || ''} onChange={(e) => setRules({ ...rules, defaultShiftId: e.target.value })}>
@@ -102,10 +107,12 @@ export default function AttendanceRules({ menuLabel } = {}) {
             </select>
             <span className="ui-caption">Used only when no temporary, personal, rotation or department schedule applies.</span>
           </label>
+          </div>
         </section>
 
-        <section className="ui-card space-y-3 p-4" aria-labelledby="rules-late-h">
-          <h2 id="rules-late-h" className="ui-t-sec">Late arrivals</h2>
+        <section className="ui-form-part" aria-labelledby="rules-late-h">
+          <div className="ui-form-part-head"><div className="min-w-0"><h2 id="rules-late-h" className="ui-t-sec">Late arrivals</h2></div></div>
+          <div className="ui-form-part-body space-y-3">
           {rules.lateNumbersHere === false ? (
             /* People's Attendance rules cut by the minute: the two numbers below would not be the rule, so it is shown, not set. */
             <p className="text-sm" role="status">
@@ -134,10 +141,12 @@ export default function AttendanceRules({ menuLabel } = {}) {
               </p>
             </>
           )}
+          </div>
         </section>
 
-        <section className="ui-card space-y-3 p-4" aria-labelledby="rules-readers-h">
-          <h2 id="rules-readers-h" className="ui-t-sec">Readers and phone punches</h2>
+        <section className="ui-form-part" aria-labelledby="rules-readers-h">
+          <div className="ui-form-part-head"><div className="min-w-0"><h2 id="rules-readers-h" className="ui-t-sec">Readers and phone punches</h2></div></div>
+          <div className="ui-form-part-body space-y-3">
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="ui-checkbox mt-0.5" checked={rules.autoShiftByPunch === true} onChange={(e) => setRules({ ...rules, autoShiftByPunch: e.target.checked })} />
             <span>
@@ -177,10 +186,12 @@ export default function AttendanceRules({ menuLabel } = {}) {
               <span className="ui-caption">Days already recorded keep their trust until you work it out again below.</span>
             </label>
           ) : null}
+          </div>
         </section>
 
-        <section className="ui-card space-y-3 p-4" aria-labelledby="approvals-h">
-          <h2 id="approvals-h" className="ui-t-sec">Who approves</h2>
+        <section className="ui-form-part" aria-labelledby="approvals-h">
+          <div className="ui-form-part-head"><div className="min-w-0"><h2 id="approvals-h" className="ui-t-sec">Who approves</h2></div></div>
+          <div className="ui-form-part-body space-y-3">
           <p className="ui-caption">A manager is the person named in “Reports to” on the employee file; they decide from the portal. Someone with no manager goes straight to HR.</p>
           {[['leaveApproval', 'Leave requests'], ['correctionApproval', 'Attendance corrections']].map(([k, label]) => (
             <label key={k} className="block">
@@ -192,15 +203,17 @@ export default function AttendanceRules({ menuLabel } = {}) {
               </select>
             </label>
           ))}
+          </div>
         </section>
 
-        <div><button type="submit" className="ui-btn ui-btn-primary">Save rules</button></div>
+        <div><button type="submit" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save rules'}</button></div>
       </form>
 
       <NightShifts />
 
-      <section className="ui-card space-y-3 p-4" aria-labelledby="recompute-h">
-        <h2 id="recompute-h" className="ui-t-sec">Recalculate past days</h2>
+      <section className="ui-form-part" aria-labelledby="recompute-h">
+        <div className="ui-form-part-head"><div className="min-w-0"><h2 id="recompute-h" className="ui-t-sec">Recalculate past days</h2></div></div>
+        <div className="ui-form-part-body space-y-3">
         <p className="ui-caption">After changing shifts or schedules. Days set by hand, corrections and leave stay as they are. Up to 62 days at a time.</p>
         <div className="flex flex-wrap items-end gap-3">
           <label className="block"><span className="ui-label">From</span><input type="date" className="ui-input" value={range.from} max={range.to} onChange={(e) => setRange({ ...range, from: e.target.value })} /></label>
@@ -209,6 +222,7 @@ export default function AttendanceRules({ menuLabel } = {}) {
           {rules.readerTrust ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={runTrust}>Work out reader trust</button> : null}
         </div>
         {rules.readerTrust ? <p className="ui-caption">Reader trust for these days changes only the trust, every day included; nothing else on a day moves.</p> : null}
+        </div>
       </section>
 
       <RulePreview shifts={shifts} />
@@ -248,8 +262,9 @@ export function NightShifts() {
     }
   };
   return (
-    <section className="ui-card space-y-3 p-4" aria-labelledby="night-h">
-      <h2 id="night-h" className="ui-t-sec">Night shifts</h2>
+    <section className="ui-form-part" aria-labelledby="night-h">
+      <div className="ui-form-part-head"><div className="min-w-0"><h2 id="night-h" className="ui-t-sec">Night shifts</h2></div></div>
+      <div className="ui-form-part-body space-y-3">
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" className="ui-checkbox mt-0.5" checked={Boolean(on)} disabled={on === null || saving || !canSwitch} onChange={(e) => turn(e.target.checked)} />
         <span>
@@ -258,6 +273,7 @@ export function NightShifts() {
           {!canSwitch ? <span className="ui-caption block">Only someone who can change company features can switch this.</span> : null}
         </span>
       </label>
+      </div>
     </section>
   );
 }
@@ -299,8 +315,9 @@ function RulePreview({ shifts }) {
     }
   };
   return (
-    <section className="ui-card space-y-3 p-4" aria-labelledby="preview-h">
-      <h2 id="preview-h" className="ui-t-sec">Preview a shift change</h2>
+    <section className="ui-form-part" aria-labelledby="preview-h">
+      <div className="ui-form-part-head"><div className="min-w-0"><h2 id="preview-h" className="ui-t-sec">Preview a shift change</h2></div></div>
+      <div className="ui-form-part-body space-y-3">
       <p className="ui-caption">See which days would change before you edit a shift. Nothing is saved here.</p>
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="block">
@@ -351,6 +368,7 @@ function RulePreview({ shifts }) {
           <p className="ui-caption">To apply it: edit the shift under Shifts, then recalculate these days above.</p>
         </div>
       ) : null}
+      </div>
     </section>
   );
 }

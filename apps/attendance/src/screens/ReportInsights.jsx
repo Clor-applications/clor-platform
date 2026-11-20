@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import { PageHeader, SkeletonCard, StatTile, EmptyState } from '@ui/components/ui/Primitives';
+import { CountLine } from '@ui/components/ui/CountLine';
 import { getReportInsights, listReports } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
@@ -109,14 +110,28 @@ export default function ReportInsights({ openScreen }) {
           error ? null : <SkeletonCard lines={8} />
         ) : (
           <>
-            <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-label="This month">
-              <StatTile label="Attendance rate" value={fmt(now?.attendanceRate, '%')} hint={delta('attendanceRate', ' pts')} tone="pos" />
-              <StatTile label="Absenteeism" value={fmt(now?.absenteeismRate, '%')} hint={delta('absenteeismRate', ' pts')} tone={now?.absenteeismRate ? 'neg' : 'neutral'} />
-              <StatTile label="Late days" value={fmt(now?.lateDays)} hint={delta('lateDays', '')} tone={now?.lateDays ? 'warn' : 'neutral'} />
-              <StatTile label="Late 3+ times" value={fmt(data.repeatLate)} hint="people this month" tone={data.repeatLate ? 'neg' : 'neutral'} />
-              <StatTile label="Overtime" value={fmt(now?.overtimeHours, ' h')} hint="approved, this month" />
-              <StatTile label="Unpaid days" value={fmt(now?.lossOfPayDays)} hint="this month so far" tone={now?.lossOfPayDays ? 'warn' : 'neutral'} />
-            </section>
+            {/* At most four figures, none at zero, in ink: the rate always leads, then the first three that have
+                something to say. A figure past four goes in the count line under them (DESIGN.md "Figures"). */}
+            {(() => {
+              const figures = [
+                { key: 'rate', label: 'Attendance rate', raw: now?.attendanceRate, value: fmt(now?.attendanceRate, '%'), hint: delta('attendanceRate', ' pts'), keep: true },
+                { key: 'absent', label: 'Absenteeism', raw: now?.absenteeismRate, value: fmt(now?.absenteeismRate, '%'), hint: delta('absenteeismRate', ' pts') },
+                { key: 'late', label: 'Late days', raw: now?.lateDays, value: fmt(now?.lateDays), hint: delta('lateDays', '') },
+                { key: 'repeat', label: 'Late 3+ times', raw: data.repeatLate, value: fmt(data.repeatLate), hint: 'people this month' },
+                { key: 'ot', label: 'Overtime', raw: now?.overtimeHours, value: fmt(now?.overtimeHours, ' h'), hint: 'approved, this month' },
+                { key: 'lop', label: 'Unpaid days', raw: now?.lossOfPayDays, value: fmt(now?.lossOfPayDays), hint: 'this month so far' },
+              ].filter((f) => f.keep || (f.raw != null && Number(f.raw) !== 0));
+              const tiles = figures.slice(0, 4);
+              const rest = figures.slice(4);
+              return (
+                <>
+                  <section className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="This month">
+                    {tiles.map((f) => <StatTile key={f.key} label={f.label} value={f.value} hint={f.hint} />)}
+                  </section>
+                  {rest.length ? <CountLine label="More this month" items={rest.map((f) => ({ key: f.key, label: f.label, value: f.value }))} /> : null}
+                </>
+              );
+            })()}
 
             <div className="grid gap-4 xl:grid-cols-2">
               <Trend title="Attendance rate" caption={data.definitions?.attendanceRate} points={data.trend.map((t) => ({ month: t.month, value: t.attendanceRate }))} unit="%" max={100} />

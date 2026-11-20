@@ -8,7 +8,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listReports, runReport, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
-import { monthText } from '@ui/utils/errorWords';
+import { errorWords, monthText } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
 
 /**
@@ -40,7 +40,7 @@ export default function AttendanceRegister() {
     listReports().then((d) => setDepartments(d?.departments || [])).catch(() => {});
   }, []);
   /* No synchronous resets in the effect: the old month stays on screen until the new one arrives. */
-  const load = useCallback(() => runReport('muster', { month, ...(departmentId ? { departmentId } : {}) }).then((r) => { setReport(r); setError(null); }).catch(setError), [month, departmentId]);
+  const load = useCallback(() => runReport('muster', { month, ...(departmentId ? { departmentId } : {}) }).then((r) => { setReport(r); setError(null); }).catch((e) => setError(errorWords(e, 'load the register'))), [month, departmentId]);
   useEffect(() => { load(); }, [load]);
   const loading = !report || report.period !== month;
 
@@ -55,8 +55,6 @@ export default function AttendanceRegister() {
   }, [report]);
   /* Which weekday each column is, so the head can show it. */
   const weekday = (dd) => new Date(`${month}-${dd}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'narrow', timeZone: 'UTC' });
-
-  if (error && !report) return <LoadFailed error={error} onRetry={load} />;
 
   return (
     <DocumentListShell
@@ -88,7 +86,9 @@ export default function AttendanceRegister() {
         { label: 'Leave days', value: figures.leave, count: true, tone: 'sent', Icon: CalendarOff },
       ])}
     >
-      {loading ? <SkeletonCard lines={8} /> : (
+      {/* A failed load shows under the page header, with a retry (LoadFailed takes the words as `message`). */}
+      <LoadFailed message={error} onRetry={load} />
+      {loading ? (error ? null : <SkeletonCard lines={8} />) : (
         <>
           <div className="ui-table-scroll">
             <table className="ui-table ui-table-sticky ui-table-register">

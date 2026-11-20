@@ -8,6 +8,8 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import DayExplain from '../components/DayExplain';
 import PhonePunch from '../components/PhonePunch';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
+import { dateWords } from '@ui/utils/dates';
+import useSaving from '../components/useSaving';
 
 /**
  * Clock in, clock out, and one's own month — Horilla's check-in/out widget.
@@ -24,6 +26,7 @@ export default function MyAttendance() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ date: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' });
   const [explaining, setExplaining] = useState(null);
+  const [sending, runSend] = useSaving();
   const explainLoad = useCallback(() => explainMyDay(explaining), [explaining]);
 
   const load = useCallback(() => {
@@ -39,6 +42,7 @@ export default function MyAttendance() {
   }, [load]);
 
   const punch = async () => {
+    if (busy) return;
     setBusy(true);
     try {
       const r = await clock(me?.webClock?.outOnly ? 'OUT' : undefined);
@@ -51,16 +55,18 @@ export default function MyAttendance() {
     }
   };
 
-  const ask = async (e) => {
+  const ask = (e) => {
     e.preventDefault();
-    try {
-      await requestCorrection({ ...form, checkOut: form.checkOut || null, reasonCode: form.reasonCode || null });
-      notify.success('Correction sent for approval.');
-      setForm({ date: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' });
-      load();
-    } catch (err) {
-      notify.error(errorWords(err, 'send it'));
-    }
+    return runSend(async () => {
+      try {
+        await requestCorrection({ ...form, checkOut: form.checkOut || null, reasonCode: form.reasonCode || null });
+        notify.success('Correction sent for approval.');
+        setForm({ date: '', checkIn: '', checkOut: '', reason: '', reasonCode: '' });
+        load();
+      } catch (err) {
+        notify.error(errorWords(err, 'send it'));
+      }
+    });
   };
 
   if (error) {
@@ -89,18 +95,18 @@ export default function MyAttendance() {
         <PhonePunch phone={me.phone} punches={me.punches} onPunch={phonePunch} onDone={load} />
       ) : null}
       <section className="ui-card flex flex-wrap items-center gap-4 p-4">
-        {showClock ? <button type="button" className="ui-btn ui-btn-primary !h-12 !px-6 text-base" onClick={punch} disabled={busy}>
-          {me.clockedIn || outOnly ? <LogOut size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
+        {showClock ? <button type="button" className="ui-btn ui-btn-primary att-punch-btn" onClick={punch} disabled={busy} aria-busy={busy || undefined}>
+          {me.clockedIn || outOnly ? <LogOut size={16} aria-hidden="true" /> : <LogIn size={16} aria-hidden="true" />}
           {busy ? 'Saving…' : me.clockedIn || outOnly ? 'Punch out' : 'Punch in'}
         </button> : null}
         {/* The company's punch policy says this browser may not clock in (audit #6): say why, instead of a button the server refuses. */}
         {outOnly || (!me.phone?.allowed && me.webClock?.allowed === false) ? <p className="ui-caption basis-full" role="note">{me.webClock.why}</p> : null}
         <dl className="flex flex-wrap gap-6 text-sm">
-          <div><dt className="ui-t-label">Today</dt><dd>{me.today}</dd></div>
-          <div><dt className="ui-t-label">In</dt><dd>{t?.checkInTime || '—'}</dd></div>
-          <div><dt className="ui-t-label">Out</dt><dd>{t?.checkOutTime || '—'}</dd></div>
-          <div><dt className="ui-t-label">Worked</dt><dd>{t?.checkOut ? hm(t.workedMinutes) : '—'}</dd></div>
-          {t?.lateMinutes ? <div><dt className="ui-t-label">Late</dt><dd>{t.lateMinutes} min</dd></div> : null}
+          <div><dt className="ui-t-label">Today</dt><dd>{/^\d{4}-\d{2}-\d{2}$/.test(String(me.today || '')) ? dateWords(me.today) : me.today}</dd></div>
+          <div><dt className="ui-t-label">In</dt><dd className="tabular-nums">{t?.checkInTime || '—'}</dd></div>
+          <div><dt className="ui-t-label">Out</dt><dd className="tabular-nums">{t?.checkOutTime || '—'}</dd></div>
+          <div><dt className="ui-t-label">Worked</dt><dd className="tabular-nums">{t?.checkOut ? hm(t.workedMinutes) : '—'}</dd></div>
+          {t?.lateMinutes ? <div><dt className="ui-t-label">Late</dt><dd className="tabular-nums">{t.lateMinutes} min</dd></div> : null}
         </dl>
       </section>
 
@@ -123,10 +129,10 @@ export default function MyAttendance() {
               {me.records.map((r) => (
                 <tr key={r.id}>
                   <td className="ui-col-date whitespace-nowrap" data-phone="name">{dayLabel(r.date, { weekday: true, year: false })}</td>
-                  <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
-                  <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
+                  <td className="ui-col-h-center tabular-nums">{r.checkInTime || '—'}</td>
+                  <td className="ui-col-h-center tabular-nums">{r.checkOutTime || '—'}</td>
                   <td className="ui-num" data-phone="key">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
-                  <td className="ui-num">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
+                  <td className="ui-num">{r.lateMinutes ? `${r.lateMinutes} min` : '—'}</td>
                   <td className="ui-col-h-center" data-phone="tag"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span></td>
                   <td className="ui-col-meta" data-phone="act">
                     <button type="button" className="ui-icon-btn" title="Why does this day say this?" aria-label={`Why is ${dayLabel(r.date)} ${STATUS[r.status]?.label?.toLowerCase() || r.status}?`} onClick={() => setExplaining(r.date)}>
@@ -145,7 +151,7 @@ export default function MyAttendance() {
 
       <section className="ui-card p-4" aria-labelledby="fix-h">
         <h2 id="fix-h" className="ui-t-sec mb-3">Ask for a correction</h2>
-        <form onSubmit={ask} className="grid gap-3 sm:grid-cols-4">
+        <form onSubmit={ask} className="grid gap-3 sm:grid-cols-4" aria-busy={sending || undefined}>
           <label className="block"><span className="ui-label">Day</span><input type="date" className="ui-input w-full" max={todayIst()} required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
           <label className="block"><span className="ui-label">In</span><input type="time" className="ui-input w-full" required value={form.checkIn} onChange={(e) => setForm({ ...form, checkIn: e.target.value })} /></label>
           <label className="block"><span className="ui-label">Out</span><input type="time" className="ui-input w-full" value={form.checkOut} onChange={(e) => setForm({ ...form, checkOut: e.target.value })} /></label>
@@ -157,14 +163,14 @@ export default function MyAttendance() {
             </select>
           </label>
           <label className="block sm:col-span-4"><span className="ui-label">Reason</span><input className="ui-input w-full" required minLength={3} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
-          <div className="sm:col-span-4"><button type="submit" className="ui-btn ui-btn-secondary">Send for approval</button></div>
+          <div className="sm:col-span-4"><button type="submit" className="ui-btn ui-btn-secondary" disabled={sending} aria-busy={sending || undefined}>{sending ? 'Saving…' : 'Send for approval'}</button></div>
         </form>
         {me.requests.length ? (
           <ul className="mt-4 space-y-1 text-sm">
             {me.requests.map((r) => (
               <li key={r.id} className="flex items-center justify-between">
                 <span>{dayLabel(r.date)} — {r.reason}</span>
-                <span className={`ui-pill ${r.status === 'APPROVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{r.status.toLowerCase()}</span>
+                <span className={`ui-pill ${r.status === 'APPROVED' ? 'ui-pill-pos' : r.status === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-warn'}`}>{enumWords(r.status)}</span>
               </li>
             ))}
           </ul>

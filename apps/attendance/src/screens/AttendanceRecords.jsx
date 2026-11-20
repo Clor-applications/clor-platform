@@ -21,6 +21,7 @@ import { plusDaysIso } from '@ui/utils/dates';
 import EarlyGoTag from '@ui/timeOff/EarlyGoTag';
 import { errorWords, enumWords, dayText } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { useDirty } from '../components/useSaving';
 
 /**
  * Everyone's days: filter, correct, validate, approve overtime. After
@@ -140,13 +141,22 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
   /* Only closed days not yet validated can be validated; the rest of a selection is for bulk changes. */
   const validatable = useMemo(() => (all || []).filter((r) => selected.has(r.id) && !r.validated && r.checkOut).map((r) => r.id), [all, selected]);
 
+  /* Validating locks the days for payroll: it says how many first, and runs once. */
+  const [validating, setValidating] = useState(false);
   const validate = async () => {
+    if (validating || !validatable.length) return;
+    const n = validatable.length;
+    const ok = await confirmDialog({ title: `Validate ${n.toLocaleString('en-IN')} ${n === 1 ? 'day' : 'days'}?`, message: 'Validated days are ready for payroll. A day corrected later needs validating again.', confirmLabel: `Validate ${n === 1 ? 'day' : 'days'}`, tone: 'primary' });
+    if (!ok) return;
+    setValidating(true);
     try {
       const r = await validateDays(validatable);
-      notify.success(`${r.validated} days validated.`);
+      notify.success(`${r.validated} ${r.validated === 1 ? 'day' : 'days'} validated.`);
       load();
     } catch (e) {
       notify.error(errorWords(e, 'validate the days'));
+    } finally {
+      setValidating(false);
     }
   };
 
@@ -212,7 +222,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
         selected.size ? (
           <div className="ui-bulkbar" role="region" aria-label="Change the selected days">
             <span className="text-sm"><strong className="tabular-nums">{selected.size}</strong> selected</span>
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!validatable.length} onClick={validate}><CheckCheck size={14} aria-hidden="true" /> Validate {validatable.length || ''}</button>
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={validating || !validatable.length} aria-busy={validating || undefined} onClick={validate}><CheckCheck size={14} aria-hidden="true" /> {validating ? 'Validating…' : `Validate ${validatable.length || ''}`}</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ operation: 'SET_OUT_SHIFT_END' })}><Wand2 size={14} aria-hidden="true" /> Close at shift end</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ operation: 'APPROVE_OVERTIME' })}>Approve overtime</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ operation: 'SET_STATUS', status: 'ABSENT' })}>Mark days without times…</button>
@@ -283,7 +293,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                       <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
                       <td className="ui-col-h-center">{r.checkOutTime || (r.checkIn && r.date < todayIst() ? <ExceptionTag label="No out punch" tone="warn" /> : '—')}</td>
                       <td className="ui-num hidden md:table-cell" data-phone="key">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
-                      <td className="ui-num hidden md:table-cell">{r.lateMinutes ? <span className="ui-late-tag">Late {r.lateMinutes}m</span> : '—'}</td>
+                      <td className="ui-num hidden md:table-cell">{r.lateMinutes ? <span className="ui-late-tag">Late {r.lateMinutes} min</span> : '—'}</td>
                       <td className="ui-num hidden 2xl:table-cell">{r.earlyOutMinutes ? <EarlyGoTag minutes={r.earlyOutMinutes} /> : '—'}</td>
                       <td className="ui-num hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                         {r.overtimeMinutes ? (
@@ -389,6 +399,7 @@ function BulkChange({ spec, ids, onClose, onDone }) {
   }, [ids, spec.operation, status]);
 
   const apply = async () => {
+    if (busy) return;
     setBusy(true);
     try {
       const r = await bulkChangeDays({ ids, operation: spec.operation, status: spec.operation === 'SET_STATUS' ? status : undefined, reason, preview: false });
@@ -409,6 +420,7 @@ function BulkChange({ spec, ids, onClose, onDone }) {
       title={op.title}
       description={op.hint}
       widthClass="w-[min(46rem,96vw)]"
+      dirty={Boolean(reason.trim()) || busy}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
@@ -470,10 +482,12 @@ function BulkChange({ spec, ids, onClose, onDone }) {
 function MarkDay({ initial, people, onClose, onSaved }) {
   const [form, setForm] = useState(() => ({ ...initial }));
   const [saving, setSaving] = useState(false);
+  const [dirty] = useDirty(form);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const save = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     try {
       await markDay({
@@ -510,6 +524,7 @@ function MarkDay({ initial, people, onClose, onSaved }) {
       open
       onClose={onClose}
       title={form.id ? `${form.employeeName} · ${dayLabel(form.date)}` : 'Mark attendance'}
+      dirty={dirty || saving}
       description={form.shiftLabel ? `${form.shiftLabel}. Times are 24-hour, Indian Standard Time; a time after midnight is that night's.` : 'Times are 24-hour, Indian Standard Time. An out earlier than the in is the next morning.'}
       actions={
         <>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronRight } from '@ui/components/ui/lineIcons';
 import { CalendarDays, Fingerprint, Inbox, ListChecks } from 'lucide-react';
 
@@ -119,6 +119,8 @@ export default function AttendanceToday({ openScreen }) {
     };
   }, [date, attempt]);
 
+  /* The gate screen asks again every minute while it is open. */
+  const refresh = useCallback(() => setAttempt((n) => n + 1), []);
   const go = (key) => openScreen && openScreen(key);
   const waiting = data
     ? [
@@ -249,8 +251,8 @@ export default function AttendanceToday({ openScreen }) {
             </section>
 
             {readers ? (
-              <section className="ui-card p-4" aria-labelledby="readers-h">
-                <div className="mb-2 flex items-baseline justify-between gap-3">
+              <section aria-labelledby="readers-h">
+                <div className="att-block-head flex items-baseline justify-between gap-3">
                   <h2 id="readers-h" className="ui-t-sec">Readers</h2>
                   <span className="ui-caption">{readerList.length ? (readerTrouble ? `${readerTrouble} need${readerTrouble === 1 ? 's' : ''} a look` : 'All healthy') : 'None added'}</span>
                 </div>
@@ -283,8 +285,8 @@ export default function AttendanceToday({ openScreen }) {
           </div>
 
           <div className="grid items-stretch gap-4 xl:grid-cols-3">
-            <section className="ui-card p-4" aria-labelledby="late-h">
-              <h2 id="late-h" className="ui-t-sec mb-3">Late {date === todayIst() ? 'today' : 'that day'}</h2>
+            <section aria-labelledby="late-h">
+              <h2 id="late-h" className="ui-t-sec att-block-head">Late {date === todayIst() ? 'today' : 'that day'}</h2>
               {data.late.length ? (
                 <ul className="divide-y">
                   {data.late.map((l) => (
@@ -298,8 +300,8 @@ export default function AttendanceToday({ openScreen }) {
                 <p className="ui-muted text-sm">Nobody.</p>
               )}
             </section>
-            <section className="ui-card p-4 xl:col-span-2" aria-labelledby="notin-h">
-              <h2 id="notin-h" className="ui-t-sec mb-3">Not in yet <span className="ui-caption tabular-nums">{data.notIn.length}{date === todayIst() ? ` · ${new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : ''}</span></h2>
+            <section className="xl:col-span-2" aria-labelledby="notin-h">
+              <h2 id="notin-h" className="ui-t-sec att-block-head">Not in yet <span className="ui-caption tabular-nums">{data.notIn.length}{date === todayIst() ? ` · ${new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : ''}</span></h2>
               {data.notIn.length ? (
                 <ul className="grid gap-x-4 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">
                   {data.notIn.map((p) => (
@@ -315,7 +317,7 @@ export default function AttendanceToday({ openScreen }) {
       )}
       <MoveToPeople />
       </div>
-      {onScreen && data ? <TodayScreen data={data} dateLabel={longDate(date)} onClose={() => setOnScreen(false)} /> : null}
+      {onScreen && data ? <TodayScreen data={data} dateLabel={longDate(date)} onClose={() => setOnScreen(false)} onRefresh={refresh} /> : null}
     </div>
   );
 }

@@ -39,6 +39,7 @@ import ReaderEvidence, { ReaderCompatibility, SupportPill } from '../components/
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import useSaving, { useDirty } from '../components/useSaving';
 
 const DIRECTIONS = {
   both: 'In and out (the reader’s keys decide)',
@@ -316,7 +317,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
                   </tr>
                 ) : rows.map((d) => (
                   <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
-                    <td className="ui-col-entity" data-phone="name">{d.name}{!VIRTUAL[d.vendor] && d.support ? <span className="block text-xs font-normal">{SUPPORT_EXCEPTION.includes(d.support.support) ? <SupportPill support={d.support} /> : <span className="ui-caption" title={d.support.note || ''}>{d.support.label}</span>}</span> : null}</td>
+                    <td className="ui-col-entity" data-phone="name">{VIRTUAL[d.vendor] ? d.name : <button type="button" className="ui-row-open" onClick={(e) => { e.stopPropagation(); setOpen(d); }}>{d.name}</button>}{!VIRTUAL[d.vendor] && d.support ? <span className="block text-xs font-normal">{SUPPORT_EXCEPTION.includes(d.support.support) ? <SupportPill support={d.support} /> : <span className="ui-caption" title={d.support.note || ''}>{d.support.label}</span>}</span> : null}</td>
                     <td className="ui-col-meta hidden md:table-cell" data-phone="sub">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : URL_PUSH[d.vendor] ? d.model || `${d.driverLabel} · not connected yet` : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
                     <td className="hidden 2xl:table-cell">{siteNames.get(d.areaId) || <span className="ui-caption">All sites</span>}</td>
                     <td className="ui-col-meta hidden 2xl:table-cell">{d.driverLabel || '—'}{d.ip ? <span className="ui-caption block">{d.ip}</span> : null}</td>
@@ -393,6 +394,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
   const [saving, setSaving] = useState(false);
   const [tested, setTested] = useState(null);
   const [made, setMade] = useState(null);
+  const [dirty] = useDirty({ kind, form });
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const cloud = kind === 'ETIMEOFFICE';
   const pull = Boolean(PULL[kind]);
@@ -471,6 +473,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
       onClose={onClose}
       title="Add reader"
       description={choices.find((d) => d.vendor === kind)?.blurb || ''}
+      dirty={dirty}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
@@ -648,6 +651,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
   const [busy, setBusy] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [signing, setSigning] = useState({ on: Boolean(device.signed), secret: '' });
+  const [dirty, markSaved] = useDirty({ form, map });
   const setM = (k) => (e) => setMap((m) => ({ ...m, [k]: e.target.value }));
   const headers = preview?.headers || [];
 
@@ -695,6 +699,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
     await act('save', async () => {
       await updateDevice(device.id, { ...form, mapping: map.employeeCode ? toMapping(map) : null });
       notify.success('Saved.');
+      markSaved({ form, map });
       onChanged();
     });
   };
@@ -726,17 +731,18 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
       onClose={onClose}
       title={device.name}
       description={`${device.driverLabel} · ${device.lastSeenAt ? `${isFile ? 'imported' : isPull ? 'last pull' : 'last push'} ${ago(device.lastSeenAt)}` : isFile ? 'nothing imported yet' : isPull ? 'not pulled yet' : 'nothing received yet'}`}
+      dirty={dirty}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-ghost" disabled={busy === 'delete'} onClick={remove}>Remove</button>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="mapped-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'}>Save</button>
+          <button type="submit" form="mapped-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'} aria-busy={busy === 'save' || undefined}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
       <div className="space-y-4">
         <ReaderEvidence device={device} />
-        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last {isPull ? 'pull' : 'push'}: {device.lastError}</div> : null}
+        {device.lastError ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>Last {isPull ? 'pull' : 'push'}: {device.lastError}</p> : null}
         {isPull ? <PullControls device={device} onChanged={onChanged} /> : null}
         {!isFile && !isPull ? (
           <section className="space-y-2" aria-labelledby="url-h">
@@ -817,7 +823,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
             </div>
           </div>
           {preview && preview.records ? (
-            <div className="ui-card space-y-2 p-3 text-sm" role="status">
+            <div className="space-y-2 text-sm" role="status">
               <div>
                 <strong>{preview.readable}</strong> of {preview.records} record{preview.records === 1 ? '' : 's'} readable
                 {preview.skipped ? ` · ${preview.skipped} skipped by the filter` : ''}
@@ -826,7 +832,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
               {preview.sample?.length ? (
                 <table className="ui-table w-full">
                   <thead><tr><th className="ui-th">Code</th><th className="ui-th">Time (India)</th><th className="ui-th">Direction</th></tr></thead>
-                  <tbody>{preview.sample.map((p, i) => <tr key={i}><td className="ui-mono">{p.code}</td><td className="ui-mono">{p.localTime}</td><td>{p.direction || '—'}</td></tr>)}</tbody>
+                  <tbody>{preview.sample.map((p, i) => <tr key={i}><td className="ui-mono">{p.code}</td><td className="tabular-nums">{p.localTime}</td><td>{p.direction || '—'}</td></tr>)}</tbody>
                 </table>
               ) : null}
               {preview.errors?.length ? <ul className="ui-caption list-disc ps-5">{preview.errors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}</ul> : null}
@@ -868,6 +874,7 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
   const [newUrl, setNewUrl] = useState('');
   const [last, setLast] = useState(null);
   const [busy, setBusy] = useState('');
+  const [dirty, markSaved] = useDirty(form);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const act = async (key, fn) => {
     setBusy(key);
@@ -884,6 +891,7 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
     act('save', async () => {
       await updateDevice(device.id, form);
       notify.success('Saved.');
+      markSaved(form);
       onChanged();
     });
   };
@@ -922,16 +930,17 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
       onClose={onClose}
       title={device.name}
       description={`Hikvision (push) · ${device.online ? 'online' : device.lastSeenAt ? `last event ${ago(device.lastSeenAt)}` : 'nothing received yet'}`}
+      dirty={dirty}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="hik-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'}>Save</button>
+          <button type="submit" form="hik-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'} aria-busy={busy === 'save' || undefined}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
       <div className="space-y-4">
         <ReaderEvidence device={device} />
-        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{device.lastError}</div> : null}
+        {device.lastError ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{device.lastError}</p> : null}
 
         <section className="space-y-2" aria-labelledby="hk-status-h">
           <h3 id="hk-status-h" className="ui-t-sec">Terminal</h3>
@@ -1008,6 +1017,7 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
   const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, sourceTimezone: device.sourceTimezone || 'Asia/Kolkata' });
   const [newUrl, setNewUrl] = useState('');
   const [busy, setBusy] = useState('');
+  const [dirty, markSaved] = useDirty(form);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const act = async (key, fn) => {
     setBusy(key);
@@ -1024,6 +1034,7 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
     act('save', async () => {
       await updateDevice(device.id, form);
       notify.success('Saved.');
+      markSaved(form);
       onChanged();
     });
   };
@@ -1056,16 +1067,17 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
       onClose={onClose}
       title={device.name}
       description={`Matrix COSEC · ${device.online ? 'online' : device.lastSeenAt ? `last seen ${ago(device.lastSeenAt)}` : 'never connected'}`}
+      dirty={dirty}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="matrix-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'}>Save</button>
+          <button type="submit" form="matrix-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'} aria-busy={busy === 'save' || undefined}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
       <div className="space-y-4">
         <ReaderEvidence device={device} />
-        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{device.lastError}</div> : null}
+        {device.lastError ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{device.lastError}</p> : null}
 
         <section className="space-y-2" aria-labelledby="mx-status-h">
           <h3 id="mx-status-h" className="ui-t-sec">Controller</h3>
@@ -1142,17 +1154,21 @@ function CloudDrawer({ device, onClose, onChanged }) {
   const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, corporateId: device.apiCorporateId || '', username: device.apiUsername || '', password: '', apiUrl: device.apiUrl || '' });
   const [from, setFrom] = useState('');
   const [busy, setBusy] = useState(false);
+  const [saving, runSave] = useSaving();
+  const [dirty] = useDirty(form);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const save = async (e) => {
+  const save = (e) => {
     e.preventDefault();
-    try {
-      await updateDevice(device.id, { ...form, apiUrl: form.apiUrl || null, corporateId: form.corporateId || null, password: form.password || undefined });
-      notify.success('Connection saved.');
-      onChanged();
-      onClose();
-    } catch (err) {
-      notify.error(errorWords(err, 'save the changes'));
-    }
+    return runSave(async () => {
+      try {
+        await updateDevice(device.id, { ...form, apiUrl: form.apiUrl || null, corporateId: form.corporateId || null, password: form.password || undefined });
+        notify.success('Connection saved.');
+        onChanged();
+        onClose();
+      } catch (err) {
+        notify.error(errorWords(err, 'save the changes'));
+      }
+    });
   };
   const sync = async (fromDate) => {
     setBusy(true);
@@ -1173,16 +1189,17 @@ function CloudDrawer({ device, onClose, onChanged }) {
       onClose={onClose}
       title={device.name}
       description={`e-Time Office · last pulled ${ago(device.lastFetchedAt)}`}
+      dirty={dirty}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="cloud-form" className="ui-btn ui-btn-primary">Save</button>
+          <button type="submit" form="cloud-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
       <div className="space-y-4">
         <ReaderEvidence device={device} />
-        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>CLOR could not collect punches last time. Check the address and sign-in details, then choose Sync now.<span className="ui-caption block mt-1">For your IT person: {device.lastError}</span></div> : null}
+        {device.lastError ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>CLOR could not collect punches last time. Check the address and sign-in details, then choose Sync now.<span className="ui-caption block mt-1">For your IT person: {device.lastError}</span></p> : null}
         <section className="space-y-2" aria-labelledby="sync-h">
           <h3 id="sync-h" className="ui-t-sec">Punches</h3>
           <p className="ui-caption">Pulled every few minutes. Sync now pulls at once; a date fetches older punches (up to 31 days back).</p>
@@ -1192,7 +1209,7 @@ function CloudDrawer({ device, onClose, onChanged }) {
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || !from} onClick={() => sync(from)}>Fetch from this date</button>
           </div>
         </section>
-        <form id="cloud-form" onSubmit={save} className="grid gap-4">
+        <form id="cloud-form" onSubmit={save} className="grid gap-4" aria-busy={saving || undefined}>
           <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} /></label>
           <label className="block"><span className="ui-label">Corporate ID</span><input className="ui-input w-full" value={form.corporateId} onChange={set('corporateId')} /></label>
           <label className="block"><span className="ui-label">User name</span><input className="ui-input w-full" autoComplete="off" value={form.username} onChange={set('username')} /></label>
@@ -1250,16 +1267,21 @@ function PullDrawer({ device, onClose, onChanged }) {
     listAgents().then((r) => setAgents(r?.agents || [])).catch(() => setAgents([]));
   }, []);
   const [tested, setTested] = useState(null);
+  const [saving, runSave] = useSaving();
+  const [dirty, markSaved] = useDirty(form);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const save = async (e) => {
+  const save = (e) => {
     e.preventDefault();
-    try {
-      await updateDevice(device.id, { name: form.name, direction: form.direction, isActive: form.isActive, baseUrl: form.baseUrl, username: form.username, password: form.password || undefined, sourceTimezone: form.sourceTimezone, agentId: form.agentId || null });
-      notify.success('Connection saved.');
-      onChanged();
-    } catch (err) {
-      notify.error(errorWords(err, 'save the changes'));
-    }
+    return runSave(async () => {
+      try {
+        await updateDevice(device.id, { name: form.name, direction: form.direction, isActive: form.isActive, baseUrl: form.baseUrl, username: form.username, password: form.password || undefined, sourceTimezone: form.sourceTimezone, agentId: form.agentId || null });
+        notify.success('Connection saved.');
+        markSaved(form);
+        onChanged();
+      } catch (err) {
+        notify.error(errorWords(err, 'save the changes'));
+      }
+    });
   };
   const test = async () => {
     try {
@@ -1275,19 +1297,20 @@ function PullDrawer({ device, onClose, onChanged }) {
       onClose={onClose}
       title={device.name}
       description={`${device.driverLabel} · ${device.lastFetchedAt ? `last pulled ${ago(device.lastFetchedAt)}` : 'not pulled yet'}`}
+      dirty={dirty}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="pull-form" className="ui-btn ui-btn-primary">Save</button>
+          <button type="submit" form="pull-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
       <div className="space-y-4">
         <ReaderEvidence device={device} />
-        {device.lastError ? <div className="ui-card p-3 text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>CLOR could not collect punches last time. Check the address and sign-in details, then choose Sync now.<span className="ui-caption block mt-1">For your IT person: {device.lastError}</span></div> : null}
+        {device.lastError ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>CLOR could not collect punches last time. Check the address and sign-in details, then choose Sync now.<span className="ui-caption block mt-1">For your IT person: {device.lastError}</span></p> : null}
         <p className="ui-caption">CLOR has not yet tested this make of reader. If punches do not arrive, send us the message shown above.</p>
         <PullControls device={device} onChanged={onChanged} />
-        <form id="pull-form" onSubmit={save} className="grid gap-4">
+        <form id="pull-form" onSubmit={save} className="grid gap-4" aria-busy={saving || undefined}>
           <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} /></label>
           {device.vendor === 'ANVIZ_CLOUD' ? (
             <label className="block"><span className="ui-label">CrossChex Cloud region</span>
@@ -1347,6 +1370,8 @@ function ReaderDrawer({ device, onClose, onChanged }) {
   const [queueStatus, setQueueStatus] = useState('');
   const [users, setUsers] = useState(null);
   const [areas, setAreas] = useState([]);
+  const [saving, runSave] = useSaving();
+  const [dirty] = useDirty({ form, allowList });
 
   const loadDetail = useCallback(() => {
     listDeviceCommands(device.id, queueStatus).then(setQueue).catch(() => setQueue({ commands: [], counts: {} }));
@@ -1359,8 +1384,9 @@ function ReaderDrawer({ device, onClose, onChanged }) {
     listStructure('areas').then(setAreas).catch(() => setAreas([]));
   }, []);
 
-  const save = async (e) => {
+  const save = (e) => {
     e.preventDefault();
+    return runSave(async () => {
     try {
       const r = await updateDevice(device.id, { ...form, areaId: form.areaId || null, ...(hasAllowList ? { ipAllowList: allowListOf(allowList) } : {}) });
       notify.success(r?.areaChanged ? 'Reader saved. Its area changed. See Sync monitoring to add the new people and remove the rest.' : 'Reader saved.');
@@ -1373,6 +1399,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
     } catch (err) {
       notify.error(errorWords(err, 'save the changes'));
     }
+    });
   };
   const run = async (action, done) => {
     try {
@@ -1403,17 +1430,18 @@ function ReaderDrawer({ device, onClose, onChanged }) {
       onClose={onClose}
       title={device.name}
       description={`${device.serialNumber}${device.ip ? ` · ${device.ip}` : ''} · last seen ${ago(device.lastSeenAt)}`}
+      dirty={dirty}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Remove</button>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="reader-form" className="ui-btn ui-btn-primary">Save</button>
+          <button type="submit" form="reader-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
       <div className="space-y-4">
         <ReaderEvidence device={device} />
-        <form id="reader-form" onSubmit={save} className="grid gap-4">
+        <form id="reader-form" onSubmit={save} className="grid gap-4" aria-busy={saving || undefined}>
           <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
           <label className="block">
             <span className="ui-label">Direction</span>

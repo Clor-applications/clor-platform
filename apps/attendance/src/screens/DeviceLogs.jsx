@@ -139,7 +139,7 @@ export default function DeviceLogs() {
                       <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">{r.localTime}</td>
                       <td className="ui-col-entity" data-phone="name">{r.deviceName}</td>
                       <td className="ui-mono" data-phone="sub">{r.code}</td>
-                      <td className="ui-mono">{r.operator || '—'}</td>
+                      <td>{r.operator || '—'}</td>
                       <td className="ui-col-meta ui-col-grow whitespace-normal">{r.details || '—'}</td>
                     </tr>
                   ))

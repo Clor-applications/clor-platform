@@ -4,6 +4,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
 import { askOvertime, cancelOvertime, confirmMonth, disputeMonth, getMonthReview, getOvertime } from './portalApi';
+import { confirmDialog } from '@ui/components/ui/notify';
 
 /*
  * Time depth, gap 18: the web employee app checks the month (confirm, or say
@@ -17,6 +18,7 @@ vi.mock('./portalApi', () => ({
   getMonthReview: vi.fn(), confirmMonth: vi.fn(), disputeMonth: vi.fn(),
   getOvertime: vi.fn(), askOvertime: vi.fn(), cancelOvertime: vi.fn(),
 }));
+vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true), notify: { error: vi.fn(), success: vi.fn() } }));
 const guard = (p) => p;
 const summary = { payableDays: 25, lossOfPayDays: 1, present: 22, leave: 2, absent: 1, approvedOvertimeMinutes: 90 };
 const unresolved = Array.from({ length: 7 }, (_, i) => ({ date: `2026-10-${String(10 + i).padStart(2, '0')}`, kind: 'NO_PUNCHES', text: 'No punches on a working day' }));
@@ -83,6 +85,8 @@ it('asks for overtime on a day that has it, and withdraws one still waiting', as
   fireEvent.click(screen.getByRole('button', { name: 'Send' }));
   await waitFor(() => expect(askOvertime).toHaveBeenCalledWith({ date: '2026-10-27', kind: 'OVERTIME', reason: 'Month-end close' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Withdraw' }));
+  /* Withdrawing asks first, naming the day, as the portal's other withdrawals do. */
+  await waitFor(() => expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Withdraw this request?', confirmLabel: 'Withdraw' })));
   await waitFor(() => expect(cancelOvertime).toHaveBeenCalledWith('o1'));
 });
 

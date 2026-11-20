@@ -6,6 +6,7 @@ import { SignedOut, askOvertime, cancelOvertime, confirmMonth, disputeMonth, get
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import { PortalLoading, RowState } from './portalUi';
 import { dateWords } from '@ui/utils/dates';
+import { confirmDialog } from '@ui/components/ui/notify';
 
 /*
  * The month's review and overtime in the web employee app (time depth, gap 18):
@@ -163,7 +164,11 @@ export function MyOvertime({ guard }) {
       setBusy('');
     }
   };
-  const cancel = async (id) => {
+  /* Withdrawing asks first, as the leave and request withdrawals in the portal do. */
+  const cancel = async (id, what, date) => {
+    if (busy) return;
+    const ok = await confirmDialog({ title: 'Withdraw this request?', message: `${what} for ${dateWords(date)}. It will not be decided.`, confirmLabel: 'Withdraw' });
+    if (!ok) return;
     setBusy(id);
     setMessage(null);
     try {
@@ -202,13 +207,13 @@ export function MyOvertime({ guard }) {
                 {d.overtimeRequest ? (
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span>Overtime <Pill status={d.overtimeRequest.status} />{d.overtimeRequest.note ? <span className="ui-caption block">{d.overtimeRequest.note}</span> : null}</span>
-                    {d.overtimeRequest.status === 'PENDING' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === d.overtimeRequest.id} onClick={() => cancel(d.overtimeRequest.id)}>Withdraw</button> : null}
+                    {d.overtimeRequest.status === 'PENDING' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === d.overtimeRequest.id} aria-busy={busy === d.overtimeRequest.id || undefined} onClick={() => cancel(d.overtimeRequest.id, 'Overtime', d.date)}>{busy === d.overtimeRequest.id ? 'Withdrawing…' : 'Withdraw'}</button> : null}
                   </div>
                 ) : null}
                 {d.compOffRequest ? (
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="tabular-nums">Comp-off {d.compOffRequest.days} day{d.compOffRequest.days === 1 ? '' : 's'} <Pill status={d.compOffRequest.status} />{d.compOffRequest.note ? <span className="ui-caption block">{d.compOffRequest.note}</span> : null}</span>
-                    {d.compOffRequest.status === 'PENDING' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === d.compOffRequest.id} onClick={() => cancel(d.compOffRequest.id)}>Withdraw</button> : null}
+                    {d.compOffRequest.status === 'PENDING' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === d.compOffRequest.id} aria-busy={busy === d.compOffRequest.id || undefined} onClick={() => cancel(d.compOffRequest.id, 'Comp-off', d.date)}>{busy === d.compOffRequest.id ? 'Withdrawing…' : 'Withdraw'}</button> : null}
                   </div>
                 ) : null}
                 {asking?.date === d.date ? (

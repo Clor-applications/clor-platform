@@ -1,7 +1,7 @@
 /*
- * My leave (clor-rnd PEOPLE-16). Shared by People and Attendance: every colour is a token, so it takes the moss
- * or violet portal colour of the app it opens in. Leave types keep their identity colours (README §1), always
- * with their name beside them. 12px on containers, 8px on controls.
+ * My leave. Shared by People and Attendance: every colour is a token, so it takes the app colour of the app it
+ * opens in (People magenta, Attendance amber; DESIGN.md). Leave types keep their identity colours, always with
+ * their name beside them. 12px on containers, 8px on controls; hover is the grey #F7F7F7 (--hover).
  */
 .ml-page { display: flex; flex-direction: column; gap: 2rem; }
 
@@ -22,12 +22,12 @@
   text-align: left;
 }
 .ml-balance.is-link { cursor: pointer; }
-.ml-balance.is-link:hover { background: rgb(var(--surface-sunken)); }
+.ml-balance.is-link:hover { background: rgb(var(--hover)); }
 .ml-balance.is-link:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: 2px; }
 .ml-balance-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.25rem 1rem; min-width: 0; }
 .ml-of { font-size: 0.8125rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 400; }
-.ml-figure { font-size: 2rem; line-height: 2.5rem; font-weight: 700; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
-.ml-track { display: block; height: 0.5rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
+.ml-figure { font-size: 1.375rem; line-height: 1.75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.ml-track { display: block; height: 0.5rem; border-radius: 999px; background: rgb(var(--border)); overflow: hidden; }
 .ml-track > span { display: block; height: 100%; border-radius: 999px; }
 .ml-note { font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; }
 .ml-waiting { color: rgb(var(--warn-ink)); font-weight: 600; }
@@ -44,7 +44,7 @@
   font-family: var(--font-brand);
   font-size: 1.0625rem;
   line-height: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   color: rgb(var(--fg));
 }
 .ml-reason { display: block; max-width: 18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; color: rgb(var(--fg-muted)); }
@@ -61,7 +61,7 @@
   text-underline-offset: 3px;
   white-space: nowrap;
 }
-.ml-text-btn:hover { color: rgb(var(--act-hover)); background: rgb(var(--surface-sunken)); }
+.ml-text-btn:hover { color: rgb(var(--act-hover)); background: rgb(var(--hover)); }
 .ml-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid rgb(var(--border)); }
 .ml-list > li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 3.5rem; padding: 0.5rem 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 .ml-list-name { display: block; font-weight: 600; color: rgb(var(--fg)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -73,5 +73,4 @@
   .ml-page { gap: 1.5rem; }
   .ml-balances { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
   .ml-balance { padding: 0.875rem 1rem; }
-  .ml-figure { font-size: 1.5rem; line-height: 2rem; }
 }

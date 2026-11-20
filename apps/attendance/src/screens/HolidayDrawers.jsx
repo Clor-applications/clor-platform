@@ -43,6 +43,7 @@ export function CalendarImport({ year, onClose, onDone }) {
   }, [key, branchId]);
 
   const run = async () => {
+    if (busy) return;
     setBusy(true);
     try {
       const r = await importHolidayCalendar({ key, branchId: branchId || null });
@@ -57,7 +58,7 @@ export function CalendarImport({ year, onClose, onDone }) {
 
   const branchName = branches.find((b) => b.id === branchId)?.name;
   return (
-    <Drawer open onClose={onClose} title="Add a holiday calendar" widthClass="w-[min(36rem,96vw)] ui-drawer-sheet"
+    <Drawer open onClose={onClose} title="Add a holiday calendar" widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" dirty={Boolean(key)}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
         <button type="button" className="ui-btn ui-btn-primary" disabled={!cal || busy || !preview?.added?.length} onClick={run}>{busy ? 'Adding…' : preview?.added?.length ? `Add ${preview.added.length} holiday${preview.added.length === 1 ? '' : 's'}` : 'Add'}</button>

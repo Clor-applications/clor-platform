@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Check } from '@ui/components/ui/lineIcons';
 
 import { SCHEDULE_SOURCE } from '../api/attendance';
 import { cellLabel } from './rosterCells';
+import { shiftChip, shiftHues } from './shiftColour';
 
 /**
  * The roster as a grid: a row a person, a column a day, each cell the day's
@@ -21,9 +23,7 @@ const wd = (d) => new Date(`${d}T00:00:00Z`).getUTCDay();
 const dayWords = (d) => `${WEEKDAY[wd(d)]} ${Number(d.slice(8))} ${MONTH[Number(d.slice(5, 7)) - 1]}`;
 const codeOf = (s) => s.code || (s.name || '').slice(0, 2);
 
-/* A shift's colour is its place among the company's shifts, drawn from the chart series tokens (--dept-1..8), so it follows the theme. */
-const toneIndex = (shifts) => new Map(shifts.map((s, i) => [s.id, (i % 8) + 1]));
-const wash = (n) => ({ backgroundColor: `rgb(var(--dept-${n}) / 0.18)`, '--tone': `var(--dept-${n})` });
+/* A shift's colour comes from shiftColour.js, the one source every screen uses: ink on a soft tint of it. */
 
 const cellTitle = (c) => {
   if (c.kind === 'OUT') return 'Not employed';
@@ -47,7 +47,8 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
   const table = useRef(null);
   const dragging = useRef(false);
   const typing = useRef({ text: '', timer: null });
-  const tones = useMemo(() => toneIndex(shifts), [shifts]);
+  const tones = useMemo(() => shiftHues(shifts), [shifts]);
+  const optionId = useId();
 
   /* A new page or period: the block cannot point past the rows now shown. */
   const maxR = Math.max(0, rows.length - 1);
@@ -103,11 +104,11 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
     const away = (e) => { if (!menuBox.current?.contains(e.target)) setMenu(false); };
     window.addEventListener('scroll', close, true);
     window.addEventListener('resize', close);
-    document.addEventListener('mousedown', away);
+    document.addEventListener('pointerdown', away);
     return () => {
       window.removeEventListener('scroll', close, true);
       window.removeEventListener('resize', close);
-      document.removeEventListener('mousedown', away);
+      document.removeEventListener('pointerdown', away);
     };
   }, [menu]);
 
@@ -119,8 +120,12 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
   useEffect(() => () => window.clearTimeout(typing.current.timer), []);
   useEffect(() => {
     const up = () => { dragging.current = false; };
-    window.addEventListener('mouseup', up);
-    return () => window.removeEventListener('mouseup', up);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
   }, []);
 
   /* A code typed on a cell: set at once when no longer code could follow, else after a short pause. */
@@ -198,13 +203,22 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
     }
   };
 
+  /* Pointer events, so a finger works as well as a mouse. A finger cannot drag a block without
+     scrolling the roster, so on a touch screen a second tap on the chosen day opens the choices. */
   const press = (r, c, e) => {
-    if (e.button !== 0) return;
+    if (e.button) return;
+    const touch = e.pointerType && e.pointerType !== 'mouse';
+    if (touch && a.r === r && a.c === c && sel.r0 === sel.r1 && sel.c0 === sel.c1 && !menu) {
+      openMenu();
+      return;
+    }
     setMenu(false);
     clearTyping();
     setActive({ r, c });
     if (!e.shiftKey) setAnchor({ r, c });
-    dragging.current = true;
+    /* A pointer is captured by the cell it went down on; let go, so the cells it passes over hear it. */
+    if (e.target?.hasPointerCapture?.(e.pointerId)) e.target.releasePointerCapture(e.pointerId);
+    dragging.current = !touch;
   };
   const selectRow = (r) => { setMenu(false); setAnchor({ r, c: 0 }); setActive({ r, c: maxC }); focusCell({ r, c: maxC }); };
   const selectColumn = (c) => { setMenu(false); setAnchor({ r: 0, c }); setActive({ r: maxR, c }); focusCell({ r: maxR, c }); };
@@ -235,7 +249,7 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
         </div>
       ) : null}
       <div className="ui-table-scroll">
-        <table ref={table} role="grid" aria-label="Roster" aria-multiselectable="true" aria-readonly={canEdit ? undefined : 'true'} className="ui-table ui-table-sticky w-full select-none text-xs" onKeyDown={onKeyDown}>
+        <table ref={table} role="grid" aria-label="Roster" aria-multiselectable="true" aria-readonly={canEdit ? undefined : 'true'} aria-activedescendant={menu ? `${optionId}-${menuIndex}` : undefined} className="ui-table ui-table-sticky w-full select-none text-xs" onKeyDown={onKeyDown}>
           <thead>
             <tr>
               <th scope="col" className="ui-th sticky left-0 bg-[rgb(var(--surface))] px-3 text-left" style={{ zIndex: 'var(--z-base)' }}>Employee</th>
@@ -271,15 +285,19 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
                       aria-selected={on}
                       aria-label={`${row.name}, ${dayWords(cell.date)}: ${cellTitle(cell)}`}
                       title={cellTitle(cell)}
+                      aria-haspopup={canEdit ? 'listbox' : undefined}
+                      aria-expanded={canEdit && here ? menu : undefined}
                       className="relative px-0.5 text-center"
-                      style={{ ...(on ? { backgroundColor: 'rgb(var(--brand) / 0.12)' } : {}), ...(here ? { outline: '2px solid rgb(var(--ring))', outlineOffset: '-2px' } : {}) }}
-                      onMouseDown={(e) => press(r, c, e)}
-                      onMouseEnter={() => { if (dragging.current) setActive({ r, c }); }}
+                      /* Chosen days take the hover grey and a tick (DESIGN.md "Tables": never the app colour); the cell the keys are on keeps the focus ring. */
+                      style={{ ...(on ? { backgroundColor: 'rgb(var(--hover))' } : {}), ...(here ? { outline: '2px solid rgb(var(--ring))', outlineOffset: '-2px' } : {}) }}
+                      onPointerDown={(e) => press(r, c, e)}
+                      onPointerEnter={() => { if (dragging.current) setActive({ r, c }); }}
                       onDoubleClick={openMenu}
                     >
+                      {on && (peopleN > 1 || daysN > 1) ? <Check size={10} className="absolute right-0.5 top-0.5" aria-hidden="true" /> : null}
                       <span
-                        className={`inline-block min-w-[1.6rem] rounded-full px-1 py-0.5 ${tone ? 'ui-ros-shift font-semibold' : cell.kind === 'WORK' ? '' : 'ui-muted'}`}
-                        style={{ ...(tone ? wash(tone) : {}), ...(cell.draft ? { outline: '1px dashed rgb(var(--fg-muted))' } : {}) }}
+                        className={`inline-block min-w-[1.6rem] rounded-full px-1 py-0.5 ${tone ? 'att-shift-chip font-semibold' : cell.kind === 'WORK' ? '' : 'ui-muted'}`}
+                        style={{ ...(tone ? shiftChip(tone) : {}), ...(cell.draft ? { outline: '1px dashed rgb(var(--fg-muted))' } : {}) }}
                         data-draft={cell.draft ? 'true' : undefined}
                       >
                         {cellLabel(cell)}
@@ -291,23 +309,26 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
                           aria-label="Set the chosen days to"
                           className="ui-popover ui-menu w-60 rounded-xl text-left"
                           style={menuAt}
-                          onMouseDown={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
                           onDoubleClick={(e) => e.stopPropagation()}
                         >
                           {choices.map((x, i) => (
                             <button
                               key={x.key}
+                              id={`${optionId}-${i}`}
                               type="button"
                               role="option"
                               aria-selected={i === menuIndex}
                               tabIndex={-1}
-                              className="ui-menu-item w-full rounded-lg"
-                              style={i === menuIndex ? { backgroundColor: 'rgb(var(--surface-sunken))' } : undefined}
-                              onMouseEnter={() => setMenuIndex(i)}
+                              className="ui-menu-item flex w-full items-center rounded-lg"
+                              /* The choice the arrows are on: hover grey (--surface-sunken is white now) and a tick. */
+                              style={i === menuIndex ? { backgroundColor: 'rgb(var(--hover))' } : undefined}
+                              onPointerEnter={() => setMenuIndex(i)}
                               onClick={() => { apply(x); focusCell(a); }}
                             >
                               {x.code ? <span className="mr-2 inline-block min-w-[1.6rem] text-center font-semibold tabular-nums">{x.code}</span> : null}
-                              {x.label}
+                              <span className="min-w-0 flex-1">{x.label}</span>
+                              {i === menuIndex ? <Check size={14} className="ms-2 shrink-0" aria-hidden="true" /> : null}
                             </button>
                           ))}
                         </div>
@@ -323,7 +344,7 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
               {footRows.map((f, i) => (
                 <tr key={f.id || 'standard'} style={i === 0 ? { borderTop: '2px solid rgb(var(--border))' } : undefined}>
                   <th scope="row" className="sticky left-0 whitespace-nowrap bg-[rgb(var(--surface))] px-3 py-1 text-left font-semibold" style={{ zIndex: 'var(--z-base)' }}>
-                    {f.tone ? <span className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ backgroundColor: `rgb(var(--dept-${f.tone}))` }} aria-hidden="true" /> : null}
+                    {f.tone ? <span className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ backgroundColor: f.tone }} aria-hidden="true" /> : null}
                     {f.name}
                     {f.min ? <span className="ui-caption tabular-nums"> · at least {f.min}</span> : null}
                   </th>

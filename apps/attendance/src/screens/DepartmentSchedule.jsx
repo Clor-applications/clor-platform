@@ -12,6 +12,9 @@ import { confirmScheduleChange } from '../components/scheduleCheck';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import useSaving from '../components/useSaving';
+import { confirmRemoveSchedule } from '../components/removeSchedule';
+import { dateWords } from '@ui/utils/dates';
 
 const COLUMNS = {
   department: (r) => r.departmentName,
@@ -30,6 +33,8 @@ export default function DepartmentSchedule() {
   const [departments, setDepartments] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [form, setForm] = useState({ departmentId: '', shiftId: '', effectiveFrom: todayIst(), effectiveTo: '' });
+  const [saving, runSave] = useSaving();
+  const [removing, setRemoving] = useState('');
   const load = useCallback(() => {
     listDepartmentSchedules().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load this')));
   }, []);
@@ -51,16 +56,33 @@ export default function DepartmentSchedule() {
     };
   }, [rows]);
 
-  const add = async (e) => {
+  const add = (e) => {
     e.preventDefault();
-    if (!(await confirmScheduleChange({ kind: 'DEPARTMENT', departmentId: form.departmentId, shiftId: form.shiftId, from: form.effectiveFrom, to: form.effectiveTo || null }))) return;
+    return runSave(async () => {
+      if (!(await confirmScheduleChange({ kind: 'DEPARTMENT', departmentId: form.departmentId, shiftId: form.shiftId, from: form.effectiveFrom, to: form.effectiveTo || null }))) return;
+      try {
+        await addDepartmentSchedule({ ...form, effectiveTo: form.effectiveTo || null });
+        notify.success('Department schedule saved.');
+        setForm((f) => ({ ...f, departmentId: '', effectiveTo: '' }));
+        load();
+      } catch (err) {
+        notify.error(errorWords(err, 'save the changes'));
+      }
+    });
+  };
+  const remove = async (r) => {
+    if (removing) return;
+    const ok = await confirmRemoveSchedule({ name: r.departmentName, shift: r.shiftName, from: r.effectiveFrom, message: 'People in it without a schedule of their own go back to the company’s default shift.' });
+    if (!ok) return;
+    setRemoving(r.id);
     try {
-      await addDepartmentSchedule({ ...form, effectiveTo: form.effectiveTo || null });
-      notify.success('Department schedule saved.');
-      setForm((f) => ({ ...f, departmentId: '', effectiveTo: '' }));
+      await removeDepartmentSchedule(r.id);
+      notify.success(`${r.departmentName} taken off ${r.shiftName}.`);
       load();
     } catch (err) {
-      notify.error(errorWords(err, 'save the changes'));
+      notify.error(errorWords(err, 'remove it'));
+    } finally {
+      setRemoving('');
     }
   };
 
@@ -78,7 +100,7 @@ export default function DepartmentSchedule() {
         { label: 'With an end date', value: figures.ending, count: true, tone: 'outstanding', Icon: CalendarClock },
       ])}
       above={
-        <form onSubmit={add} className="flex flex-wrap items-end gap-3" aria-label="Give a department its shift">
+        <form onSubmit={add} className="flex flex-wrap items-end gap-3" aria-label="Give a department its shift" aria-busy={saving || undefined}>
           <label className="block">
             <span className="ui-label">Department *</span>
             <select className="ui-select" required value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
@@ -95,7 +117,7 @@ export default function DepartmentSchedule() {
           </label>
           <label className="block"><span className="ui-label">From *</span><input type="date" className="ui-input" required value={form.effectiveFrom} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} /></label>
           <label className="block"><span className="ui-label">Until</span><input type="date" className="ui-input" min={form.effectiveFrom} value={form.effectiveTo} onChange={(e) => setForm({ ...form, effectiveTo: e.target.value })} /></label>
-          <button type="submit" className="ui-btn ui-btn-primary"><Plus size={16} aria-hidden="true" /> Save</button>
+          <button type="submit" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}><Plus size={16} aria-hidden="true" /> {saving ? 'Saving…' : 'Save'}</button>
         </form>
       }
     >
@@ -134,12 +156,12 @@ export default function DepartmentSchedule() {
                   <tr key={r.id}>
                     <td className="ui-col-entity" data-phone="name">{r.departmentName}</td>
                     <td data-phone="sub">{r.shiftName}</td>
-                    <td className="ui-col-date whitespace-nowrap" data-phone="key">{r.effectiveFrom}</td>
-                    <td className="ui-col-date whitespace-nowrap" data-phone="tag">{r.effectiveTo || 'until changed'}</td>
+                    <td className="ui-col-date whitespace-nowrap" data-phone="key">{dateWords(r.effectiveFrom)}</td>
+                    <td className="ui-col-date whitespace-nowrap" data-phone="tag">{r.effectiveTo ? dateWords(r.effectiveTo) : 'until changed'}</td>
                     <td className="ui-col-meta" data-phone="act">
                       <span className="flex justify-end">
-                        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.departmentName} from ${r.effectiveFrom}`} onClick={async () => { try { await removeDepartmentSchedule(r.id); load(); } catch (err) { notify.error(errorWords(err, 'remove it')); } }}>
-                          <Trash2 size={14} aria-hidden="true" /> Remove
+                        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.departmentName} from ${dateWords(r.effectiveFrom)}`} disabled={removing === r.id} aria-busy={removing === r.id || undefined} onClick={() => remove(r)}>
+                          <Trash2 size={14} aria-hidden="true" /> {removing === r.id ? 'Removing…' : 'Remove'}
                         </button>
                       </span>
                     </td>

@@ -12,6 +12,8 @@ import { createContractor, deleteContractor, listContractors, updateContractor }
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { useDirty } from '../components/useSaving';
+import { dateWords } from '@ui/utils/dates';
 
 const BLANK = { name: '', code: '', contactPerson: '', phone: '', email: '', gstin: '', licenceNo: '', licenceValidTo: '', address: '', isActive: true };
 
@@ -141,12 +143,12 @@ export default function Contractors({ openScreen } = {}) {
               ) : (
                 rows.map((c) => (
                   <tr key={c.id} className="ui-row-click" onClick={() => setEditing({ ...BLANK, ...c })}>
-                    <td className="ui-col-entity" data-phone="name">{c.name}{c.code ? <span className="ui-caption"> · {c.code}</span> : null}</td>
+                    <td className="ui-col-entity" data-phone="name"><button type="button" className="ui-row-open" onClick={(e) => { e.stopPropagation(); setEditing({ ...BLANK, ...c }); }}>{c.name}</button>{c.code ? <span className="ui-caption"> · {c.code}</span> : null}</td>
                     <td data-phone="sub">{[c.contactPerson, c.phone].filter(Boolean).join(' · ') || '—'}</td>
                     <td className="whitespace-nowrap">
                       {c.licenceNo || '—'}
                       {c.licenceValidTo ? (
-                        <span className={`ui-pill ml-2 ${c.licenceExpired ? 'ui-pill-neg' : 'ui-pill-neutral'}`}>{c.licenceExpired ? 'expired' : 'valid to'} {c.licenceValidTo}</span>
+                        <span className={`ui-pill ml-2 ${c.licenceExpired ? 'ui-pill-neg' : 'ui-pill-neutral'}`}>{c.licenceExpired ? 'expired' : 'valid to'} {dateWords(c.licenceValidTo)}</span>
                       ) : null}
                     </td>
                     <td className="ui-num" data-phone="key">{c.workers}</td>
@@ -167,9 +169,11 @@ export default function Contractors({ openScreen } = {}) {
 function ContractorForm({ initial, onClose, onSaved }) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [dirty] = useDirty(form);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const save = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     const body = Object.fromEntries(Object.keys({ ...initial, ...form }).filter((k) => k in initial && !['id', 'workers', 'presentToday', 'licenceExpired', 'accountId', 'orgId', 'createdAt', 'updatedAt', 'createdByUserId'].includes(k)).map((k) => [k, form[k] === '' ? null : form[k]]));
     try {
@@ -201,6 +205,7 @@ function ContractorForm({ initial, onClose, onSaved }) {
       open
       onClose={onClose}
       title={form.id ? form.name : 'New contractor'}
+      dirty={dirty}
       actions={
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}
