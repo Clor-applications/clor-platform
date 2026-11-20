@@ -119,7 +119,12 @@
 @media (max-width: 639px) {
   :root:not(#pk) table.ui-table.ui-table-phone { display: block; width: 100%; min-width: 0; }
   :root:not(#pk) table.ui-table.ui-table-phone > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  :root:not(#pk) table.ui-table.ui-table-phone > tbody { display: block; }
+  :root:not(#pk) table.ui-table.ui-table-phone > :is(tbody, tfoot) { display: block; }
+  /* A total row reads like any other: its words on the left, the total on the right. */
+  :root:not(#pk) table.ui-table.ui-table-phone > tfoot > tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.75rem; align-items: center; min-height: 44px; padding: 0.625rem 0; }
+  :root:not(#pk) table.ui-table.ui-table-phone > tfoot > tr > :is(td, th) { display: none !important; padding: 0 !important; height: auto !important; text-align: left; }
+  :root:not(#pk) table.ui-table.ui-table-phone > tfoot > tr > [data-phone] { display: block !important; }
+  :root:not(#pk) table.ui-table.ui-table-phone > tfoot > tr > [data-phone='key'] { grid-column: 2; text-align: right; font-variant-numeric: tabular-nums; }
   :root:not(#pk) table.ui-table.ui-table-phone > tbody > tr {
     display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.75rem; row-gap: 0.125rem; align-items: center;
     min-height: 44px; height: auto; padding: 0.625rem 0; border-bottom: 1px solid rgb(var(--border));
@@ -255,3 +260,10 @@
   line-height: 1.25rem !important;
   font-weight: 600 !important;
 }
+
+/* ---- Control heights (design audit step 5, P2): 36px, 32px for compact controls in toolbars, pagers and rows,
+   44px on phones (DESIGN.md "Buttons"). The compact control and the row's icon button were 28px; the activity
+   filter was a 28px pill where a filter chip is 32px at 8px corners. Books keeps its own. ---- */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-ctl-compact { min-height: 2rem; height: 2rem; }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-table tbody .ui-icon-btn { width: 2rem; height: 2rem; min-height: 2rem; }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-activity-filter { height: 2rem; border-radius: 0.5rem; font-weight: 600; }

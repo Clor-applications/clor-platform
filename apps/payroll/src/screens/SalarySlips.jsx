@@ -175,6 +175,18 @@ export default function SalarySlips() {
                 ))
               )}
             </tbody>
+            {/* The register's total (DESIGN.md "Tables": a total row is bold over a rule), over the rows shown. */}
+            {rows.length > 1 ? (
+              <tfoot>
+                <tr className="ui-table-total">
+                  <th scope="row" colSpan={3} data-phone="name">Total, {rows.length} payslips</th>
+                  <td className="ui-num">{moneyCell(rows.reduce((a, x) => a + Number(x.grossEarnings || 0), 0))}</td>
+                  <td className="ui-num">{moneyCell(rows.reduce((a, x) => a + Number(x.totalDeductions || 0), 0))}</td>
+                  <td className="ui-num" data-phone="key">{moneyCell(rows.reduce((a, x) => a + Number(x.netPay || 0), 0))}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            ) : null}
           </table>
         </div>
       )}

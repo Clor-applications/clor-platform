@@ -853,7 +853,7 @@ function Preview({ plans, catalogue }) {
         )}
         <div className="flex gap-2" role="group" aria-label="Period">
           {['MONTHLY', 'YEARLY'].map((p) => (
-            <button key={p} type="button" className={`ws-btn ws-btn--small ${period === p ? 'ws-btn--primary' : 'ws-btn--quiet'}`} aria-pressed={period === p} onClick={() => setPeriod(p)}>
+            <button key={p} type="button" className={`ws-btn ws-btn--small ${period === p ? '' : 'ws-btn--quiet'}`} aria-pressed={period === p} onClick={() => setPeriod(p)}>
               {p === 'MONTHLY' ? 'Monthly' : 'Yearly'}
             </button>
           ))}

@@ -734,7 +734,7 @@
 .ui-week-bars-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.375rem; margin: 0; padding: 0; list-style: none; }
 .ui-week-bars-row li { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
 .ui-week-bar { position: relative; display: block; width: 100%; max-width: 1.75rem; height: 3rem; border-radius: 4px; background: rgb(var(--fg) / 0.06); overflow: hidden; }
-.ui-week-bar > span { position: absolute; left: 0; right: 0; bottom: 0; background: rgb(var(--act, var(--fg))); border-radius: 4px; }
+.ui-week-bar > span { position: absolute; left: 0; right: 0; bottom: 0; background: rgb(var(--fg)); border-radius: 4px; } /* ink first (DESIGN.md "Charts") */
 .ui-week-bar[data-future] { background: transparent; border: 1px dashed rgb(var(--border)); }
 .ui-week-bars-row li[data-today] .ui-caption { color: rgb(var(--fg)); font-weight: 600; }
 
@@ -987,9 +987,9 @@
   --border: 150 150 150;
   --border-strong: 100 100 100;
 }
-/* tapsize A: on a touch screen every button and form field is at least 48px tall (gloves, small phones). */
+/* tapsize A: on a touch screen every button and form field is at least 44px tall (DESIGN.md "Buttons": 44px on phones; was 48). */
 @media (pointer: coarse) {
-  :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-btn, .ui-input, .ui-select, select, input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden'])) { min-height: 48px; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-btn, .ui-input, .ui-select, select, input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden'])) { min-height: 44px; }
 }
 /* duecalendar B: the next five statutory dues on Payroll home. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
