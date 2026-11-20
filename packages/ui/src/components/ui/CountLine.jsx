@@ -11,11 +11,11 @@ import './count-line.css';
 const lowerFirst = (t) => (typeof t === 'string' && /^[A-Z][a-z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);
 const isZero = (v) => v === 0 || v === '0' || v === null || v === undefined || v === '' || v === '—';
 
-export function CountLine({ items, label = 'Figures' }) {
+export function CountLine({ items, label = 'Figures', className = '' }) {
   const shown = (items || []).filter((it) => it && !it.busy && !isZero(it.value));
   if (!shown.length) return null;
   return (
-    <p className="ui-count-line" aria-label={label}>
+    <p className={`ui-count-line ${className}`.trim()} aria-label={label}>
       {shown.map(({ key, label: what, value, onClick, tone, active }, i) => {
         const text = <><span className={`ui-count-line-figure ${tone ? `is-${tone}` : ''}`}>{value}</span> {lowerFirst(what)}</>;
         return (

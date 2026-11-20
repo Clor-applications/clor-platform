@@ -369,31 +369,20 @@ export function Denials({ account = '', openAccount, clearAccount }) {
   const codes = [...new Set([...(data?.codes || []), ...Object.keys(REASON)])].sort();
   return (
     <>
-      <PageHead title="Access refused" description="Every time CLOR refused someone, with the reason. Use it to answer “why can’t I open this?” in one search." />
-      <div className="ops-kpis">
-        {TILES.map(([code, label, cat, note, state]) => {
-          const value = code ? data?.today?.byCode?.[code] || 0 : data?.today?.total || 0;
-          return (
-            <button
-              key={label}
-              type="button"
-              className="ops-kpi"
-              aria-pressed={view.code === code && Boolean(code)}
-              style={{ '--kpi': `var(--cat-${cat})` }}
-              onClick={() => set({ code: view.code === code ? '' : code, since: 'day' })}
-            >
-              <span className="ops-kpi-chip" aria-hidden="true">
-                <span className="ops-kpi-dot" />
-              </span>
-              <span className="ops-kpi-label">{label}</span>
-              <span className="ops-kpi-value" data-state={value && state ? state : undefined}>
-                {Number(value).toLocaleString('en-IN')}
-              </span>
-              <span className="ops-kpi-note">{note || (code ? '' : 'Since midnight')}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Today's refusals as a count line, not tiles (DESIGN.md "Page header"; design audit step 2). Each reason
+          filters the list; reasons at zero are left out. */}
+      <PageHead
+        title="Access refused"
+        description="Every time CLOR refused someone, with the reason. Use it to answer “why can’t I open this?” in one search."
+        counts={data ? TILES.map(([code, label, , , state]) => ({
+          key: code || 'all',
+          label: code ? label : 'refused today',
+          value: code ? data.today?.byCode?.[code] || 0 : data.today?.total || 0,
+          tone: state || undefined,
+          active: Boolean(code) && view.code === code,
+          onClick: code ? () => set({ code: view.code === code ? '' : code, since: 'day' }) : undefined,
+        })) : null}
+      />
       <div className="ops-filters" role="search">
         <SearchBox label="Search refusals" value={view.q} onChange={(q) => set({ q })} placeholder="Search person, company or request ID" />
         <Filter label="Reason" value={view.code} onChange={(code) => set({ code })} options={[['', 'All'], ...codes.map((c) => [c, reasonShort(c)])]} />

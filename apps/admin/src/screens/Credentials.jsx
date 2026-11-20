@@ -17,6 +17,7 @@ import {
 } from '@platform/admin/credentials';
 import { KIND, STATUS, actionsFor } from './credentialsModel';
 import { Empty, FilterSelect, Loading, PageHead, WsDrawer } from './wsKit';
+import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
@@ -201,8 +202,9 @@ export default function Credentials() {
     load();
   }, [load]);
 
+  /* Credentials that are not working, or need a review, come first (DESIGN.md "Status tags"). */
   const rows = useMemo(
-    () => (data?.credentials || []).filter((c) => (!kind || c.kind === kind) && (!onlyReview || c.needsReviewReason)),
+    () => exceptionsFirst((data?.credentials || []).filter((c) => (!kind || c.kind === kind) && (!onlyReview || c.needsReviewReason)), (c) => c.effective !== 'ACTIVE' || c.needsReviewReason),
     [data, kind, onlyReview]
   );
 
@@ -299,7 +301,8 @@ export default function Credentials() {
                       <td className="tabular-nums" style={{ fontSize: '0.8125rem' }}>{c.tokenPrefix}…</td>
                       <td style={{ whiteSpace: 'normal', minWidth: 160 }}>
                         <span className="inline-flex flex-wrap gap-1">
-                          <span className={TONE[tone] || 'ws-pill ws-pill--neutral'}>{word}</span>
+                          {/* A working credential wears no tag; a screen reader still hears it. */}
+                          {c.effective === 'ACTIVE' ? <span className="sr-only">{word}</span> : <span className={TONE[tone] || 'ws-pill ws-pill--neutral'}>{word}</span>}
                           {c.needsReviewReason ? <span className="ws-pill ws-pill--warn">Needs review</span> : null}
                         </span>
                         {why && c.effective !== 'COMPANY_CLOSING' ? <div className="ws-head-meta">{why}</div> : null}

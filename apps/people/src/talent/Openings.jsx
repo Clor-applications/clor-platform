@@ -1,5 +1,6 @@
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
+import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { Copy, Plus } from '@ui/components/ui/lineIcons';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -26,6 +27,13 @@ import { FormError, Footer, OPENING_STATUS, Pill, ReasonDrawer, SHEET, day, staf
  * its apply link, the page HR shares on WhatsApp or a job site.
  */
 const TABS = [['active', 'Active'], ['REQUESTED', 'Asked for'], ['OPEN', 'Open'], ['DRAFT', 'Draft'], ['ON_HOLD', 'On hold'], ['FILLED', 'Filled'], ['CLOSED', 'Closed'], ['all', 'All']];
+
+/* Tags only on exceptions (DESIGN.md "Status tags"): an opening asked for (waiting on HR to open it) or
+ * on hold. A draft, an open, a filled or a closed opening shows no tag, its status still read out; the
+ * apply link and referrals are settings, so they read as a plain line. Exceptions sort first. */
+const EXCEPTION = ['REQUESTED', 'ON_HOLD'];
+const isException = (r) => EXCEPTION.includes(r.status);
+const openingTag = (r) => <ExceptionTag label={isException(r) ? OPENING_STATUS[r.status][0] : ''} normal={OPENING_STATUS[r.status]?.[0] || r.status} pill={OPENING_STATUS[r.status]?.[1]} />;
 
 export default function Openings({ params = {}, openScreen }) {
   const allowed = usePerm();
@@ -84,7 +92,7 @@ export default function Openings({ params = {}, openScreen }) {
     { key: 'hired', label: 'Filled', align: 'right', render: (r) => <span className={`tabular-nums whitespace-nowrap ${r.hired ? '' : 'ui-muted'}`}>{r.hired} of {r.places}</span> },
     { key: 'manager', label: 'Hiring manager', render: (r) => r.hiringManagerName || <span className="ui-muted">—</span> },
     { key: 'target', label: 'Fill by', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.targetDate) || '—'}</span> },
-    { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap items-center gap-1.5"><Pill map={OPENING_STATUS} value={r.status} />{r.applyOpen ? <span className="ui-pill ui-pill-info">Apply link on</span> : null}{r.referralOpen ? <span className="ui-pill ui-pill-info">Referrals on</span> : null}</span> },
+    { key: 'status', label: 'Status', render: (r) => <span className="block">{openingTag(r)}{r.applyOpen || r.referralOpen ? <span className="block ui-caption">{[r.applyOpen ? 'Apply link on' : null, r.referralOpen ? 'Referrals on' : null].filter(Boolean).join(' · ')}</span> : null}</span> },
   ];
   const rowActions = (r) => [
     { key: 'candidates', label: 'See candidates', onSelect: () => openScreen?.('candidates', { opening: r.id }) },
@@ -117,12 +125,12 @@ export default function Openings({ params = {}, openScreen }) {
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
           label="Job openings"
-          columns={oneStatus ? columns.map((c) => (c.key === 'status' ? { ...c, label: 'Apply link', render: (r) => (r.applyOpen ? <span className="ui-pill ui-pill-info">On</span> : <span className="ui-muted">Off</span>) } : c)) : columns}
-          rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="openings"
+          columns={oneStatus ? columns.map((c) => (c.key === 'status' ? { ...c, label: 'Apply link', render: (r) => (r.applyOpen ? 'On' : <span className="ui-muted">Off</span>) } : c)) : columns}
+          rows={exceptionsFirst(rows, isException)} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="openings"
           onRowClick={(r) => setOpen(r.id)} rowActions={rowActions}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><Pill map={OPENING_STATUS} value={r.status} /></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span>{openingTag(r)}</span>
               <span className="block truncate ui-caption">{[r.departmentName, `${r.active} candidate${r.active === 1 ? '' : 's'}`, r.targetDate ? `fill by ${day(r.targetDate)}` : null].filter(Boolean).join(' · ')}</span>
             </span>
           )}

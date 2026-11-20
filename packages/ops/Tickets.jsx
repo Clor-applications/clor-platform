@@ -5,6 +5,7 @@ import { APP_NAMES, Err, Loading, Tabs, appsText, day, may, when, errorWords, co
 import { opsAccount, opsInvoices, opsTicket, opsTicketChange, opsTicketReply, opsTickets } from './api';
 import { StatusPill, customerStatus, unpaidOf } from './Customers';
 import { inr } from './money';
+import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { SavedReplyPicker } from './SavedReplies';
 
 /**
@@ -21,6 +22,17 @@ export const STATUS = {
   CLOSED: ['Closed', 'ws-pill--off'],
 };
 const PRIORITY = { NORMAL: ['Normal', 'ws-pill'], HIGH: ['High', 'ws-pill--warn'], URGENT: ['Urgent', 'ws-pill--danger'] };
+/* In the list only a ticket still open wears a status tag, and only a raised priority wears one (DESIGN.md
+   "Status tags"): solved, closed and normal are the expected states. The ticket page keeps its full pill. */
+const isOpen = (t) => t.status === 'OPEN' || t.status === 'WAITING';
+function RowStatus({ status }) {
+  const [word, pill] = STATUS[status] || [status, ''];
+  return status === 'OPEN' || status === 'WAITING' ? <span className={`ws-pill ${pill}`}>{word}</span> : <span className="sr-only">{word}</span>;
+}
+function RowPriority({ priority }) {
+  const [word, pill] = PRIORITY[priority] || [priority, ''];
+  return priority === 'HIGH' || priority === 'URGENT' ? <span className={`ws-pill ${pill}`}>{word}</span> : <span className="sr-only">{word || 'Normal'}</span>;
+}
 const CATEGORY = { QUESTION: 'Question', PROBLEM: 'Problem', BILLING: 'Plan or billing', DATA: 'Data', OTHER: 'Other' };
 const appName = (a) => (a === 'workspace' ? 'Workspace' : APP_NAMES[a] || a);
 
@@ -85,7 +97,7 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
                 </tr>
               </thead>
               <tbody>
-                {d.tickets.map((t) => (
+                {exceptionsFirst(d.tickets, isOpen).map((t) => (
                   <tr key={t.id} className="ws-row-link" onClick={() => openTicket(t.id)}>
                     <td>
                       <button type="button" className="ws-link" onClick={(e) => { e.stopPropagation(); openTicket(t.id); }}>
@@ -95,8 +107,8 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
                       <div className="ws-item-sub">{[CATEGORY[t.category], t.app ? appName(t.app) : null].filter(Boolean).join(' · ')}</div>
                     </td>
                     <td>{t.account.name}<div className="ws-item-sub">{t.openedBy.name}</div></td>
-                    <td><span className={`ws-pill ${STATUS[t.status]?.[1] || ''}`}>{STATUS[t.status]?.[0] || t.status}</span></td>
-                    <td><span className={`ws-pill ${PRIORITY[t.priority]?.[1] || ''}`}>{PRIORITY[t.priority]?.[0]}</span></td>
+                    <td><RowStatus status={t.status} /></td>
+                    <td><RowPriority priority={t.priority} /></td>
                     <td>{t.assignedTo ? (t.assignedTo.id === me?.user?.id ? 'You' : t.assignedTo.name) : <span className="ws-item-sub">Nobody yet</span>}</td>
                     <td className="num">{ago(t.updatedAt)}</td>
                   </tr>

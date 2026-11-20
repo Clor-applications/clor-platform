@@ -99,6 +99,18 @@ export default function PayrollOverview({ onOpen = () => {} }) {
               }`
             : 'No open period in the pay calendar.'
         }
+        /* The month's other figures as one count line, not four cards shown even at zero (DESIGN.md "Page header";
+           design audit step 2). */
+        counts={[
+          { key: 'people', label: `in payroll, of ${people.headcount} on the books`, value: people.inPayroll },
+          {
+            key: 'oneoffs',
+            label: `approved one-offs${pending.adjustmentValue ? ` (${pending.adjustmentValue > 0 ? '+' : '\u2212'}${money(Math.abs(pending.adjustmentValue))})` : ''}`,
+            value: pending.adjustments,
+          },
+          { key: 'loans', label: `${pending.loans === 1 ? 'loan' : 'loans'} running${pending.loanOutstanding ? ` (${money(pending.loanOutstanding)} owed)` : ''}`, value: pending.loans },
+          { key: 'revisions', label: `${pending.revisions === 1 ? 'revision' : 'revisions'} not yet in effect`, value: pending.revisions },
+        ]}
         actions={
           notReady && !currentRun ? (
             <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen('payrollSetup')}>
@@ -221,16 +233,6 @@ export default function PayrollOverview({ onOpen = () => {} }) {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Figure label="In payroll" value={String(people.inPayroll)} hint={`of ${people.headcount} on the books`} />
-        <Figure
-          label="Approved one-offs"
-          value={String(pending.adjustments)}
-          hint={pending.adjustmentValue ? `${pending.adjustmentValue > 0 ? '+' : '−'}${money(Math.abs(pending.adjustmentValue))}` : 'nothing pending'}
-        />
-        <Figure label="Loans running" value={String(pending.loans)} hint={pending.loanOutstanding ? `${money(pending.loanOutstanding)} owed` : 'nothing owed'} />
-        <Figure label="Revisions open" value={String(pending.revisions)} hint={pending.revisions ? 'not yet in effect' : 'none waiting'} />
-      </div>
 
       {trend.length ? (
         <div className="ui-card overflow-hidden">
@@ -283,14 +285,6 @@ export default function PayrollOverview({ onOpen = () => {} }) {
 const Cell = ({ label, value }) => (
   <div className="px-4 py-3">
     <div className="ui-caption">{label}</div>
-    <div className="ui-amount mt-1 text-lg font-semibold tabular-nums">{value}</div>
-  </div>
-);
-
-const Figure = ({ label, value, hint }) => (
-  <div className="ui-card p-3">
-    <div className="ui-caption">{label}</div>
-    <div className="ui-amount mt-1 text-lg font-semibold tabular-nums">{value}</div>
-    {hint ? <div className="ui-caption">{hint}</div> : null}
+    <div className="ui-amount mt-1 text-[1.375rem] leading-7 font-semibold tabular-nums">{value}</div>
   </div>
 );

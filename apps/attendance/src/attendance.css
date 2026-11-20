@@ -6,72 +6,7 @@
  * portal violet is left to the primary button, links and "you are here".
  */
 
-/* KPI tiles (PEOPLE-15): 3px top accent in the tile's colour, a 36px tinted chip,
-   a 12px uppercase label, a 28/36 bold tabular figure and a 12px note. */
-.att-kpis {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-@media (min-width: 768px) { .att-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (min-width: 1280px) { .att-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-
-.att-kpi {
-  --kpi: var(--neutral-ink);
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 0;
-  padding: 1.25rem 1.25rem 1rem;
-  border: 1px solid rgb(var(--border-field));
-  border-top: 3px solid rgb(var(--kpi));
-  border-radius: 0.75rem;
-  background: rgb(var(--surface));
-}
-.att-kpi[data-k='headcount'] { --kpi: var(--cat-1); }
-.att-kpi[data-k='present'] { --kpi: var(--pos); }
-.att-kpi[data-k='late'] { --kpi: var(--warn-ink); }
-.att-kpi[data-k='absent'] { --kpi: var(--neg); }
-.att-kpi[data-k='leave'] { --kpi: var(--cat-4); }
-.att-kpi[data-k='unmarked'] { --kpi: var(--neutral-ink); }
-
-.att-kpi-head { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
-.att-kpi-chip {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, rgb(var(--kpi)) 12%, rgb(255 255 255));
-}
-.att-kpi-chip::before {
-  content: '';
-  width: 0.75rem;
-  height: 0.75rem;
-  border-radius: 3px;
-  background: rgb(var(--kpi));
-}
-.att-kpi-label {
-  min-width: 0;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 500;
-  color: rgb(var(--fg-muted));
-}
-.att-kpi-value {
-  font-size: 1.75rem;
-  line-height: 2.25rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: rgb(var(--fg));
-}
-/* A state figure takes its state's ink, only when there is something to see ("0 late" stays ink). */
-.att-kpi[data-on] .att-kpi-value { color: rgb(var(--kpi)); }
-.att-kpi[data-k='headcount'] .att-kpi-value,
-.att-kpi[data-k='leave'] .att-kpi-value { color: rgb(var(--fg)); }
-.att-kpi-note { font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-subtle)); }
+/* The Today tiles became a count line under the title (design audit step 2, 20 Nov 2026). */
 
 /* Charts sit on the soft panel with no border (README §3, the Ramp pattern); series take the categorical palette. */
 .att-chart {

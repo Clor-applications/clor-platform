@@ -1,5 +1,6 @@
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
+import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { Plus } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
@@ -19,6 +20,14 @@ import { FormError, Footer, PLAN_STATUS, Pill, SHEET, WIDE_SHEET, day, staffOpti
  * Nothing happens on its own when a plan is not met.
  */
 const TABS = [['', 'Running'], ['COMPLETED', 'Completed'], ['NOT_MET', 'Not met'], ['all', 'All']];
+/* Tags only on exceptions (DESIGN.md "Status tags"): a running plan past its end date with no outcome
+ * (overdue), an extended plan, and one not met. Running, completed and cancelled plans show no tag, their
+ * status still read out; the detail panel keeps the full status. Exceptions sort first. */
+const overdue = (p, today) => ['ACTIVE', 'EXTENDED'].includes(p.status) && p.endDate < today;
+const isException = (p, today) => overdue(p, today) || ['EXTENDED', 'NOT_MET'].includes(p.status);
+const planTag = (p, today) => (overdue(p, today)
+  ? <ExceptionTag label="Overdue" tone="neg" />
+  : <ExceptionTag label={isException(p, today) ? PLAN_STATUS[p.status][0] : ''} normal={PLAN_STATUS[p.status]?.[0] || p.status} pill={PLAN_STATUS[p.status]?.[1]} />);
 const OUTCOMES = [['COMPLETED', 'Completed: expectations met'], ['EXTENDED', 'Extended to a new end date'], ['NOT_MET', 'Not met'], ['CANCELLED', 'Cancelled']];
 
 export default function Plans({ params = {} }) {
@@ -26,17 +35,17 @@ export default function Plans({ params = {} }) {
   const [open, setOpen] = useParamState(params?.id);
   const [creating, setCreating] = useState(false);
   const req = useRequest(() => listPlans({ status }), [status]);
-  const rows = req.data?.plans || [];
+  const today = todayIst();
+  const rows = exceptionsFirst(req.data?.plans || [], (p) => isException(p, today));
   /* A plan is HR's or a manager's: New plan only for them, picking from the whole company or their own team. */
   const canStart = Boolean(req.data?.hr || req.data?.reports?.length);
-  const today = todayIst();
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (p) => <span className="font-medium">{p.employee?.name || '—'}</span> },
     { key: 'manager', label: 'Manager', render: (p) => p.manager?.name || <span className="ui-muted">—</span> },
     { key: 'from', label: 'From', render: (p) => <span className="tabular-nums whitespace-nowrap">{day(p.startDate)}</span> },
-    { key: 'to', label: 'To', render: (p) => <span className={`tabular-nums whitespace-nowrap ${['ACTIVE', 'EXTENDED'].includes(p.status) && p.endDate < today ? 'ui-text-neg' : ''}`}>{day(p.endDate)}</span> },
+    { key: 'to', label: 'To', render: (p) => <span className={`tabular-nums whitespace-nowrap ${overdue(p, today) ? 'ui-text-neg' : ''}`}>{day(p.endDate)}</span> },
     { key: 'notes', label: 'Notes', render: (p) => <span className="tabular-nums">{p.notes.length}</span> },
-    { key: 'status', label: 'Status', render: (p) => <Pill map={PLAN_STATUS} value={p.status} /> },
+    { key: 'status', label: 'Status', render: (p) => planTag(p, today) },
   ];
   /* A link to one plan finds it even once it is decided and off the Running tab. */
   const lookup = useRequest(() => (params?.id ? listPlans({ status: 'all' }).then((r) => r.plans).catch(() => []) : Promise.resolve(null)), [params?.id]);
@@ -61,7 +70,7 @@ export default function Plans({ params = {} }) {
           onRowClick={(p) => setOpen(p.id)}
           card={(p) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{p.employee?.name}</span><Pill map={PLAN_STATUS} value={p.status} /></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{p.employee?.name}</span>{planTag(p, today)}</span>
               <span className="block truncate ui-caption tabular-nums">{day(p.startDate)} – {day(p.endDate)}</span>
             </span>
           )}

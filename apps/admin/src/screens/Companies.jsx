@@ -6,6 +6,7 @@ import { ArrowDownUp, ArrowRight, Plus, Search } from '@ui/components/ui/lineIco
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { isValidGstin } from '@ui/utils/gstin';
 import { archiveCompany, getAccountOverview, reactivateCompany } from '@platform/admin/admin';
+import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { AppMark, Empty, Loading, PageHead, WsDrawer } from './wsKit';
 import CompanyDetail from './CompanyDetail';
 import './workspace.css';
@@ -33,13 +34,15 @@ const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric'
 /** Search, sort and page the directory rows. */
 export function companyRows(companies, { q = '', sort = 'name', dir = 1, page = 0 }) {
   const needle = q.trim().toLowerCase();
-  const rows = companies
+  const sorted = companies
     .filter((c) => !needle || `${c.name} ${c.gstin} ${c.state}`.toLowerCase().includes(needle))
     .sort((a, b) => {
       const x = a[sort];
       const y = b[sort];
       return (typeof x === 'number' ? x - y : String(x || '').localeCompare(String(y || ''))) * dir;
     });
+  /* Rows with a tag (archived, or no GSTIN) come first (DESIGN.md "Status tags"). */
+  const rows = exceptionsFirst(sorted, (c) => c.archived || !c.gstin);
   return { total: rows.length, rows: rows.slice(page * PAGE, page * PAGE + PAGE), pages: Math.max(1, Math.ceil(rows.length / PAGE)) };
 }
 
@@ -172,7 +175,8 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                         {c.archived ? (
                           <span className="ws-state" data-tone="off">Archived</span>
                         ) : c.gstin ? (
-                          <span className="ws-state" data-tone="ok">Active</span>
+                          /* The expected state wears no tag; a screen reader still hears it. */
+                          <span className="sr-only">Active</span>
                         ) : (
                           <span className="ws-state" data-tone="warn">Needs GSTIN</span>
                         )}

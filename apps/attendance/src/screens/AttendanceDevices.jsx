@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Cpu, Fingerprint, Plus, UserX, Wifi } from '@ui/components/ui/lineIcons';
+import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -126,6 +127,35 @@ const healthOf = (d) => {
   if (d.vendor === 'ETIMEOFFICE' || PULL[d.vendor]) return d.lastError ? 'attention' : 'working';
   return d.awaitingNetwork || !d.online ? 'attention' : 'working';
 };
+/*
+ * The status cell tags only exceptions (DESIGN.md "Status tags"): switched off, fields to match, a failed push
+ * or pull, a new network, offline or never connected, nothing received yet. A reader working as it should reads
+ * as plain words ("online", "Collected 5 min ago"). Exceptions sort first; the tabs and the export keep every status.
+ */
+const readerState = (d) => {
+  if (!d.isActive) return { tag: 'Off', tone: 'neutral' };
+  if (VIRTUAL[d.vendor]) return { text: d.lastSeenAt ? `Used ${ago(d.lastSeenAt)}` : 'Not used yet' };
+  if (MAPPED[d.vendor]) {
+    if (!d.mapping) return { tag: 'Fields to match', title: 'Open it and set where each field is' };
+    if (d.lastError) return { tag: 'Last push failed', tone: 'neg', title: d.lastError };
+    if (!d.lastSeenAt) return { tag: d.vendor === 'FILE' ? 'Nothing imported yet' : 'Nothing received yet' };
+    return { text: `${d.vendor === 'FILE' ? 'Imported' : 'Received'} ${ago(d.lastSeenAt)}` };
+  }
+  if (d.vendor === 'ETIMEOFFICE' || PULL[d.vendor]) {
+    if (d.lastError) return { tag: 'Not collecting', tone: 'neg', title: d.lastError };
+    return d.lastFetchedAt ? { text: `Collected ${ago(d.lastFetchedAt)}` } : { tag: 'Not collected yet' };
+  }
+  if (d.awaitingNetwork) return { tag: 'New network', title: `Calling from ${d.awaitingNetwork}, which is not approved` };
+  if (d.online) return { text: 'online' };
+  return { tag: d.lastSeenAt ? `Last seen ${ago(d.lastSeenAt)}` : 'Never connected', title: d.lastSeenAt || '' };
+};
+function ReaderStatus({ d }) {
+  const st = readerState(d);
+  if (!st.tag) return <span className="ui-caption">{st.text}</span>;
+  return <span title={st.title || undefined}><ExceptionTag label={st.tag} tone={st.tone || 'warn'} /></span>;
+}
+/* Certified, compatible and integration-available readers read as plain words; only doubtful support is tagged. */
+const SUPPORT_EXCEPTION = ['UNDER_INVESTIGATION', 'UNSUPPORTED'];
 const directionWord = (d) => (d.direction === 'both' ? 'In / out' : d.direction === 'in' ? 'Entry' : 'Exit');
 const TABS = [
   { value: '', label: 'All', tone: 'all' },
@@ -185,7 +215,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
   const all = data?.devices || [];
   const counts = { '': all.length };
   for (const d of all) counts[healthOf(d)] = (counts[healthOf(d)] || 0) + 1;
-  const rows = columns.applyFilters(search.filtered, COLUMNS);
+  const rows = exceptionsFirst(columns.applyFilters(search.filtered, COLUMNS), (d) => Boolean(readerState(d).tag));
   const physical = all.filter((d) => !VIRTUAL[d.vendor]);
 
   return (
@@ -286,33 +316,13 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
                   </tr>
                 ) : rows.map((d) => (
                   <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
-                    <td className="ui-col-entity">{d.name}{!VIRTUAL[d.vendor] && d.support ? <span className="block text-xs font-normal"><SupportPill support={d.support} /></span> : null}</td>
+                    <td className="ui-col-entity">{d.name}{!VIRTUAL[d.vendor] && d.support ? <span className="block text-xs font-normal">{SUPPORT_EXCEPTION.includes(d.support.support) ? <SupportPill support={d.support} /> : <span className="ui-caption" title={d.support.note || ''}>{d.support.label}</span>}</span> : null}</td>
                     <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : URL_PUSH[d.vendor] ? d.model || `${d.driverLabel} · not connected yet` : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
                     <td className="hidden 2xl:table-cell">{siteNames.get(d.areaId) || <span className="ui-caption">All sites</span>}</td>
                     <td className="ui-col-meta hidden 2xl:table-cell">{d.driverLabel || '—'}{d.ip ? <span className="ui-caption block">{d.ip}</span> : null}</td>
                     <td>{directionWord(d)}</td>
                     <td className="ui-col-h-center whitespace-nowrap">
-                      {!d.isActive ? (
-                        <span className="ui-pill ui-pill-neutral">Off</span>
-                      ) : VIRTUAL[d.vendor] ? (
-                        <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `Used ${ago(d.lastSeenAt)}` : 'Not used yet'}</span>
-                      ) : MAPPED[d.vendor] ? (
-                        !d.mapping ? (
-                          <span className="ui-pill ui-pill-warn" title="Open it and set where each field is">Fields to match</span>
-                        ) : d.lastError ? (
-                          <span className="ui-pill ui-pill-neg" title={d.lastError}>Last push failed</span>
-                        ) : (
-                          <span className="ui-pill ui-pill-neutral">{d.lastSeenAt ? `${d.vendor === 'FILE' ? 'Imported' : 'Received'} ${ago(d.lastSeenAt)}` : d.vendor === 'FILE' ? 'Nothing imported yet' : 'Nothing received yet'}</span>
-                        )
-                      ) : d.vendor === 'ETIMEOFFICE' || (PULL[d.vendor] && !MAPPED[d.vendor]) ? (
-                        <span className={`ui-pill ${d.lastError ? 'ui-pill-neg' : d.lastFetchedAt ? 'ui-pill-pos' : 'ui-pill-neutral'}`} title={d.lastError || ''}>{d.lastError ? 'Not collecting' : d.lastFetchedAt ? `Collected ${ago(d.lastFetchedAt)}` : 'Not collected yet'}</span>
-                      ) : d.awaitingNetwork ? (
-                        <span className="ui-pill ui-pill-warn" title={`Calling from ${d.awaitingNetwork}, which is not approved`}>New network</span>
-                      ) : d.online ? (
-                        <span className="ui-caption">online</span>
-                      ) : (
-                        <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>{d.lastSeenAt ? `Last seen ${ago(d.lastSeenAt)}` : 'Never connected'}</span>
-                      )}
+                      <ReaderStatus d={d} />
                     </td>
                     <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
                     <td className="ui-num hidden 2xl:table-cell">{d.userCount === null || d.userCount === undefined ? '—' : `${d.userCount.toLocaleString('en-IN')}${d.fingerCount ? ` · ${d.fingerCount.toLocaleString('en-IN')} fp` : ''}`}</td>

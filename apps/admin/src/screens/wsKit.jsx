@@ -1,6 +1,7 @@
 import React from 'react';
 import { emoji } from '@ui/components/ui/emoji';
 import { PageIconContext } from './pageIcon';
+import { CountLine } from '@ui/components/ui/CountLine';
 import { ArrowLeft, ChevronRight, ArrowUpRight, Globe, Smartphone } from '@ui/components/ui/lineIcons';
 import {
   Bell, BookOpen, Briefcase, Building, Building2, CalendarDays, Clock, CreditCard, Database, FileText, Flag, History, House, Inbox, LayoutGrid, Library, Lightbulb, Mail, MessageCircle, Receipt, Settings, Shield, ShieldCheck, Timer, TriangleAlert, UserPlus, UserRound, Users, UsersRound, Wallet, Zap,
@@ -163,7 +164,7 @@ export function PageHead({ crumbs = [], title, description, meta, counts = null,
         {/* The count line sits under the title (DESIGN.md "Page header", 19 Nov 2026; design audit G6). It is
             not a caption: it is the page's totals, so it stays when descriptions are hidden. `meta` stays at the
             side for a page's state ("Unsaved changes"). */}
-        {counts ? <p className="ui-count-line ws-head-count">{counts}</p> : null}
+        {Array.isArray(counts) ? <CountLine items={counts} className="ws-head-count" /> : counts ? <p className="ui-count-line ws-head-count">{counts}</p> : null}
       </div>
       {meta || actions || tools ? (
         <div className="ws-head-side">

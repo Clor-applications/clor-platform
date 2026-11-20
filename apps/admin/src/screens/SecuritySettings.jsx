@@ -12,6 +12,7 @@ import {
   savePolicy,
 } from '@platform/admin/security';
 import AuthenticatorCard from '@ui/profile/AuthenticatorCard';
+import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { Avatar, DeviceMark, Empty, FilterSelect, ICON, Loading, PageHead, Panel, StatusPill, ago, device, ipText } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
@@ -267,7 +268,8 @@ export const SecuritySettings = ({ openScreen }) => {
                   {events.map((e) => (
                     <tr key={e.id}>
                       <td className="ws-sec-when">{stamp(e.createdAt)}</td>
-                      <td><StatusPill tone={eventTone(e.eventType)}>{eventWords(e.eventType)}</StatusPill></td>
+                      {/* The event is the row's content, so its word always shows; only a failure wears a tag (DESIGN.md "Status tags"). */}
+                      <td>{eventTone(e.eventType) === 'danger' ? <StatusPill tone="danger">{eventWords(e.eventType)}</StatusPill> : eventWords(e.eventType)}</td>
                       <td>
                         {e.userName || e.userEmail ? (
                           <span className="ws-who-cell"><Avatar name={e.userName || e.userEmail} />{e.userName || e.userEmail}</span>
@@ -364,10 +366,11 @@ export const SecuritySettings = ({ openScreen }) => {
                       <span className="ws-item-title">{methods?.local?.name || 'Email and password'}</span>
                       <span className="ws-item-sub">Always available</span>
                     </span>
-                    <StatusPill tone="ok">Active</StatusPill>
+                    <span className="sr-only">Active</span>
                   </div>
                 </li>
-                {(methods?.providers || []).map((p) => (
+                {/* A method that is on wears no tag; one switched off says so and comes first. */}
+                {exceptionsFirst(methods?.providers || [], (p) => !p.enabled).map((p) => (
                   <li key={p.id}>
                     <div className="ws-item">
                       <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.secure size={14} /></span>
@@ -375,7 +378,7 @@ export const SecuritySettings = ({ openScreen }) => {
                         <span className="ws-item-title">{p.name}</span>
                         <span className="ws-item-sub">{p.kind}{p.emailDomains ? ` · ${p.emailDomains}` : ''}</span>
                       </span>
-                      <StatusPill tone={p.enabled ? 'ok' : 'neutral'}>{p.enabled ? 'On' : 'Off'}</StatusPill>
+                      {p.enabled ? <span className="sr-only">On</span> : <StatusPill tone="neutral">Off</StatusPill>}
                     </div>
                   </li>
                 ))}

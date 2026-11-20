@@ -468,7 +468,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           hint: pending == null ? null : pending ? `${pending} invited, not joined yet` : memberCount === 1 ? 'Only you so far' : 'Everyone has joined',
         }
       : null,
-    waitingTotal != null ? { key: 'waiting', icon: E.inbox, hue: 'blue', value: waitingTotal, label: 'Waiting on you', hint: waitingTotal ? `In ${plural(waitingApps, 'app')}` : 'All clear', go: go('inbox') } : null,
+    /* Not at zero: a figure tile is never shown empty (DESIGN.md "Layout"; design audit step 2). */
+    waitingTotal ? { key: 'waiting', icon: E.inbox, hue: 'blue', value: waitingTotal, label: 'Waiting on you', hint: waitingTotal ? `In ${plural(waitingApps, 'app')}` : 'All clear', go: go('inbox') } : null,
   ].filter(Boolean);
 
   /* Team and access: who is in the account, and how many people each app has (seats from the directory). */

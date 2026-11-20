@@ -8,6 +8,7 @@ import { createProvider, createScimToken, deleteProvider, getProviders, getScim,
 import { listRoles } from '@platform/admin/admin';
 import { Globe, Lock, LockKeyhole } from 'lucide-react';
 import { FilterSelect, Loading, PageHead, StatusPill, WsDrawer } from './wsKit';
+import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import './ws-security.css';
 import './workspace.css';
 import './ws-security.css';
@@ -203,7 +204,8 @@ export default function SsoSettings() {
               <h2 className="ws-h2">Sign-in methods</h2>
             </div>
             <ul className="ws-sso-grid" aria-label="Sign-in methods">
-              {data.providers.map((p) => {
+              {/* A connected provider wears no tag; one switched off or never switched on says so and comes first. */}
+              {exceptionsFirst(data.providers, (p) => p.status !== 'ACTIVE').map((p) => {
                 const [label, tone] = STATUS[p.status] || [p.status, 'neutral'];
                 const unverified = p.domainVerification?.domains?.some((d) => !d.verified);
                 const Icon = iconFor(p);
@@ -212,7 +214,7 @@ export default function SsoSettings() {
                     <div className="ws-sso-head">
                       <span className="ws-sso-chip" style={{ '--sso': hueFor(p.name) }} aria-hidden="true"><Icon size={18} /></span>
                       <span className="ws-sso-name">{p.name}</span>
-                      <StatusPill tone={tone}>{label}</StatusPill>
+                      {p.status === 'ACTIVE' ? <span className="sr-only">{label}</span> : <StatusPill tone={tone}>{label}</StatusPill>}
                       <span className="ws-tag">{p.kind === 'SAML' ? 'SAML 2.0' : 'OpenID Connect'}</span>
                     </div>
                     <p className="ws-sso-line">
@@ -260,7 +262,7 @@ export default function SsoSettings() {
                 <div className="ws-sso-head">
                   <span className="ws-sso-chip" style={{ '--sso': 'var(--cat-4)' }} aria-hidden="true"><KEY size={18} /></span>
                   <span className="ws-sso-name">{data.local.name}</span>
-                  <StatusPill tone="ok">Active</StatusPill>
+                  <span className="sr-only">Active</span>
                 </div>
                 <p className="ws-sso-line">Always on. Passwords keep working for anyone a provider does not cover.</p>
               </li>
@@ -285,7 +287,7 @@ export default function SsoSettings() {
               ) : null}
               {(scim?.tokens || []).length ? (
                 <ul className="ws-list">
-                  {scim.tokens.map((t) => {
+                  {exceptionsFirst(scim.tokens, (t) => t.status !== 'ACTIVE').map((t) => {
                     const [word, tone, why] = CREDENTIAL_STATUS[t.status] || CREDENTIAL_STATUS.OWNER_OFF;
                     return (
                       <li key={t.id}>
@@ -297,7 +299,7 @@ export default function SsoSettings() {
                               {why ? ` · ${why}` : ''}
                             </span>
                           </span>
-                          <StatusPill tone={CRED_TONE[tone] || 'neutral'}>{word}</StatusPill>
+                          {t.status === 'ACTIVE' ? <span className="sr-only">{word}</span> : <StatusPill tone={CRED_TONE[tone] || 'neutral'}>{word}</StatusPill>}
                           <span className="ws-item-actions flex flex-wrap gap-2">
                             <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => requestOpenApp('admin', 'credentials')}>Manage in Credentials</button>
                             <button type="button" className="ws-btn ws-btn--danger-quiet ws-btn--small" onClick={() => revoke(t)}>Revoke</button>

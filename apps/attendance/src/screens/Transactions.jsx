@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Camera, Fingerprint, MapPin, Router, Users, UserX } from '@ui/components/ui/lineIcons';
+import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -108,7 +109,9 @@ export default function Transactions({ title = 'Punches' }) {
   const inTab = useMemo(() => all.filter((t) => !direction || directionOf(t) === direction), [all, direction]);
   const search = useListSearch(inTab, ['localTime', 'employeeName', 'employeeCode', 'pin', 'nameOnReader', 'deviceName', 'verify', 'siteName']);
   const columns = useColumnFilters();
-  const rows = columns.applyFilters(search.filtered, COLUMNS);
+  /* Tags only on exceptions (DESIGN.md "Status tags"): a punch no one is matched to waits on someone to say
+   * who it is, so it is tagged and sorts first. In and out are what the reader sent, data not a state: plain words. */
+  const rows = exceptionsFirst(columns.applyFilters(search.filtered, COLUMNS), (t) => !t.employeeName);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
   useResetPage(setPage, [direction, search.query, filters]);
   const figures = useMemo(() => ({
@@ -207,8 +210,9 @@ export default function Transactions({ title = 'Punches' }) {
                       <td className="ui-col-entity">
                         {t.employeeName || (
                           <span className="flex flex-col gap-1">
-                            <span className="ui-caption" style={{ color: 'rgb(var(--warn-ink))' }}>
-                              Not matched{t.nameOnReader ? ` · “${t.nameOnReader}” on the reader` : ''}
+                            <span className="inline-flex flex-wrap items-center gap-1.5">
+                              <ExceptionTag label="Not matched" />
+                              {t.nameOnReader ? <span className="ui-caption">“{t.nameOnReader}” on the reader</span> : null}
                             </span>
                             <select className="ui-select ui-ctl-compact !w-auto" value="" onChange={(e) => matchId(t.pin, e.target.value)} aria-label={`Who is reader ID ${t.pin}?`}>
                               <option value="">Who is ID {t.pin}?</option>
@@ -220,7 +224,7 @@ export default function Transactions({ title = 'Punches' }) {
                       <td className="ui-mono">{t.pin}</td>
                       <td className="ui-col-h-center">
                         {t.kind ? (
-                          <span className={`ui-pill ${t.kind === 'IN' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{t.kind}</span>
+                          t.kind === 'IN' ? 'In' : t.kind === 'OUT' ? 'Out' : t.kind
                         ) : (
                           <span className="ui-caption" title={`The reader sent punch state ${t.state}: no in/out key pressed. The day counts the first punch as in and the last as out.`}>auto</span>
                         )}

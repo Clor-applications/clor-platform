@@ -145,8 +145,11 @@ describe('operator console: subscriptions', () => {
     });
     const open = vi.fn();
     render(<Subscriptions openCustomer={open} />);
-    expect(await screen.findByText('₹3,610')).toBeInTheDocument();
-    expect(screen.getByText('₹1,499 at risk')).toBeInTheDocument();
+    // Totals are a count line under the title (design audit step 2); zero clauses drop out.
+    const line = await screen.findByLabelText('Figures');
+    expect(line).toHaveTextContent('₹3,610 MRR from 2 active, before GST');
+    expect(line).toHaveTextContent('1 overdue (₹1,499 at risk)');
+    expect(line).not.toHaveTextContent('no plan');
     const row = screen.getAllByRole('row')[1];
     expect(row).toHaveTextContent('₹2,610');
     expect(row).toHaveTextContent('Meridian special · monthly');
