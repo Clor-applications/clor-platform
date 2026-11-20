@@ -44,7 +44,7 @@ export function accessPreview({ role, companyNames, companyRole = null }) {
   return companyRole ? `${first} Works as ${companyRole.name} in ${companyRole.company} from the first sign-in.` : `${first} App access comes from roles.`;
 }
 
-export default function Invitations({ tenant, companies = [] }) {
+export default function Invitations({ tenant, companies = [], params }) {
   const accountCompanies = useMemo(() => (companies.length ? companies : tenant ? [tenant] : []), [companies, tenant]);
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
@@ -118,7 +118,10 @@ export default function Invitations({ tenant, companies = [] }) {
   /* Round 60 pendinginvites A: everyone who has not joined yet, one list, sent again one by one or all at once. */
   const [onlyWaiting, setOnlyWaiting] = useState(false);
   const notJoined = (rows || []).filter((r) => r.status === 'PENDING' || r.status === 'EXPIRED');
-  const shown = onlyWaiting ? notJoined : rows || [];
+  /* From the search bar: one invited address, shown alone until "Show all". */
+  const [onlyEmail, setOnlyEmail] = useState(() => (typeof params?.email === 'string' ? params.email.toLowerCase() : ''));
+  const one = onlyEmail ? (rows || []).filter((r) => String(r.email || '').toLowerCase() === onlyEmail) : [];
+  const shown = one.length ? one : onlyWaiting ? notJoined : rows || [];
   const [sendingAll, setSendingAll] = useState(false);
   const sendAll = async () => {
     if (!notJoined.length || sendingAll) return;
@@ -178,6 +181,12 @@ export default function Invitations({ tenant, companies = [] }) {
               <Send size={14} aria-hidden="true" /> {sendingAll ? 'Sending…' : notJoined.length === 1 ? 'Send again' : `Send again to all ${notJoined.length}`}
             </button>
           </div>
+        ) : null}
+
+        {one.length ? (
+          <p className="ws-item-sub" role="status">
+            Showing {one[0].email} only. <button type="button" className="ws-row-link" onClick={() => setOnlyEmail('')}>Show all</button>
+          </p>
         ) : null}
 
         {notice ? <p role="status" className="ws-notice">{notice}</p> : null}

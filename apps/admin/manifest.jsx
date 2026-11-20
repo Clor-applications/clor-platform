@@ -159,9 +159,9 @@ export const adminApp = {
    * screen the Workspace had is still here, in the closest group.
    */
   /* No counts beside panel items (owner, 19 Nov 2026): the number belongs on the page it counts. */
-  /* Search: people and companies by name, and jobs by the words an administrator uses for them (src/search.js). */
+  /* Search: people and companies by name, CLOR's invoices by number, invitations by address, and jobs by the words an administrator uses for them (src/search.js). */
   searchRecords: (q) => import('./src/search.js').then((m) => m.findInWorkspace(q)),
-  searchLabel: 'Search people, companies and settings',
+  searchLabel: 'Search people, companies, invoices and settings',
   searchActions: [
     { label: 'Invite a person', screen: 'invitations', keywords: ['invite', 'add user', 'add member', 'new user', 'add person'] },
     { label: 'Add a company', screen: 'companies', keywords: ['add company', 'new company', 'second company', 'gstin'] },
