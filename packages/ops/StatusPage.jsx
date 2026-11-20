@@ -64,7 +64,8 @@ function CustomersField({ id, value, onChange }) {
   const latest = useRef(0);
   useEffect(() => {
     const term = text.trim();
-    if (term.length < 2) return setFound(null);
+    /* Under two letters nothing is asked; the box's own handler has already cleared the list. */
+    if (term.length < 2) return undefined;
     const mine = ++latest.current;
     const t = setTimeout(() => {
       opsAccounts({ q: term, page: 0 })
@@ -79,7 +80,7 @@ function CustomersField({ id, value, onChange }) {
   return (
     <div className="grid gap-2">
       <Field id={id} label="Customers it hits" hint="Staff only. Each one's page in Ops shows this post while it is open.">
-        <input id={id} className="ui-input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search by name or client ID" autoComplete="off" />
+        <input id={id} className="ui-input" value={text} onChange={(e) => (setText(e.target.value), e.target.value.trim().length < 2 && (latest.current += 1, setFound(null)))} placeholder="Search by name or client ID" autoComplete="off" />
       </Field>
       {found ? (
         choices.length ? (
