@@ -4,7 +4,7 @@ import { Check, Download, Undo2 } from '@ui/components/ui/lineIcons';
 import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
 import { notify } from '@ui/components/ui/notify';
-import { ICON, Loading, PageHead, Panel } from './wsKit';
+import { ICON, LoadError, Loading, PageHead, Panel } from './wsKit';
 import './workspace.css';
 import { errorWords } from '@ui/utils/errorWords';
 
@@ -107,10 +107,10 @@ export default function CloseCompanyPage({ companyName = '' }) {
           description={`Closing ${name || 'this company'} stops its apps and, after a notice period, deletes every record. Export first.`}
         />
 
-        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+        {error && state ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         {!state ? (
-          error ? null : <Loading shape="card" label="Loading the closure details…" />
+          error ? <LoadError onRetry={() => { setError(''); load(); }}>{error}</LoadError> : <Loading shape="card" label="Loading the closure details…" />
         ) : !canClose ? (
           <Panel title="Only an administrator can close this company">
             <p className="ws-card-blurb">Only an administrator of this company can close it{scheduled ? ' or cancel its closure' : ''}.</p>

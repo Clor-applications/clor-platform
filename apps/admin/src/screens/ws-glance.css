@@ -62,7 +62,7 @@
   outline-offset: 2px;
 }
 .wsh .wsg-fold-ico {
-  transition: transform 160ms ease;
+  transition: transform var(--ws-dur-menu) var(--ws-ease);
 }
 .wsh .wsg-fold[aria-expanded='true'] .wsg-fold-ico {
   transform: rotate(180deg);
@@ -88,6 +88,7 @@
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
 }
+.wsh .wsg-cards[hidden] { display: none; }
 .wsh .wsg-glance {
   display: flex;
   flex-direction: column;

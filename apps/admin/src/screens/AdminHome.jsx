@@ -7,7 +7,7 @@ import { operator } from '@platform/operator';
 import { actionText } from './AccountActivity';
 import { planSentence, planWord } from './planWords';
 import { listOutsideAccess } from '@platform/admin/outsideAccess';
-import { AppMark, Avatar, ICON, Meter, ago, appName, productIcon, seatState } from './wsKit';
+import { AppMark, Avatar, ICON, LoadError, Meter, ago, appName, productIcon, seatState } from './wsKit';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
 import { orgId, requestOpenHelp } from '@platform/context';
 import { apiFetch } from '@platform/http';
@@ -159,6 +159,9 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   /* At a glance folds away, as the reader left it; Top actions can show one subject at a time. */
   const [folded, setFolded] = useState(false);
   const [area, setArea] = useState(null);
+  /* Who this is could not be read: Top actions says so, with a retry, instead of "Nothing needs your action". */
+  const [meFailed, setMeFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   /* Which apps are on here, as one string: the effect below reads it and must not re-run on a new array of the same apps. */
   const subsKey = (tenant?.subscriptions || []).join(',');
 
@@ -167,6 +170,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
     getAccountMe()
       .then((r) => {
         if (!live) return;
+        setMeFailed(false);
         setMe(r || null);
         const role = r?.role;
         if (role === 'OWNER' || role === 'ADMIN' || role === 'BILLING_ADMIN') getAccountOverview().then((o) => live && setOverview(o || false)).catch(() => live && setOverview(false)); /* false: read and failed, so nothing waits on it */
@@ -213,11 +217,15 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         });
       })
       /* No answer hides what depends on it; nothing is guessed. */
-      .catch(() => live && setMe(null));
+      .catch(() => {
+        if (!live) return;
+        setMe(null);
+        setMeFailed(true);
+      });
     return () => {
       live = false;
     };
-  }, [tenant?.id, subsKey]);
+  }, [tenant?.id, subsKey, attempt]);
 
   const loading = me === undefined;
   const role = me?.role || null;
@@ -423,8 +431,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               <ChevronDown size={18} aria-hidden="true" className="wsg-fold-ico" />
             </button>
           </h2>
-          {folded ? null : (
-            <div id="wsg-glance" className="wsg-cards">
+          {/* Folded, the cards stay in the page but hidden, so aria-controls always names something and nothing is read again. */}
+          <div id="wsg-glance" className="wsg-cards" hidden={folded}>
               {isAdmin && memberCount != null ? (
                 <GlanceCard
                   id="members"
@@ -542,7 +550,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 </GlanceCard>
               ) : null}
             </div>
-          )}
         </section>
 
         {myApps && myApps.length === 0 ? (
@@ -605,6 +612,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 </li>
               ))}
             </ul>
+          ) : meFailed ? (
+            <LoadError onRetry={() => { setMeFailed(false); setMe(undefined); setAttempt((n) => n + 1); }}>What needs your action could not be loaded.</LoadError>
           ) : (
             <p className="wsg-calm">Nothing needs your action right now.</p>
           )}
