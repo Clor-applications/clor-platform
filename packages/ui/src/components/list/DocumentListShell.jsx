@@ -201,7 +201,8 @@ export default function DocumentListShell({
 
       {/* One card, not two: the filters belong to the table they filter, and a
           separate floating box above it reads as an unrelated control panel. */}
-      {surface === 'plain' ? children : <div className="ui-card overflow-hidden">{children}</div>}
+      {/* Outside Books the list sits on the page under one rule (DESIGN.md "Lists"): legibility.css flattens .ui-list-surface. */}
+      {surface === 'plain' ? children : <div className="ui-card ui-list-surface overflow-hidden">{children}</div>}
 
     </div>
   );
