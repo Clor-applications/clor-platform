@@ -3270,3 +3270,85 @@ body:has(.fx-secnav) .nav {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* --------------------------------------------- proof strip and the problem (20 Nov 2026) */
+.fx-proof {
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+.fx-proof-in {
+  list-style: none;
+  margin: 0 auto;
+  padding-block: var(--s-6, 28px);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-6, 28px);
+}
+.fx-proof-in li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.fx-proof-in svg {
+  flex-shrink: 0;
+  color: var(--accent-text);
+  margin-top: 2px;
+}
+.fx-proof-t {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+.fx-proof-d {
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin-top: 2px;
+}
+.fx-problem-lede {
+  max-width: 60ch;
+  color: var(--ink-2);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  margin-top: var(--s-5, 20px);
+}
+.fx-problems {
+  list-style: none;
+  padding: 0;
+  margin: var(--s-7, 40px) 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-7, 40px);
+  border-top: 2px solid var(--ink);
+  padding-top: var(--s-6, 28px);
+}
+.fx-problem-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.fx-problems h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 14px;
+  color: var(--ink);
+}
+.fx-problems p {
+  color: var(--ink-2);
+  line-height: 1.55;
+  margin-top: 6px;
+}
+.fx-problem-go {
+  margin-top: var(--s-6, 28px);
+}
+@media (max-width: 900px) {
+  .fx-proof-in { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fx-problems { grid-template-columns: 1fr; gap: var(--s-6, 28px); }
+}
+@media (max-width: 520px) {
+  .fx-proof-in { grid-template-columns: 1fr; gap: 18px; }
+}
