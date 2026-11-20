@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BulkOutcome from '@ui/components/list/BulkOutcome';
@@ -279,7 +280,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
     { key: 'title', label: 'Request', always: true, render: (r) => <span className="font-medium">{r.title}</span> },
     { key: 'kind', label: 'Kind', render: (r) => typeOf(r.requestType, r.payload) },
     { key: 'asked', label: 'Asked', render: (r) => <span className="tabular-nums">{day(r.createdAt)}</span> },
-    { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || enumWords(r.status)}</span> },
+    { key: 'status', label: 'Status', render: (r) => <ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /> },
   ];
   const kindOptions = [{ value: '', label: 'Every kind' }, ...KIND_ORDER.filter((k) => inbox.data?.rights?.[k]?.see).map((k) => ({ value: k, label: `${INBOX_KIND[k]}${counts[k] ? ` (${counts[k]})` : ''}` }))];
   const req = tab === 'mine' ? mine : inbox;
@@ -355,7 +356,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
           </span>
         ) : (r) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || enumWords(r.status)}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /></span>
             <span className="block truncate ui-caption">{typeOf(r.requestType, r.payload)}</span>
           </span>
         )}

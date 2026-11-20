@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import RangePresets from '@ui/components/ui/RangePresets';
@@ -113,7 +114,7 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (c) => <PersonCell person={{ name: c.employeeName || '—' }} line={c.employeeCode || ''} /> },
     { key: 'claim', label: 'Claim', render: (c) => <span className="min-w-0"><span className="block truncate">{c.title}</span><span className="block ui-caption">{c.number} · {c.lines.length} bill{c.lines.length === 1 ? '' : 's'}{c.recordedByUserId ? ' · recorded by HR' : ''}</span></span> },
-    { key: 'status', label: 'Status', render: (c) => <span className="block"><Pill status={c.status} />{c.status === 'PAID' || c.status === 'WITH_SALARY' ? <span className="block ui-caption mt-0.5">{c.payMode === 'SALARY' ? `With salary${c.payrollPeriodName ? `, ${c.payrollPeriodName}` : ''}` : `${METHOD[c.paidMethod] || 'Paid now'} · ${day(c.paidOn)}`}</span> : null}</span> },
+    { key: 'status', label: 'Status', render: (c) => <span className="block"><ExceptionTag label={c.status === 'PAID' ? '' : HR_WORDS[c.status] || c.status} normal={HR_WORDS[c.status]} tone={PILL[c.status] || 'neutral'} />{c.status === 'PAID' || c.status === 'WITH_SALARY' ? <span className="block ui-caption mt-0.5">{c.payMode === 'SALARY' ? `With salary${c.payrollPeriodName ? `, ${c.payrollPeriodName}` : ''}` : `${METHOD[c.paidMethod] || 'Paid now'} · ${day(c.paidOn)}`}</span> : null}</span> },
     { key: 'amount', label: tab === 'pay' ? 'To pay' : 'Amount', align: 'right', render: (c) => <span className="tabular-nums whitespace-nowrap">{money(amountOf(c))}</span> },
   ];
   const books = tab === 'books';
@@ -146,7 +147,7 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
         card={(c) => (
           <span className="min-w-0 flex-1">
             <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{c.employeeName}</span><span className="tabular-nums">{money(amountOf(c))}</span></span>
-            <span className="flex items-center justify-between gap-2"><span className="truncate ui-caption">{c.number} · {c.title}</span><Pill status={c.status} /></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate ui-caption">{c.number} · {c.title}</span><ExceptionTag label={c.status === 'PAID' ? '' : HR_WORDS[c.status] || c.status} normal={HR_WORDS[c.status]} tone={PILL[c.status] || 'neutral'} /></span>
           </span>
         )}
         toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null, page: null })} placeholder="Search name, employee ID or claim" label="Search claims" className="w-full sm:w-72" />}

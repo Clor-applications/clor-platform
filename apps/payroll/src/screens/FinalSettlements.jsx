@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { Check, Handshake, PauseCircle, Plus, RotateCcw, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -253,7 +254,7 @@ export default function FinalSettlements() {
                     </td>
                     <td className="ui-num">{money(x.netPayable)}</td>
                     <td className="ui-col-h-center">
-                      {x.hold ? <span className="ui-pill ui-pill-info">Held</span> : <span className={`ui-pill ${STATUS[x.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[x.status]?.label || x.status}</span>}
+                      {x.hold ? <span className="ui-pill ui-pill-info">Held</span> : <ExceptionTag label={x.status === 'PAID' ? '' : STATUS[x.status]?.label || x.status} normal={STATUS[x.status]?.label} pill={STATUS[x.status]?.pill || 'ui-pill-neutral'} />}
                     </td>
                   </tr>
                 ))

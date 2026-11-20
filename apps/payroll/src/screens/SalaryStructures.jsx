@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { ArrowLeft, GripVertical, Layers, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -242,7 +243,7 @@ export default function SalaryStructures() {
                     <td className="ui-col-amount">{x.components.length}</td>
                     <td className="ui-col-amount">{x.assignedCount}</td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${x.status === 'ACTIVE' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{STATUSES.find((y) => y.id === x.status)?.label || x.status}</span>
+                      <ExceptionTag label={x.status === 'ACTIVE' ? '' : STATUSES.find((y) => y.id === x.status)?.label || x.status} tone="neutral" normal="Active" />
                     </td>
                     <td className="text-end" onClick={(e) => e.stopPropagation()}>
                       {x.assignedCount === 0 ? (

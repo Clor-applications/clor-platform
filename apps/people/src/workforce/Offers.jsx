@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { FileText } from '@ui/components/ui/lineIcons';
@@ -67,7 +68,8 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
     }
   };
   const open = (o) => (o.employeeId ? openScreen?.('employee', { id: o.employeeId }) : o.candidateId ? openScreen?.('candidates', { id: o.candidateId }) : null);
-  const status = (o) => { const [label, pill] = STATUS[o.status] || [o.status, 'ui-pill-neutral']; return <span className={`ui-pill ${pill}`}>{label}</span>; };
+  /* An accepted offer is the expected end: no tag (DESIGN.md "Status tags"). */
+  const status = (o) => <ExceptionTag label={o.status === 'ACCEPTED' ? '' : STATUS[o.status]?.[0] || o.status} normal={STATUS[o.status]?.[0]} pill={`${STATUS[o.status]?.[1] || 'ui-pill-neutral'}`} />;
   const when = (o) => (o.status === 'SENT' ? `Accept by ${formatDate(o.acceptBy)}` : o.status === 'ACCEPTED' && o.acceptedAt ? `Accepted ${formatDate(istDay(o.acceptedAt))}` : o.status === 'DECLINED' && o.declinedAt ? `Declined ${formatDate(istDay(o.declinedAt))}` : o.status === 'EXPIRED' ? `Ran out ${formatDate(o.acceptBy)}` : '');
 
   const columns = [

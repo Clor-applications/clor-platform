@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { Banknote, Plus, TrendingUp, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -97,6 +98,12 @@ const TABS = [
   { value: 'LEAVING', label: 'On notice or left', tone: 'cancelled' },
 ];
 const statusLabel = (p) => STATUSES.find((s) => s.id === p.status)?.label || p.status;
+/* The roster's tag, on exceptions only (DESIGN.md "Status tags"): a person still here with no salary, on notice
+   or suspended. Somebody who left is not waiting on anyone, so the word is grey. Active with a salary: no tag. */
+const exceptionOf = (p, paid) =>
+  p.status === 'LEFT' ? { label: 'Left', tone: 'neutral' }
+    : p.status === 'ACTIVE' ? (paid ? null : { label: 'No salary', tone: 'warn' })
+      : { label: statusLabel(p), tone: 'warn' };
 
 export default function SalaryAssignments({ params } = {}) {
   const [people, setPeople] = useState(null);
@@ -178,7 +185,9 @@ export default function SalaryAssignments({ params } = {}) {
     }),
     [currentByEmployee, structureName]
   );
-  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const filtered = filters.applyFilters(search.filtered, COLUMNS);
+  /* Exceptions first, unless the reader has sorted a column themselves. */
+  const rows = filters.sort ? filtered : exceptionsFirst(filtered, (p) => exceptionOf(p, currentByEmployee.has(p.id))?.tone === 'warn');
   const EXPORT_COLUMNS = [
     { key: 'name', label: 'Employee' },
     { key: 'code', label: 'Code' },
@@ -276,7 +285,7 @@ export default function SalaryAssignments({ params } = {}) {
                       <td className="ui-col-amount">{current ? money(current.annualCtc) : '—'}</td>
                       <td className="ui-col-amount">{current ? money(current.monthlyCtc) : '—'}</td>
                       <td className="ui-col-h-center">
-                        <span className={`ui-pill ${p.status === 'ACTIVE' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{statusLabel(p)}</span>
+                        <ExceptionTag {...(exceptionOf(p, Boolean(current)) || {})} normal="Active" />
                       </td>
                     </tr>
                   );
@@ -429,11 +438,7 @@ const SalaryTab = ({ person, structures, history, onSaved }) => {
                     <td className="ui-col-date ui-col-h-center">{shownDate(a.effectiveFrom)}</td>
                     <td className="ui-col-date ui-col-h-center">{a.effectiveTo ? shownDate(a.effectiveTo) : '—'}</td>
                     <td className="ui-col-amount">{money(a.annualCtc)}</td>
-                    <td>
-                      <span className={`ui-pill ${a.status === 'ACTIVE' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                        {a.status === 'ACTIVE' ? 'Current' : 'Past'}
-                      </span>
-                    </td>
+                    <td className="ui-col-meta">{a.status === 'ACTIVE' ? 'Current' : 'Past'}</td>
                   </tr>
                 ))}
               </tbody>

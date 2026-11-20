@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { Ban, Check, Pencil, Percent, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -281,7 +282,7 @@ export default function PayrollAdjustments() {
                     </td>
                     <td className="ui-col-meta ui-col-grow whitespace-normal">{r.reason || '—'}</td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${STATUS[r.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span>
+                      <ExceptionTag label={r.status === 'CONSUMED' ? '' : STATUS[r.status]?.label || r.status} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} />
                       {r.consumedByRunNumber ? <span className="ui-caption"> on {r.consumedByRunNumber}</span> : null}
                     </td>
                     <td>

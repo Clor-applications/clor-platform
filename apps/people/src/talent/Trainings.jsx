@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Download, Plus } from '@ui/components/ui/lineIcons';
@@ -67,7 +68,7 @@ export default function Trainings({ params = {} }) {
     { key: 'people', label: 'Assigned', align: 'right', render: (t) => <span className="tabular-nums">{seatsOf(t)}</span> },
     { key: 'completed', label: 'Completed', render: (t) => (seatsOf(t) ? <Meter value={(t.completed / seatsOf(t)) * 100} text={`${t.completed} · ${Math.round((t.completed / seatsOf(t)) * 100)}%`} /> : <span className="ui-muted">Nobody yet</span>) },
     { key: 'valid', label: 'Certificate', render: (t) => months(t.validMonths) },
-    { key: 'status', label: 'Status', render: (t) => <span className="inline-flex flex-wrap gap-1.5"><Pill map={STATUS} value={t.status} />{t.mandatory ? <span className="ui-pill ui-pill-warn">Must do</span> : null}</span> },
+    { key: 'status', label: 'Status', render: (t) => <span className="inline-flex flex-wrap gap-1.5"><ExceptionTag label={t.status === 'DONE' ? '' : STATUS[t.status]?.[0] || t.status} normal={STATUS[t.status]?.[0]} pill={`${STATUS[t.status]?.[1] || 'ui-pill-neutral'}`} />{t.mandatory ? <span className="ui-pill ui-pill-warn">Must do</span> : null}</span> },
   ];
   return (
     <div className="space-y-6">
@@ -89,7 +90,7 @@ export default function Trainings({ params = {} }) {
           card={(r) => (expiring ? (
             <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employee?.name}</span><Lapse seat={r} /></span><span className="block truncate ui-caption">{r.trainingTitle}</span></span>
           ) : (
-            <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><Pill map={STATUS} value={r.status} /></span><span className="block truncate ui-caption">{[r.startDate ? day(r.startDate) : null, `${r.completed} of ${r.assigned + r.completed + r.missed} completed`].filter(Boolean).join(' · ')}</span></span>
+            <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.title}</span><ExceptionTag label={r.status === 'DONE' ? '' : STATUS[r.status]?.[0] || r.status} normal={STATUS[r.status]?.[0]} pill={`${STATUS[r.status]?.[1] || 'ui-pill-neutral'}`} /></span><span className="block truncate ui-caption">{[r.startDate ? day(r.startDate) : null, `${r.completed} of ${r.assigned + r.completed + r.missed} completed`].filter(Boolean).join(' · ')}</span></span>
           ))}
           empty={expiring ? <EmptyState title="Nothing lapsing" description="No certificate lapses in the next 60 days." />
             : q || tab ? <EmptyState kind="filtered" title="No trainings match" description="Nothing here matches the search or the tab." />

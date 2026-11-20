@@ -1,6 +1,7 @@
 import { enumWords } from '@ui/utils/errorWords';
 import React from 'react';
 
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -77,7 +78,7 @@ export function SalaryRevisionsReadOnly() {
                   <td className="ui-col-amount tabular-nums text-right font-semibold">{money(r.proposedAnnualCtc)}</td>
                   <td className="ui-col-amount tabular-nums text-right">{r.incrementPercent ? <span className={Number(r.incrementPercent) > 0 ? 'pc-up' : ''}>{Number(r.incrementPercent) > 0 ? '+' : ''}{Number(r.incrementPercent).toFixed(1)}%</span> : '—'}</td>
                   <td className="ui-col-date tabular-nums text-right whitespace-nowrap">{r.effectiveFrom ? formatDate(String(r.effectiveFrom).slice(0, 10)) : '—'}</td>
-                  <td><span className={`ui-pill ${STATUS[r.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span></td>
+                  <td><ExceptionTag label={r.status === 'APPLIED' ? '' : STATUS[r.status]?.label || enumWords(r.status)} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} /></td>
                 </tr>
               ))}
             </tbody>

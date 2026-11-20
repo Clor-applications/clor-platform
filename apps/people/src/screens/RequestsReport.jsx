@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import RangePresets from '@ui/components/ui/RangePresets';
@@ -72,7 +73,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
     { key: 'asked', label: 'Asked', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.askedAt)}</span> },
     { key: 'status', label: 'Status', render: (r) => (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-        <span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || enumWords(r.status)}</span>
+        <ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} />
         {r.overdue ? <span className="ui-pill ui-pill-neg">Overdue</span> : null}
       </span>
     ) },
@@ -132,7 +133,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
             refreshing={report.refreshing}
             card={(r) => (
               <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employeeName}</span><span className={`ui-pill ui-pill-${TONE[r.status] || 'neutral'}`}>{STATUS[r.status] || enumWords(r.status)}</span></span>
+                <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employeeName}</span><ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /></span>
                 <span className="block truncate ui-caption">{r.formName} · {day(r.askedAt)}</span>
                 <span className="block truncate ui-caption">{r.lines.map((l) => l.value).join(' · ')}</span>
               </span>

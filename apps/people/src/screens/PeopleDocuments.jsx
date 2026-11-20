@@ -38,7 +38,8 @@ function DocStatus({ on, today }) {
   const days = daysTo(on, today);
   if (days < 0) return <span className="ui-pill ui-pill-neg">Expired</span>;
   if (days <= SOON_DAYS) return <span className="ui-pill ui-pill-warn">{days === 0 ? 'Expires today' : `Expires in ${days} ${days === 1 ? 'day' : 'days'}`}</span>;
-  return <span className="ui-pill ui-pill-pos">Valid</span>;
+  /* A valid document is the expected state: no tag (DESIGN.md "Status tags"). */
+  return <span className="sr-only">Valid</span>;
 }
 
 export default function PeopleDocuments({ openScreen }) {

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlertTriangle, ArrowLeft, Ban, Check, Download, Plus, Wallet, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -253,10 +254,10 @@ export default function PayrollPayments({ menuLabel } = {}) {
                     <td className="ui-col-amount">{money(p.paidAmount)}</td>
                     <td className="ui-col-amount">{p.failedCount || '—'}</td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${STATUS[p.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[p.status]?.label || p.status}</span>
+                      <ExceptionTag label={p.status === 'COMPLETED' ? '' : STATUS[p.status]?.label || p.status} normal={STATUS[p.status]?.label} pill={STATUS[p.status]?.tone || 'ui-pill-neutral'} />
                     </td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${p.postingStatus === 'POSTED' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{p.postingStatus === 'POSTED' ? 'Posted' : 'Not yet'}</span>
+                      <ExceptionTag label={p.postingStatus === 'POSTED' ? '' : 'Not yet'} tone="neutral" normal="Posted" />
                     </td>
                   </tr>
                 ))
@@ -660,7 +661,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
                   </td>
                   <td className="ui-col-amount">{money(l.amount)}</td>
                   <td>
-                    <span className={`ui-pill ${LINE_STATUS[l.status]?.tone || 'ui-pill-neutral'}`}>{LINE_STATUS[l.status]?.label || l.status}</span>
+                    <ExceptionTag label={l.status === 'PAID' ? '' : LINE_STATUS[l.status]?.label || l.status} normal={LINE_STATUS[l.status]?.label} pill={LINE_STATUS[l.status]?.tone || 'ui-pill-neutral'} />
                   </td>
                   <td className="ui-col-meta">{l.failureReason || l.reference || '—'}</td>
                   {settled ? (

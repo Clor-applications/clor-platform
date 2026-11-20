@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { Copy, ExternalLink, KeyRound, MapPin, Printer, Smartphone, UserCheck } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -279,7 +280,7 @@ export default function PortalAccess() {
                         <td><input type="checkbox" className="ui-checkbox" aria-label={`Pick ${p.name}`} checked={picked.has(p.id)} onChange={() => toggle(p.id)} /></td>
                         <td className="ui-col-entity">{p.name}<span className="ui-caption block">{p.department || ''}</span></td>
                         <td className="ui-mono">{p.code || <span className="ui-caption">none</span>}</td>
-                        <td><span className={`ui-pill ${st.pill}`}>{st.label}</span></td>
+                        <td><ExceptionTag label={st === STATE.active ? '' : st.label} normal={st.label} pill={st.pill} /></td>
                         <td className="ui-col-h-center">{p.mobilePunch ? <span className="ui-pill ui-pill-pos">On</span> : <span className="ui-caption">Off</span>}</td>
                         <td>{siteOf(p)}</td>
                         <td className="ui-col-meta hidden 2xl:table-cell">{p.email || <span className="ui-caption">—</span>}</td>

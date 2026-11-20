@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 
@@ -55,7 +56,7 @@ export default function ShiftSwaps({ params = {}, updateParams, openScreen }) {
     { key: 'with', label: 'Swaps with', render: (s) => <Person p={s.colleague} /> },
     { key: 'days', label: 'Days', render: (s) => <span className="tabular-nums whitespace-nowrap">{range(s.fromDate, s.toDate)}</span> },
     { key: 'shifts', label: 'Shifts', render: (s) => <span className="whitespace-nowrap">{s.days[0] ? `${s.days[0].requesterShift.name} ⇄ ${s.days[0].colleagueShift.name}` : '—'}</span> },
-    { key: 'status', label: 'Status', render: (s) => <span className={`ui-pill ui-pill-${SWAP_TONE[s.status] || 'neutral'}`}>{SWAP_STATUS[s.status] || enumWords(s.status)}</span> },
+    { key: 'status', label: 'Status', render: (s) => <ExceptionTag label={s.status === 'APPROVED' ? '' : SWAP_STATUS[s.status] || enumWords(s.status)} normal={SWAP_STATUS[s.status]} tone={SWAP_TONE[s.status] || 'neutral'} /> },
   ];
 
   return (
@@ -85,7 +86,7 @@ export default function ShiftSwaps({ params = {}, updateParams, openScreen }) {
         refreshing={req.refreshing}
         card={(s) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{s.requester.name} ⇄ {s.colleague.name}</span><span className={`ui-pill ui-pill-${SWAP_TONE[s.status] || 'neutral'}`}>{SWAP_STATUS[s.status] || enumWords(s.status)}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{s.requester.name} ⇄ {s.colleague.name}</span><ExceptionTag label={s.status === 'APPROVED' ? '' : SWAP_STATUS[s.status] || enumWords(s.status)} normal={SWAP_STATUS[s.status]} tone={SWAP_TONE[s.status] || 'neutral'} /></span>
             <span className="block truncate ui-caption tabular-nums">{range(s.fromDate, s.toDate)}{s.days[0] ? ` · ${s.days[0].requesterShift.name} ⇄ ${s.days[0].colleagueShift.name}` : ''}</span>
           </span>
         )}
