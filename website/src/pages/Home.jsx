@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ArrowSquareIn, ArrowsSplit, BookOpenText, CalendarX, CaretDown, CaretRight, CloudCheck, Fingerprint, Headset, MagnifyingGlass, Receipt, WarningCircle } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, NAV, PRODUCTS, SITE, productBySlug } from '../site.js';
@@ -200,20 +200,37 @@ function find(q) {
     .map((x) => x.i);
 }
 
-/** Left and right move between tabs; the chosen one is the only tab stop. */
+/*
+ * A tab panel never shrinks while the reader moves between its tabs: before a
+ * switch it keeps at least the height it has, so the page below (and, for the
+ * connections band, the tabs themselves) stays put under the pointer.
+ */
+function holdHeight(panelId) {
+  const el = document.getElementById(panelId);
+  if (!el) return;
+  const held = parseFloat(el.style.minHeight) || 0;
+  el.style.minHeight = `${Math.max(held, el.offsetHeight)}px`;
+}
+
+/** Left and right move between tabs, Home and End go to the first and last; the chosen one is the only tab stop. */
 function tabKeys(keys, current, pick) {
   return (e) => {
-    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-    if (!step) return;
+    const at = keys.indexOf(current);
+    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: keys.length - 1 }[e.key];
+    if (to === undefined) return;
     e.preventDefault();
-    const next = keys[(keys.indexOf(current) + step + keys.length) % keys.length];
+    const next = keys[(to + keys.length) % keys.length];
     pick(next);
     e.currentTarget.querySelector(`[data-tab="${next}"]`)?.focus();
   };
 }
 
-function Tabs({ label, tabs, current, pick, id, kind = 'pills' }) {
+function Tabs({ label, tabs, current, pick: choose, id, kind = 'pills' }) {
   const keys = tabs.map((t) => t[0]);
+  const pick = (k) => {
+    if (k !== current) holdHeight(`${id}-panel`);
+    choose(k);
+  };
   return (
     <div className={`fx-tabs fx-tabs--${kind}`} role="tablist" aria-label={label} onKeyDown={tabKeys(keys, current, pick)}>
       {tabs.map(([key, name]) => (
@@ -273,16 +290,59 @@ function Photo({ name, w, h, alt, lazy = true }) {
   );
 }
 
+/*
+ * The search box: results drop below it while it has words and focus. Escape,
+ * a click outside or Tab past it closes them; Down moves into the results and
+ * Up and Down move between them. The count is read out once typing pauses.
+ */
 function Finder() {
   const [q, setQ] = useState('');
+  const [shown, setShown] = useState(false);
+  const [said, setSaid] = useState('');
   const hits = useMemo(() => find(q), [q]);
   const id = useId();
+  const box = useRef(null);
+  const input = useRef(null);
+  const open = shown && Boolean(q.trim());
+  useEffect(() => {
+    const words = q.trim() ? (hits.length ? `${hits.length} ${hits.length === 1 ? 'match' : 'matches'}` : 'No matches') : '';
+    const t = setTimeout(() => setSaid(words), 500);
+    return () => clearTimeout(t);
+  }, [q, hits]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const away = (e) => box.current && !box.current.contains(e.target) && setShown(false);
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  }, [open]);
+  const links = () => [...(box.current?.querySelectorAll('.fx-find-hits a') || [])];
+  const onKey = (e) => {
+    if (e.key === 'Escape' && open) {
+      e.preventDefault();
+      setShown(false);
+      input.current?.focus();
+      return;
+    }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const list = links();
+    if (!open || !list.length) return;
+    e.preventDefault();
+    const at = list.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') list[Math.min(at + 1, list.length - 1)].focus();
+    else if (at <= 0) input.current?.focus();
+    else list[at - 1].focus();
+  };
   return (
     <section className="fx-find" aria-label="Search CLOR">
       <div className="wrap fx-find-in">
         <form
+          ref={box}
           className="fx-find-box"
           role="search"
+          onKeyDown={onKey}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) setShown(false);
+          }}
           onSubmit={(e) => {
             e.preventDefault();
             if (hits[0]) window.dispatchEvent(new CustomEvent('clor:navigate', { detail: hits[0].href }));
@@ -291,15 +351,29 @@ function Finder() {
           <label className="sr-only" htmlFor={id}>
             Search CLOR
           </label>
-          <input id={id} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search CLOR: try GSTR-1, payslip or biometric…" autoComplete="off" />
+          <input
+            ref={input}
+            id={id}
+            type="search"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setShown(true);
+            }}
+            onFocus={() => setShown(true)}
+            placeholder="Search CLOR: try GSTR-1, payslip or biometric…"
+            autoComplete="off"
+            aria-controls={`${id}-hits`}
+            aria-expanded={open}
+          />
           <button type="submit" aria-label="Search">
             <MagnifyingGlass size={20} aria-hidden="true" />
           </button>
           <p className="sr-only" aria-live="polite">
-            {q.trim() ? (hits.length ? `${hits.length} ${hits.length === 1 ? 'match' : 'matches'}` : 'No matches') : ''}
+            {said}
           </p>
-          {q.trim() ? (
-            <ul className="fx-find-hits">
+          {open ? (
+            <ul className="fx-find-hits" id={`${id}-hits`}>
               {hits.length ? (
                 hits.map((h) => (
                   <li key={h.href}>
@@ -350,13 +424,13 @@ function Solutions() {
             {s.items.map(([title, text], i) => (
               <div key={title} className={`fx-acc-item${open === i ? ' is-open' : ''}`}>
                 <h3>
-                  <button type="button" aria-expanded={open === i} onClick={() => setOpen(i)}>
+                  <button type="button" id={`sol-acc-${tab}-${i}`} aria-expanded={open === i} aria-controls={`sol-acc-${tab}-${i}-body`} onClick={() => setOpen(open === i ? -1 : i)}>
                     {title}
                     <CaretDown size={14} weight="bold" aria-hidden="true" />
                   </button>
                 </h3>
                 {open === i ? (
-                  <div className="fx-acc-body">
+                  <div className="fx-acc-body" id={`sol-acc-${tab}-${i}-body`} role="region" aria-labelledby={`sol-acc-${tab}-${i}`}>
                     <p>{text}</p>
                   </div>
                 ) : null}
@@ -504,6 +578,10 @@ function Connected() {
   const to = productBySlug(c.to);
   const Win = WINDOWS[c.to];
   const keys = CONNECTIONS.map((_, i) => String(i));
+  const pickAt = (i) => {
+    if (i !== at) holdHeight('con-panel');
+    setAt(i);
+  };
   return (
     <section className="fx-band" id="connected" aria-labelledby="connected-title">
       <div className="wrap">
@@ -538,9 +616,9 @@ function Connected() {
             <Win />
           </div>
         </div>
-        <div className="fx-story-tabs" role="tablist" aria-label="Connection" onKeyDown={tabKeys(keys, String(at), (k) => setAt(Number(k)))}>
+        <div className="fx-story-tabs" role="tablist" aria-label="Connection" onKeyDown={tabKeys(keys, String(at), (k) => pickAt(Number(k)))}>
           {CONNECTIONS.map((x, i) => (
-            <button key={x.from + x.to} type="button" role="tab" data-tab={i} id={`con-tab-${i}`} aria-selected={at === i} aria-controls="con-panel" tabIndex={at === i ? 0 : -1} onClick={() => setAt(i)}>
+            <button key={x.from + x.to} type="button" role="tab" data-tab={i} id={`con-tab-${i}`} aria-selected={at === i} aria-controls="con-panel" tabIndex={at === i ? 0 : -1} onClick={() => pickAt(i)}>
               <Mark product={productBySlug(x.from)} size={24} />
               <span>
                 {productBySlug(x.from).name} to {productBySlug(x.to).name}
@@ -688,7 +766,7 @@ export default function Home() {
                 <dt>PF and PT</dt>
                 <dd>− ₹2,720</dd>
               </dl>
-              <span className="fx-phone-btn">Download PDF</span>
+              <span className="fx-phone-pdf">Payslip PDF in the app</span>
             </div>
           </div>
         </div>
@@ -705,7 +783,7 @@ export default function Home() {
               </li>
             ))}
           </ul>
-          <a className="btn btn--primary" href={SITE.startUrl}>
+          <a className="btn btn--trial fx-btn-line" href={SITE.startUrl}>
             Start free trial
           </a>
         </div>

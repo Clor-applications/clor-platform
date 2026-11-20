@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { firstVisit } from '../firstVisit.js';
-import { Link, useSearch } from '../router.jsx';
+import { Link, useLeaveGuard, useSearch } from '../router.jsx';
 import { AVAILABLE, SITE, productBySlug } from '../site.js';
 import { PageHead } from './Pages.jsx';
 
@@ -34,8 +34,8 @@ function check(f, apps) {
   if (!/^[1-9]\d{9}$/.test(digits)) e.phone = f.phone.trim() ? 'Enter a 10-digit Indian phone number.' : 'Enter a phone number.';
   if (f.city.trim().length < 2) e.city = 'Enter your city.';
   if (!f.companySize) e.companySize = 'Choose how many employees your company has.';
-  const n = Number(f.users);
-  if (!f.users || !Number.isInteger(n) || n < 1) e.users = 'Enter how many people will sign in.';
+  const n = Number(f.users.trim());
+  if (!/^\d+$/.test(f.users.trim()) || !Number.isInteger(n) || n < 1) e.users = f.users.trim() ? 'Enter a whole number, like 3.' : 'Enter how many people will sign in.';
   if (!apps.size) e.apps = 'Tick at least one product.';
   return e;
 }
@@ -85,17 +85,9 @@ export default function Demo() {
   useEffect(() => {
     if (done) thanksRef.current?.focus();
   }, [done]);
-  /* Half a form filled in: leaving the page asks first. Not once it is sent. */
+  /* Half a form filled in: leaving the page asks first, by an in-site link or a reload. Not once it is sent. */
   const dirty = !done && (Object.entries(form).some(([k, v]) => k !== 'website' && v.trim()) || apps.size > 0);
-  useEffect(() => {
-    if (!dirty) return undefined;
-    const warn = (e) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+  useLeaveGuard(dirty, 'Leave this page? Your demo request is not sent yet, and what you typed will be lost.');
 
   const set = (k) => (e) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -133,7 +125,7 @@ export default function Demo() {
       const r = await fetch(`${SITE.apiUrl}/public/demo-requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, users: Number(form.users), apps: AVAILABLE.filter((p) => apps.has(p.slug)).map((p) => p.slug).sort((x, y) => (y === cameFor) - (x === cameFor)), source: firstVisit() }),
+        body: JSON.stringify({ ...form, users: Number(form.users.trim()), apps: AVAILABLE.filter((p) => apps.has(p.slug)).map((p) => p.slug).sort((x, y) => (y === cameFor) - (x === cameFor)), source: firstVisit() }),
       });
       const body = await r.json().catch(() => ({}));
       if (r.ok) {
@@ -229,7 +221,7 @@ export default function Demo() {
               </Field>
             </div>
             <Field id="demo-users" label="How many will sign in to CLOR" hint="Owners, accountants, HR: everyone who needs their own sign-in. Staff using only the employee app don’t count." error={errors.users}>
-              <input id="demo-users" name="users" type="number" inputMode="numeric" min={1} step={1} value={form.users} onChange={set('users')} className="field-short" {...a('users', true)} />
+              <input id="demo-users" name="users" type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="off" value={form.users} onChange={set('users')} maxLength={6} className="field-short" {...a('users', true)} />
             </Field>
             <fieldset className="field field-set" aria-invalid={errors.apps ? true : undefined} aria-describedby={errors.apps ? 'demo-apps-error' : undefined}>
               <legend>Products you want to see</legend>
