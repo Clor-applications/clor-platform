@@ -430,8 +430,8 @@ function Settlement({ settlement, you, onClose, onChanged }) {
                   </td>
                   {draft ? (
                     <td className="text-end">
-                      <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${l.label}`} onClick={() => setLines((all) => all.filter((_, j) => j !== i))}>
-                        <Trash2 size={14} aria-hidden="true" />
+                      <button type="button" className="ui-icon-btn" aria-label={`Remove ${l.label}`} onClick={() => setLines((all) => all.filter((_, j) => j !== i))}>
+                        <Trash2 size={16} aria-hidden="true" />
                       </button>
                     </td>
                   ) : null}

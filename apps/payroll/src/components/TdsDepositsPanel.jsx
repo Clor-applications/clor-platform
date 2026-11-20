@@ -117,8 +117,8 @@ function Panel({ fy, onClose }) {
                         <td className="ui-col-amount">{moneyCell(c.amount)}</td>
                         <td colSpan={2} />
                         <td className="text-right">
-                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => remove(c)} aria-label={`Remove challan ${c.challanSerial}`}>
-                            <Trash2 size={14} aria-hidden="true" />
+                          <button type="button" className="ui-icon-btn" onClick={() => remove(c)} aria-label={`Remove challan ${c.challanSerial}`}>
+                            <Trash2 size={16} aria-hidden="true" />
                           </button>
                         </td>
                       </tr>

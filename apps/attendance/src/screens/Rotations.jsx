@@ -300,8 +300,8 @@ function RotationCrew({ rotation, name, onClose }) {
                   <td data-phone="key">{r.startsOn}</td>
                   <td>{r.endsOn || '—'}</td>
                   <td className="text-end" data-phone="act">
-                    <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Take ${r.employeeName} off the rotation`} onClick={async () => { try { await removeRotationAssignment(r.id); load(); } catch (err) { notify.error(errorWords(err, 'remove it')); } }}>
-                      <Trash2 size={14} aria-hidden="true" />
+                    <button type="button" className="ui-icon-btn" aria-label={`Take ${r.employeeName} off the rotation`} onClick={async () => { try { await removeRotationAssignment(r.id); load(); } catch (err) { notify.error(errorWords(err, 'remove it')); } }}>
+                      <Trash2 size={16} aria-hidden="true" />
                     </button>
                   </td>
                 </tr>
