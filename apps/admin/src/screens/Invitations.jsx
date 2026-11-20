@@ -3,7 +3,8 @@ import { Plus, RotateCw, Send, XCircle } from '@ui/components/ui/lineIcons';
 
 import { createInvitation, listInvitations, resendInvitation, revokeInvitation } from '@platform/admin/account';
 import { listRoles } from '@platform/admin/admin';
-import { ICON, Loading, PageHead, WsDrawer } from './wsKit';
+import { confirmDialog } from '@ui/components/ui/notify';
+import { ICON, LoadError, Loading, PageHead, WsDrawer, askDiscard } from './wsKit';
 import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
@@ -48,6 +49,9 @@ export default function Invitations({ tenant, companies = [], params }) {
   const accountCompanies = useMemo(() => (companies.length ? companies : tenant ? [tenant] : []), [companies, tenant]);
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  /* The row action that is out, as `${id}:resend` or `${id}:withdraw`: that row's buttons wait, nothing is sent twice. */
+  const [rowBusy, setRowBusy] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('MEMBER');
   const [picked, setPicked] = useState(() => new Set(tenant?.id ? [tenant.id] : []));
@@ -71,16 +75,24 @@ export default function Invitations({ tenant, companies = [], params }) {
 
   const load = useCallback(() => {
     listInvitations()
-      .then((r) => setRows(r?.invitations || []))
+      .then((r) => {
+        setRows(r?.invitations || []);
+        setLoadError('');
+      })
       .catch((e) => {
-        setRows([]);
-        setError(errorWords(e, 'load the invitations'));
+        /* Not an empty list: "No invitations yet" after a failed read invited sending them all again. */
+        setLoadError(errorWords(e, 'load the invitations'));
       });
   }, []);
   useEffect(load, [load]);
 
   const companyNames = accountCompanies.filter((c) => picked.has(c.id)).map((c) => c.name);
-  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && picked.size > 0;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const valid = emailOk && picked.size > 0;
+  /* Why Send is off, said beside it rather than left to guess. */
+  const sendRule = !emailOk ? 'Enter their email address to send the invitation.' : picked.size === 0 ? 'Pick at least one company to send the invitation.' : '';
+  /* Typed into the form: closing it asks before the words are lost. */
+  const inviteDirty = Boolean(email.trim()) || role !== 'MEMBER' || Boolean(roleId);
 
   const send = async (e) => {
     e.preventDefault();
@@ -102,16 +114,24 @@ export default function Invitations({ tenant, companies = [], params }) {
     }
   };
 
-  const act = async (fn, id, done) => {
+  const act = async (fn, id, key, done) => {
+    if (rowBusy) return;
     setError('');
     setNotice('');
+    setRowBusy(`${id}:${key}`);
     try {
       await fn(id);
       setNotice(done);
       load();
     } catch (err) {
       setError(errorWords(err, 'make the change'));
+    } finally {
+      setRowBusy('');
     }
+  };
+  const withdraw = async (r) => {
+    if (!(await confirmDialog({ title: `Withdraw the invitation to ${r.email}?`, message: 'Their link stops working; you can invite them again.', confirmLabel: 'Withdraw invitation', tone: 'danger' }))) return;
+    act(revokeInvitation, r.id, 'withdraw', `Withdrew the invitation to ${r.email}.`);
   };
 
   const count = (st) => (rows || []).filter((r) => r.status === st).length;
@@ -173,7 +193,7 @@ export default function Invitations({ tenant, companies = [], params }) {
               <button type="button" className="ws-tab" style={{ '--tab': 'var(--cat-1)' }} aria-pressed={!onlyWaiting} onClick={() => setOnlyWaiting(false)}>
                 All <span className="ws-tone-count">{rows.length}</span>
               </button>
-              <button type="button" className="ws-tab" style={{ '--tab': 'var(--cat-3)' }} aria-pressed={onlyWaiting} onClick={() => setOnlyWaiting((v) => !v)}>
+              <button type="button" className="ws-tab" style={{ '--tab': 'var(--cat-3)' }} aria-pressed={onlyWaiting} onClick={() => setOnlyWaiting(true)}>
                 Not joined yet <span className="ws-tone-count">{notJoined.length}</span>
               </button>
             </div>
@@ -192,8 +212,12 @@ export default function Invitations({ tenant, companies = [], params }) {
         {notice ? <p role="status" className="ws-notice">{notice}</p> : null}
         {error && !inviting ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
 
-        {rows === null ? (
+        {rows === null && loadError ? (
+          <LoadError onRetry={() => { setLoadError(''); load(); }}>{loadError}</LoadError>
+        ) : rows === null ? (
           <Loading shape="rows" label="Loading invitations…" />
+        ) : onlyWaiting && !one.length && notJoined.length === 0 ? (
+          <p className="ws-item-sub">Everyone invited has joined. <button type="button" className="ws-row-link" onClick={() => setOnlyWaiting(false)}>Show all</button></p>
         ) : rows.length === 0 ? (
           <div className="ws-empty">
             <span className="ws-tile" aria-hidden="true"><ICON.mail size={20} /></span>
@@ -226,11 +250,11 @@ export default function Invitations({ tenant, companies = [], params }) {
                       <td className="num">
                         {open ? (
                           <span className="inline-flex gap-4">
-                            <button type="button" className="ws-row-link" onClick={() => act(resendInvitation, r.id, `Sent again to ${r.email}.`)}>
-                              <RotateCw size={14} aria-hidden="true" /> Resend
+                            <button type="button" className="ws-row-link" disabled={Boolean(rowBusy) || sendingAll} aria-busy={rowBusy === `${r.id}:resend` || undefined} onClick={() => act(resendInvitation, r.id, 'resend', `Sent again to ${r.email}.`)}>
+                              <RotateCw size={14} aria-hidden="true" /> {rowBusy === `${r.id}:resend` ? 'Sending…' : 'Resend'}
                             </button>
-                            <button type="button" className="ws-row-link ws-row-link--danger" onClick={() => act(revokeInvitation, r.id, `Withdrew the invitation to ${r.email}.`)}>
-                              <XCircle size={14} aria-hidden="true" /> Withdraw
+                            <button type="button" className="ws-row-link ws-row-link--danger" disabled={Boolean(rowBusy) || sendingAll} aria-busy={rowBusy === `${r.id}:withdraw` || undefined} onClick={() => withdraw(r)}>
+                              <XCircle size={14} aria-hidden="true" /> {rowBusy === `${r.id}:withdraw` ? 'Withdrawing…' : 'Withdraw'}
                             </button>
                           </span>
                         ) : null}
@@ -247,12 +271,13 @@ export default function Invitations({ tenant, companies = [], params }) {
       <WsDrawer
         open={inviting}
         onClose={() => setInviting(false)}
+        dirty={inviteDirty && !busy}
         title="Invite people"
         description="They choose their own password. The link expires in 7 days."
         actions={
           <>
-            <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setInviting(false)}>Cancel</button>
-            <button type="submit" form="ws-invite" className="ws-btn ws-btn--primary" disabled={!valid || busy}>
+            <button type="button" className="ws-btn ws-btn--quiet" onClick={async () => { if (await askDiscard(inviteDirty && !busy)) setInviting(false); }}>Cancel</button>
+            <button type="submit" form="ws-invite" className="ws-btn ws-btn--primary" disabled={!valid || busy} aria-describedby={sendRule ? 'ws-invite-rule' : undefined}>
               <Send size={16} aria-hidden="true" /> {busy ? 'Sending…' : 'Send invitation'}
             </button>
           </>
@@ -306,6 +331,7 @@ export default function Invitations({ tenant, companies = [], params }) {
               </span>
             </div>
           ) : null}
+          {sendRule ? <p id="ws-invite-rule" className="ui-caption">{sendRule}</p> : null}
           <p className="ws-notice" aria-live="polite">{accessPreview({ role, companyNames, companyRole: roleId && picked.has(tenant?.id) ? { name: roles?.find((r) => r.id === roleId)?.name || 'the chosen role', company: tenant?.name || 'this company' } : null })}</p>
         </form>
       </WsDrawer>

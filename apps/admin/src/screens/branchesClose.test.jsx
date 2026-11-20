@@ -52,6 +52,24 @@ describe('Branches', () => {
     expect(await drawer.findByRole('alert')).toHaveTextContent('Choose the state the branch is in.');
     expect(api.createBranch).not.toHaveBeenCalled();
   });
+
+  /* Audit 21 Nov 2026: every visit sent a PATCH to the head office. Reading never writes now; the fill is offered. */
+  it('does not write on load, and fills the head office only when asked', async () => {
+    api.listBranches.mockResolvedValue({ branches: [{ ...HO, city: '' }, B2] });
+    api.updateBranch.mockResolvedValue({ branch: HO });
+    render(<SettingsBranches orgId="org1" company={{ name: 'A', city: 'Bengaluru' }} />);
+    const fill = await screen.findByRole('button', { name: 'Fill in from the company profile' });
+    expect(api.updateBranch).not.toHaveBeenCalled();
+    fireEvent.click(fill);
+    await waitFor(() => expect(api.updateBranch).toHaveBeenCalledWith('org1', 'b1', expect.objectContaining({ city: 'Bengaluru' })));
+  });
+
+  it('a failed list offers a retry instead of an empty directory', async () => {
+    api.listBranches.mockRejectedValueOnce(new Error('down'));
+    render(<SettingsBranches orgId="org1" company={{}} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Head Office')).toBeInTheDocument();
+  });
 });
 
 /* Redesign W-R9: closing waits for a fresh export and the typed name. */

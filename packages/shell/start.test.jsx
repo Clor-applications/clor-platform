@@ -123,6 +123,43 @@ describe('Start a free trial', () => {
     }
   });
 
+  it('asks for the GSTIN, optional: typing one fills its state, a wrong one is refused, and it goes with the account', async () => {
+    window.history.replaceState(null, '', '/start?t=mail-token-0123456789abcdef&app=people');
+    api.pending.mockResolvedValue({ email: 'asha@rao.in', app: 'people', apps: OFFER.apps, trialDays: 14, planCode: null, expiresAt: '2026-11-11T00:00:00Z' });
+    api.confirm.mockResolvedValue({ token: 'access-token', activeOrgId: 'o1', app: 'people', apps: ['people', 'attendance'], trialEndsAt: '2026-11-24T00:00:00Z', trialDays: 14 });
+    const original = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...original, replace: vi.fn(), search: original.search, pathname: original.pathname } });
+    try {
+      render(<Start onHome={() => {}} onSignIn={() => {}} />);
+      await screen.findByRole('heading', { name: 'Set up your company' });
+      const books = screen.getByRole('checkbox', { name: /Books/ });
+      if (books.checked) fireEvent.click(books);
+      if (!screen.getByRole('checkbox', { name: /People/ }).checked) fireEvent.click(screen.getByRole('checkbox', { name: /People/ }));
+      /* Without Books and without a GSTIN, no state is asked. */
+      expect(screen.getByLabelText(/GSTIN/)).toBeInTheDocument();
+      expect(screen.queryByLabelText('State of your head office')).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Asha Rao' } });
+      fireEvent.change(screen.getByLabelText('Company name'), { target: { value: 'Rao Textiles' } });
+      fireEvent.change(screen.getByLabelText('Choose a password'), { target: { value: 'rao-textiles-2026' } });
+      fireEvent.change(screen.getByLabelText(/GSTIN/), { target: { value: '29abcde1234' } });
+      fireEvent.click(screen.getByRole('button', { name: /Open CLOR/ }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Check the GSTIN');
+      expect(api.confirm).not.toHaveBeenCalled();
+
+      fireEvent.change(screen.getByLabelText(/GSTIN/), { target: { value: '29abcde1234f1z5' } });
+      expect(screen.getByLabelText('State of your head office')).toHaveValue('Karnataka');
+      expect(screen.getByText('Taken from the GSTIN.')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /Open CLOR/ }));
+      await waitFor(() =>
+        expect(api.confirm).toHaveBeenCalledWith(expect.objectContaining({ apps: ['people', 'attendance'], state: 'Karnataka', gstin: '29ABCDE1234F1Z5' })),
+      );
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+      localStorage.removeItem('token');
+    }
+  });
+
   it('says a link has ended, in plain words, with a way to start again', async () => {
     window.history.replaceState(null, '', '/start?t=old-token-0123456789abcdef');
     api.pending.mockRejectedValue(Object.assign(new Error('This link has ended.'), { status: 410, code: 'LINK_ENDED' }));

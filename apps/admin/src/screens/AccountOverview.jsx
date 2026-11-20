@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { emoji } from '@ui/components/ui/emoji';
+import { notify } from '@ui/components/ui/notify';
 import { memberDirectory, renameAccount } from '@platform/admin/account';
 import { formatMoney } from '@ui/utils/money';
 import { formatDateIn, localDateIso } from '@ui/utils/dates';
 import NotConnected from '@ui/components/ui/NotConnected';
 import { getAccountOverview } from '@platform/admin/admin';
 import { requestOpenScreen } from '@platform/context';
-import { Avatar, Empty, ICON, Loading, PageHead, Panel, Stat, appName } from './wsKit';
+import { Avatar, Empty, ICON, LoadError, Loading, PageHead, Panel, Stat, appName } from './wsKit';
 import { inr } from './InvoiceDocument';
 import './workspace.css';
 import './ws-plan.css';
@@ -71,7 +72,7 @@ const LimitMeter = ({ label, used, limit }) => {
  * account's activity; anyone else is told so. The field is the General
  * section's; the page's one primary action, Save changes, submits it.
  */
-function AccountName({ name, owners = null, onRenamed, onDirty }) {
+function AccountName({ name, owners = null, onRenamed, onDirty, saving = false, onSaving = () => {} }) {
   const [value, setValue] = useState(name);
   const [error, setError] = useState('');
   return (
@@ -80,14 +81,19 @@ function AccountName({ name, owners = null, onRenamed, onDirty }) {
       className="ws-form-grid"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (value.trim() === name) return;
+        if (value.trim() === name || saving) return;
+        onSaving(true);
         try {
           const r = await renameAccount(value.trim());
-          onRenamed(r?.account?.name || value.trim());
+          const next = r?.account?.name || value.trim();
+          onRenamed(next);
           onDirty(false);
           setError('');
+          notify.success(`The account is now called ${next}.`);
         } catch (err) {
-          setError(errorWords(err, 'rename the workspace'));
+          setError(errorWords(err, 'rename the account'));
+        } finally {
+          onSaving(false);
         }
       }}
     >
@@ -96,6 +102,7 @@ function AccountName({ name, owners = null, onRenamed, onDirty }) {
         <input
           className="ui-input"
           value={value}
+          readOnly={saving}
           onChange={(e) => {
             setValue(e.target.value);
             onDirty(e.target.value.trim() !== name);
@@ -221,7 +228,10 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
   const [failed, setFailed] = useState('');
   const [loading, setLoading] = useState(true);
   const [dirty, setDirty] = useState(false);
+  /* The rename is out: Save changes waits and says so, so it is not sent twice. */
+  const [saving, setSaving] = useState(false);
   const [owners, setOwners] = useState(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -245,7 +255,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
 
   const totals = useMemo(() => {
     const companies = data?.companies || [];
@@ -288,19 +298,15 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
           }
           actions={
             data ? (
-              <button type="submit" form="ws-settings-form" className="ws-btn ws-btn--primary" disabled={!dirty}>
-                Save changes
+              <button type="submit" form="ws-settings-form" className="ws-btn ws-btn--primary" disabled={!dirty || saving} aria-busy={saving || undefined}>
+                {saving ? 'Saving…' : 'Save changes'}
               </button>
             ) : null
           }
         />
 
         {loading ? <Loading shape="card" rows={3} label="Loading Account settings…" /> : null}
-        {failed ? (
-          <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>
-            {failed}
-          </p>
-        ) : null}
+        {failed ? <LoadError onRetry={() => { setFailed(''); setLoading(true); setAttempt((n) => n + 1); }}>{failed}</LoadError> : null}
 
         {data ? (
           <div className="ws-settings">
@@ -312,6 +318,8 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                   name={name}
                   owners={owners}
                   onDirty={setDirty}
+                  saving={saving}
+                  onSaving={setSaving}
                   onRenamed={(n) => setData((d) => (d ? { ...d, account: { ...d.account, name: n } } : d))}
                 />
               </section>
