@@ -333,7 +333,9 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const account = accountName || overview?.account?.name || tenant?.name || '';
   const memberCount = activeMembers ?? (security ? security.active : null);
   /* Under the greeting: the account's name and this person's role. The counts are said once, in the figures row. */
-  const facts = [account || null].filter(Boolean);
+  /* An account opened by one person is often named after them; "Hello, Kavya · Kavya" says the name twice. */
+  const own = new Set([name, user?.fullName, [user?.firstName, user?.lastName].filter(Boolean).join(' ')].map((x) => String(x || '').trim().toLowerCase()).filter(Boolean));
+  const facts = [account && !own.has(account.trim().toLowerCase()) ? account : null].filter(Boolean);
   const companiesTable = isAdmin && overview ? (overview.companies || []) : null;
 
 
