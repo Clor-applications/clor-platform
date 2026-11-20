@@ -6,7 +6,7 @@ import { Err, Loading, day, may, errorWords } from './kit';
 import { workerName } from './Health';
 import { daysLeft } from './Trials';
 import { inr } from './money';
-import { opsAudit, opsHandover, opsHealth, opsHome, opsOverview, opsWriteHandover } from './api';
+import { opsAudit, opsHandover, opsHealth, opsHome, opsMarkQueue, opsOverview, opsUnmarkQueue, opsWriteHandover } from './api';
 
 /**
  * Overview (operator console; R&D CLOR-05): four numbers about the customer
@@ -74,7 +74,7 @@ export function Home({ go, has, me }) {
       <Handover canWrite={may(me?.role, 'SUPPORT', 'SALES', 'BILLING')} />
       {/* What needs somebody comes before how the machinery is doing: it was under the services table, below the fold (owner, 17 Nov 2026: "info should be available right away"). */}
       <div className="ops-split">
-        <NeedsAction d={today.d} error={today.error} go={go} has={has} />
+        <NeedsAction d={today.d} error={today.error} go={go} has={has} canMark={may(me?.role, 'SUPPORT', 'SALES', 'BILLING')} />
         <RecentActions d={audit.d} error={audit.error} go={go} has={has} />
       </div>
       <Services d={health.d} error={health.error} go={go} has={has} />
@@ -378,10 +378,27 @@ function countRows(d, go, has) {
   ].filter(Boolean);
 }
 
-function NeedsAction({ d, error, go, has }) {
+function NeedsAction({ d, error, go, has, canMark = false }) {
   /* The moment the page opened: days left and days overdue are counted from it, not from each render. */
   const [now] = useState(() => Date.now());
-  const groups = d ? workGroups(d, go, has, now) : [];
+  /*
+   * Marks on a row (server: /ops/home/marks). "Mine" says who is on it, for everybody; "Not today" puts
+   * the row away for this staff member until tomorrow. The page's own copy after a change, else what it loaded with.
+   */
+  const [changed, setChanged] = useState(null);
+  const [showLater, setShowLater] = useState(false);
+  const [markError, setMarkError] = useState('');
+  const marks = changed || d?.marks || { mine: {}, later: [] };
+  const later = new Set(marks.later || []);
+  const mark = (fn, key, kind) => {
+    setMarkError('');
+    fn(key, kind)
+      .then((r) => setChanged(r?.marks || { mine: {}, later: [] }))
+      .catch((e) => setMarkError(errorWords(e, 'mark this row')));
+  };
+  const all = d ? workGroups(d, go, has, now) : [];
+  const putAway = all.reduce((sum, g) => sum + g.rows.filter((r) => later.has(`${g.k}:${r.id}`)).length, 0);
+  const groups = all.map((g) => ({ ...g, rows: showLater ? g.rows : g.rows.filter((r) => !later.has(`${g.k}:${r.id}`)) })).filter((g) => g.rows.length);
   const counts = d ? countRows(d, go, has) : [];
   return (
     <section className="ops-section" aria-labelledby="ops-needs">
@@ -391,7 +408,7 @@ function NeedsAction({ d, error, go, has }) {
       ) : !d ? (
         <Loading />
       ) : !groups.length && !counts.length ? (
-        <p className="ops-quiet-line">Nothing needs you today.</p>
+        <p className="ops-quiet-line">{putAway ? 'Nothing else needs you today.' : 'Nothing needs you today.'}</p>
       ) : (
         <>
           {groups.map((g) => (
@@ -405,9 +422,13 @@ function NeedsAction({ d, error, go, has }) {
                 ) : null}
               </div>
               <ul className="ws-list ws-list--ground" aria-labelledby={`ops-needs-${g.k}`}>
-                {g.rows.map((r) => (
+                {g.rows.map((r) => {
+                  const key = `${g.k}:${r.id}`;
+                  const holder = marks.mine?.[key];
+                  const away = later.has(key);
+                  return (
                   <li key={r.id}>
-                    <div className="ops-need">
+                    <div className={`ops-need${canMark || holder ? ' ops-need--marks' : ''}`}>
                       <span className={`ws-pill ws-pill--${r.pill[1]}`}>{r.pill[0]}</span>
                       <span className="ws-item-text">
                         <button type="button" className="ws-name-link justify-self-start text-left" onClick={r.open}>{r.title}</button>
@@ -417,10 +438,32 @@ function NeedsAction({ d, error, go, has }) {
                         <span className="ops-ink text-right tabular-nums">{inr(r.money)}{r.end ? <span className="ws-item-end"> {r.end}</span> : null}</span>
                       ) : r.end ? (
                         <span className="ws-item-end">{r.end}</span>
+                      ) : (
+                        <span />
+                      )}
+                      {canMark || holder ? (
+                        <span className="ops-need-marks">
+                          {holder ? <span className="ws-item-sub">{holder.me ? 'Yours' : `${holder.name} is on it`}</span> : null}
+                          {canMark ? (
+                            <>
+                              {holder?.me ? (
+                                <button type="button" className="ops-link" aria-label={`Let go: ${r.title}`} onClick={() => mark(opsUnmarkQueue, key, 'MINE')}>Let go</button>
+                              ) : (
+                                <button type="button" className="ops-link" aria-label={`${holder ? 'Take over' : 'Mine'}: ${r.title}`} onClick={() => mark(opsMarkQueue, key, 'MINE')}>{holder ? 'Take over' : 'Mine'}</button>
+                              )}
+                              {away ? (
+                                <button type="button" className="ops-link" aria-label={`Bring back: ${r.title}`} onClick={() => mark(opsUnmarkQueue, key, 'LATER')}>Bring back</button>
+                              ) : (
+                                <button type="button" className="ops-link" aria-label={`Not today: ${r.title}`} onClick={() => mark(opsMarkQueue, key, 'LATER')}>Not today</button>
+                              )}
+                            </>
+                          ) : null}
+                        </span>
                       ) : null}
                     </div>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           ))}
@@ -447,6 +490,13 @@ function NeedsAction({ d, error, go, has }) {
           ) : null}
         </>
       )}
+      <Err>{markError}</Err>
+      {putAway ? (
+        <p className="ops-quiet-line" role="status">
+          {n(putAway, 'row', 'rows')} put away until tomorrow.{' '}
+          <button type="button" className="ops-link" onClick={() => setShowLater((v) => !v)}>{showLater ? 'Hide them' : 'Show them'}</button>
+        </p>
+      ) : null}
       {d?.yesterday ? (
         <p className="ops-quiet-line" aria-label="Yesterday">
           Yesterday: {n(d.yesterday.signUps, 'sign-up', 'sign-ups')} · {n(d.yesterday.demos, 'demo request', 'demo requests')} · <span className="tabular-nums">{inr(d.yesterday.collected)}</span> collected

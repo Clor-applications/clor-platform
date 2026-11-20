@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const api = vi.hoisted(() => ({ opsHome: vi.fn(), opsOverview: vi.fn(), opsHealth: vi.fn(), opsAudit: vi.fn(), opsHandover: vi.fn(), opsWriteHandover: vi.fn() }));
+const api = vi.hoisted(() => ({ opsMarkQueue: vi.fn(), opsUnmarkQueue: vi.fn(), opsHome: vi.fn(), opsOverview: vi.fn(), opsHealth: vi.fn(), opsAudit: vi.fn(), opsHandover: vi.fn(), opsWriteHandover: vi.fn() }));
 vi.mock('./api', () => api);
 
 import { Home } from './Home';
@@ -188,4 +188,39 @@ describe('Overview', () => {
     expect(await screen.findByText('Not for your role.')).toBeInTheDocument();
     expect(await screen.findByText('412')).toBeInTheDocument();
   });
+
+  /* 20 Nov 2026: two people called the same customer; and a row that cannot move today stayed in the way. */
+  it('marks a row "Mine" for everybody to see, and puts one away until tomorrow', async () => {
+    const work = {
+      invoices: { total: 2, items: [
+        { id: 'i1', number: 'CLOR/1', accountId: 'a1', customer: 'Kaveri Foods', total: 590000, dueDate: '2026-11-01T00:00:00Z' },
+        { id: 'i2', number: 'CLOR/2', accountId: 'a2', customer: 'Nila Traders', total: 118000, dueDate: '2026-11-05T00:00:00Z' },
+      ] },
+    };
+    api.opsHome.mockResolvedValue({ ...quiet, work, marks: { mine: { 'invoices:i2': { name: 'Asha Rao', me: false } }, later: [] } });
+    api.opsMarkQueue.mockImplementation(async (key, kind) => ({ marks: kind === 'MINE' ? { mine: { [key]: { name: 'Me', me: true }, 'invoices:i2': { name: 'Asha Rao', me: false } }, later: [] } : { mine: {}, later: [key] } }));
+    render(<Home go={vi.fn()} has={() => true} me={{ role: 'SALES' }} />);
+    const second = (await screen.findByRole('button', { name: 'Nila Traders' })).closest('li');
+    expect(second).toHaveTextContent('Asha Rao is on it');
+    expect(within(second).getByRole('button', { name: 'Take over: Nila Traders' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mine: Kaveri Foods' }));
+    expect(api.opsMarkQueue).toHaveBeenCalledWith('invoices:i1', 'MINE');
+    expect(await screen.findByRole('button', { name: 'Let go: Kaveri Foods' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not today: Kaveri Foods' }));
+    expect(api.opsMarkQueue).toHaveBeenCalledWith('invoices:i1', 'LATER');
+    expect(await screen.findByText(/1 row put away until tomorrow/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Kaveri Foods' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show them' }));
+    expect(screen.getByRole('button', { name: 'Bring back: Kaveri Foods' })).toBeInTheDocument();
+  });
+
+  it('a read-only colleague sees who is on a row and has no marks to give', async () => {
+    api.opsHome.mockResolvedValue({ ...quiet, work: { invoices: { total: 1, items: [{ id: 'i2', number: 'CLOR/2', accountId: 'a2', customer: 'Nila Traders', total: 118000, dueDate: '2026-11-05T00:00:00Z' }] } }, marks: { mine: { 'invoices:i2': { name: 'Asha Rao', me: false } }, later: [] } });
+    render(<Home go={vi.fn()} has={() => true} me={{ role: 'READ_ONLY' }} />);
+    expect((await screen.findByRole('button', { name: 'Nila Traders' })).closest('li')).toHaveTextContent('Asha Rao is on it');
+    expect(screen.queryByRole('button', { name: /^Mine:|^Take over:|^Not today:/ })).toBeNull();
+  });
 });
+

@@ -736,9 +736,10 @@ const HOME_ITEMS = 5;
  * let any operator read and narrow only the changes. If one of them ever
  * narrows who may read, narrow its list here too.
  */
-opsRouter.get('/ops/home', (_req, res) =>
+opsRouter.get('/ops/home', (req, res) =>
   outsideTenant('ops: home', async () => {
     const now = Date.now();
+    const marks = await queueMarks(req.auth!.userId, now);
     const startOfDay = new Date(`${new Date(now + 5.5 * 3_600_000).toISOString().slice(0, 10)}T00:00:00+05:30`);
     const weekAgo = new Date(now - 7 * DAY);
     const endOfDay = new Date(startOfDay.getTime() + DAY);
@@ -877,7 +878,71 @@ opsRouter.get('/ops/home', (_req, res) =>
         items: stalledRows.map((x) => ({ accountId: x.accountId, customer: customer(x.accountId), signedUpAt: x.createdAt, trialEndsAt: x.trialEndsAt, lastActiveAt: x.lastActiveAt })),
       },
     };
-    res.json({ newDemos, demosToday, followUpsDue, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen, approvalsWaiting, invoicesOverdue, renewalsDue, ticketsOverADay, yesterday, work });
+    res.json({ marks, newDemos, demosToday, followUpsDue, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen, approvalsWaiting, invoicesOverdue, renewalsDue, ticketsOverADay, yesterday, work });
+  }),
+);
+
+/* ------------------------------------------------------------ queue marks */
+
+/**
+ * Two marks on a row of the Home queue. "Mine": one staff member is on it, and everybody sees who,
+ * so two people do not call the same customer. "Not today": the row leaves that staff member's own
+ * list until the next morning (India time); nobody else's list changes. Neither changes the customer
+ * or the work itself, so neither is in the staff audit log.
+ */
+const QUEUE_KEY = /^(trials|invoices|tickets|approvals|payments|renewals|quiet|stalled):[A-Za-z0-9_-]{1,64}$/;
+const markBody = z.object({ key: z.string().regex(QUEUE_KEY, 'That is not a row of the queue.'), kind: z.enum(['MINE', 'LATER']) });
+/** A "Mine" nobody released is forgotten after two weeks: the row it was on is long gone. */
+const MINE_KEPT = 14 * DAY;
+
+async function queueMarks(userId: string, now: number) {
+  const rows = await platformPrisma.opsQueueMark.findMany({
+    where: { OR: [{ kind: 'MINE', createdAt: { gte: new Date(now - MINE_KEPT) } }, { kind: 'LATER', operatorUserId: userId, until: { gt: new Date(now) } }] },
+    select: { key: true, kind: true, operatorUserId: true },
+  });
+  const holders = [...new Set(rows.filter((r) => r.kind === 'MINE').map((r) => r.operatorUserId))];
+  const names = new Map((holders.length ? await platformPrisma.user.findMany({ where: { id: { in: holders } }, select: { id: true, fullName: true, email: true } }) : []).map((u) => [u.id, u.fullName || u.email]));
+  const mine: Record<string, { name: string; me: boolean }> = {};
+  for (const r of rows) if (r.kind === 'MINE') mine[r.key] = { name: names.get(r.operatorUserId) || 'A colleague', me: r.operatorUserId === userId };
+  return { mine, later: rows.filter((r) => r.kind === 'LATER').map((r) => r.key) };
+}
+
+/** Tomorrow at midnight in India: when a row put away today comes back. */
+const nextMorning = (now: number) => new Date(new Date(`${new Date(now + 5.5 * 3_600_000).toISOString().slice(0, 10)}T00:00:00+05:30`).getTime() + DAY);
+
+/** Take a row, or put it away until tomorrow. Any staff member but Read-only. Taking a row somebody else has takes it over. */
+opsRouter.post('/ops/home/marks', requireOperatorRole('SUPPORT', 'SALES', 'BILLING'), (req, res) =>
+  outsideTenant('ops: mark a queue row', async () => {
+    const parsed = markBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the fields.', code: 'INVALID' });
+    const { key, kind } = parsed.data;
+    const userId = req.auth!.userId;
+    const now = Date.now();
+    await platformPrisma.$transaction([
+      /* Old marks go as new ones come: lapsed "Not today" rows, and forgotten "Mine" ones. */
+      platformPrisma.opsQueueMark.deleteMany({ where: { OR: [{ kind: 'LATER', until: { lte: new Date(now) } }, { kind: 'MINE', createdAt: { lt: new Date(now - MINE_KEPT) } }] } }),
+      /* One holder per row: whoever takes it now is the holder. */
+      ...(kind === 'MINE' ? [platformPrisma.opsQueueMark.deleteMany({ where: { key, kind: 'MINE' } })] : []),
+      platformPrisma.opsQueueMark.upsert({
+        where: { key_kind_operatorUserId: { key, kind, operatorUserId: userId } },
+        create: { key, kind, operatorUserId: userId, until: kind === 'LATER' ? nextMorning(now) : null },
+        update: { until: kind === 'LATER' ? nextMorning(now) : null, createdAt: new Date(now) },
+      }),
+    ]);
+    res.json({ marks: await queueMarks(userId, now) });
+  }),
+);
+
+/** Let a row go, or bring one back today. "Mine" is released by whoever holds it; an owner can release anybody's. */
+opsRouter.delete('/ops/home/marks', requireOperatorRole('SUPPORT', 'SALES', 'BILLING'), (req, res) =>
+  outsideTenant('ops: unmark a queue row', async () => {
+    const parsed = markBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the fields.', code: 'INVALID' });
+    const { key, kind } = parsed.data;
+    const userId = req.auth!.userId;
+    const anybodys = kind === 'MINE' && res.locals.operatorRole === 'SUPER_ADMIN';
+    await platformPrisma.opsQueueMark.deleteMany({ where: { key, kind, ...(anybodys ? {} : { operatorUserId: userId }) } });
+    res.json({ marks: await queueMarks(userId, Date.now()) });
   }),
 );
 
