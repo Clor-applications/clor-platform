@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pause, Play, Quotes as QuoteMark } from '@phosphor-icons/react';
 import { QUOTES } from '../../../packages/shell/authScenes.js';
 
@@ -18,10 +18,21 @@ export default function QuoteBand() {
   const [hovered, setHeld] = useState(false);
   const [stopped, setStopped] = useState(false);
   const held = hovered || stopped;
+  /* Time left on the line that is up: a pause keeps it, so the line turns when its bar is full, not a fresh 8s later. */
+  const left = useRef(MS);
   useEffect(() => {
     if (held || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const t = setTimeout(() => setI((n) => (n + 1) % QUOTES.length), MS);
-    return () => clearTimeout(t);
+    const from = Date.now();
+    let fired = false;
+    const t = setTimeout(() => {
+      fired = true;
+      left.current = MS;
+      setI((n) => (n + 1) % QUOTES.length);
+    }, left.current);
+    return () => {
+      clearTimeout(t);
+      if (!fired) left.current = Math.max(0, left.current - (Date.now() - from));
+    };
   }, [i, held]);
   const q = QUOTES[i];
   return (

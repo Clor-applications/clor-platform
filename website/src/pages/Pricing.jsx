@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { Link, useSearch } from '../router.jsx';
 import { PRODUCTS, SITE, appIdFor, demoFor } from '../site.js';
 import { Mark, ProductName } from '../components/Brand.jsx';
@@ -18,19 +18,21 @@ const unitWord = (unit, n) => (UNIT[unit] || ['unit', 'units'])[n === 1 ? 0 : 1]
 const trialUrl = (plan) => `${SITE.startUrl}?app=${encodeURIComponent(plan.apps[0])}&plan=${encodeURIComponent(plan.code)}`;
 const slugOf = (app) => PRODUCTS.find((p) => appIdFor(p.slug) === app)?.slug;
 
+/*
+ * The built prices show from the first paint and stay until the live answer
+ * settles; a live list replaces them only when it differs. A 404 (nothing
+ * published right now) or no answer keeps what the build saw, so the plans
+ * never vanish after they have been read; the next build follows the console.
+ */
 function usePricing() {
   const [pricing, setPricing] = useState(BUILT_PRICING);
   useEffect(() => {
     let live = true;
     fetch(`${SITE.apiUrl}/public/pricing`, { headers: { Accept: 'application/json' } })
       .then(async (r) => {
-        if (!live) return;
-        /* Nothing published now: take the prices down. The API not answering: keep what the build saw. */
-        if (r.status === 404) setPricing(null);
-        else if (r.ok) {
-          const body = await r.json();
-          if (live && Array.isArray(body.plans)) setPricing(body);
-        }
+        if (!live || !r.ok) return;
+        const body = await r.json();
+        if (live && Array.isArray(body.plans)) setPricing((cur) => (JSON.stringify(cur) === JSON.stringify(body) ? cur : body));
       })
       .catch(() => {});
     return () => {
@@ -40,13 +42,12 @@ function usePricing() {
   return pricing;
 }
 
-function Plan({ plan, period }) {
+/* One period's price for a plan. Both periods are in the page; the html element's data-period shows one (period.js before paint, then the switch). */
+function PlanPrice({ plan, period, both }) {
   const price = period === 'yearly' ? plan.yearly : plan.monthly;
   const per = period === 'yearly' ? 'a year' : 'a month';
   return (
-    <li className={`plan${plan.highlight ? ' plan--lead' : ''}`}>
-      <h3 className="h-3">{plan.name}</h3>
-      {plan.description ? <p className="small">{plan.description}</p> : null}
+    <div className={both ? `when-${period}` : undefined}>
       {price ? (
         <>
           <p className="plan-price">
@@ -61,6 +62,18 @@ function Plan({ plan, period }) {
       ) : (
         <p className="small plan-terms">Not offered {period === 'yearly' ? 'yearly' : 'monthly'}.</p>
       )}
+    </div>
+  );
+}
+
+function Plan({ plan, periods }) {
+  return (
+    <li className={`plan${plan.highlight ? ' plan--lead' : ''}`}>
+      <h3 className="h-3">{plan.name}</h3>
+      {plan.description ? <p className="small">{plan.description}</p> : null}
+      {periods.map((p) => (
+        <PlanPrice key={p} plan={plan} period={p} both={periods.length > 1} />
+      ))}
       <div className="actions plan-actions">
         {plan.trialDays ? (
           <a className={`btn ${plan.highlight ? 'btn--primary' : 'btn--trial'}`} href={trialUrl(plan)}>
@@ -82,11 +95,17 @@ export default function Pricing() {
   const products = useProducts();
   const hasYearly = Boolean(pricing?.plans.some((p) => p.yearly));
   const hasMonthly = Boolean(pricing?.plans.some((p) => p.monthly));
-  const [chosen, setChosen] = useState('monthly');
-  /* ?period=yearly opens the yearly prices, and the switch writes it back, so a shared link shows what was seen. */
+  /*
+   * ?period=yearly opens the yearly prices, and the switch writes it back, so a shared link shows what was seen.
+   * Read before the first render in the browser; the prerendered page has both periods and period.js picks one before paint.
+   */
+  const [chosen, setChosen] = useState(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('period') === 'yearly' ? 'yearly' : 'monthly'));
   const search = useSearch();
+  /* An in-page link to another ?period= is heard too; on the next frame, not inside the effect. */
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setChosen(new URLSearchParams(search).get('period') === 'yearly' ? 'yearly' : 'monthly'));
+    if (!search) return undefined;
+    const want = new URLSearchParams(search).get('period') === 'yearly' ? 'yearly' : 'monthly';
+    const frame = requestAnimationFrame(() => setChosen(want));
     return () => cancelAnimationFrame(frame);
   }, [search]);
   const setPeriod = (p) => {
@@ -98,6 +117,16 @@ export default function Pricing() {
     window.history.replaceState(window.history.state, '', `${window.location.pathname}${s ? `?${s}` : ''}`);
   };
   const period = hasMonthly ? chosen : 'yearly';
+  /* Both periods on sale: both are rendered and the html element shows one, before the paint. */
+  const periods = hasMonthly && hasYearly ? ['monthly', 'yearly'] : [hasMonthly ? 'monthly' : 'yearly'];
+  useLayoutEffect(() => {
+    const html = document.documentElement;
+    if (period === 'yearly') html.dataset.period = 'yearly';
+    else delete html.dataset.period;
+    return () => {
+      delete html.dataset.period;
+    };
+  }, [period]);
   const plans = pricing?.plans || [];
   const groups = products.filter((p) => p.status === 'available')
     .map((product) => ({ product, plans: plans.filter((pl) => pl.apps.length === 1 && pl.apps[0] === appIdFor(product.slug)) }))
@@ -137,7 +166,7 @@ export default function Pricing() {
                 </div>
                 <ul className="plans">
                   {list.map((pl) => (
-                    <Plan key={pl.code} plan={pl} period={period} />
+                    <Plan key={pl.code} plan={pl} periods={periods} />
                   ))}
                 </ul>
               </section>
@@ -154,7 +183,7 @@ export default function Pricing() {
                 </div>
                 <ul className="plans">
                   {bundles.map((pl) => (
-                    <Plan key={pl.code} plan={pl} period={period} />
+                    <Plan key={pl.code} plan={pl} periods={periods} />
                   ))}
                 </ul>
               </section>
