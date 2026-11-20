@@ -92,8 +92,48 @@ export function StatusPill({ status }) {
 const planWords = (a) => (a.plan === 'no-plan' || a.plan === 'legacy' ? '—' : a.interval === 'year' ? 'Yearly' : a.interval === 'month' ? 'Monthly' : a.byHand ? 'Set by hand' : 'Through payments');
 
 /* ------------------------------------------------------------------ list */
+/* How a customer is doing (server: services/opsAccountHealth.ts). Colour is never alone: the word is always there. */
+const HEALTH = { risk: ['At risk', 'danger'], watch: ['Watch', 'warn'], good: ['Good', 'ok'] };
+const HEALTH_PART = { payment: 'Payment', support: 'Support', usage: 'Usage' };
+
+/** In a list: a tag only when something is wrong, with the worst reason under it. A customer doing well shows no tag. */
+function HealthCell({ health }) {
+  if (!health) return <span className="ws-item-sub">—</span>;
+  if (health.level === 'good') return <span className="sr-only">Good</span>;
+  const worst = health.reasons.find((r) => r.level === health.level);
+  return (
+    <>
+      <span className={`ws-pill ws-pill--${HEALTH[health.level][1]}`}>{HEALTH[health.level][0]}</span>
+      {worst ? <div className="ws-item-sub" style={{ whiteSpace: 'normal' }}>{worst.text}</div> : null}
+    </>
+  );
+}
+
+/** On the customer's page: the word, then each of the three reasons and, where there is one, what to do next. */
+function HealthPanel({ health }) {
+  if (!health) return null;
+  const [word, tone] = HEALTH[health.level];
+  return (
+    <section className="ops-health" aria-label="How this customer is doing">
+      <p className="ops-health-head">
+        <span className={`ws-pill ws-pill--${tone}`}>{word}</span>
+        <span className="ws-item-sub">{health.level === 'good' ? 'Nothing needs you here.' : 'The reasons, and what to do next:'}</span>
+      </p>
+      <ul className="ops-health-list">
+        {health.reasons.map((r) => (
+          <li key={r.key}>
+            <span className="ops-health-part">{HEALTH_PART[r.key] || r.key}</span>
+            <span className={r.level === 'good' ? 'ws-item-sub' : 'ops-ink'}>{r.text}</span>
+            {r.action ? <span className="ops-health-action">{r.action}</span> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function Customers({ initialStatus = 'all', initialTag = '', openCustomer }) {
-  const [view, setView] = useState({ q: '', status: initialStatus, tag: initialTag, page: 0 });
+  const [view, setView] = useState({ q: '', status: initialStatus, tag: initialTag, page: 0, sort: 'created' });
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [tags, setTags] = useState([]);
@@ -103,7 +143,7 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
   useEffect(() => {
     let live = true;
     const t = setTimeout(() => {
-      opsAccounts(view.tag ? view : { q: view.q, status: view.status, page: view.page })
+      opsAccounts(view.tag ? view : { q: view.q, status: view.status, page: view.page, sort: view.sort })
         .then((r) => live && (setData(r), setError('')))
         .catch((e) => live && setError(errorWords(e, 'load this account')));
     }, 200);
@@ -130,6 +170,10 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
           {FILTERS.map(([k, label]) => (
             <option key={k} value={k}>{label}</option>
           ))}
+        </select>
+        <select className="ui-select" style={{ width: 'auto' }} aria-label="Order" value={view.sort} onChange={(e) => setView((v) => ({ ...v, sort: e.target.value, page: 0 }))}>
+          <option value="created">Newest first</option>
+          <option value="health">Worst first</option>
         </select>
         {tags.length || view.tag ? (
           <select className="ui-select" style={{ width: 'auto' }} aria-label="Tag" value={view.tag} onChange={(e) => setView((v) => ({ ...v, tag: e.target.value, page: 0 }))}>
@@ -158,6 +202,7 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
                 <th className="num hidden sm:table-cell">Users</th>
                 <th className="hidden md:table-cell">Trial ends or renews</th>
                 <th>State</th>
+                <th className="hidden sm:table-cell">Health</th>
                 <th className="hidden xl:table-cell">Last sign-in</th>
               </tr>
             </thead>
@@ -189,6 +234,7 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
                     <td className="num hidden sm:table-cell">{a.users}</td>
                     <td className="hidden md:table-cell tabular-nums">{a.plan === 'trialing' ? day(a.trialEndsAt) : a.renewsAt ? day(a.renewsAt) : '—'}</td>
                     <td><StatusPill status={status} /></td>
+                    <td className="hidden sm:table-cell" style={{ minWidth: '9rem' }}><HealthCell health={a.health} /></td>
                     <td className="hidden xl:table-cell">{a.lastActiveAt ? ago(a.lastActiveAt) : 'Never'}</td>
                   </tr>
                 );
@@ -291,6 +337,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         {cancelling ? <span className="ws-pill ws-pill--warn">Cancels at period end{s.currentPeriodEnd ? `, ${day(s.currentPeriodEnd)}` : ''}</span> : null}
         {a.legacyUnrestrictedAt && !s ? <span className="ws-pill ws-pill--warn">No plan: every app open</span> : null}
       </div>
+      <HealthPanel health={d.health} />
       {s?.status === 'active' && !s.currentPeriodEnd && !a.suspendedAt ? (
         <p className="ws-notice" role="status">
           <span className="ws-pill ws-pill--warn">No end date</span> This account is active with no paid period, so it is never invoiced and never lapses. That is right for a free grant. If the customer should pay, set the period under Subscription.
