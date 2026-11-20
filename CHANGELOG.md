@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-9788cb0 - 2026-11-20
+
+API revision `clor-api-00154-9qg`. Previous release `rel-b1417a9` (roll back there).
+
+- #397 Design audit step 5d: Ops confirmations as dialogs
+- #396 Design audit step 5c: control heights, a payslips total, one primary, ink charts
+- #394 Design audit step 5b: lists on the page ground, forms without boxes
+- #395 Release record: rel-b1417a9
+- #389 Workspace: a member's access in words, and what to hand over before they leave
+- #388 Workspace: two more automations (accountant access ending, people not signing in)
+- #393 Design audit step 5a: every size on the six-step type scale
+
 ## rel-b1417a9 - 2026-11-20
 
 API revision `clor-api-00153-q8l`. Previous release `rel-4f4ccdc` (roll back there).
