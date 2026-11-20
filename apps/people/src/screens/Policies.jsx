@@ -57,7 +57,7 @@ export default function Policies({ openScreen, params }) {
     { key: 'kind', label: 'Kind', render: (p) => <span>{p.categoryLabel}{p.purposeLabel ? <span className="ui-caption block">{p.purposeLabel}</span> : null}</span> },
     { key: 'owner', label: 'Owner', render: (p) => p.ownerName || '—' },
     { key: 'force', label: 'In force', render: (p) => (p.current ? <span className="tabular-nums whitespace-nowrap">v{p.current.version} from {day(p.current.effectiveFrom)}</span> : '—') },
-    { key: 'latest', label: 'Latest', render: (p) => (p.latest ? <span className={`ui-pill ${STATUS[p.latest.status]?.[1] || ''}`}>v{p.latest.version} · {STATUS[p.latest.status]?.[0] || p.latest.status}</span> : <span className="ui-muted">No version</span>) },
+    { key: 'latest', label: 'Latest', render: (p) => (p.latest ? (p.latest.status === 'PUBLISHED' ? <span className="tabular-nums">v{p.latest.version}<span className="sr-only"> · Published</span></span> : <span className={`ui-pill ${STATUS[p.latest.status]?.[1] || ''}`}>v{p.latest.version} · {STATUS[p.latest.status]?.[0] || p.latest.status}</span>) : <span className="ui-muted">No version</span>) },
   ];
 
   return (
@@ -93,7 +93,7 @@ export default function Policies({ openScreen, params }) {
           onRowClick={(p) => setOpen(p.id)}
           card={(p) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{p.title}</span>{p.latest ? <span className={`ui-pill ${STATUS[p.latest.status]?.[1] || ''}`}>v{p.latest.version}</span> : null}</span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{p.title}</span>{p.latest ? (p.latest.status === 'PUBLISHED' ? <span className="ui-caption tabular-nums">v{p.latest.version}</span> : <span className={`ui-pill ${STATUS[p.latest.status]?.[1] || ''}`}>v{p.latest.version}</span>) : null}</span>
               <span className="block truncate ui-caption">{[p.categoryLabel, p.current ? `in force from ${day(p.current.effectiveFrom)}` : 'nothing in force'].join(' · ')}</span>
             </span>
           )}

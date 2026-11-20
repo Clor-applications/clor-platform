@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
@@ -68,7 +69,7 @@ export default function Goals({ params = {} }) {
     { key: 'title', label: 'Goal', always: true, render: (g) => <span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-1.5"><span className="truncate font-medium">{g.title}</span><GoalMarks goal={g} /></span>{g.measure ? <span className="block truncate ui-caption">{g.measure}</span> : null}</span> },
     { key: 'due', label: 'Due', render: (g) => <span className={`tabular-nums whitespace-nowrap ${g.overdue ? 'ui-text-neg' : ''}`}>{day(g.dueDate) || '—'}{g.overdue ? ' (late)' : ''}</span> },
     { key: 'progress', label: 'Progress', render: (g) => <Progress value={g.progress} /> },
-    { key: 'health', label: 'How it is going', render: (g) => (g.status === 'ACTIVE' ? <Pill map={HEALTH} value={g.health} /> : <Pill map={STATUS} value={g.status} />) },
+    { key: 'health', label: 'How it is going', render: (g) => (g.status === 'ACTIVE' ? <Pill map={HEALTH} value={g.health} /> : <ExceptionTag label={g.status === 'DONE' ? '' : STATUS[g.status]?.[0] || g.status} normal={STATUS[g.status]?.[0]} pill={`${STATUS[g.status]?.[1] || 'ui-pill-neutral'}`} />) },
     { key: 'last', label: 'Last check-in', render: (g) => <span className="tabular-nums whitespace-nowrap">{g.lastCheckIn ? day(g.lastCheckIn) : <span className="ui-muted">None</span>}</span> },
   ];
   const blank = { employeeId: person || (people.length === 1 ? people[0].id : me && !staff.length ? me.id : '') };
