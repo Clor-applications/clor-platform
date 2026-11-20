@@ -32,7 +32,7 @@
   border-radius: 12px;
   border: 1px solid rgb(var(--border-field));
   background: rgb(var(--surface));
-  transition: border-color 0.15s ease;
+  transition: border-color var(--ws-dur-hover) var(--ws-ease);
 }
 .ws-appcard[data-open]:hover {
   border-color: rgb(var(--border-strong));
@@ -135,7 +135,7 @@ button.ws-attn-row {
   border-radius: 8px;
 }
 button.ws-attn-row:hover {
-  background: rgb(var(--surface-sunken));
+  background: rgb(var(--ws-hover));
 }
 .ws-attn-text {
   display: grid;
@@ -247,7 +247,7 @@ button.ws-attn-row:hover {
 }
 .ws-rowmenu:hover,
 .ws-rowmenu[aria-expanded='true'] {
-  background: rgb(var(--surface-sunken));
+  background: rgb(var(--ws-hover));
 }
 .ws-table th.ws-th-menu,
 .ws-table td.ws-td-menu {

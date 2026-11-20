@@ -3,10 +3,10 @@ import { ArrowUpRight, Plus, Search, ShieldAlert, UserX } from '@ui/components/u
 import { emoji } from '@ui/components/ui/emoji';
 import { requestOpenScreen } from '@platform/context';
 
-import { confirmDialog } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { lastSignedInLine } from '@ui/picks/round60';
 import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';
-import { AppMark, AppTag, Avatar, Empty, FilterSelect, Loading, PageHead, StatusPill, WsDrawer } from './wsKit';
+import { AppMark, AppTag, Avatar, Empty, FilterSelect, LoadError, Loading, PageHead, StatusPill, WsDrawer } from './wsKit';
 import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-access.css';
@@ -65,6 +65,10 @@ const STATUSES = ['ACTIVE', 'SUSPENDED'];
 export default function Members({ params, tenant, openScreen, switchCompany }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  /* A list that did not load says so and offers a retry: an empty list here invited re-inviting people who are already in. */
+  const [loadError, setLoadError] = useState('');
+  /* Which member action is out ('role', 'signout', 'suspend', 'reinstate', 'remove'): one at a time, so nothing is sent twice. */
+  const [busy, setBusy] = useState('');
   const [filters, setFilters] = useState(() => ({
     q: typeof params?.q === 'string' ? params.q : '',
     status: STATUSES.includes(params?.status) ? params.status : '',
@@ -83,11 +87,10 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
     memberDirectory()
       .then((d) => {
         setData(d);
-        setError('');
+        setLoadError('');
       })
       .catch((e) => {
-        setData({ companies: [], members: [] });
-        setError(errorWords(e, 'load the members'));
+        setLoadError(errorWords(e, 'load the members'));
       });
   }, []);
   useEffect(load, [load]);
@@ -97,6 +100,8 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
     setOpenId(userId);
     setDetail(null);
     setDetailCompany('');
+    setError('');
+    setNotice('');
     memberAccess(userId)
       .then(setDetail)
       .catch((e) => setDetail({ error: errorWords(e, 'load this person’s access') }));
@@ -117,16 +122,21 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
   const pick = (k) => (v) => setFilters((f) => ({ ...f, [k]: v }));
 
-  const act = async (fn, done) => {
+  const act = async (key, fn, done) => {
+    if (busy) return;
     setError('');
     setNotice('');
+    setBusy(key);
     try {
       await fn();
       setNotice(done);
+      notify.success(done);
       load();
       if (openId) memberAccess(openId).then(setDetail).catch(() => {});
     } catch (e) {
       setError(errorWords(e, 'make the change'));
+    } finally {
+      setBusy('');
     }
   };
 
@@ -205,10 +215,13 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
           <FilterSelect label="Authenticator" value={filters.auth} onChange={pick('auth')} options={[['', 'All'], ['none', 'No authenticator'], ['on', 'Has authenticator']]} />
         </div>
 
-        {notice ? <p role="status" className="text-sm">{notice}</p> : null}
-        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+        {/* An action's result shows where it was taken: inside the panel while one is open, here otherwise. */}
+        {!openId && notice ? <p role="status" className="text-sm">{notice}</p> : null}
+        {!openId && error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
-        {data === null ? (
+        {loadError && data === null ? (
+          <LoadError onRetry={() => { setLoadError(''); load(); }}>{loadError}</LoadError>
+        ) : data === null ? (
           <Loading shape="rows" rows={3} label="Loading members…" />
         ) : rows.length === 0 ? (
           <Empty icon={EMPTY_ICON} compact action={data.members.length ? null : { label: 'Invite people', onClick: () => requestOpenScreen('invitations') }}>
@@ -285,11 +298,11 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
         )}
       </div>
 
-      <WsDrawer open={Boolean(openId)} onClose={() => { setOpenId(''); setDetail(null); }} title={detail?.name || detail?.email || 'Member'} description={detail?.email || ''}>
+      <WsDrawer open={Boolean(openId)} onClose={() => { setOpenId(''); setDetail(null); setNotice(''); setError(''); }} title={detail?.name || detail?.email || 'Member'} description={detail?.email || ''}>
         {!detail ? (
           <Loading shape="card" label="Loading this person’s access…" />
         ) : detail.error ? (
-          <p role="alert" className="text-sm">{detail.error}</p>
+          <LoadError onRetry={() => openMember(openId)}>{detail.error}</LoadError>
         ) : (
           <div className="ws-member-panel">
             {/* Account role and company side by side, each as wide as its words (owner, 19 Nov 2026). */}
@@ -300,6 +313,8 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                 id="ws-member-role"
                 className="ui-select"
                 value={detail.accountRole}
+                disabled={Boolean(busy)}
+                aria-busy={busy === 'role' || undefined}
                 onChange={async (e) => {
                   const next = e.target.value;
                   /* The select saved on change, so one slip of the mouse made somebody an owner. Asked first, in words. */
@@ -308,10 +323,10 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                     title: `Change ${detail.name || detail.email || 'this person'}’s account role to ${ROLE_LABEL[next] || next}?`,
                     message: up ? 'They will be able to change who has access to this account.' : 'Their access to account settings changes at once.',
                     confirmLabel: 'Change role',
-                    tone: next === 'OWNER' ? 'danger' : undefined,
+                    tone: next === 'OWNER' ? 'danger' : 'neutral',
                   });
                   if (!ok) return;
-                  act(() => setAccountRole(detail.userId, next), `Account role changed to ${ROLE_LABEL[next]}.`);
+                  act('role', () => setAccountRole(detail.userId, next), `Account role changed to ${ROLE_LABEL[next]}.`);
                 }}
               >
                 {Object.entries(ROLE_LABEL).map(([k, l]) => (
@@ -457,43 +472,53 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
               </div>
             </dl>
 
+            {/* The result of an action taken here, inside the panel: under the drawer's scrim the page's own line could not be seen. */}
+            {notice ? <p role="status" className="ws-member-result text-sm">{notice}</p> : null}
+            {error ? <p role="alert" className="ws-member-result text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+
             <div className="ws-member-actions">
               <button
                 type="button"
                 className="ws-row-link"
+                disabled={Boolean(busy)}
+                aria-busy={busy === 'signout' || undefined}
                 onClick={async () => {
                   if (!(await confirmDialog({ title: 'Sign out everywhere?', message: 'Ends every session now. They can sign in again.', confirmLabel: 'Sign out everywhere', tone: 'neutral' }))) return;
-                  act(() => signOutMember(detail.userId), 'Signed out of every session.');
+                  act('signout', () => signOutMember(detail.userId), 'Signed out of every session.');
                 }}
               >
-                Sign out everywhere
+                {busy === 'signout' ? 'Signing out…' : 'Sign out everywhere'}
               </button>
               {detail.status === 'SUSPENDED' ? (
-                <button type="button" className="ws-row-link" onClick={() => act(() => reinstateMember(detail.userId), 'Reinstated: their roles work again.')}>
-                  Reinstate in the account
+                <button type="button" className="ws-row-link" disabled={Boolean(busy)} aria-busy={busy === 'reinstate' || undefined} onClick={() => act('reinstate', () => reinstateMember(detail.userId), 'Reinstated: their roles work again.')}>
+                  {busy === 'reinstate' ? 'Reinstating…' : 'Reinstate in the account'}
                 </button>
               ) : (
                 <button
                   type="button"
                   className="ws-row-link ws-row-link--danger"
+                  disabled={Boolean(busy)}
+                  aria-busy={busy === 'suspend' || undefined}
                   onClick={async () => {
                     if (!(await confirmDialog({ title: `Suspend ${detail.name || detail.email || 'this person'} in the account?`, message: 'They lose access to every company until reinstated. Their records stay.', confirmLabel: 'Suspend in the account', tone: 'danger' }))) return;
-                    act(() => suspendMember(detail.userId), 'Suspended in every company of the account.');
+                    act('suspend', () => suspendMember(detail.userId), 'Suspended in every company of the account.');
                   }}
                 >
-                  <UserX size={16} aria-hidden="true" /> Suspend in the account
+                  <UserX size={16} aria-hidden="true" /> {busy === 'suspend' ? 'Suspending…' : 'Suspend in the account'}
                 </button>
               )}
               {shown ? (
                 <button
                   type="button"
                   className="ws-row-link ws-row-link--danger"
+                  disabled={Boolean(busy)}
+                  aria-busy={busy === 'remove' || undefined}
                   onClick={async () => {
-                    if (!(await confirmDialog({ title: `Remove from ${shown.name}?`, message: 'They lose access to this company only.', confirmLabel: 'Remove from company' }))) return;
-                    act(() => removeMemberFromCompany(detail.userId, shown.orgId), `Removed from ${shown.name}.`);
+                    if (!(await confirmDialog({ title: `Remove from ${shown.name}?`, message: 'They lose access to this company only.', confirmLabel: 'Remove from company', tone: 'danger' }))) return;
+                    act('remove', () => removeMemberFromCompany(detail.userId, shown.orgId), `Removed from ${shown.name}.`);
                   }}
                 >
-                  Remove from {shown.name}
+                  {busy === 'remove' ? 'Removing…' : `Remove from ${shown.name}`}
                 </button>
               ) : null}
             </div>

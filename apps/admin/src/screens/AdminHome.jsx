@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus } from '@ui/components/ui/lineIcons';
+import { ChevronDown, ChevronRight, CreditCard, LayoutGrid, Plus, ShieldCheck, Users } from '@ui/components/ui/lineIcons';
 
 import { accountAudit, getAccountMe, listAccountMembers, listInvitations, listTickets, memberDirectory } from '@platform/admin/account';
 import { getAccountOverview } from '@platform/admin/admin';
@@ -7,7 +7,7 @@ import { operator } from '@platform/operator';
 import { actionText } from './AccountActivity';
 import { planSentence, planWord } from './planWords';
 import { listOutsideAccess } from '@platform/admin/outsideAccess';
-import { AppMark, Avatar, ICON, Meter, ago, appName, productIcon, seatState } from './wsKit';
+import { AppMark, Avatar, ICON, LoadError, Meter, ago, appName, productIcon, seatState } from './wsKit';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
 import { orgId, requestOpenHelp } from '@platform/context';
 import { apiFetch } from '@platform/http';
@@ -159,6 +159,9 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   /* At a glance folds away, as the reader left it; Top actions can show one subject at a time. */
   const [folded, setFolded] = useState(false);
   const [area, setArea] = useState(null);
+  /* Who this is could not be read: Top actions says so, with a retry, instead of "Nothing needs your action". */
+  const [meFailed, setMeFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   /* Which apps are on here, as one string: the effect below reads it and must not re-run on a new array of the same apps. */
   const subsKey = (tenant?.subscriptions || []).join(',');
 
@@ -167,6 +170,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
     getAccountMe()
       .then((r) => {
         if (!live) return;
+        setMeFailed(false);
         setMe(r || null);
         const role = r?.role;
         if (role === 'OWNER' || role === 'ADMIN' || role === 'BILLING_ADMIN') getAccountOverview().then((o) => live && setOverview(o || false)).catch(() => live && setOverview(false)); /* false: read and failed, so nothing waits on it */
@@ -213,11 +217,15 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         });
       })
       /* No answer hides what depends on it; nothing is guessed. */
-      .catch(() => live && setMe(null));
+      .catch(() => {
+        if (!live) return;
+        setMe(null);
+        setMeFailed(true);
+      });
     return () => {
       live = false;
     };
-  }, [tenant?.id, subsKey]);
+  }, [tenant?.id, subsKey, attempt]);
 
   const loading = me === undefined;
   const role = me?.role || null;
@@ -333,7 +341,10 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const account = accountName || overview?.account?.name || tenant?.name || '';
   const memberCount = activeMembers ?? (security ? security.active : null);
   /* Under the greeting: the account's name and this person's role. The counts are said once, in the figures row. */
-  const facts = [account || null].filter(Boolean);
+  /* An account named after its owner would read "Hello, Kavya · Kavya Raman": the company is said instead. */
+  const fullName = String(user?.fullName || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || '').trim().toLowerCase();
+  const sameAsPerson = account && fullName && account.trim().toLowerCase() === fullName;
+  const facts = [(sameAsPerson ? tenant?.name : account) || null].filter(Boolean);
   const companiesTable = isAdmin && overview ? (overview.companies || []) : null;
 
 
@@ -402,7 +413,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             <h1 id="wsh-hello" className="wsg-title">Home</h1>
             <p className="wsg-lede">
               {name ? <span>Hello, {name}</span> : null}
-              {facts.length ? <span>{facts.join(' · ')}</span> : null}
+              {facts.length ? <span className="wsg-lede-facts">{facts.join(' · ')}</span> : null}
               {role ? <span className="ws-pill">{ROLE_LABEL[role] || role}</span> : null}
             </p>
           </div>
@@ -420,11 +431,12 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               <ChevronDown size={18} aria-hidden="true" className="wsg-fold-ico" />
             </button>
           </h2>
-          {folded ? null : (
-            <div id="wsg-glance" className="wsg-cards">
+          {/* Folded, the cards stay in the page but hidden, so aria-controls always names something and nothing is read again. */}
+          <div id="wsg-glance" className="wsg-cards" hidden={folded}>
               {isAdmin && memberCount != null ? (
                 <GlanceCard
                   id="members"
+                  icon={Users}
                   title="Members"
                   label={memberCount === 1 ? 'Active member' : 'Active members'}
                   figure={memberCount}
@@ -443,6 +455,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               {appRows.length ? (
                 <GlanceCard
                   id="apps"
+                  icon={LayoutGrid}
                   title="Apps"
                   label={onCount === 1 ? 'Active app' : 'Active apps'}
                   figure={onCount || null}
@@ -470,6 +483,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               {plan ? (
                 <GlanceCard
                   id="plan"
+                  icon={CreditCard}
                   title="Plan"
                   label={renewal?.status === 'trialing' ? 'Each month after the trial' : 'Each month'}
                   figure={runRate?.monthly != null ? rupees(runRate.monthly) : null}
@@ -511,6 +525,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               {security ? (
                 <GlanceCard
                   id="security"
+                  icon={ShieldCheck}
                   title="Security"
                   label="Members with an authenticator"
                   figure={security.withTotp}
@@ -535,7 +550,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 </GlanceCard>
               ) : null}
             </div>
-          )}
         </section>
 
         {myApps && myApps.length === 0 ? (
@@ -581,7 +595,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               {actions.filter((a) => !area || a.area === area).map((a) => (
                 <li key={a.key} className="wsg-card wsg-act" data-tone={a.tone || undefined}>
                   <div className="wsg-act-head">
-                    <span className="wsg-act-area">{a.area}</span>
+                    <span className="wsg-act-area" data-area={a.area}>{a.area}</span>
                     {/* Severity only, and only on what is urgent (DESIGN.md: tags on exceptions); the subject is said once, on the left. */}
                     {a.tone === 'danger' ? <span className="ws-pill ws-pill--danger">Urgent</span> : a.tone === 'warn' ? <span className="ws-pill ws-pill--warn">Needs action</span> : null}
                   </div>
@@ -590,14 +604,16 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   {a.meter ? <Meter coverage label="Steps done" used={a.meter.used} limit={a.meter.limit} /> : null}
                   {a.go ? (
                     <div className="wsg-foot">
-                      <button type="button" className="ws-btn ws-btn--quiet" onClick={a.go} aria-label={`${a.action || 'Open'}: ${typeof a.title === 'string' ? a.title : textOf(a.title)}`}>
-                        {a.action || 'Open'}
+                      <button type="button" className="ws-link" onClick={a.go} aria-label={`${a.action || 'Open'}: ${typeof a.title === 'string' ? a.title : textOf(a.title)}`}>
+                        {a.action || 'Open'} <ChevronRight size={16} aria-hidden="true" />
                       </button>
                     </div>
                   ) : null}
                 </li>
               ))}
             </ul>
+          ) : meFailed ? (
+            <LoadError onRetry={() => { setMeFailed(false); setMe(undefined); setAttempt((n) => n + 1); }}>What needs your action could not be loaded.</LoadError>
           ) : (
             <p className="wsg-calm">Nothing needs your action right now.</p>
           )}
@@ -723,11 +739,14 @@ function textOf(node) {
 }
 
 /** One card in At a glance: title, what the figure counts, the figure, one breakdown, and its buttons at the foot. */
-function GlanceCard({ id, title, label, figure, of = null, emptyFigure = null, note = null, foot = [], children }) {
+function GlanceCard({ id, icon: Icon = null, title, label, figure, of = null, emptyFigure = null, note = null, foot = [], children }) {
   const buttons = foot.filter((b) => b.go);
   return (
-    <section className="wsg-card wsg-glance" aria-labelledby={`wsg-${id}-title`}>
-      <h3 id={`wsg-${id}-title`} className="wsg-card-title">{title}</h3>
+    <section className="wsg-card wsg-glance" data-kind={id} aria-labelledby={`wsg-${id}-title`}>
+      <h3 id={`wsg-${id}-title`} className="wsg-card-title">
+        {Icon ? <span className="wsg-card-ico" aria-hidden="true"><Icon size={18} /></span> : null}
+        {title}
+      </h3>
       <p className="wsg-label">{label}</p>
       {figure != null ? (
         <p className="wsg-figure ui-num">{figure}{of != null ? <small> of {of}</small> : null}</p>
@@ -739,7 +758,9 @@ function GlanceCard({ id, title, label, figure, of = null, emptyFigure = null, n
       {buttons.length ? (
         <div className="wsg-foot">
           {buttons.map((b) => (
-            <button key={b.label} type="button" className="ws-btn ws-btn--quiet" onClick={b.go}>{b.label}</button>
+            <button key={b.label} type="button" className="ws-link" onClick={b.go}>
+              {b.label} <ChevronRight size={16} aria-hidden="true" />
+            </button>
           ))}
         </div>
       ) : null}

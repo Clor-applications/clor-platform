@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { ApproveActions } from '@ui/components/ui/ApproveActions';
 import { approveSupportGrant, endSupportGrant, listSupportGrants } from '@platform/admin/supportGrants';
 import { ICON, Loading, PageHead } from './wsKit';
 import { CountLine } from '@ui/components/ui/CountLine';
@@ -79,9 +80,16 @@ function Request({ g, defaultHours, onDone }) {
           <p className="ws-item-sub">To read only</p>
         )}
         <div className="ws-sg-actions">
-          {/* One primary per screen (DESIGN.md): a row's decision is a secondary button, never the page's main action. */}
-          <button type="button" className="ws-btn" disabled={Boolean(busy)} onClick={() => run('approve')}>{busy === 'approve' ? 'Letting in…' : 'Let them in'}</button>
-          <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(busy)} onClick={() => run('refuse')}>{busy === 'refuse' ? 'Refusing…' : 'Refuse'}</button>
+          {/* The tick and cross used for approvals everywhere outside Books (DESIGN.md "Approvals"). */}
+          <ApproveActions
+            what={`support access for ${g.staff}`}
+            approveTitle="Let them in"
+            rejectTitle="Refuse"
+            busy={Boolean(busy)}
+            onApprove={() => run('approve')}
+            onReject={() => run('refuse')}
+          />
+          {busy ? <span className="ws-item-sub" role="status">{busy === 'approve' ? 'Letting in…' : 'Refusing…'}</span> : null}
         </div>
       </div>
     </li>
@@ -104,12 +112,19 @@ export default function SupportAccess() {
     load();
   }, [load]);
 
+  /* The grant being ended: its row's button waits, so the end is not sent twice. */
+  const [ending, setEnding] = useState('');
   const end = async (g) => {
+    if (ending) return;
+    if (!(await confirmDialog({ title: `End ${g.staff}’s access now?`, message: 'They are stopped on their next request. If support still needs to look, they will have to ask again.', confirmLabel: 'End access', tone: 'danger' }))) return;
+    setEnding(g.id);
     try {
       await endSupportGrant(g.id, null);
       notify.success(`${g.staff} can no longer look.`);
     } catch (e) {
       notify.error(errorWords(e, 'end the access'));
+    } finally {
+      setEnding('');
     }
     load();
   };
@@ -187,8 +202,8 @@ export default function SupportAccess() {
                             <td>{g.state === 'ACTIVE' || g.state === 'EXPIRED' ? when(g.expiresAt) : g.endedAt ? when(g.endedAt) : '—'}</td>
                             <td className="num">
                               {g.state === 'ACTIVE' ? (
-                                <button type="button" className="ws-row-link ws-row-link--danger" aria-label={`End access for ${g.staff}`} onClick={() => end(g)}>
-                                  End now
+                                <button type="button" className="ws-row-link ws-row-link--danger" aria-label={`End access for ${g.staff}`} disabled={Boolean(ending)} aria-busy={ending === g.id || undefined} onClick={() => end(g)}>
+                                  {ending === g.id ? 'Ending…' : 'End now'}
                                 </button>
                               ) : null}
                             </td>

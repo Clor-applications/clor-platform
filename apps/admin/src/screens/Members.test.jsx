@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ memberDirectory: vi.fn(), memberAccess: vi.fn(), suspendMember: vi.fn(), reinstateMember: vi.fn(), removeMemberFromCompany: vi.fn(), setAccountRole: vi.fn(), signOutMember: vi.fn() }));
 vi.mock('@platform/admin/account', () => Object.fromEntries(Object.keys(api).map((k) => [k, (...a) => api[k](...a)])));
-vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true) }));
+vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true), notify: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 vi.mock('@ui/components/ui/Drawer', () => ({ default: ({ open, title, children }) => (open ? <div role="dialog" aria-label={title}>{children}</div> : null) }));
 
 import Members, { filterMembers } from './Members';
@@ -153,5 +153,35 @@ describe('Workspace → Members', () => {
     fireEvent.click(await screen.findByText('Kavya'));
     expect(await screen.findByText(/Nothing to hand over/)).toBeInTheDocument();
   });
-});
 
+  /* Audit 21 Nov 2026: a failed load showed "Nobody is in the account yet", which invited re-inviting people already in. */
+  it('says the list did not load and offers a retry, never an empty account', async () => {
+    api.memberDirectory.mockRejectedValueOnce(new Error('down'));
+    render(<Members />);
+    const retry = await screen.findByRole('button', { name: 'Try again' });
+    expect(screen.queryByText('Nobody is in the account yet.')).toBeNull();
+    fireEvent.click(retry);
+    expect(await screen.findByText('Kavya')).toBeInTheDocument();
+  });
+
+  /* Suspend and remove could be sent twice; the result was shown on the page, behind the drawer. */
+  it('holds every member action while one is out, and shows the result inside the panel', async () => {
+    let finish;
+    api.suspendMember.mockImplementation(() => new Promise((r) => { finish = r; }));
+    render(<Members />);
+    fireEvent.click(await screen.findByRole('button', { name: /Kavya/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Suspend in the account/ }));
+    const pending = await screen.findByRole('button', { name: /Suspending…/ });
+    expect(pending).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Sign out everywhere' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Remove from Anand Exports' })).toBeDisabled();
+    expect(screen.getByLabelText('Account role', { selector: '#ws-member-role' })).toBeDisabled();
+    fireEvent.click(pending);
+    expect(api.suspendMember).toHaveBeenCalledTimes(1);
+    finish({});
+    const d = screen.getByRole('dialog', { name: 'Kavya' });
+    await waitFor(() => expect(d).toHaveTextContent('Suspended in every company of the account.'));
+    const { notify } = await import('@ui/components/ui/notify');
+    expect(notify.success).toHaveBeenCalledWith('Suspended in every company of the account.');
+  });
+});

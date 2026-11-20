@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { emoji } from '@ui/components/ui/emoji';
 import { Download, RefreshCw, Search } from '@ui/components/ui/lineIcons';
 
 import { exportRows } from '@ui/components/ListToolbar';
 import { listAudit, listAuditFacets } from '@platform/admin/audit';
 import { hasApp } from '@platform/context';
-import { AppTag, Avatar, FilterSelect, Loading, PageHead } from './wsKit';
+import { AppTag, Avatar, FilterSelect, LoadError, Loading, PageHead } from './wsKit';
 import { DateFilter, shortWhen, spanFrom } from './AccountActivity';
 import './workspace.css';
 import './ws-security.css';
@@ -253,20 +253,31 @@ export default function AuditTrail({ tenant, menuLabel } = {}) {
   const [cursor, setCursor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState('');
+  /* The search box as typed; the server is asked 250ms after the last key (PlanChange's pattern), not on every key. */
+  const [qText, setQText] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setFilters((p) => (p.q === qText ? p : { ...p, q: qText })), 250);
+    return () => clearTimeout(t);
+  }, [qText]);
+  /* Each request is numbered; a reply to an older one is dropped, so a slow answer never replaces a newer list. */
+  const seq = useRef(0);
 
   const load = useCallback(
     async (opts = {}) => {
+      const mine = ++seq.current;
       setLoading(true);
       setFailed('');
       try {
         const res = await listAudit({ ...filters, limit: 50, ...(opts.cursor ? { cursor: opts.cursor } : {}) });
+        if (mine !== seq.current) return;
         const rows = Array.isArray(res?.entries) ? res.entries : [];
         setEntries((prev) => (opts.cursor ? [...prev, ...rows] : rows));
         setCursor(res?.nextCursor || null);
       } catch (e) {
+        if (mine !== seq.current) return;
         setFailed(errorWords(e, 'load the activity'));
       } finally {
-        setLoading(false);
+        if (mine === seq.current) setLoading(false);
       }
     },
     [filters]
@@ -361,7 +372,7 @@ export default function AuditTrail({ tenant, menuLabel } = {}) {
           <label className="ws-search">
             <Search size={16} aria-hidden="true" />
             <span className="sr-only">Search activity</span>
-            <input id="audit-q" type="search" value={filters.q} onChange={set('q')} className="ui-input" placeholder="Search by record or what happened" />
+            <input id="audit-q" type="search" value={qText} onChange={(e) => setQText(e.target.value)} className="ui-input" placeholder="Search by record or what happened" />
           </label>
           {/* The app's own menus, opening under each chip (owner, 19 Nov 2026), not the browser's select lists. */}
           <FilterSelect label="App" value={filters.app} options={[['', 'All'], ...offered().map((a) => [a.id, a.label])]} onChange={(v) => setFilters((p) => ({ ...p, app: v }))} />
@@ -380,11 +391,14 @@ export default function AuditTrail({ tenant, menuLabel } = {}) {
           </span>
         </div>
 
-        {failed ? (
+        {failed && entries.length ? (
           <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>The activity could not be read: {failed}</p>
         ) : null}
 
-        {!entries.length && !loading ? (
+        {failed && !entries.length && !loading ? (
+          /* A failed read is not "Nothing matches": said where the list would be, with a retry. */
+          <LoadError onRetry={() => load()}>The activity could not be read: {failed}</LoadError>
+        ) : !entries.length && !loading ? (
           <p className="ws-card-blurb">Nothing matches these filters.</p>
         ) : !entries.length ? (
           <Loading shape="rows" rows={3} label="Loading activity…" />

@@ -70,8 +70,8 @@ export const signupOptions = (app) => apiFetch(`/public/signup/options${app ? `?
 export const signupStart = ({ email, app, plan, website }) =>
   apiFetch('/public/signup/start', { method: 'POST', body: { email, ...(app ? { app } : {}), ...(plan ? { plan } : {}), ...(website ? { website } : {}) }, skipAuth: true });
 export const signupPending = (token) => apiFetch(`/public/signup/pending?t=${encodeURIComponent(token)}`, { skipAuth: true });
-export const signupConfirm = ({ token, ownerName, companyName, apps, state, password }) =>
-  apiFetch('/public/signup/confirm', { method: 'POST', body: { token, ownerName, companyName, apps, ...(state ? { state } : {}), ...(password ? { password } : {}) }, skipAuth: true });
+export const signupConfirm = ({ token, ownerName, companyName, apps, state, gstin, password }) =>
+  apiFetch('/public/signup/confirm', { method: 'POST', body: { token, ownerName, companyName, apps, ...(state ? { state } : {}), ...(gstin ? { gstin } : {}), ...(password ? { password } : {}) }, skipAuth: true });
 
 /* The signed-in person's own profile. Platform data, so every app shows the
    same page: Accounting in its settings, the shell for apps that use its menu. */

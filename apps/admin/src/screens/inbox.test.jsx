@@ -31,7 +31,7 @@ describe('Workspace Inbox', () => {
     expect(table.getByText('Invoice to approve')).toBeInTheDocument();
     expect(table.getByText('Casual leave')).toBeInTheDocument();
     expect(table.queryByText('Collect ID and address proof')).toBeNull();
-    expect(screen.getByRole('tab', { name: /To decide/ })).toHaveTextContent('2');
+    expect(screen.getByRole('button', { name: /To decide/ })).toHaveTextContent('2');
 
     /* The side summary's app rows filter the list, the same as the App menu. */
     fireEvent.click(screen.getByRole('button', { name: /People/, pressed: false }));
@@ -49,11 +49,11 @@ describe('Workspace Inbox', () => {
     /* By its words: the loading skeleton is a status too. */
     expect(await screen.findByText(/Could not reach Payroll/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: /Your tasks/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Your tasks/ }));
     const tasks = within(screen.getByRole('table', { name: 'Your tasks' }));
     expect(tasks.getByText('13 Nov')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: /Updates/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Updates/ }));
     const updates = within(screen.getByRole('table', { name: 'Updates' }));
     fireEvent.click(updates.getByRole('button', { name: /Open/ }));
     expect(openApp).toHaveBeenCalledWith('payroll', 'bankChanges', {});
