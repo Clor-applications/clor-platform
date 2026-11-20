@@ -113,7 +113,7 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
       {opts && opts.plans.length ? (
         <>
           <div className="grid gap-1">
-            <label htmlFor="deal-plan" className="text-sm font-medium">Plan</label>
+            <label htmlFor="deal-plan" className="text-sm font-semibold">Plan</label>
             <select id="deal-plan" className="ui-select" value={pick} onChange={(e) => setPick(e.target.value)} aria-describedby="deal-plan-hint">
               {book.length ? (
                 <optgroup label="Price list">
@@ -138,7 +138,7 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
             {plan ? <span id="deal-plan-hint" className="ws-card-blurb">{plan.appNames.join(', ')} · counted by {unitName(plan.unit)} · {units(plan.unit, plan.includedUnits)} included</span> : null}
           </div>
           <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium">Billing</legend>
+            <legend className="text-sm font-semibold">Billing</legend>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {['MONTHLY', 'YEARLY'].map((k) => {
                 const has = plan && (k === 'YEARLY' ? plan.yearly : plan.monthly);
@@ -154,11 +154,11 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
           </fieldset>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1">
-              <span className="text-sm font-medium">How many {plan ? unitName(plan.unit) : 'units'}</span>
+              <span className="text-sm font-semibold">How many {plan ? unitName(plan.unit) : 'units'}</span>
               <input className="ui-input tabular-nums" type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} style={{ maxWidth: 160 }} />
             </label>
             <label className="grid gap-1">
-              <span className="text-sm font-medium">Offer</span>
+              <span className="text-sm font-semibold">Offer</span>
               <select className="ui-select" value={offerCode} onChange={(e) => setOfferCode(e.target.value)}>
                 <option value="">No offer</option>
                 {offers.map((o) => (
@@ -170,7 +170,7 @@ export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
             </label>
           </div>
           <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium">Starts</legend>
+            <legend className="text-sm font-semibold">Starts</legend>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <label className="flex items-center gap-2">
                 <input type="radio" name="deal-status" checked={status === 'active'} onChange={() => setStatus('active')} />

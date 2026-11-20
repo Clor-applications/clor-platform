@@ -190,7 +190,7 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
                 <ul className="dh-plain">
                   {data.snoozed.map((c) => (
                     <li key={c.id}>
-                      <span className="font-medium">{c.title}</span>
+                      <span>{c.title}</span>
                       <span className="ui-caption">· <span className="tabular-nums">{c.count}</span> · back <span className="tabular-nums">{formatDate(c.snooze.until)}</span> · {c.snooze.reason}</span>
                       <button type="button" className="ui-link ml-auto" onClick={() => wake(c)}>Bring back now</button>
                     </li>
@@ -342,8 +342,8 @@ function Headcount() {
         <h2 className="dh-section-title">Headcount and movements</h2>
         <div className="flex items-center gap-2 text-sm"><label htmlFor="headcount-asof">As of</label><DatePicker id="headcount-asof" value={asOf} max={today} onChange={(v) => setAsOf(v || today)} /></div>
       </div>
-      <p className="text-sm"><span className="tabular-nums font-medium">{data.headcount}</span> {data.headcount === 1 ? 'person' : 'people'} on {formatDate(data.asOf)}{Object.keys(data.byEstablishment).length ? ': ' : ''}{Object.entries(data.byEstablishment).map(([k, v]) => `${k} ${v}`).join(', ')}</p>
-      {attrition !== null ? <p className="text-sm">Left in the last {data.months.length} months: <span className="tabular-nums font-medium">{attrition}%</span> of the average headcount</p> : null}
+      <p className="text-sm"><span className="tabular-nums">{data.headcount}</span> {data.headcount === 1 ? 'person' : 'people'} on {formatDate(data.asOf)}{Object.keys(data.byEstablishment).length ? ': ' : ''}{Object.entries(data.byEstablishment).map(([k, v]) => `${k} ${v}`).join(', ')}</p>
+      {attrition !== null ? <p className="text-sm">Left in the last {data.months.length} months: <span className="tabular-nums">{attrition}%</span> of the average headcount</p> : null}
       <div className="dh-table-wrap">
       <table className="dh-table">
         <thead><tr><th>Month</th><th className="num">Joined</th><th className="num">Left</th><th className="num">Transferred</th><th className="num">At month end</th></tr></thead>

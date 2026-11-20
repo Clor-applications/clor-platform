@@ -167,7 +167,7 @@ export default function SalarySlips() {
                     <td className="ui-col-meta" data-phone="sub">{x.period?.name || '—'}{x.extraPayRun ? <span className="ui-caption"> · Extra pay run</span> : null}</td>
                     <td className="ui-num">{moneyCell(x.grossEarnings)}</td>
                     <td className="ui-num">{moneyCell(x.totalDeductions)}</td>
-                    <td className="ui-num font-medium" data-phone="key">{moneyCell(x.netPay)}</td>
+                    <td className="ui-num" data-phone="key">{moneyCell(x.netPay)}</td>
                     <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={isPaid(x) ? '' : 'Unpaid'} normal="Paid" />
                     </td>
@@ -354,8 +354,8 @@ const Section = ({ title, lines, trace, onExplain }) => (
 
 const Row = ({ label, value, strong = false, muted = false }) => (
   <div className="flex items-baseline justify-between gap-3">
-    <span className={strong ? 'text-sm font-medium' : muted ? 'ui-caption' : 'text-sm'}>{label}</span>
-    <span className={`ui-num text-sm ${strong ? 'font-medium' : ''}`}>{money(value)}</span>
+    <span className={strong ? 'text-sm font-semibold' : muted ? 'ui-caption' : 'text-sm'}>{label}</span>
+    <span className={`ui-num text-sm ${strong ? 'font-semibold' : ''}`}>{money(value)}</span>
   </div>
 );
 

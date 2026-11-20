@@ -44,7 +44,7 @@ export default class ScreenBoundary extends React.Component {
     if (isStaleRelease(this.state.error)) {
       return (
         <div className="ui-card p-6" style={{ maxWidth: '40rem' }}>
-          <h1 className="ui-display text-xl">CLOR has been updated</h1>
+          <h1 className="ui-display text-2xl leading-8 font-bold">CLOR has been updated</h1>
           <p className="mt-2 text-sm ui-muted">A newer version came out while this page was open. Reload to use it; nothing you saved is lost.</p>
           <button type="button" className="ui-btn ui-btn-primary mt-4" onClick={() => window.location.reload()}>Reload</button>
         </div>
@@ -53,7 +53,7 @@ export default class ScreenBoundary extends React.Component {
 
     return (
       <div className="ui-card p-6" style={{ maxWidth: '40rem' }}>
-        <h1 className="ui-display text-xl">This screen could not be shown</h1>
+        <h1 className="ui-display text-2xl leading-8 font-bold">This screen could not be shown</h1>
         <p className="mt-2 text-sm ui-muted">
           Something in {this.props.appName || 'this app'} failed while drawing this page. The rest of CLOR still works:
           pick another screen from the menu, or another app.

@@ -102,7 +102,7 @@ export default function AskLetter({ guard, onIssued }) {
             return (
               <li key={r.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                 <span className="min-w-0">
-                  <span className="block truncate font-medium">{r.title.replace(/^[^:]*:\s*/, '').replace(/^./, (c) => c.toUpperCase())}</span>
+                  <span className="block truncate">{r.title.replace(/^[^:]*:\s*/, '').replace(/^./, (c) => c.toUpperCase())}</span>
                   <span className="ui-caption">Asked {when(r.createdAt)}{r.issued ? ' · in My documents' : r.status === 'APPROVED' ? ' · HR is preparing it' : ''}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">

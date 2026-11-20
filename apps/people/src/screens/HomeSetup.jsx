@@ -75,7 +75,7 @@ export default function HomeSetup({ openScreen, onState }) {
       {simpleMode?.suggest ? (
         <section className="ui-card p-4 flex flex-wrap items-start gap-3" aria-labelledby="simple-h" role="status">
           <div className="min-w-0 flex-1 basis-64">
-            <h2 id="simple-h" className="font-medium">Your company has grown</h2>
+            <h2 id="simple-h" className="font-semibold">Your company has grown</h2>
             <p className="ui-caption">
               {simpleMode.reasons.join(', ').replace(/^./, (c) => c.toUpperCase())}. Simple mode keeps organisation detail, such as legal entities, out of the menu. You can switch it off now, or later in Settings → Modules &amp; Apps.
             </p>
@@ -102,7 +102,7 @@ export default function HomeSetup({ openScreen, onState }) {
                 <span className="ui-setup-mark" aria-hidden="true">{s.done ? <Check size={13} /> : i + 1}</span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{s.title}</span>
+                    <span className="text-sm">{s.title}</span>
                     <span className={`ui-pill ${s.done ? 'ui-pill-pos' : s.skipped ? 'ui-pill-outline' : s.optional ? 'ui-pill-neutral' : 'ui-pill-warn'}`}>{s.done ? 'Done' : s.skipped ? 'Skipped' : s.optional ? 'Optional' : 'To do'}</span>
                   </div>
                   <p className="ui-caption">{s.blurb}</p>

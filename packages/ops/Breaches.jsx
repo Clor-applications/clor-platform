@@ -68,7 +68,7 @@ export function Breaches({ me, openCustomer }) {
             <li key={b.id} className="r67-breach">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0" style={{ flex: '1 1 20rem' }}>
-                  <p className="font-medium">{b.what}</p>
+                  <p>{b.what}</p>
                   <p className="ws-item-sub">
                     Happened {day(b.happenedAt)} · found {day(b.foundAt)} · {b.dataKinds}
                   </p>
@@ -116,7 +116,7 @@ export function Breaches({ me, openCustomer }) {
 function Field({ id, label, hint, children }) {
   return (
     <div className="grid gap-1 content-start">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-semibold">
         {label}
       </label>
       {children}

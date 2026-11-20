@@ -96,7 +96,7 @@ export default function UserAccessPanel({ orgId, userId }) {
             <div className="space-y-1.5">
               {summary.map((m) => (
                 <div key={m.key} className="text-sm">
-                  <span className="ui-fg font-medium">{m.label}</span>
+                  <span className="ui-fg font-semibold">{m.label}</span>
                   <span className="ui-muted">
                     {' — '}
                     {m.resources.map((r) => `${r.label} (${r.actions.join(', ')})`).join(' · ')}

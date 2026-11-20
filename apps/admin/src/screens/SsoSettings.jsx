@@ -54,7 +54,7 @@ const stamp = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', 
 function Field({ label, hint, wide, children }) {
   return (
     <label className={`grid gap-1 ${wide ? 'md:col-span-2' : ''}`}>
-      <span className="text-sm font-medium">{label}</span>
+      <span className="text-sm font-semibold">{label}</span>
       {children}
       {hint ? <span className="ui-caption">{hint}</span> : null}
     </label>

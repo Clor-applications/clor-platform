@@ -349,7 +349,7 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
                 <label key={a.code} className="flex items-start gap-3 rounded-lg p-3" style={{ border: '1px solid rgb(var(--border))', cursor: implied ? 'default' : 'pointer' }}>
                   <input type="checkbox" className="ui-checkbox mt-0.5" checked={has(a.code)} disabled={implied} onChange={() => toggle(a.code)} aria-label={a.name} aria-describedby={`start-app-${a.code}`} />
                   <span className="min-w-0">
-                    <span className="block text-sm font-medium">{a.name}</span>
+                    <span className="block text-sm font-semibold">{a.name}</span>
                     <span id={`start-app-${a.code}`} className="block ui-caption">
                       {implied ? 'Included with People.' : WHAT[a.code] || ''}
                     </span>

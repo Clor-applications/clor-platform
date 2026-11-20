@@ -48,7 +48,7 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
         {r.from || r.to ? <span className="block ui-caption">{r.from || 'None'} → {r.to || 'None'}</span> : null}
       </span>
     ) },
-    { key: 'date', label: DATE_WORD[view], render: (r) => <span className={`tabular-nums whitespace-nowrap ${r.late ? 'ui-text-neg font-medium' : ''}`}>{formatDate(r.date)}{r.late ? ' (passed)' : ''}</span> },
+    { key: 'date', label: DATE_WORD[view], render: (r) => <span className={`tabular-nums whitespace-nowrap ${r.late ? 'ui-text-neg' : ''}`}>{formatDate(r.date)}{r.late ? ' (passed)' : ''}</span> },
     { key: 'reason', label: 'Reason', render: (r) => (r.reason ? <span className="block max-w-[18rem] truncate">{r.reason}</span> : <span className="ui-caption">—</span>) },
   ];
 
@@ -79,7 +79,7 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
         refreshing={list.refreshing}
         card={(r) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employee.name}</span><span className={`ui-caption tabular-nums whitespace-nowrap ${r.late ? 'ui-text-neg' : ''}`}>{formatDate(r.date)}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.employee.name}</span><span className={`ui-caption tabular-nums whitespace-nowrap ${r.late ? 'ui-text-neg' : ''}`}>{formatDate(r.date)}</span></span>
             {/* The phone's card says what it was as well as what it becomes, as the desktop table does (H8). */}
             <span className="block ui-caption">{r.what}{r.from || r.to ? `: ${r.from || 'None'} → ${r.to || 'None'}` : ''}</span>
           </span>

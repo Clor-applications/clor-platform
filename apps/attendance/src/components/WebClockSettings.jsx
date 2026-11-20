@@ -64,7 +64,7 @@ export default function WebClockSettings({ onClose, canEdit = true }) {
           <label className="flex items-start gap-2">
             <input type="checkbox" className="ui-checkbox mt-0.5" checked={allowed} disabled={!canEdit} onChange={(e) => setAllowed(e.target.checked)} />
             <span>
-              <span className="block font-medium">Punch in and out from a browser</span>
+              <span className="block font-semibold">Punch in and out from a browser</span>
               <span className="ui-caption">Off, only readers and phone punches count. People set to punch from their phone always punch there.</span>
             </span>
           </label>

@@ -238,7 +238,7 @@ export default function AttendanceRules({ openScreen }) {
                 <p className="ui-caption">{form.takeFrom.length ? 'In whole half days, in the order ticked. Anything under half a day, and what there is no leave left for, is unpaid.' : 'Unpaid (loss of pay).'}</p>
               </div>
               <p className="text-sm">
-                Missed-punch requests a month: <span className="tabular-nums font-medium">{missedLimit == null ? 'no limit' : missedLimit}</span>.{' '}
+                Missed-punch requests a month: <span className="tabular-nums">{missedLimit == null ? 'no limit' : missedLimit}</span>.{' '}
                 {openScreen ? <button type="button" className="ui-link" onClick={() => openScreen('requestRules')}>Change in Attendance request types</button> : null}
               </p>
               <div className="space-y-3">
@@ -292,12 +292,12 @@ function PreviewTable({ preview }) {
       <table className="w-full text-sm" aria-label={`Penalties in ${monthTitle(preview.month)}`}>
         <thead>
           <tr className="text-left">
-            <th scope="col" className="py-2 pr-3 font-medium">Employee</th>
-            <th scope="col" className="py-2 pr-3 text-right font-medium">Late</th>
-            <th scope="col" className="py-2 pr-3 text-right font-medium">Early</th>
-            <th scope="col" className="py-2 pr-3 text-right font-medium">Now</th>
-            <th scope="col" className="py-2 pr-3 text-right font-medium">With this</th>
-            <th scope="col" className="py-2 text-right font-medium">Time missed</th>
+            <th scope="col" className="py-2 pr-3 font-semibold">Employee</th>
+            <th scope="col" className="py-2 pr-3 text-right font-semibold">Late</th>
+            <th scope="col" className="py-2 pr-3 text-right font-semibold">Early</th>
+            <th scope="col" className="py-2 pr-3 text-right font-semibold">Now</th>
+            <th scope="col" className="py-2 pr-3 text-right font-semibold">With this</th>
+            <th scope="col" className="py-2 text-right font-semibold">Time missed</th>
           </tr>
         </thead>
         <tbody>
@@ -307,7 +307,7 @@ function PreviewTable({ preview }) {
               <td className="py-2 pr-3 text-right tabular-nums">{r.lateMarks}</td>
               <td className="py-2 pr-3 text-right tabular-nums">{r.earlyMarks}</td>
               <td className="py-2 pr-3 text-right tabular-nums">{dayAmount(r.now)}</td>
-              <td className="py-2 pr-3 text-right tabular-nums font-medium">{dayAmount(r.then)}</td>
+              <td className="py-2 pr-3 text-right tabular-nums">{dayAmount(r.then)}</td>
               <td className="py-2 text-right tabular-nums">{r.timeMissedMinutes ? minutesText(r.timeMissedMinutes) : '—'}</td>
             </tr>
           ))}

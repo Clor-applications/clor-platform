@@ -155,7 +155,7 @@ export default function TeamAttendance() {
     { key: 'name', label: 'Employee', always: true, render: (p) => (
       <span className="flex min-w-0 items-center gap-2.5">
         <span className="att-face" aria-hidden="true">{initialsOf(p.name)}</span>
-        <span className="min-w-0"><span className="block truncate font-medium">{p.name}</span><span className="block truncate ui-caption">{[p.code, p.departmentName || p.department].filter(Boolean).join(' · ')}</span></span>
+        <span className="min-w-0"><span className="block truncate">{p.name}</span><span className="block truncate ui-caption">{[p.code, p.departmentName || p.department].filter(Boolean).join(' · ')}</span></span>
       </span>
     ) },
     { key: 'day', label: 'Status', render: (p) => (p.day ? <span className={`ui-pill ${DAY_PILL[p.day.status] || 'ui-pill-neutral'}`}>{DAY_LABEL[p.day.status] || p.day.status}</span> : <span className="ui-pill ui-pill-neutral">Not marked</span>) },
@@ -222,7 +222,7 @@ export default function TeamAttendance() {
           ) : (
             <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
               <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
-              <span className="min-w-36 text-center font-medium" aria-live="polite">{monthTitle(month)}</span>
+              <span className="min-w-36 text-center font-semibold" aria-live="polite">{monthTitle(month)}</span>
               <button type="button" className="ui-icon-btn" aria-label="Next month" disabled={month >= today.slice(0, 7)} onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
             </div>
           )}
@@ -260,7 +260,7 @@ export default function TeamAttendance() {
           refreshing={records.refreshing}
           card={(p) => (
             <span className="min-w-0">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{p.name}</span>{p.day ? <span className={`ui-pill ${DAY_PILL[p.day.status] || 'ui-pill-neutral'}`}>{DAY_LABEL[p.day.status] || p.day.status}</span> : <span className="ui-caption">Not marked</span>}</span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{p.name}</span>{p.day ? <span className={`ui-pill ${DAY_PILL[p.day.status] || 'ui-pill-neutral'}`}>{DAY_LABEL[p.day.status] || p.day.status}</span> : <span className="ui-caption">Not marked</span>}</span>
               <span className="block ui-caption tabular-nums">{p.day?.checkInTime ? `In ${p.day.checkInTime}${p.day.checkOutTime ? `, out ${p.day.checkOutTime}` : ''}` : ''}</span>
             </span>
           )}
@@ -273,13 +273,13 @@ export default function TeamAttendance() {
               <table className="w-full border-collapse text-xs" aria-label={`Attendance in ${monthTitle(month)}`}>
                 <thead>
                   <tr>
-                    <th scope="col" className="sticky left-0 z-10 bg-[rgb(var(--app-bg))] p-2 text-left text-sm font-medium min-w-44">Employee</th>
-                    <th scope="col" className="p-2 text-right font-medium">Present</th>
-                    <th scope="col" className="p-2 text-right font-medium">Leave</th>
-                    <th scope="col" className="p-2 text-right font-medium">Absent</th>
-                    <th scope="col" className="p-2 text-right font-medium">Unpaid leave</th>
-                    <th scope="col" className="p-2 text-right font-medium">Unpaid days (LOP)</th>
-                    <th scope="col" className="p-2 text-right font-medium">Payable</th>
+                    <th scope="col" className="sticky left-0 z-10 bg-[rgb(var(--app-bg))] p-2 text-left text-sm font-semibold min-w-44">Employee</th>
+                    <th scope="col" className="p-2 text-right font-semibold">Present</th>
+                    <th scope="col" className="p-2 text-right font-semibold">Leave</th>
+                    <th scope="col" className="p-2 text-right font-semibold">Absent</th>
+                    <th scope="col" className="p-2 text-right font-semibold">Unpaid leave</th>
+                    <th scope="col" className="p-2 text-right font-semibold">Unpaid days (LOP)</th>
+                    <th scope="col" className="p-2 text-right font-semibold">Payable</th>
                     {daysIn(month).map((d) => <th key={d} scope="col" className={`p-0.5 text-center font-normal min-w-5 tabular-nums ${d === today ? 'text-[rgb(var(--brand-ink))]' : ''}`}>{Number(d.slice(8))}</th>)}
                   </tr>
                 </thead>
@@ -295,7 +295,7 @@ export default function TeamAttendance() {
                         <td className="p-2 text-right tabular-nums">{n('ABSENT')}</td>
                         <td className="p-2 text-right tabular-nums">{fig(payOf.get(p.id)?.unpaidLeaveDays)}</td>
                         <td className="p-2 text-right tabular-nums" title={payOf.get(p.id)?.why || undefined}>{fig(payOf.get(p.id)?.lossOfPayDays)}</td>
-                        <td className="p-2 text-right tabular-nums font-medium">{fig(payOf.get(p.id)?.payableDays)}</td>
+                        <td className="p-2 text-right tabular-nums">{fig(payOf.get(p.id)?.payableDays)}</td>
                         {daysIn(month).map((d) => {
                           const r = mine.get(d);
                           return <td key={d} className="p-0.5 text-center" title={r ? `${d}: ${DAY_LABEL[r.status] || r.status}${r.checkInTime ? `, in ${r.checkInTime}` : ''}` : undefined}><span className="att-cell" data-s={r?.status || ''}>{r ? LETTER[r.status] || '·' : ''}</span></td>;

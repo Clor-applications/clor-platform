@@ -32,7 +32,7 @@ function Person({ p, size = 32 }) {
     <span className="flex items-center gap-2.5 min-w-0">
       <Avatar person={{ name: p.name, photoUrl: p.photoUrl }} size={size} />
       <span className="min-w-0">
-        <span className="block truncate font-medium">{p.name || '—'}</span>
+        <span className="block truncate">{p.name || '—'}</span>
         {p.code ? <span className="block truncate ui-caption">{p.code}</span> : null}
       </span>
     </span>
@@ -86,7 +86,7 @@ export default function ShiftSwaps({ params = {}, updateParams, openScreen }) {
         refreshing={req.refreshing}
         card={(s) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{s.requester.name} ⇄ {s.colleague.name}</span><ExceptionTag label={s.status === 'APPROVED' ? '' : SWAP_STATUS[s.status] || enumWords(s.status)} normal={SWAP_STATUS[s.status]} tone={SWAP_TONE[s.status] || 'neutral'} /></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{s.requester.name} ⇄ {s.colleague.name}</span><ExceptionTag label={s.status === 'APPROVED' ? '' : SWAP_STATUS[s.status] || enumWords(s.status)} normal={SWAP_STATUS[s.status]} tone={SWAP_TONE[s.status] || 'neutral'} /></span>
             <span className="block truncate ui-caption tabular-nums">{range(s.fromDate, s.toDate)}{s.days[0] ? ` · ${s.days[0].requesterShift.name} ⇄ ${s.days[0].colleagueShift.name}` : ''}</span>
           </span>
         )}
@@ -132,7 +132,7 @@ function SwapDrawer({ swap, canCancel, onClose, onDone, openScreen }) {
         </dl>
         <table className="w-full text-sm" aria-label="Days">
           <thead>
-            <tr className="text-left ui-t-label"><th className="py-1.5 pr-3 font-medium">Day</th><th className="py-1.5 pr-3 font-medium">{swap.requester.name} works</th><th className="py-1.5 font-medium">{swap.colleague.name} works</th></tr>
+            <tr className="text-left ui-t-label"><th className="py-1.5 pr-3 font-semibold">Day</th><th className="py-1.5 pr-3 font-semibold">{swap.requester.name} works</th><th className="py-1.5 font-semibold">{swap.colleague.name} works</th></tr>
           </thead>
           <tbody>
             {swap.days.map((d) => (

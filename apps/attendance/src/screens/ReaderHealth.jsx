@@ -37,7 +37,7 @@ const Facts = ({ title, rows, note = null }) => (
       {rows.map(([k, v]) => (
         <div key={k} className="flex items-baseline justify-between gap-3 text-sm">
           <dt className="ui-muted shrink-0">{k}</dt>
-          <dd className="min-w-0 truncate text-end font-medium">{v === null || v === undefined || v === '' ? <span className="ui-caption font-normal">Not reported</span> : v}</dd>
+          <dd className="min-w-0 truncate text-end">{v === null || v === undefined || v === '' ? <span className="ui-caption font-normal">Not reported</span> : v}</dd>
         </div>
       ))}
     </dl>
@@ -136,7 +136,7 @@ export default function ReaderHealth() {
             {[...open, ...recent].map((a) => (
               <li key={a.id} className="flex flex-wrap items-start justify-between gap-2 py-2">
                 <span className="min-w-0">
-                  <span className="font-medium">{a.title}</span>
+                  <span>{a.title}</span>
                   <span className="ui-caption block">
                     since {new Date(a.openedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                     {a.resolvedAt ? ` · cleared ${ago(a.resolvedAt)}` : ''}
@@ -402,7 +402,7 @@ function ReaderTimeline({ reader, onClose }) {
                     <span className="ui-timeline-dot" aria-hidden="true" />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <span className="text-sm font-medium">{e.title}</span>
+                        <span className="text-sm">{e.title}</span>
                         <span className="ui-caption">{new Date(e.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <p className="ui-caption">

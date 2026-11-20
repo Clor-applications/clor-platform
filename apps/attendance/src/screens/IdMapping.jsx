@@ -73,7 +73,7 @@ export default function IdMapping({ openScreen, menuLabel }) {
       <div className="pb-8 space-y-6">
       <input type="search" className="ui-input w-full max-w-md" placeholder="Search a name, employee code or reader ID…" aria-label="Search ID mapping" value={query} onChange={(e) => setQuery(e.target.value)} />
       <details className="ui-card p-4 text-sm">
-        <summary className="cursor-pointer font-medium">How a punch finds its person</summary>
+        <summary className="cursor-pointer font-semibold">How a punch finds its person</summary>
         <ol className="mt-2 list-decimal space-y-1 ps-5 ui-caption">
           <li>A reader sends the ID it knows the person by (the number they were enrolled under), with the time.</li>
           <li>On a reader that belongs to a site, a <strong>site ID</strong> is checked first: “at the depot, 105 is Sita”. Use one when two sites gave the same number to different people.</li>

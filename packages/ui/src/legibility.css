@@ -46,7 +46,7 @@
   padding-block: 0.4375rem;
 }
 :root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel .ui-split-item[aria-current='page'] { font-weight: 600; }
-:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel-head > .ui-t-sec { font-size: 1rem; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel-head > .ui-t-sec { font-size: 1.0625rem; }
 /* Group headings (COMPANIES, MORE): small capitals stay, in near-ink rather than grey. */
 :root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel .ui-caption { color: rgb(74 72 66); font-weight: 700; }
 :root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel-foot-title { font-size: 0.875rem; }
@@ -73,7 +73,7 @@
 :root:not(#lg1):not(#lg2):not(#lg3) .ws :is(.ws-activity-sub, .ws-side-note) { font-size: 0.8125rem; color: rgb(74 72 66); }
 :root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-activity-box-title { color: rgb(74 72 66); }
 :root:not(#lg1):not(#lg2):not(#lg3) .ws :is(.ws-activity-bars li, .ws-activity-person, .ws-activity-list li) { font-size: 0.875rem; }
-:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-tab { font-size: 0.9375rem; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-tab { font-size: 0.875rem; line-height: 1.25rem; }
 :root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-row-link { font-size: 0.875rem; }
 /* Tags keep their size but lose the faint end: 12px is their floor. */
 :root:not(#lg1):not(#lg2):not(#lg3) .ws :is(.ws-state, .ws-tag) { font-size: 0.75rem; }
@@ -223,4 +223,35 @@
   color: rgb(var(--fg));
   border-top: 0;
   box-shadow: inset 0 1px 0 rgb(var(--fg));
+}
+
+/* ---- Figures and column heads on the six-step scale (design audit step 5, P2 type). index.css still holds
+   the older 40-42px KPI and 11px heads that Books reads; everywhere else a figure is 22/28 at 600 (DESIGN.md
+   "figure") and a column head is a 12/16 label. Books keeps its own. ---- */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-kpi, .ui-stat .ui-kpi) {
+  font-size: 1.375rem !important;
+  line-height: 1.75rem !important;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-th { font-size: 0.75rem; line-height: 1rem; }
+/* Section headings drawn with .ui-sec-head (Payroll, People settings) were 18/700 or 14/600: one size, the section. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(h2.ui-sec-head, .ui-sec-head > :is(h2, h3)) {
+  font-size: 1.0625rem !important;
+  line-height: 1.5rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+/* The global heading floor in index.css sets h2 18/700 and h3 16/600 (both !important) for Books' sake.
+   Elsewhere a heading under the page title is the section step, 17/24 at 600; h4–h6 sit in body text at 600. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(h2, h2[class], h3, h3[class], .ui-card-title) {
+  font-size: 1.0625rem !important;
+  line-height: 1.5rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0;
+}
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(h4, h4[class], h5, h5[class], h6, h6[class]) {
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 600 !important;
 }

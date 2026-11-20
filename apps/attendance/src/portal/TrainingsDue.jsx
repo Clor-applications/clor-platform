@@ -35,7 +35,7 @@ export default function TrainingsDue({ guard }) {
       <ul className="divide-y" aria-label="Trainings to finish">
         {list.map((t) => (
           <li key={t.id} className="py-2 text-sm">
-            <span className="block font-medium">{t.title}</span>
+            <span className="block">{t.title}</span>
             <span className="block ui-caption">{t.startDate ? `From ${longDate(t.startDate)}` : 'Your HR team put you down for it'}</span>
           </li>
         ))}

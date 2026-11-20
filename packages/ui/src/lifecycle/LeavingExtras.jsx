@@ -71,7 +71,7 @@ export function FinalPayList({ rows, onOpen, onMore, limit = 3 }) {
         <ul className="mt-1 space-y-1">
           {rows.slice(0, limit).map((r) => (
             <li key={r.employeeId} className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="min-w-0"><span className="font-medium">{r.name}</span> <span className="ui-alert-body">{finalPayWords(r).title.charAt(0).toLowerCase()}{finalPayWords(r).title.slice(1)}</span></span>
+              <span className="min-w-0"><span>{r.name}</span> <span className="ui-alert-body">{finalPayWords(r).title.charAt(0).toLowerCase()}{finalPayWords(r).title.slice(1)}</span></span>
               <button type="button" className="ui-link inline-flex min-h-11 shrink-0 items-center whitespace-nowrap sm:min-h-0" onClick={onOpen(r.employeeId)}>Open plan</button>
             </li>
           ))}

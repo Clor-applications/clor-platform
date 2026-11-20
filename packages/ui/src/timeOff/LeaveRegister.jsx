@@ -117,7 +117,7 @@ export default function LeaveRegister() {
                     {pageRows.map((r) => (
                       <tr key={`${r.employeeId}-${r.leaveTypeId}`}>
                         <td className="tabular-nums whitespace-nowrap">{r.code || '—'}</td>
-                        <td><span className="block truncate font-medium">{r.name}</span>{r.department ? <span className="block truncate ui-caption">{r.department}</span> : null}</td>
+                        <td><span className="block truncate">{r.name}</span>{r.department ? <span className="block truncate ui-caption">{r.department}</span> : null}</td>
                         <td><LeavePill type={{ name: r.leaveType, color: typeColor.get(r.leaveTypeId) }} /></td>
                         {cols.map(([k]) => <td key={k} className={`text-right tabular-nums ${k === 'closing' ? 'font-semibold' : ''} ${k === 'closing' && r[k] < 0 ? 'ui-text-neg' : ''}`}>{num(r[k])}</td>)}
                       </tr>
@@ -125,8 +125,8 @@ export default function LeaveRegister() {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <th scope="row" colSpan={3} className="text-left font-medium">Total, <span className="tabular-nums">{search.filtered.length}</span> rows</th>
-                      {cols.map(([k]) => <td key={k} className="text-right tabular-nums font-medium">{totals[k]}</td>)}
+                      <th scope="row" colSpan={3} className="text-left font-semibold">Total, <span className="tabular-nums">{search.filtered.length}</span> rows</th>
+                      {cols.map(([k]) => <td key={k} className="text-right tabular-nums font-semibold">{totals[k]}</td>)}
                     </tr>
                   </tfoot>
                 </table>

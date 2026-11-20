@@ -43,7 +43,7 @@ export default function NightWork() {
     { key: 'name', label: 'Employee', always: true, render: (r) => (
       <span className="flex min-w-0 items-center gap-2">
         {r.problem ? <span className="ui-attention-dot is-neg" aria-label="Night shift without consent" /> : null}
-        <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span>
+        <span className="min-w-0"><span className="block truncate">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span>
       </span>
     ) },
     { key: 'consent', label: 'Consent', render: (r) => <span className="inline-flex flex-wrap items-center gap-1.5">{consentPill(r.consent)}{r.consent?.byApp ? <span className="ui-caption">in the app</span> : null}</span> },
@@ -57,7 +57,7 @@ export default function NightWork() {
       {d ? (
         <p className="text-sm tabular-nums">
           Night is {d.night.words}{!d.night.on ? ' (the check is off)' : d.night.mode === 'WARN' ? ' (shifts are saved with a warning)' : ''} · {d.totals.women} {d.totals.women === 1 ? 'woman' : 'women'} · {d.totals.given} with consent
-          {d.totals.problems ? <> · <span className="font-medium">{d.totals.problems} on night shifts without consent</span></> : null}
+          {d.totals.problems ? <> · <span>{d.totals.problems} on night shifts without consent</span></> : null}
           {d.totals.noGender && !d.unknownGender?.length ? <span className="ui-caption block">{d.totals.noGender} {d.totals.noGender === 1 ? 'person has' : 'people have'} no gender on file and are not checked.</span> : null}
         </p>
       ) : null}
@@ -80,7 +80,7 @@ export default function NightWork() {
         onRowClick={(r) => setOpen(r)}
         card={(r) => (
           <span className="block min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span>{consentPill(r.consent)}</span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span>{consentPill(r.consent)}</span>
             <span className="block ui-caption tabular-nums">{r.nightDays ? `${r.nightDays} night shifts in the next 30 days` : 'No night shifts ahead'}</span>
           </span>
         )}
@@ -144,7 +144,7 @@ function ConsentDrawer({ row, canEdit, onClose, onDone }) {
             <ul className="space-y-2">
               {history.data.map((h) => (
                 <li key={h.id} className="flex items-start justify-between gap-3">
-                  <span><span className="font-medium">{h.status === 'GIVEN' ? 'Given' : 'Withdrawn'}</span> {dayText(h.onDate)}{h.byApp ? <span className="ui-caption"> · in the app</span> : null}{h.note ? <span className="ui-caption block">{h.note}</span> : null}</span>
+                  <span><span>{h.status === 'GIVEN' ? 'Given' : 'Withdrawn'}</span> {dayText(h.onDate)}{h.byApp ? <span className="ui-caption"> · in the app</span> : null}{h.note ? <span className="ui-caption block">{h.note}</span> : null}</span>
                   {h.documentId ? <span className="ui-caption whitespace-nowrap">Signed copy</span> : null}
                 </li>
               ))}

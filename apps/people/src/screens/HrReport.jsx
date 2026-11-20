@@ -166,7 +166,7 @@ function ReportTable({ d, title, shape, openScreen }) {
           </tbody>
           {d.totals ? (
             <tfoot>
-              <tr className="font-medium">
+              <tr className="font-semibold">
                 {d.columns.map((c, n) => (n === 0
                   ? <th key={c.key} scope="row" className="text-left whitespace-nowrap">{shown(c, d.totals[c.key])}</th>
                   : <td key={c.key} className={cellClass(c, d.totals[c.key])}>{d.totals[c.key] === undefined ? '' : shown(c, d.totals[c.key])}</td>))}

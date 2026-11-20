@@ -43,7 +43,7 @@ export default function Branches({ openScreen }) {
   const counts = { active: rows.filter((b) => b.isActive !== false).length, retired: rows.filter((b) => b.isActive === false).length };
   const shown = rows.filter((b) => (tab === 'active' ? b.isActive !== false : b.isActive === false)).filter((b) => !q || `${b.branchName} ${b.branchCode} ${b.city || ''} ${b.state}`.toLowerCase().includes(q.toLowerCase()));
   const columns = [
-    { key: 'name', label: 'Branch', always: true, render: (b) => <span className="min-w-0"><span className="block truncate font-medium">{b.branchName}</span><span className="block truncate ui-caption tabular-nums">{b.branchCode}</span></span> },
+    { key: 'name', label: 'Branch', always: true, render: (b) => <span className="min-w-0"><span className="block truncate">{b.branchName}</span><span className="block truncate ui-caption tabular-nums">{b.branchCode}</span></span> },
     /* Width given so "Hubballi, Karnataka" is not cut in a column narrower than its words (QA, 19 Nov 2026). */
     { key: 'place', label: 'City, state', width: '40%', render: (b) => [b.city, b.state].filter(Boolean).join(', ') || '—' },
     { key: 'people', label: 'People', align: 'right', width: '7rem', render: (b) => <button type="button" className="ui-link tabular-nums" onClick={(e) => { e.stopPropagation(); openScreen?.('employees', { branch: b.id }); }}>{b.people}</button> },
@@ -85,7 +85,7 @@ export default function Branches({ openScreen }) {
           rowKey={(b) => b.id}
           noun="branches"
           tiles
-          card={(b) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{b.branchName}</span><span className="ui-caption tabular-nums ui-tile-figure">{b.people}<span className="ui-tile-figure-word"> {b.people === 1 ? 'person' : 'people'}</span></span></span><span className="block truncate ui-caption">{[b.city, b.state].filter(Boolean).join(', ')}</span></span>}
+          card={(b) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{b.branchName}</span><span className="ui-caption tabular-nums ui-tile-figure">{b.people}<span className="ui-tile-figure-word"> {b.people === 1 ? 'person' : 'people'}</span></span></span><span className="block truncate ui-caption">{[b.city, b.state].filter(Boolean).join(', ')}</span></span>}
           empty={q ? <EmptyState kind="filtered" title="No branches match" description="Nothing here matches the search." /> : <EmptyState title={tab === 'retired' ? 'No retired branches' : 'No branches yet'} description={tab === 'retired' ? 'A branch you retire stays here for its history.' : 'Add the company’s first branch.'} />}
           toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search branches" label="Search branches" className="w-full sm:w-80" />}
         />

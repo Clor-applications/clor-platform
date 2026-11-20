@@ -141,7 +141,7 @@ export default function DatePicker({ id, value = '', onChange, min = '', max = '
         <div role="dialog" aria-modal="false" aria-label="Choose a date" className="ui-datepicker-pop">
           <div className="flex items-center justify-between gap-2 mb-2">
             <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setFocus(addMonths(focus, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
-            <p className="text-sm font-medium" aria-live="polite">{MONTHS_LONG[fm - 1]} {fy}</p>
+            <p className="text-sm font-semibold" aria-live="polite">{MONTHS_LONG[fm - 1]} {fy}</p>
             <button type="button" className="ui-icon-btn" aria-label="Next month" onClick={() => setFocus(addMonths(focus, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
           </div>
           <div ref={grid} id={gridId} role="grid" aria-label={`${MONTHS_LONG[fm - 1]} ${fy}`} className="ui-datepicker-grid" onKeyDown={onGridKey}>

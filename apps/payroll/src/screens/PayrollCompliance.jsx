@@ -320,7 +320,7 @@ export default function PayrollCompliance({ params } = {}) {
             {checks.map((c, i) => (
               <li key={c.ruleId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderTop: i ? '1px solid rgb(var(--border))' : 'none' }}>
                 <div className="min-w-0 max-w-3xl">
-                  <div className="text-sm font-medium">
+                  <div className="text-sm">
                     {c.state}: {c.scheme === 'LWF' ? 'Labour welfare fund' : 'Professional tax'}, from {dateWords(c.effectiveFrom)}
                   </div>
                   <div className="ui-caption">
@@ -355,7 +355,7 @@ export default function PayrollCompliance({ params } = {}) {
             {offers.map((o, i) => (
               <li key={o.ruleId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderTop: i ? '1px solid rgb(var(--border))' : 'none' }}>
                 <div className="min-w-0 max-w-3xl">
-                  <div className="text-sm font-medium">
+                  <div className="text-sm">
                     {o.state}: {o.scheme === 'LWF' ? 'Labour welfare fund' : 'Professional tax'}, from {dateWords(o.effectiveFrom)}
                   </div>
                   {o.yours ? <div className="ui-caption">In force now: your rate from {dateWords(o.yours.effectiveFrom)}</div> : null}

@@ -146,7 +146,7 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
         refreshing={req.refreshing}
         card={(c) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{c.employeeName}</span><span className="tabular-nums">{money(amountOf(c))}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{c.employeeName}</span><span className="tabular-nums">{money(amountOf(c))}</span></span>
             <span className="flex items-center justify-between gap-2"><span className="truncate ui-caption">{c.number} · {c.title}</span><ExceptionTag label={c.status === 'PAID' ? '' : HR_WORDS[c.status] || c.status} normal={HR_WORDS[c.status]} tone={PILL[c.status] || 'neutral'} /></span>
           </span>
         )}
@@ -203,12 +203,12 @@ function ClaimDrawer({ claim: c, reimbursement, mayPay, onClose, onDone }) {
           </div>
         ) : null}
         <table className="w-full text-sm">
-          <thead><tr className="ui-t-label text-left"><th className="py-1.5 pr-3 font-medium">Bill</th><th className="py-1.5 pr-3 text-right font-medium">Asked</th><th className="py-1.5 text-right font-medium">Allowed</th></tr></thead>
+          <thead><tr className="ui-t-label text-left"><th className="py-1.5 pr-3 font-semibold">Bill</th><th className="py-1.5 pr-3 text-right font-semibold">Asked</th><th className="py-1.5 text-right font-semibold">Allowed</th></tr></thead>
           <tbody>
             {c.lines.map((l) => (
               <tr key={l.id} className="border-t align-top" style={{ borderColor: 'rgb(var(--border))' }}>
                 <td className="py-2 pr-3">
-                  <span className="block font-medium">{l.merchant}</span>
+                  <span className="block">{l.merchant}</span>
                   <span className="ui-caption block">{day(l.spentOn)} · {l.category}</span>
                   {l.companyGstin ? <span className="ui-caption block">GSTIN {l.supplierGstin || 'not given'}{l.taxAmount != null ? ` · GST ${money(l.taxAmount)}` : ''}{l.creditBlocked ? ' · credit usually not available' : ''}</span> : null}
                   {l.cutReason ? <span className="ui-caption block">Allowed less: {l.cutReason}</span> : null}
@@ -248,7 +248,7 @@ function AdvanceList({ params: p, set, mayPay }) {
       <DataTable label="Advances" columns={columns} rows={rows} total={rows.length} pageSize={Math.max(25, rows.length)} noun="advances" onRowClick={(a) => setOpen(a)} loading={req.loading} refreshing={req.refreshing}
         card={(a) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{a.employeeName}</span><span className="tabular-nums">{money(a.status === 'PAID' ? a.open : a.amount)}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{a.employeeName}</span><span className="tabular-nums">{money(a.status === 'PAID' ? a.open : a.amount)}</span></span>
             <span className="flex items-center justify-between gap-2"><span className="truncate ui-caption">{a.number} · {a.purpose}</span><span className={`ui-pill ui-pill-${a.overdue ? 'neg' : PILL[a.status] || 'neutral'}`}>{label(a)}</span></span>
           </span>
         )}
@@ -336,7 +336,7 @@ function SalaryAdvanceList({ params: p, set, mayPay }) {
     <DataTable label="Salary advances" columns={columns} rows={rows} total={rows.length} pageSize={Math.max(25, rows.length)} noun="salary advances" loading={req.loading} refreshing={req.refreshing}
       card={(a) => (
         <span className="min-w-0 flex-1">
-          <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{a.employeeName}</span><span className="tabular-nums">{money(a.amount)}</span></span>
+          <span className="flex items-center justify-between gap-2"><span className="truncate">{a.employeeName}</span><span className="tabular-nums">{money(a.amount)}</span></span>
           <span className="flex items-center justify-between gap-2"><span className="truncate ui-caption">{loanText(a) || `${money(a.emi)} a month`}</span><span className="ui-pill ui-pill-neutral">{a.statusLabel}</span></span>
         </span>
       )}
@@ -358,7 +358,7 @@ function Report({ mayExport }) {
       <h2 className="ui-t-sec">{title}</h2>
       {rows.length ? (
         <table className="w-full text-sm">
-          <thead><tr className="ui-t-label text-left"><th className="py-1.5 pr-3 font-medium">{name}</th><th className="py-1.5 pr-3 text-right font-medium">Bills</th><th className="py-1.5 pr-3 text-right font-medium">GST kept</th><th className="py-1.5 text-right font-medium">Approved</th></tr></thead>
+          <thead><tr className="ui-t-label text-left"><th className="py-1.5 pr-3 font-semibold">{name}</th><th className="py-1.5 pr-3 text-right font-semibold">Bills</th><th className="py-1.5 pr-3 text-right font-semibold">GST kept</th><th className="py-1.5 text-right font-semibold">Approved</th></tr></thead>
           <tbody>{rows.map((x) => <tr key={x.key} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}><td className="py-2 pr-3">{x.label}</td><td className="py-2 pr-3 text-right tabular-nums">{x.bills}</td><td className="py-2 pr-3 text-right tabular-nums">{x.gst ? money(x.gst) : '—'}</td><td className="py-2 text-right tabular-nums">{money(x.amount)}</td></tr>)}</tbody>
         </table>
       ) : <p className="ui-caption">Nothing approved in these dates.</p>}
@@ -389,7 +389,7 @@ function Report({ mayExport }) {
               <h2 className="ui-t-sec">Advances still open</h2>
               {r.openAdvances.length ? (
                 <table className="w-full text-sm">
-                  <thead><tr className="ui-t-label text-left"><th className="py-1.5 pr-3 font-medium">Person</th><th className="py-1.5 pr-3 font-medium">Bills by</th><th className="py-1.5 text-right font-medium">Open</th></tr></thead>
+                  <thead><tr className="ui-t-label text-left"><th className="py-1.5 pr-3 font-semibold">Person</th><th className="py-1.5 pr-3 font-semibold">Bills by</th><th className="py-1.5 text-right font-semibold">Open</th></tr></thead>
                   <tbody>{r.openAdvances.map((a) => <tr key={a.id} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}><td className="py-2 pr-3">{a.employeeName}<span className="ui-caption block">{a.number} · {a.purpose}</span></td><td className="py-2 pr-3">{day(a.settleBy)}{a.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</td><td className="py-2 text-right tabular-nums">{money(a.open)}</td></tr>)}</tbody>
                 </table>
               ) : <p className="ui-caption">None.</p>}

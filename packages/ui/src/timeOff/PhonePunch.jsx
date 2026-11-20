@@ -290,7 +290,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
         {busy ? 'Saving…' : `${next} now`}
       </button>
       {message ? (
-        <p className="text-sm font-medium" role={message.ok ? 'status' : 'alert'} style={{ color: message.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>
+        <p className="text-sm" role={message.ok ? 'status' : 'alert'} style={{ color: message.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>
           {message.text}
         </p>
       ) : null}

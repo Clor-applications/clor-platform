@@ -98,7 +98,7 @@ export default function MyGrowth({ guard }) {
             {data.oneOnOnes.slice(0, 5).map((o) => (
               <li key={o.id} className="py-2 text-sm space-y-0.5">
                 <p className="ui-caption">{longDate(o.date)}</p>
-                {o.actions ? <p className="whitespace-pre-wrap"><span className="font-medium">Agreed: </span>{o.actions}</p> : null}
+                {o.actions ? <p className="whitespace-pre-wrap"><span className="font-semibold">Agreed: </span>{o.actions}</p> : null}
                 {o.notes ? <p className="whitespace-pre-wrap ui-muted">{o.notes}</p> : null}
               </li>
             ))}
@@ -194,7 +194,7 @@ function Review({ review: r, guard, onDone, onFail }) {
   };
   return (
     <li className="py-2 space-y-1.5 text-sm">
-      <p><span className="font-medium">{r.cycle}</span><span className="block ui-caption">{r.period.split(' – ').map(longDate).join(' to ')}</span></p>
+      <p><span>{r.cycle}</span><span className="block ui-caption">{r.period.split(' – ').map(longDate).join(' to ')}</span></p>
       {r.shared ? (
         <div className="space-y-1">
           <p><span className="ui-label">Final rating</span> {r.finalRating ? `${r.finalRating} · ${ratingWord(r.finalRating)}` : '—'}</p>

@@ -19,7 +19,7 @@ export function PersonCell({ person, line }) {
     <span className="flex items-center gap-2.5 min-w-0">
       <Avatar person={{ name: person.name, photoUrl: person.photoUrl }} size={32} />
       <span className="min-w-0">
-        <span className="block truncate font-medium">{person.name}</span>
+        <span className="block truncate">{person.name}</span>
         <span className="block truncate ui-caption">{line ?? [person.code, person.designation].filter(Boolean).join(' · ')}</span>
       </span>
     </span>
@@ -31,7 +31,7 @@ export function Progress({ done, total, late }) {
   if (!total) return <span className="ui-caption">No plan</span>;
   return (
     <span className="inline-flex min-w-[7rem] flex-col gap-1">
-      <span className="tabular-nums text-sm">{done} of {total}{late ? <span className="ui-text-neg font-medium"> · {late} late</span> : null}</span>
+      <span className="tabular-nums text-sm">{done} of {total}{late ? <span className="ui-text-neg"> · {late} late</span> : null}</span>
       <span className="ui-meter" data-tone="progress" aria-hidden="true"><span style={{ width: `${Math.round((done / total) * 100)}%` }} /></span>
     </span>
   );
@@ -100,7 +100,7 @@ export function TaskDrawer({ task, canAssign, onClose, onSaved }) {
       <form id="task-form" onSubmit={save} className="grid gap-4">
         <dl className="grid gap-3 sm:grid-cols-2 text-sm">
           <div><dt className="ui-label">Owner</dt><dd className="mt-0.5">{task.ownerName ? `${task.ownerName} (${OWNER_WORD[task.owner] || task.owner})` : `${OWNER_WORD[task.owner] || task.owner}, nobody named`}</dd></div>
-          <div><dt className="ui-label">Due</dt><dd className={`mt-0.5 tabular-nums ${task.late ? 'ui-text-neg font-medium' : ''}`}>{task.dueDate ? formatDate(task.dueDate) : 'No date'}{task.workingDays ? ' (working days)' : ''}{task.late ? ', late' : ''}</dd></div>
+          <div><dt className="ui-label">Due</dt><dd className={`mt-0.5 tabular-nums ${task.late ? 'ui-text-neg' : ''}`}>{task.dueDate ? formatDate(task.dueDate) : 'No date'}{task.workingDays ? ' (working days)' : ''}{task.late ? ', late' : ''}</dd></div>
           {task.done ? <div><dt className="ui-label">Done</dt><dd className="mt-0.5">{task.doneAt ? formatDate(String(task.doneAt).slice(0, 10)) : ''}{task.doneBy ? ` by ${task.doneBy}` : ''}</dd></div> : null}
         </dl>
         {/* A failed removal's note names the reader and what to do; the general words would only repeat it. */}

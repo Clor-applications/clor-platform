@@ -69,7 +69,7 @@ function ChangeList({ kind, item, firstPage, firstNext }) {
         {entries.map((e) => (
           <li key={e.id} className="ui-history-row">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <p className="text-sm"><span className="font-medium">{ACTION_WORDS[e.action] || enumWords(e.action)}</span> {e.kindLabel ? `${e.kindLabel.toLowerCase()} ` : ''}<span className="font-medium">{e.itemName}</span></p>
+              <p className="text-sm"><span>{ACTION_WORDS[e.action] || enumWords(e.action)}</span> {e.kindLabel ? `${e.kindLabel.toLowerCase()} ` : ''}<span>{e.itemName}</span></p>
               <p className="ui-caption"><span className="tabular-nums">{day(e.at)}, {time(e.at)}</span>{e.actorName ? ` · ${e.actorName}` : ''}</p>
             </div>
             {e.changes?.length ? (

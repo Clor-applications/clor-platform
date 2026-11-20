@@ -75,7 +75,7 @@ export default function LifecycleOverview({ openScreen }) {
             <li key={t.id}>
               <button type="button" className="flex w-full flex-wrap items-center gap-3 py-2 text-left" onClick={() => openScreen?.('checklists', { view: 'late', q: t.employee.name })}>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{t.title}</span>
+                  <span className="block truncate">{t.title}</span>
                   <span className="block truncate ui-caption">{KIND_WORD[t.kind] || t.kind} · {t.employee.name}</span>
                 </span>
                 <span className="ui-caption whitespace-nowrap">{t.ownerName || `${t.ownerWord}, nobody named`}</span>
@@ -92,7 +92,7 @@ export default function LifecycleOverview({ openScreen }) {
                 <span className="flex items-center gap-2.5 min-w-0 flex-1">
                   <Avatar person={{ name: x.employee.name }} size={28} />
                   <span className="min-w-0">
-                    <span className="block truncate font-medium">{x.employee.name}</span>
+                    <span className="block truncate">{x.employee.name}</span>
                     <span className="block truncate ui-caption">{x.what}{x.detail ? ` · ${x.detail}` : ''}</span>
                   </span>
                 </span>

@@ -42,7 +42,7 @@ export function TodayPosts({ guard }) {
         {data.posts.map((p) => (
           <li key={p.id} className="text-sm">
             <span className="ui-caption block">{KIND_WORD[p.kind] || ''}</span>
-            <span className={p.mine ? 'font-medium' : ''}>{p.text}</span>
+            <span>{p.text}</span>
           </li>
         ))}
       </ul>

@@ -188,7 +188,7 @@ export default function DataProtection({ openScreen }) {
         <div className="space-y-3 text-sm">
           {data.notice.sections.map((x) => (
             <div key={x.id}>
-              <h3 className="font-medium">{x.title}</h3>
+              <h3 className="font-semibold">{x.title}</h3>
               <ul className="list-disc space-y-0.5 ps-5">{x.items.map((t) => <li key={t}>{t}</li>)}</ul>
             </div>
           ))}
@@ -234,7 +234,7 @@ function BreachRow({ b, onChanged }) {
   return (
     <li className="space-y-1 py-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{b.title}</span>
+        <span>{b.title}</span>
         <span className={`ui-pill ${b.status === 'CLOSED' ? 'ui-pill-neutral' : 'ui-pill-warn'}`}>{b.status === 'CLOSED' ? 'Closed' : 'Open'}</span>
         {b.boardReportLate ? <span className="ui-pill ui-pill-neg">Board report overdue</span> : null}
       </div>

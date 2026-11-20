@@ -23,7 +23,7 @@ export default function OneOnOnes() {
   const reports = req.data?.reports || [];
   const rows = req.data?.rows || [];
   const columns = [
-    { key: 'date', label: 'Date', always: true, render: (r) => <span className="tabular-nums whitespace-nowrap font-medium">{day(r.date)}</span> },
+    { key: 'date', label: 'Date', always: true, render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.date)}</span> },
     { key: 'with', label: 'With', render: (r) => (r.mine ? r.employee?.name : <span>{r.manager?.name} <span className="ui-caption">(your manager)</span></span>) },
     { key: 'notes', label: 'Talked about', render: (r) => <span className="block max-w-[28rem] line-clamp-2" title={r.notes || ''}>{r.notes || '—'}</span> },
     { key: 'actions', label: 'Agreed', render: (r) => <span className="block max-w-[24rem] line-clamp-2" title={r.actions || ''}>{r.actions || '—'}</span> },
@@ -43,7 +43,7 @@ export default function OneOnOnes() {
           onRowClick={(r) => (r.mine ? setEditing(r) : null)}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.mine ? r.employee?.name : `${r.manager?.name} (your manager)`}</span><span className="tabular-nums ui-caption">{day(r.date)}</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.mine ? r.employee?.name : `${r.manager?.name} (your manager)`}</span><span className="tabular-nums ui-caption">{day(r.date)}</span></span>
               <span className="block truncate ui-caption">{r.actions || r.notes || ''}</span>
             </span>
           )}

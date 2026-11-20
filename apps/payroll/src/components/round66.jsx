@@ -71,7 +71,7 @@ export function HoldPayPanel({ run, slips, byEmployee, onChanged }) {
           {held.map((s) => (
             <li key={s.id} className="ui-hold-row">
               <span className="min-w-0">
-                <span className="font-medium">{nameOf(s)}</span>
+                <span>{nameOf(s)}</span>
                 <span className="ui-caption block">{s.heldReason || 'No reason given'}</span>
               </span>
               <span className="tabular-nums text-right">{money(s.netPay)}</span>

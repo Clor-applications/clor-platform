@@ -83,7 +83,7 @@ function AskedOfMe({ swap, guard, onDone }) {
       <ul className="space-y-1 text-sm">
         {swap.days.map((d) => (
           <li key={d.date}>
-            <span className="font-medium">{dayLabel(d.date)}:</span> you work <span className="tabular-nums">{hours(d.requesterShift)}</span> <span className="ui-muted">instead of {d.colleagueShift.name}</span>
+            <span>{dayLabel(d.date)}:</span> you work <span className="tabular-nums">{hours(d.requesterShift)}</span> <span className="ui-muted">instead of {d.colleagueShift.name}</span>
           </li>
         ))}
       </ul>
@@ -172,7 +172,7 @@ function AskSwap({ guard, rules, onDone, reasons = [] }) {
                     <label key={p.employeeId} className="flex items-start gap-3 rounded-lg border p-3 text-sm" style={{ borderColor: pick === p.employeeId ? 'rgb(var(--accent))' : 'rgb(var(--border))' }}>
                       <input type="radio" name="swap-with" className="mt-1" checked={pick === p.employeeId} onChange={() => setPick(p.employeeId)} />
                       <span className="min-w-0">
-                        <span className="block font-medium">{p.name}{p.code ? <span className="ui-caption font-normal"> · {p.code}</span> : null}</span>
+                        <span className="block">{p.name}{p.code ? <span className="ui-caption font-normal"> · {p.code}</span> : null}</span>
                         <span className="block ui-caption tabular-nums">{p.days.length === 1 ? `Works ${p.days[0].shift} ${p.days[0].startTime}–${p.days[0].endTime}` : p.days.map((d) => `${dayLabel(d.date)}: ${d.shift}`).join(' · ')}</span>
                       </span>
                     </label>
@@ -218,7 +218,7 @@ function MySwaps({ swaps, guard, onDone }) {
             <li key={s.id} className="space-y-1 py-3">
               <div className="flex items-start justify-between gap-2">
                 <span className="min-w-0">
-                  <span className="block font-medium">With {other.name}</span>
+                  <span className="block">With {other.name}</span>
                   <span className="block ui-caption tabular-nums">{span(s.fromDate, s.toDate)}{s.days[0] ? ` · ${s.days[0].requesterShift.name} ⇄ ${s.days[0].colleagueShift.name}` : ''}</span>
                 </span>
                 <Pill status={s.status} />

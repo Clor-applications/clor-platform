@@ -421,7 +421,7 @@ function EnrolAuthenticator({ onDone }) {
       ) : (
         <form onSubmit={begin} className="flex flex-wrap items-end gap-2">
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Your password</span>
+            <span className="text-sm font-semibold">Your password</span>
             <input type="password" className="ui-input" autoComplete="current-password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} required />
           </label>
           <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || !password}>

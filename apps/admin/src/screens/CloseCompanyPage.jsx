@@ -155,11 +155,11 @@ export default function CloseCompanyPage({ companyName = '' }) {
                 <h2 id="ask-h">2. Ask to close</h2>
                 <p className="text-sm">The company keeps working for {state.noticeDays} days and you can cancel at any time in them. After that, nothing can be recovered.</p>
                 <label className="grid gap-1">
-                  <span className="text-sm font-medium">Why are you closing? <span className="ui-caption">(optional)</span></span>
+                  <span className="text-sm font-semibold">Why are you closing? <span className="ui-caption">(optional)</span></span>
                   <input className="ui-input w-full" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-sm font-medium">Type {name} to confirm</span>
+                  <span className="text-sm font-semibold">Type {name} to confirm</span>
                   <input className="ui-input w-full" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" aria-label={`Type ${name} to confirm`} spellCheck={false} />
                 </label>
                 <div className="flex flex-wrap items-center gap-3">

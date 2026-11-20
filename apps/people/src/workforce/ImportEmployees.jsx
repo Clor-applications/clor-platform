@@ -166,7 +166,7 @@ export default function ImportEmployees({ openScreen }) {
           <div className="space-y-3">
             <label className="ui-dropzone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); take(e.dataTransfer.files?.[0]); }}>
               <Upload size={24} aria-hidden="true" />
-              <span className="font-medium">Choose a CSV or Excel file</span>
+              <span className="font-semibold">Choose a CSV or Excel file</span>
               <span className="ui-caption">or drop it here · up to 2 MB and {MAX_ROWS} rows</span>
               <input ref={input} type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => take(e.target.files?.[0])} />
             </label>
@@ -181,7 +181,7 @@ export default function ImportEmployees({ openScreen }) {
 
         {step === 'map' && file ? (
           <div className="space-y-3">
-            <p className="text-sm"><span className="font-medium">{file.name}</span><span className="ui-muted"> · {file.rows.length} {file.rows.length === 1 ? 'row' : 'rows'}</span></p>
+            <p className="text-sm"><span>{file.name}</span><span className="ui-muted"> · {file.rows.length} {file.rows.length === 1 ? 'row' : 'rows'}</span></p>
             {file.dupes.length ? <Alert tone="warn" title="Repeated column names">{file.dupes.join(', ')} appear more than once; map only one of each.</Alert> : null}
             {twice.length ? <Alert tone="neg" title="Two columns go to the same field">{[...new Set(twice)].join(', ')}: choose one.</Alert> : null}
             {!mappedKeys.includes('name') ? <Alert tone="info" title="A name column is needed">Map one column to name.</Alert> : null}
@@ -192,7 +192,7 @@ export default function ImportEmployees({ openScreen }) {
                 <tbody className="ui-rows">
                   {file.headers.map((h, i) => (
                     <tr key={`${h}-${i}`}>
-                      <td className="font-medium">{h || `Column ${i + 1}`}</td>
+                      <td>{h || `Column ${i + 1}`}</td>
                       <td className="ui-caption">{file.rows.slice(0, 3).map((r) => r[i]).filter(Boolean).join(' · ') || '—'}</td>
                       <td>
                         <PopupSelect showValueSubtext={false} ariaLabel={`Field for ${h || `column ${i + 1}`}`} value={mapping[i]} alwaysSearch

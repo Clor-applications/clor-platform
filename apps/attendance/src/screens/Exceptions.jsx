@@ -243,11 +243,11 @@ export default function Exceptions({ openScreen, menuLabel }) {
           {pickedKeys.length || running ? (
             <div className="flex flex-wrap items-center gap-2 px-1 py-2" role="region" aria-label="Selected items" aria-busy={running ? 'true' : undefined}>
               {running ? (
-                <span className="text-sm font-medium tabular-nums" role="status">
+                <span className="text-sm tabular-nums" role="status">
                   {running.status === 'IGNORED' ? 'Ignoring' : 'Settling'} {running.done.toLocaleString('en-IN')} of {running.total.toLocaleString('en-IN')}…
                 </span>
               ) : (
-                <span className="text-sm font-medium">{pickedKeys.length.toLocaleString('en-IN')} selected</span>
+                <span className="text-sm">{pickedKeys.length.toLocaleString('en-IN')} selected</span>
               )}
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(running)} onClick={() => settleMany('RESOLVED')}><CheckCircle2 size={14} aria-hidden="true" /> Settle selected</button>
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(running)} onClick={() => settleMany('IGNORED')}><EyeOff size={14} aria-hidden="true" /> Ignore selected</button>
@@ -277,7 +277,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
                     ) : null}
                     <span className="ui-exc-dot mt-1.5" data-severity={x.severity} aria-hidden="true" />
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium">{x.title}</p>
+                      <p>{x.title}</p>
                       <p className="ui-caption">
                         {[x.employeeName, x.date ? dayLabel(x.date, { weekday: true, year: false }) : null, SEVERITY[x.severity], x.status !== 'OPEN' ? STATUS[x.status] : null].filter(Boolean).join(' · ')}
                       </p>
@@ -338,7 +338,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
                         <span className="ui-exc-title">
                           <span className="ui-exc-dot" data-severity={x.severity} aria-hidden="true" />
                           <span>
-                            <span className="block font-medium">{x.title}</span>
+                            <span className="block">{x.title}</span>
                             <span className="ui-caption">{SEVERITY[x.severity]} · {KIND[x.kind] || enumWords(x.kind)}{x.status !== 'OPEN' ? ` · ${STATUS[x.status]}` : ''}</span>
                           </span>
                         </span>

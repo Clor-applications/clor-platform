@@ -65,7 +65,7 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
       />
       <div className="ops-filters" role="search">
         <label className="grid gap-1">
-          <span className="text-sm font-medium">Staff member</span>
+          <span className="text-sm font-semibold">Staff member</span>
           <select className="ui-select" value={f.operatorId} onChange={set('operatorId')}>
             <option value="">Everybody</option>
             {choices.operators.map((o) => (
@@ -74,7 +74,7 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
           </select>
         </label>
         <label className="grid gap-1">
-          <span className="text-sm font-medium">What they did</span>
+          <span className="text-sm font-semibold">What they did</span>
           <select className="ui-select" value={f.action} onChange={set('action')}>
             <option value="">Anything</option>
             {choices.actions.map((a) => (
@@ -84,11 +84,11 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
         </label>
         <CustomerPicker value={account} onChange={(a) => { setAccount(a); setF((v) => ({ ...v, accountId: a?.id || '', page: 0 })); }} />
         <label className="grid gap-1">
-          <span className="text-sm font-medium">From</span>
+          <span className="text-sm font-semibold">From</span>
           <input className="ui-input tabular-nums" type="date" value={f.from} onChange={set('from')} />
         </label>
         <label className="grid gap-1">
-          <span className="text-sm font-medium">To</span>
+          <span className="text-sm font-semibold">To</span>
           <input className="ui-input tabular-nums" type="date" value={f.to} onChange={set('to')} />
         </label>
       </div>
@@ -161,7 +161,7 @@ function CustomerPicker({ value, onChange }) {
   if (value) {
     return (
       <div className="grid gap-1">
-        <span className="text-sm font-medium">Customer</span>
+        <span className="text-sm font-semibold">Customer</span>
         <span className="flex items-center gap-2" style={{ minHeight: 40 }}>
           <span>{value.name}</span>
           <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => onChange(null)}>Clear</button>
@@ -172,7 +172,7 @@ function CustomerPicker({ value, onChange }) {
   return (
     <div className="grid gap-1" style={{ position: 'relative' }}>
       <label className="grid gap-1">
-        <span className="text-sm font-medium">Customer</span>
+        <span className="text-sm font-semibold">Customer</span>
         <input className="ui-input" value={q} placeholder="Any customer" onChange={(e) => setQ(e.target.value)} />
       </label>
       {q.trim() && hits.length ? (

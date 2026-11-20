@@ -248,7 +248,7 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
         <div className="space-y-6">
           {/* Provident fund */}
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">Provident fund (PF)</legend>
+            <legend className="text-sm font-semibold">Provident fund (PF)</legend>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="ui-checkbox mt-0.5" checked={form.pf.applies} onChange={(e) => set("pf", { applies: e.target.checked })} />
               <span>
@@ -278,7 +278,7 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
 
           {/* ESI */}
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">Employees’ State Insurance (ESI)</legend>
+            <legend className="text-sm font-semibold">Employees’ State Insurance (ESI)</legend>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="ui-checkbox mt-0.5" checked={form.esi.applies} onChange={(e) => set("esi", { applies: e.target.checked })} />
               <span>
@@ -293,7 +293,7 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
 
           {/* Professional tax */}
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">Professional tax (PT)</legend>
+            <legend className="text-sm font-semibold">Professional tax (PT)</legend>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="ui-checkbox mt-0.5" checked={form.pt.applies} onChange={(e) => set("pt", { applies: e.target.checked })} />
               <span>
@@ -306,7 +306,7 @@ export function StatutoryRegistrationsStep({ onSaved, startOpen = false }) {
 
           {/* Income tax */}
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">Income tax on salaries (TDS)</legend>
+            <legend className="text-sm font-semibold">Income tax on salaries (TDS)</legend>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="ui-checkbox mt-0.5" checked={form.tds.applies} onChange={(e) => set("tds", { applies: e.target.checked })} />
               <span>

@@ -45,7 +45,7 @@ export default function Reviews({ params = {} }) {
   const hr = Boolean(req.data?.hr);
   if (open) return <Cycle id={open} hr={hr} onBack={() => { setOpen(null); req.reload(); }} />;
   const columns = [
-    { key: 'name', label: 'Cycle', always: true, render: (c) => <span className="min-w-0"><span className="block truncate font-medium">{c.name}</span><span className="block truncate ui-caption tabular-nums">{day(c.periodFrom)} – {day(c.periodTo)}</span></span> },
+    { key: 'name', label: 'Cycle', always: true, render: (c) => <span className="min-w-0"><span className="block truncate">{c.name}</span><span className="block truncate ui-caption tabular-nums">{day(c.periodFrom)} – {day(c.periodTo)}</span></span> },
     { key: 'people', label: 'People', render: (c) => <span className="tabular-nums">{c.counts.people}</span> },
     { key: 'self', label: 'Self-reviews', render: (c) => of(c.counts.self, c.counts.people) },
     { key: 'manager', label: 'Manager reviews', render: (c) => of(c.counts.manager, c.counts.people) },
@@ -66,7 +66,7 @@ export default function Reviews({ params = {} }) {
           onRowClick={(c) => setOpen(c.id)}
           card={(c) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{c.name}</span>{cycleTag(c)}</span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{c.name}</span>{cycleTag(c)}</span>
               <span className="block truncate ui-caption tabular-nums">{day(c.periodFrom)} – {day(c.periodTo)} · {c.counts.people} people</span>
             </span>
           )}
@@ -96,7 +96,7 @@ function Cycle({ id, hr, onBack }) {
   };
   const mine = reviews.filter((r) => r.mineToWrite && !r.managerAt).length;
   const columns = [
-    { key: 'person', label: 'Person', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.employee?.name}{r.own ? ' (you)' : ''}</span><span className="block truncate ui-caption">{r.department}</span></span> },
+    { key: 'person', label: 'Person', always: true, render: (r) => <span className="min-w-0"><span className="block truncate">{r.employee?.name}{r.own ? ' (you)' : ''}</span><span className="block truncate ui-caption">{r.department}</span></span> },
     { key: 'manager', label: 'Reviewed by', render: (r) => r.manager?.name || <span className="ui-muted">HR</span> },
     { key: 'self', label: 'Self', render: (r) => (r.selfAt ? <span className="tabular-nums">{r.selfRating}</span> : <span className="ui-muted">Not yet</span>) },
     { key: 'mgr', label: 'Manager', render: (r) => (r.managerAt ? <span className="tabular-nums">{r.managerRating ?? '✓'}</span> : r.mineToWrite ? <span className="ui-pill ui-pill-warn">Yours to write</span> : <span className="ui-muted">Not yet</span>) },
@@ -135,7 +135,7 @@ function Cycle({ id, hr, onBack }) {
               onRowClick={(r) => setOpen(r.id)}
               card={(r) => (
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employee?.name}</span>{r.mineToWrite && !r.managerAt ? <span className="ui-pill ui-pill-warn">Yours to write</span> : r.finalRating ? <span className="tabular-nums">{r.finalRating}</span> : null}</span>
+                  <span className="flex items-center justify-between gap-2"><span className="truncate">{r.employee?.name}</span>{r.mineToWrite && !r.managerAt ? <span className="ui-pill ui-pill-warn">Yours to write</span> : r.finalRating ? <span className="tabular-nums">{r.finalRating}</span> : null}</span>
                   <span className="block truncate ui-caption">{[r.department, r.selfAt ? 'self-review in' : 'no self-review yet', r.managerAt ? 'manager review in' : null].filter(Boolean).join(' · ')}</span>
                 </span>
               )}

@@ -118,7 +118,7 @@ function SpentForWork({ data, guard, reload }) {
             {draft.lines.map((l) => (
               <li key={l.id} className="flex items-start gap-3 py-2.5 text-sm">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{l.merchant}</span>
+                  <span className="block truncate">{l.merchant}</span>
                   <span className="ui-caption block">{day(l.spentOn)} · {l.category}{l.billId ? '' : ' · no bill'}{l.paidByCompany ? ' · Company card, not paid back' : ''}</span>
                   {l.overLimit ? <span className="ui-caption block ui-text-warn">Over the {money(l.overLimit)} limit for {l.category}: your approver decides.</span> : null}
                 </span>
@@ -127,7 +127,7 @@ function SpentForWork({ data, guard, reload }) {
               </li>
             ))}
           </ul>
-          <div className="flex items-baseline justify-between gap-3 text-sm font-medium"><span>Total</span><span className="tabular-nums">{money(draft.claimed)}</span></div>
+          <div className="flex items-baseline justify-between gap-3 text-sm font-semibold"><span>Total</span><span className="tabular-nums">{money(draft.claimed)}</span></div>
           <label className="block"><span className="ui-label">What for</span>
             <SuggestInput value={title} onChange={setTitle} maxLength={120} placeholder="e.g. Client visit to Mysuru" suggestions={[...new Set(data.claims.map((c) => c.title).filter((t) => t && t !== 'Spent for work'))]} />
           </label>
@@ -320,7 +320,7 @@ function ClaimRow({ claim: c, guard, reload }) {
     <li className="py-2.5 text-sm">
       <button type="button" className="flex w-full items-start gap-3 text-left" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium">{c.title}</span>
+          <span className="block truncate">{c.title}</span>
           <span className="ui-caption block">{c.number} · {c.lines.length} bill{c.lines.length === 1 ? '' : 's'}</span>
         </span>
         <span className="shrink-0 text-right">
@@ -429,7 +429,7 @@ function Advances({ data, guard, reload }) {
           {shown.map((a) => (
             <li key={a.id} className="flex items-start gap-3 py-2.5 text-sm">
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{a.purpose}</span>
+                <span className="block truncate">{a.purpose}</span>
                 <span className="ui-caption block">{a.number}{a.status === 'PAID' ? ` · ${money(a.open)} left${a.settleBy ? `, bills by ${day(a.settleBy)}` : ''}` : ''}</span>
                 {a.recovering ? <span className="ui-caption block tabular-nums">{money(a.recovering)} is being taken from your salary.</span> : null}
                 {a.overdue ? <span className="ui-caption block ui-text-warn">Bills were due {day(a.settleBy)}. Send them, or give back what is left.</span> : null}
@@ -536,7 +536,7 @@ function SalaryAdvance({ info, guard, reload }) {
           {info.asks.filter((a) => a.status !== 'WITHDRAWN').slice(0, 5).map((a) => (
             <li key={a.id} className="flex items-start gap-3 py-2.5 text-sm">
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{money(a.amount)} over {a.months} month{a.months === 1 ? '' : 's'}</span>
+                <span className="block truncate">{money(a.amount)} over {a.months} month{a.months === 1 ? '' : 's'}</span>
                 <span className="ui-caption block tabular-nums">{money(a.emi)} a month{a.loan ? ` · ${money(a.loan.outstanding)} left to repay` : ''}</span>
                 {a.comment ? <span className="ui-muted block">“{a.comment}”</span> : null}
                 {a.canWithdraw ? <button type="button" className="ui-link text-xs" onClick={() => withdraw(a)}>Withdraw</button> : null}
@@ -583,7 +583,7 @@ function SkipNext({ loan, guard, reload }) {
           <span className="block">Next instalment, {n.period}</span>
           <span className="ui-caption block">{loan.kind} {loan.number}</span>
         </span>
-        <span className="tabular-nums font-medium">{money(n.amount)}</span>
+        <span className="tabular-nums">{money(n.amount)}</span>
       </div>
       {n.skipAsked ? (
         <p className="ui-caption" role="status">You asked to skip this one. HR decides.</p>

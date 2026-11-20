@@ -138,7 +138,7 @@ export default function Integrations() {
             <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
               {EVENT_GROUPS.map(([group, keys]) => (
                 <div key={group}>
-                  <div className="ui-caption font-medium">{group}</div>
+                  <div className="ui-caption font-semibold">{group}</div>
                   {keys.map((k) => (
                     <label key={k} className="flex items-center gap-2 py-0.5 text-sm">
                       <input type="checkbox" className="ui-checkbox" checked={hookForm.events.includes(k)} onChange={() => setHookForm({ ...hookForm, events: toggle(hookForm.events, k) })} />
@@ -158,7 +158,7 @@ export default function Integrations() {
             {hooks.map((h) => (
               <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                 <div className="min-w-0">
-                  <div className="font-medium">{h.name} <span className="ui-caption">· {h.events.join(', ')}</span></div>
+                  <div>{h.name} <span className="ui-caption">· {h.events.join(', ')}</span></div>
                   <div className="ui-caption truncate">{h.url}</div>
                   <div className="ui-caption" style={h.lastError ? { color: 'rgb(var(--neg))' } : undefined}>
                     {h.lastDeliveredAt ? `Last sent ${ago(h.lastDeliveredAt)} — ${h.lastError || `answered ${h.lastStatus}`}` : 'Nothing sent yet'}
@@ -380,7 +380,7 @@ function Connectors({ onShown }) {
           {data.agents.map((a) => (
             <li key={a.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
               <div className="min-w-0">
-                <div className="font-medium">{a.name} <span className="ui-caption font-normal">· <code className="ui-mono">{a.tokenPrefix}…</code>{a.hostname ? ` · ${a.hostname}` : ''}{a.version ? ` · v${a.version}` : ''}</span></div>
+                <div>{a.name} <span className="ui-caption font-normal">· <code className="ui-mono">{a.tokenPrefix}…</code>{a.hostname ? ` · ${a.hostname}` : ''}{a.version ? ` · v${a.version}` : ''}</span></div>
                 <div className="ui-caption">
                   {a.readers.length ? `${a.readers.length} reader${a.readers.length === 1 ? '' : 's'}` : 'no readers assigned'}
                   {a.tally ? ` · Tally at ${a.tally.host}:${a.tally.port || 9000}` : ''}
@@ -405,7 +405,7 @@ function Connectors({ onShown }) {
 
       {jobs ? (
         <div className="ui-card p-3 text-sm">
-          <div className="flex items-center justify-between gap-2"><span className="font-medium">Jobs for {jobs.agent.name}</span><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setJobs(null)}>Close</button></div>
+          <div className="flex items-center justify-between gap-2"><span className="font-semibold">Jobs for {jobs.agent.name}</span><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setJobs(null)}>Close</button></div>
           {jobs.rows.length ? (
             <ul className="mt-2 divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
               {jobs.rows.map((j) => (
@@ -569,7 +569,7 @@ function HrTools() {
           {rows.map((c) => (
             <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <div className="min-w-0">
-                <div className="font-medium">{c.name} <span className="ui-caption font-normal">· {c.adapterLabel}</span></div>
+                <div>{c.name} <span className="ui-caption font-normal">· {c.adapterLabel}</span></div>
                 <div className="ui-caption">
                   {c.pushPunches ? 'punches out' : ''}{c.pushPunches && c.pullEmployees ? ' · ' : ''}{c.pullEmployees ? `people in${c.createEmployees ? ' (adding new)' : ''}` : ''}
                   {c.outbox?.PENDING ? ` · ${c.outbox.PENDING} waiting` : ''}{c.outbox?.FAILED ? ` · ${c.outbox.FAILED} failed` : ''}
@@ -602,7 +602,7 @@ function HrTools() {
           <p className="ui-caption">{adapter(form.adapter)?.blurb}</p>
           {adapter(form.adapter)?.prerequisites?.length ? (
             <div className="rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgb(var(--surface))' }}>
-              <p className="font-medium">Before you start</p>
+              <p className="font-semibold">Before you start</p>
               <ul className="mt-1 list-disc space-y-0.5 ps-5 ui-caption">{adapter(form.adapter).prerequisites.map((t) => <li key={t}>{t}</li>)}</ul>
             </div>
           ) : null}
@@ -614,7 +614,7 @@ function HrTools() {
             </details>
           ) : (
             <fieldset key={group} className="space-y-2">
-              <legend className="ui-label !mb-1 font-medium">{group}{group === 'Reading employees' && fields.every((f) => !f.required) ? ' (optional)' : ''}</legend>
+              <legend className="ui-label !mb-1 font-semibold">{group}{group === 'Reading employees' && fields.every((f) => !f.required) ? ' (optional)' : ''}</legend>
               <div className="grid gap-3 md:grid-cols-2">
                 {fields.map((f) => <HrField key={f.key} f={f} form={form} setForm={setForm} />)}
               </div>

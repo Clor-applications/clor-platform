@@ -91,16 +91,16 @@ function ClaimDetail({ claim: c, advance, monthTotal, canCut, onSaved }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="ui-t-label text-left">
-              <th className="py-1.5 pr-3 font-medium">Bill</th>
-              <th className="py-1.5 pr-3 text-right font-medium">Asked</th>
-              <th className="py-1.5 text-right font-medium">Allowed</th>
+              <th className="py-1.5 pr-3 font-semibold">Bill</th>
+              <th className="py-1.5 pr-3 text-right font-semibold">Asked</th>
+              <th className="py-1.5 text-right font-semibold">Allowed</th>
             </tr>
           </thead>
           <tbody>
             {c.lines.map((l) => (
               <tr key={l.id} className="border-t align-top" style={{ borderColor: 'rgb(var(--border))' }}>
                 <td className="py-2 pr-3">
-                  <span className="block font-medium">{l.merchant}</span>
+                  <span className="block">{l.merchant}</span>
                   <span className="ui-caption block">{day(l.spentOn)} · {l.category}{l.note ? ` · ${l.note}` : ''}</span>
                   {l.companyGstin ? <span className="ui-caption block">Bill in our GSTIN{l.supplierGstin ? ` · ${l.supplierGstin}` : ''}{l.taxAmount != null ? ` · GST ${money(l.taxAmount)}` : ''}{l.creditBlocked ? ' · credit usually not available' : ''}</span> : null}
                   {l.overLimit ? <span className="ui-caption block ui-text-warn">Over the {money(l.overLimit)} limit for {l.category}</span> : null}
@@ -119,7 +119,7 @@ function ClaimDetail({ claim: c, advance, monthTotal, canCut, onSaved }) {
                 <td className="py-2 text-right tabular-nums">{money(l.approvedAmount ?? l.amount)}</td>
               </tr>
             ))}
-            <tr className="border-t font-medium" style={{ borderColor: 'rgb(var(--border))' }}>
+            <tr className="border-t font-semibold" style={{ borderColor: 'rgb(var(--border))' }}>
               <td className="py-2 pr-3">Total</td>
               <td className="py-2 pr-3 text-right tabular-nums">{money(c.claimed)}</td>
               <td className="py-2 text-right tabular-nums">{money(allowed)}</td>

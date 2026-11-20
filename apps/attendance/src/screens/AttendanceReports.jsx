@@ -182,7 +182,7 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
                   {list.map((r) => (
                     <li key={r.id}>
                       <button type="button" className="ui-card ui-report-card" onClick={() => open(r)}>
-                        <span className="font-medium">{r.name}</span>
+                        <span>{r.name}</span>
                         <span className="ui-caption">{r.description}</span>
                       </button>
                     </li>
@@ -406,7 +406,7 @@ function Scheduled({ catalogue, form, active }) {
           {rows.map((s) => (
             <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <div className="min-w-0">
-                <div className="text-sm font-medium">{s.reportName} <span className="ui-caption font-normal">· {when(s)}</span></div>
+                <div className="text-sm">{s.reportName} <span className="ui-caption font-normal">· {when(s)}</span></div>
                 <div className="ui-caption">To {s.recipients}{s.lastSentAt ? ` · last sent ${new Date(s.lastSentAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}` : ' · not sent yet'}</div>
                 {s.lastError ? <div className="ui-caption" style={{ color: 'rgb(var(--neg))' }}>{s.lastError}</div> : null}
                 {runs?.id === s.id ? (

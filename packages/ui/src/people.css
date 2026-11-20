@@ -230,8 +230,8 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 }
 :root[data-app='people'] #main-content .ui-metric-value {
   grid-area: value;
-  font-size: 1.75rem;
-  line-height: 2.25rem;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -436,7 +436,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .people-kpi-icon { grid-area: icon; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 0.5rem; background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
 .people-kpi-label { grid-area: label; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; line-height: 1rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: rgb(var(--fg-muted)); }
 .people-kpi-row { grid-area: value; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.people-kpi-value { font-size: 2.25rem; line-height: 2.5rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.people-kpi-value { font-size: 1.375rem; line-height: 1.75rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .people-kpi-value[data-zero] { color: rgb(var(--fg-subtle)); }
 .people-kpi[data-attention] .people-kpi-value:not([data-zero]) { color: rgb(var(--warn)); }
 .people-kpi-note { grid-area: note; display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-size: 0.8125rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); }
@@ -464,7 +464,8 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   border-radius: 0.5rem;
   background: rgb(var(--neutral-soft));
   color: rgb(var(--neutral-ink));
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -517,7 +518,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 /* News and events: a date tile or an icon chip in the item's identity colour. */
 .people-news-icon, .people-date { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 0.5rem; background: rgb(var(--tint, var(--surface-sunken))); color: rgb(var(--tint-ink, var(--fg-muted))); font-size: 1rem; }
 .people-date { height: 2.5rem; grid-template-rows: auto auto; align-content: center; gap: 0; line-height: 1; }
-.people-date b { font-size: 0.9375rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.people-date b { font-size: 1.0625rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .people-date span { font-size: 0.75rem; font-weight: 600; }
 .people-row-body { display: -webkit-box; margin-top: 0.125rem; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
@@ -545,7 +546,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 @media (max-width: 767px) {
   .people-home-side { grid-template-columns: minmax(0, 1fr); }
   .people-kpi { padding: 1rem; }
-  .people-kpi-value { font-size: 1.75rem; line-height: 2.25rem; }
+  .people-kpi-value { font-size: 1.375rem; line-height: 1.75rem; }
   .people-dept-chart { padding: 1rem; }
   .people-dept-chart li { grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr) 2rem; gap: 0.625rem; }
   .people-home .people-row { flex-wrap: wrap; }
@@ -633,7 +634,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .org-card-bar { order: 4; height: 0.375rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
 .org-card-bar > span { display: block; height: 100%; border-radius: 999px; background: rgb(var(--id, var(--marker))); }
 .org-card > .ui-caption { order: 5; text-align: right; font-variant-numeric: tabular-nums; }
-.org-card-n { order: 6; text-align: right; font-size: 0.9375rem; line-height: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.org-card-n { order: 6; text-align: right; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
 .org-cards-sm .org-card { grid-template-columns: minmax(9rem, 1fr) minmax(8rem, 2fr) 3rem; }
 .org-cards-sm .org-card-name { order: 1; }
 .org-cards-sm .org-card > .ui-caption { order: 2; text-align: left; }
@@ -663,7 +664,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 
 .people-first-run { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 3.5rem 1.5rem; text-align: center; border: 1px dashed rgb(var(--border-strong)); border-radius: 0.75rem; }
 .people-first-run > svg { width: 3rem; height: 3rem; }
-.people-first-run-title { font-family: var(--font-brand); font-size: 1.25rem; line-height: 1.75rem; font-weight: 700; letter-spacing: -0.01em; color: rgb(var(--fg)); }
+.people-first-run-title { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: rgb(var(--fg)); }
 .people-first-run-text { max-width: 30rem; margin-bottom: 0.5rem; font-size: 0.875rem; line-height: 1.375rem; color: rgb(var(--fg-muted)); }
 .people-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
 .people-step { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); grid-template-areas: 'icon title' 'note note'; align-items: center; column-gap: 0.75rem; row-gap: 0.75rem; width: 100%; height: 100%; padding: 1.25rem; text-align: left; border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface)); transition: background-color var(--dur-state, 150ms) ease; }
@@ -671,7 +672,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .people-step:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 .people-step-icon { grid-area: icon; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; background: rgb(var(--surface-sunken)); }
 .people-step-icon > svg { width: 1.5rem; height: 1.5rem; }
-.people-step-title { grid-area: title; font-size: 0.9375rem; font-weight: 600; color: rgb(var(--fg)); }
+.people-step-title { grid-area: title; font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; color: rgb(var(--fg)); }
 .people-step-note { grid-area: note; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
 
 /*
@@ -734,7 +735,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   padding-bottom: 0.5rem;
   margin-bottom: 0.25rem;
 }
-:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-block-title { font-size: 1rem; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-block-title { font-size: 1.0625rem; }
 /* Cards on the page ground: a hairline, no lift. */
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content .ui-card {
   box-shadow: none !important;
@@ -807,7 +808,8 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   margin-bottom: 0.5rem;
 }
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-company-goals h2.ui-label {
-  font-size: 1rem;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
   font-weight: 700;
   color: rgb(var(--fg));
 }
@@ -822,7 +824,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   border-bottom: 2px solid rgb(var(--fg));
 }
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.ui-record-section, .ui-form-part) > header:first-child :is(h2, h3) { border: 0; padding: 0; }
-:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.ui-record-section, .ui-form-part) > header:first-child .ui-t-sec { font-size: 1rem; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.ui-record-section, .ui-form-part) > header:first-child .ui-t-sec { font-size: 1.0625rem; }
 /* Fields: white with a hairline; the list toolbar's search keeps its fill. */
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content :is(.ui-input, .ui-select, textarea):not(.ui-list-toolbar *):not(.ui-list-header *) {
   background-color: rgb(var(--surface, 255 255 255));

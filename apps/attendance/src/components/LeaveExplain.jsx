@@ -37,7 +37,7 @@ export default function LeaveExplain({ open, onClose, load }) {
         <div className="space-y-5">
           {data.type.isPaid && b ? (
             <div className="ui-explain-summary">
-              <div><span className="ui-caption">Available</span><strong className="text-lg tabular-nums">{num(b.available)}</strong></div>
+              <div><span className="ui-caption">Available</span><strong className="text-[1.375rem] leading-7 font-semibold tabular-nums">{num(b.available)}</strong></div>
               <div><span className="ui-caption">Allotted so far</span><strong className="tabular-nums">{num(b.allocated)}</strong></div>
               <div><span className="ui-caption">Taken</span><strong className="tabular-nums">{num(b.used)}</strong></div>
               <div><span className="ui-caption">Waiting</span><strong className="tabular-nums">{num(b.pending)}</strong></div>

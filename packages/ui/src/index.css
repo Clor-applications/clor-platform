@@ -2013,7 +2013,8 @@
   .ui-btn-lg {
     min-height: 2.875rem;
     padding: 0 1.5rem;
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
     border-radius: var(--radius-btn);
   }
   /* Icon-only control. 40px keeps it above the 24px minimum pointer target
@@ -2511,8 +2512,8 @@
      of money means reading the whole number; the decimals are for checking,
      not for scanning. */
   .ui-strip-figure {
-    font-size: 1.75rem;          /* 28px */
-    line-height: 2rem;
+    font-size: 1.375rem;         /* 22px, figure */
+    line-height: 1.75rem;
     font-weight: 600;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
@@ -2520,8 +2521,9 @@
     white-space: nowrap;
   }
   .ui-strip-frac {
-    font-size: 1.125rem;         /* 18px */
-    font-weight: 500;
+    font-size: 1.0625rem;        /* 17px */
+    font-weight: 600;
+    line-height: 1.5rem;
     color: rgb(var(--fg-subtle));
     letter-spacing: -0.02em;
   }
@@ -2657,8 +2659,8 @@
     gap: 2px;
     min-height: 3.5rem;
     padding: 0.5rem 0.25rem;
-    font-size: 11px;
-    line-height: 1;
+    font-size: 12px;
+    line-height: 1rem;
     color: rgb(var(--fg-muted));
   }
   .ui-tabbar-item[aria-current="page"] {
@@ -2696,9 +2698,9 @@
     gap: 0.25rem;
     padding: 0.5rem 0.25rem;
     border-radius: var(--radius-btn);
-    font-size: 11px;
-    line-height: 1;
-    font-weight: 500;
+    font-size: 12px;
+    line-height: 1rem;
+    font-weight: 600;
     white-space: nowrap;
     color: rgb(var(--nav-fg-muted));
     transition: background-color var(--dur-surface) ease, color var(--dur-surface) ease;
@@ -2784,10 +2786,10 @@
   .ui-register-mark {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 1.6rem; height: 1.4rem; padding: 0 0.25rem;
-    border-radius: 0.3rem; font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    border-radius: 0.3rem; font-size: 12px; line-height: 1rem; font-weight: 600; letter-spacing: 0.02em;
   }
   .ui-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.25rem; }
-  .ui-calendar-head { padding: 0.25rem 0.5rem; font-size: 11px; font-weight: 600; color: rgb(var(--fg-muted)); }
+  .ui-calendar-head { padding: 0.25rem 0.5rem; font-size: 12px; line-height: 1rem; font-weight: 600; color: rgb(var(--fg-muted)); }
   .ui-calendar-day {
     display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem;
     min-height: 5rem; padding: 0.4rem 0.5rem; border-radius: var(--radius-btn);
@@ -2799,7 +2801,7 @@
   .ui-calendar-day[data-today] .ui-calendar-date { color: rgb(var(--brand)); font-weight: 700; }
   .ui-calendar-day[aria-pressed='true'] { box-shadow: inset 0 0 0 2px rgb(var(--brand)); }
   .ui-calendar-date { font-size: 13px; font-weight: 600; }
-  .ui-calendar-tag { font-size: 11px; color: rgb(var(--fg-muted)); line-height: 1.1; }
+  .ui-calendar-tag { font-size: 12px; color: rgb(var(--fg-muted)); line-height: 1rem; }
   .ui-calendar-counts { display: flex; gap: 0.5rem; margin-top: auto; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
   @media (max-width: 639px) { .ui-calendar-day { min-height: 3.6rem; padding: 0.3rem; } .ui-calendar-tag { display: none; } }
 
@@ -3371,7 +3373,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .ui-cell-settled { font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: rgb(var(--fg-subtle)); }
+  .ui-cell-settled { font-size: 0.75rem; line-height: 1rem; letter-spacing: 0.06em; text-transform: uppercase; color: rgb(var(--fg-subtle)); }
 
   .ui-col-amount-zero.ui-col-amount-zero { color: rgb(var(--fg-subtle)); font-weight: 400; }
   .ui-col-amount-neg.ui-col-amount-neg { color: rgb(var(--neg)); }
@@ -6796,11 +6798,11 @@ th.ui-th {
      `text-xs font-bold uppercase` at each call site, which is weight standing
      in for hierarchy on a word that is already a label by position. */
   .ui-label-eyebrow {
-    font-size: 0.6875rem;     /* 11px */
+    font-size: 0.75rem;       /* 12px, label */
     line-height: 1rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    font-weight: 500;
+    font-weight: 600;
   }
 
   /* The row a table ends on. Structure, so it is said once here rather than
@@ -7522,8 +7524,8 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 .ui-today-hero-main { min-width: 0; display: flex; align-items: flex-start; gap: 1rem; }
 .ui-today-hero-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
 /* The one display line on the page, so it steps outside the forced heading scale. */
-.ui-today-hero .ui-today-hero-greet { font-size: 1.75rem !important; line-height: 2.125rem !important; font-weight: 700; letter-spacing: -0.025em; color: inherit; }
-.ui-today-hero-line { font-size: 0.9375rem; color: rgb(var(--fg-muted)); max-width: 62ch; }
+.ui-today-hero .ui-today-hero-greet { font-size: 1.5rem !important; line-height: 2rem !important; font-weight: 700; letter-spacing: -0.025em; color: inherit; }
+.ui-today-hero-line { font-size: 0.875rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); max-width: 62ch; }
 .ui-today-hero-meter {
   margin-top: 0.625rem; height: 0.375rem; max-width: 28rem; border-radius: 999px; overflow: hidden;
   background: rgb(var(--border));
@@ -7599,7 +7601,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 .ui-week-plot { --week-h: 9rem; --week-top: 1.75rem; position: relative; display: flex; gap: 0.5rem; }
 .ui-week-axis {
   flex: none; position: relative; width: 2.25rem; margin-top: var(--week-top); height: var(--week-h);
-  font-size: 0.6875rem; color: rgb(var(--fg-subtle)); font-variant-numeric: tabular-nums;
+  font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-subtle)); font-variant-numeric: tabular-nums;
 }
 .ui-week-axis i { position: absolute; right: 0; font-style: normal; transform: translateY(-50%); }
 .ui-week-axis i:nth-child(1) { top: 0; }
@@ -7619,7 +7621,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 }
 .ui-week li { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; min-width: 0; }
 .ui-week-n { height: 1.25rem; font-size: 0.875rem; font-weight: 650; color: rgb(var(--fg)); white-space: nowrap; }
-.ui-week-n small { font-size: 0.6875rem; font-weight: 500; color: rgb(var(--fg-subtle)); }
+.ui-week-n small { font-size: 0.75rem; line-height: 1rem; font-weight: 600; color: rgb(var(--fg-subtle)); }
 .ui-week-bar {
   width: 100%; max-width: 2.25rem; height: var(--week-h);
   display: flex; flex-direction: column-reverse; justify-content: flex-start;
@@ -7742,7 +7744,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 .ui-check-row[data-state='confirm'] .ui-check-mark { color: rgb(var(--warn-ink, 180 83 9)); }
 .ui-readiness.is-warn { border-left-color: rgb(var(--warn-ink, 180 83 9)); }
 .ui-readiness.is-warn > div > svg { color: rgb(var(--warn-ink, 180 83 9)); }
-.ui-check-count { min-width: 2.5rem; text-align: right; font-weight: 650; font-size: 1rem; }
+.ui-check-count { min-width: 2.5rem; text-align: right; font-weight: 600; font-size: 0.875rem; line-height: 1.25rem; }
 .ui-check-row[data-state='ok'] .ui-check-count { color: rgb(var(--fg-subtle)); font-weight: 500; }
 
 /* Leave balance, explained */
@@ -7965,7 +7967,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   color: rgb(var(--on-brand));
 }
 .ui-app-switch-name {
-  font-size: 1rem;
+  font-size: 1.0625rem;
   line-height: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -8218,8 +8220,8 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 }
 .ui-help-summary {
   margin-top: -8px;
-  font-size: 1rem;
-  line-height: 1.55;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   color: rgb(var(--fg-muted));
 }
 .ui-help-section {
@@ -8227,7 +8229,8 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   gap: 8px;
 }
 .ui-help-section h3 {
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
   font-weight: 600;
 }
 .ui-help-section ul,
@@ -8236,8 +8239,8 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   gap: 8px;
   margin: 0;
   padding-left: 1.25rem;
-  font-size: 0.9375rem;
-  line-height: 1.55;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
 }
 .ui-help-section ul {
   list-style: disc;
@@ -8374,8 +8377,9 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   align-items: center;
   gap: 10px;
   padding: 10px 0;
-  font-size: 0.9375rem;
-  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 400;
 }
 .ui-auth-today li + li { border-top: 1px solid rgb(var(--border)); }
 .ui-auth-today li.is-waiting {
@@ -8474,7 +8478,8 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   grid-template-columns: repeat(2, max-content);
   gap: 10px 28px;
   margin-top: 4px;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   color: rgb(var(--auth-ink-2));
 }
 .ui-auth-points li {
@@ -8494,9 +8499,9 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   box-shadow: 0 1px 0 rgb(32 35 35 / 0.04), 0 24px 48px -28px rgb(32 35 35 / 0.25);
 }
 .ui-auth .ui-auth-form-title {
-  font-size: 1.75rem !important;
-  line-height: 1.2 !important;
-  font-weight: 750 !important;
+  font-size: 1.5rem !important;
+  line-height: 2rem !important;
+  font-weight: 700 !important;
   letter-spacing: -0.03em;
 }
 /* The one primary action is the brand's indigo, like every other screen. */
@@ -8585,7 +8590,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 .ui-error-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; padding: 2.5rem 1rem; }
 .ui-error-state.is-compact { padding: 1rem; }
 .ui-error-state-icon { color: rgb(var(--fg-muted)); }
-.ui-error-state-title { font-weight: 600; font-size: 1rem; color: rgb(var(--fg)); }
+.ui-error-state-title { font-weight: 600; font-size: 1.0625rem; line-height: 1.5rem; color: rgb(var(--fg)); }
 .ui-error-state-body { font-size: 0.875rem; color: rgb(var(--fg-muted)); max-width: 28rem; }
 .ui-error-state-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 
@@ -8843,7 +8848,7 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-task-list > li > :last-child { font-size: 0.8125rem; }
 /* Record header (People): portrait, name line, a row of facts with small icons, then tags. */
 .ui-profile { display: flex; align-items: center; gap: 1rem; }
-.ui-profile-aka { font-size: 1rem; line-height: 1.5rem; font-weight: 400; color: rgb(var(--fg-muted)); letter-spacing: 0; }
+.ui-profile-aka { font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; color: rgb(var(--fg-muted)); letter-spacing: 0; }
 .ui-profile-facts { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin-top: 0.375rem; font-size: 0.8125rem; line-height: 1.25rem; font-weight: 400; letter-spacing: 0; color: rgb(var(--fg-muted)); }
 .ui-profile-facts li { display: inline-flex; align-items: center; gap: 0.375rem; }
 .ui-profile-facts svg { color: rgb(var(--fg-subtle)); flex-shrink: 0; }
@@ -8963,7 +8968,7 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
   font-weight: 700;
 }
 .org-head { display: inline-flex; align-items: center; gap: 0.5rem; }
-.org-head-face { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: rgb(var(--brand-soft)); color: rgb(var(--brand-deep)); font-size: 0.6875rem; font-weight: 700; }
+.org-head-face { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: rgb(var(--brand-soft)); color: rgb(var(--brand-deep)); font-size: 0.75rem; font-weight: 700; }
 .org-count { display: grid; grid-template-columns: minmax(4rem, 8rem) 2rem; align-items: center; gap: 0.625rem; justify-content: end; }
 .org-count-bar { height: 0.4375rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
 .org-count-bar > span { display: block; height: 100%; border-radius: 999px; background: rgb(var(--brand) / 0.75); }
@@ -9001,7 +9006,7 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-side-block + .ui-side-block { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgb(var(--border)); }
 .ui-side-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
 .ui-side-title { display: inline-flex; align-items: center; gap: 0.375rem; margin: 0; font-size: 0.8125rem; line-height: 1.25rem; font-weight: 700; color: rgb(var(--fg-heading, var(--fg))); }
-.ui-side-count { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.125rem; padding: 0 0.3125rem; border-radius: 999px; background: rgb(var(--brand-soft)); color: rgb(var(--brand-ink)); font-size: 0.6875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ui-side-count { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.125rem; padding: 0 0.3125rem; border-radius: 999px; background: rgb(var(--brand-soft)); color: rgb(var(--brand-ink)); font-size: 0.75rem; line-height: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ui-side-more { font-size: 0.75rem; font-weight: 600; color: rgb(var(--brand-ink)); background: none; border: 0; padding: 0; cursor: pointer; }
 .ui-side-more:hover { text-decoration: underline; }
 .ui-side-lines { display: flex; flex-direction: column; gap: 0.125rem; }
@@ -9030,7 +9035,7 @@ button.ui-side-line:hover { background: rgb(var(--brand-subtle)); }
 .ui-side-sub { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); }
 .ui-side-meta { flex: none; font-size: 0.75rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg-muted)); }
 .ui-side-meta[data-tone='count'] { font-size: 0.8125rem; font-weight: 700; color: rgb(var(--fg)); }
-.ui-side-pill { flex: none; padding: 0.0625rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; line-height: 1.125rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ui-side-pill { flex: none; padding: 0.0625rem 0.5rem; border-radius: 999px; font-size: 0.75rem; line-height: 1rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ui-side-pill[data-tone='neg'] { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
 .ui-side-pill[data-tone='warn'] { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
 .ui-side-pill[data-tone='pos'] { background: rgb(var(--pos-soft)); color: rgb(var(--pos)); }
@@ -9067,7 +9072,7 @@ button.ui-side-alert { cursor: pointer; }
 .ui-side-timeline > li[data-tone='warn'] .ui-side-dot { background: rgb(var(--warn-mark, var(--warn))); box-shadow: 0 0 0 2px rgb(var(--warn-soft)); }
 .ui-side-timeline > li[data-tone='info'] .ui-side-dot { background: rgb(var(--brand)); box-shadow: 0 0 0 2px rgb(var(--brand-soft)); }
 .ui-side-date { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: var(--radius-btn); background: rgb(var(--brand-subtle)); box-shadow: inset 0 0 0 1px rgb(var(--brand-border)); color: rgb(var(--brand-ink)); line-height: 1; }
-.ui-side-date > span { font-size: 0.5625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.ui-side-date > span { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 .ui-side-date > b { margin-top: 0.125rem; font-size: 0.875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ui-side-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.375rem; }
 .ui-side-chip {
@@ -9402,7 +9407,8 @@ button.ui-side-alert { cursor: pointer; }
 }
 .ui-auth-fact-about {
   margin-bottom: 8px;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 700;
   color: #ffb08a;
 }

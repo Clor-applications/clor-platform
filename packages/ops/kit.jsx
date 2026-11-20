@@ -148,7 +148,7 @@ export function ReasonDrawer({ open, title, what, confirmLabel, cancelLabel = 'C
         {what ? <p className="ws-notice">{what}</p> : null}
         {children}
         <label className="grid gap-1">
-          <span className="text-sm font-medium">Why</span>
+          <span className="text-sm font-semibold">Why</span>
           <textarea className="ui-input" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the Staff audit log" />
         </label>
         <p className="ws-card-blurb">You will be asked for a code from your authenticator app. The change goes in the Staff audit log{reasonOptional ? '' : ' with your reason'}.</p>

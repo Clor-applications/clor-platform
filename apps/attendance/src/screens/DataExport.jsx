@@ -106,7 +106,7 @@ export default function DataExport() {
             {datasets.map((x) => (
               <label key={x.id} className="flex items-start gap-2 rounded-lg p-2 ui-hover-sunken cursor-pointer" style={datasetId === x.id ? { backgroundColor: 'rgb(var(--surface-sunken))' } : undefined}>
                 <input type="radio" name="dataset" className="mt-1" checked={datasetId === x.id} onChange={() => setDatasetId(x.id)} />
-                <span><span className="block text-sm font-medium">{x.label}</span><span className="ui-caption">{x.blurb}</span></span>
+                <span><span className="block text-sm font-semibold">{x.label}</span><span className="ui-caption">{x.blurb}</span></span>
               </label>
             ))}
           </div>
@@ -132,7 +132,7 @@ export default function DataExport() {
             {[['csv', 'CSV', 'Opens in Excel or Google Sheets'], ['json', 'JSON', 'For importing into another system']].map(([id, label, hint]) => (
               <label key={id} className="flex items-start gap-2 rounded-lg p-2 ui-hover-sunken cursor-pointer" style={format === id ? { backgroundColor: 'rgb(var(--surface-sunken))' } : undefined}>
                 <input type="radio" name="format" className="mt-1" checked={format === id} onChange={() => setFormat(id)} />
-                <span><span className="block text-sm font-medium">{label}</span><span className="ui-caption">{hint}</span></span>
+                <span><span className="block text-sm font-semibold">{label}</span><span className="ui-caption">{hint}</span></span>
               </label>
             ))}
           </div>

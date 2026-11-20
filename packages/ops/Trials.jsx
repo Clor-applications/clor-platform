@@ -281,11 +281,11 @@ function TrialDrawer({ action, onClose, onDone }) {
       <form id="ops-trial" className="grid gap-5" onSubmit={submit}>
         <Err>{error}</Err>
         <label className="grid gap-1">
-          <span className="text-sm font-medium">Extra days</span>
+          <span className="text-sm font-semibold">Extra days</span>
           <input className="ui-input ui-num" style={{ maxWidth: 128 }} type="number" min={1} max={90} value={days} onChange={(e) => setDays(e.target.value)} />
         </label>
         <label className="grid gap-1">
-          <span className="text-sm font-medium">Why</span>
+          <span className="text-sm font-semibold">Why</span>
           <textarea className="ui-input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the record" />
         </label>
         {account?.trialEndsAt ? <p className="ws-card-blurb">Ends {day(account.trialEndsAt)} now; the days are added from today or from then, whichever is later.</p> : null}

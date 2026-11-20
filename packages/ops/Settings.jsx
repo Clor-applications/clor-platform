@@ -80,28 +80,28 @@ export function Settings({ role }) {
           <label className="flex gap-2 items-start">
             <input type="checkbox" checked={f.registered} disabled={!mayChange} onChange={set('registered')} />
             <span>
-              <span className="font-medium">CLOR is GST registered</span>
+              <span className="font-semibold">CLOR is GST registered</span>
               <span className="ws-card-blurb" style={{ display: 'block' }}>
                 Off: prices are what customers pay, with no tax line. On: GST is added to every quote, CGST and SGST in CLOR’s state and IGST elsewhere.
               </span>
             </span>
           </label>
           <div className="grid gap-1">
-            <label htmlFor="ops-tax-gstin" className="text-sm font-medium">
+            <label htmlFor="ops-tax-gstin" className="text-sm font-semibold">
               GSTIN
             </label>
             <input id="ops-tax-gstin" className="ui-input ui-mono" maxLength={15} value={f.gstin} disabled={!mayChange} onChange={onGstin} placeholder="29AAAAA0000A1Z5" />
             <span className="ws-card-blurb">The 15 characters on CLOR’s GST registration certificate (form GST REG-06).</span>
           </div>
           <div className="grid gap-1">
-            <label htmlFor="ops-tax-name" className="text-sm font-medium">
+            <label htmlFor="ops-tax-name" className="text-sm font-semibold">
               Legal name
             </label>
             <input id="ops-tax-name" className="ui-input" maxLength={160} value={f.legalName} disabled={!mayChange} onChange={set('legalName')} placeholder="CLOR Applications Private Limited" />
             <span className="ws-card-blurb">Exactly as it is on the registration certificate. It is printed on CLOR’s invoices.</span>
           </div>
           <div className="grid gap-1">
-            <label htmlFor="ops-tax-state" className="text-sm font-medium">
+            <label htmlFor="ops-tax-state" className="text-sm font-semibold">
               State
             </label>
             <select id="ops-tax-state" className="ui-select" value={f.state} disabled={!mayChange} onChange={set('state')}>
@@ -116,14 +116,14 @@ export function Settings({ role }) {
           </div>
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
             <div className="grid gap-1">
-              <label htmlFor="ops-tax-sac" className="text-sm font-medium">
+              <label htmlFor="ops-tax-sac" className="text-sm font-semibold">
                 SAC code
               </label>
               <input id="ops-tax-sac" className="ui-input tabular-nums" maxLength={8} inputMode="numeric" value={f.sac} disabled={!mayChange} onChange={set('sac')} placeholder="998314" />
               <span className="ws-card-blurb">The service code your accountant chose for CLOR’s subscriptions.</span>
             </div>
             <div className="grid gap-1">
-              <label htmlFor="ops-tax-rate" className="text-sm font-medium">
+              <label htmlFor="ops-tax-rate" className="text-sm font-semibold">
                 Rate
               </label>
               <select id="ops-tax-rate" className="ui-select" value={f.ratePercent} disabled={!mayChange} onChange={set('ratePercent')}>

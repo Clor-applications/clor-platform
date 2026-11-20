@@ -64,7 +64,7 @@ export default function ActivityTimeline({ events, onLoadMore = null, loadingMor
                   <span className="ui-activity-dot" aria-hidden="true"><Icon size={14} /></span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                      <p className="text-sm font-medium">{e.title || k.label}</p>
+                      <p className="text-sm">{e.title || k.label}</p>
                       <time className="ui-caption tabular-nums" dateTime={e.at}>{timeOf(e.at)}</time>
                     </div>
                     {e.changes?.length ? (

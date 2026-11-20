@@ -128,15 +128,15 @@ export function EmailAddresses({ role }) {
         onConfirm={save}
       >
         <label className="grid gap-1">
-          <span className="text-sm font-medium">Name people see</span>
+          <span className="text-sm font-semibold">Name people see</span>
           <input className="ui-input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </label>
         <label className="grid gap-1">
-          <span className="text-sm font-medium">Email address</span>
+          <span className="text-sm font-semibold">Email address</span>
           <input className="ui-input" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
         </label>
         <label className="grid gap-1">
-          <span className="text-sm font-medium">Replies go to</span>
+          <span className="text-sm font-semibold">Replies go to</span>
           <input className="ui-input" type="email" value={form.replyTo} placeholder="The same address" onChange={(e) => setForm((f) => ({ ...f, replyTo: e.target.value }))} />
         </label>
       </ReasonDrawer>
@@ -265,15 +265,15 @@ function TemplateEditor({ template: t, role, onClose, onSaved }) {
           <div className="grid gap-5">
             <p className="ws-card-blurb">{t.description}</p>
             <label className="grid gap-1">
-              <span className="text-sm font-medium">Subject</span>
+              <span className="text-sm font-semibold">Subject</span>
               <input className="ui-input" value={subject} readOnly={!owner} onChange={(e) => { setSubject(e.target.value); setPreview(null); }} />
             </label>
             <label className="grid gap-1">
-              <span className="text-sm font-medium">Message</span>
+              <span className="text-sm font-semibold">Message</span>
               <textarea className="ui-input" rows={12} value={body} readOnly={!owner} onChange={(e) => { setBody(e.target.value); setPreview(null); }} style={{ fontFamily: 'inherit', lineHeight: 1.5 }} />
             </label>
             <div className="grid gap-2">
-              <span className="text-sm font-medium">Placeholders this email can fill</span>
+              <span className="text-sm font-semibold">Placeholders this email can fill</span>
               <div className="flex flex-wrap gap-1">
                 {t.fields.map((f) => (
                   <span key={f} className="ws-pill">{`{{${f}}}`}</span>
@@ -284,7 +284,7 @@ function TemplateEditor({ template: t, role, onClose, onSaved }) {
             <Err>{error}</Err>
             {preview ? (
               <section aria-label="Preview" className="grid gap-2" style={{ borderTop: '1px solid rgb(var(--ws-line))', paddingTop: 16 }}>
-                <span className="text-sm font-medium">Preview, with example values</span>
+                <span className="text-sm font-semibold">Preview, with example values</span>
                 {preview.unknown?.length ? <Err>{`This email cannot fill ${preview.unknown.map((u) => `{{${u}}}`).join(', ')}; it would show as a blank.`}</Err> : null}
                 <strong style={{ fontWeight: 600 }}>{preview.subject}</strong>
                 <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{preview.body}</p>

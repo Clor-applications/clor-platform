@@ -28,7 +28,7 @@
   background: rgb(var(--rg-id) / 0.12);
 }
 .rg-plan-icon > svg { width: 1.25rem; height: 1.25rem; }
-.rg-plan-title { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9375rem; line-height: 1.375rem; font-weight: 600; color: rgb(var(--fg)); }
+.rg-plan-title { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: rgb(var(--fg)); }
 .rg-plan-line { margin: -0.5rem 0 0; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); overflow-wrap: anywhere; }
 .rg-plan-meter { display: flex; flex-direction: column; gap: 0.5rem; margin-top: auto; }
 .rg-plan-count { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
@@ -49,7 +49,7 @@
 .rg-post-sym > svg { width: 1.25rem; height: 1.25rem; }
 .rg-post-title, .rg-event-title {
   flex: 0 1 auto; min-width: 0; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  border-radius: 0.5rem; text-align: left; font-size: 0.9375rem; line-height: 1.375rem; font-weight: 600; color: rgb(var(--fg));
+  border-radius: 0.5rem; text-align: left; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: rgb(var(--fg));
 }
 .rg-post-title:hover, .rg-event-title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .rg-post-title:focus-visible, .rg-event-title:focus-visible { outline: 2px solid rgb(var(--ring, var(--act))); outline-offset: 2px; }
@@ -75,7 +75,7 @@
   border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface));
 }
 .rg-date-month { font-size: 0.75rem; line-height: 1rem; font-weight: 700; color: rgb(var(--act)); }
-.rg-date-day { font-size: 1.25rem; line-height: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.rg-date-day { font-size: 1.375rem; line-height: 1.75rem; font-weight: 700; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
 .rg-event-text { display: flex; flex-direction: column; gap: 0.125rem; flex: 1 1 auto; min-width: 0; }
 .rg-event-title { margin-right: 0; max-width: 100%; }
 .rg-event-end { display: flex; align-items: center; gap: 0.75rem; flex: none; }

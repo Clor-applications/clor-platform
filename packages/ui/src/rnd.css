@@ -170,13 +170,13 @@
 
 :root:not(#rnd):not([data-palette='indigo']) body { font-family: var(--font-sans); color: rgb(var(--fg)); }
 
-/* Page title: 28/36, 700, −0.025em (§5.2). */
+/* Page title: 24/32, 700 in every app (DESIGN.md "title", calm register 19 Nov 2026; was 28/36). */
 :root:not(#rnd):not([data-palette='indigo']) :is(.ui-t-page, .ws-title, .ops-title) {
   font-family: var(--font-brand);
-  font-size: 1.75rem;
-  line-height: 2.25rem;
+  font-size: 1.5rem;
+  line-height: 2rem;
   font-weight: 700;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.01em;
   color: rgb(var(--fg));
 }
 :root:not(#rnd):not([data-palette='indigo']) :is(.ui-display, .ui-h1) {
@@ -184,10 +184,10 @@
   font-weight: 700;
   letter-spacing: -0.025em;
 }
-/* Section title: 16/24, 600, −0.01em (§5.2 --text-md). */
+/* Section title: 17/24, 600 (DESIGN.md "section", calm register). */
 :root:not(#rnd):not([data-palette='indigo']) :is(.ui-h2, .ws-h2, .ops-h2) {
   font-family: var(--font-brand);
-  font-size: 1rem;
+  font-size: 1.0625rem;
   line-height: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -366,8 +366,8 @@
   border-color: rgb(var(--border-strong));
   background: rgb(var(--surface));
   color: rgb(var(--fg-muted));
-  font-size: 0.6875rem;
-  line-height: 1.125rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
 }
 :root:not(#rnd) .ui-app-switch {
   /* Smaller (owner, 17 Nov 2026: "reduce size of the app dropdown"): 32px tall, a 22px mark, 14px name. */
@@ -479,8 +479,8 @@
   max-width: 100%;
   white-space: normal;
   text-align: center;
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 600;
   letter-spacing: 0;
   color: inherit;
@@ -595,7 +595,7 @@
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head > .ui-t-sec {
   font-family: var(--font-brand);
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   line-height: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.01em;

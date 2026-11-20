@@ -59,7 +59,7 @@ function NoRecordConfirm({ people, count, checked, onChange }) {
       <ul className="text-sm space-y-1">
         {shown.map((p) => (
           <li key={p.employeeId} className="flex flex-wrap gap-x-2">
-            <span className="font-medium">{p.name}</span>
+            <span>{p.name}</span>
             <span className="ui-caption">{p.noRecord} day{p.noRecord === 1 ? '' : 's'}: {dateList(p.noRecordDates)}</span>
           </li>
         ))}
@@ -255,7 +255,7 @@ export default function MonthClose({ openScreen, params }) {
                 <li key={c.key} className="ui-check-row" data-state={c.count === 0 ? 'ok' : c.severity}>
                   <span className="ui-check-mark" aria-hidden="true">{c.count === 0 ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium">{c.label}</span>
+                    <span className="block text-sm">{c.label}</span>
                     <span className="ui-caption">{c.count === 0 ? 'Nothing here.' : c.hint}</span>
                   </span>
                   <span className="ui-check-count tabular-nums" aria-label={`${c.count} ${c.count === 1 ? 'item' : 'items'}`}>{c.count}</span>
@@ -371,7 +371,7 @@ export default function MonthClose({ openScreen, params }) {
               <ul className="divide-y">
                 {data.snapshots.map((s) => (
                   <li key={s.version} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                    <span className="font-medium">Copy {s.version}</span>
+                    <span>Copy {s.version}</span>
                     <span className="ui-caption flex-1">{new Date(s.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} · {s.by}</span>
                     <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => downloadSnapshot(s.version)}><Download size={14} aria-hidden="true" /> CSV</button>
                   </li>

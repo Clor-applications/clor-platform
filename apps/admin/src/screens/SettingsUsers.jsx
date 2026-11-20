@@ -483,24 +483,24 @@ export function SettingsUsers({ orgId, params }) {
         <form id="ws-user-create" onSubmit={submitCreate} className="grid gap-4 sm:grid-cols-2">
           {errorNote ? <div className="sm:col-span-2">{errorNote}</div> : null}
           <label className="grid gap-1 sm:col-span-2">
-            <span className="text-sm font-medium">Name <span className="ui-required" aria-hidden="true">*</span></span>
+            <span className="text-sm font-semibold">Name <span className="ui-required" aria-hidden="true">*</span></span>
             <input className="ui-input w-full" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} required autoComplete="name" />
           </label>
           <label className="grid gap-1 sm:col-span-2">
-            <span className="text-sm font-medium">Email <span className="ui-required" aria-hidden="true">*</span></span>
+            <span className="text-sm font-semibold">Email <span className="ui-required" aria-hidden="true">*</span></span>
             <input type="email" className="ui-input w-full" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required autoComplete="off" spellCheck={false} />
           </label>
           <div className="grid gap-1">
-            <label className="text-sm font-medium" htmlFor="add-user-mobile">Mobile</label>
+            <label className="text-sm font-semibold" htmlFor="add-user-mobile">Mobile</label>
             <PhoneInput id="add-user-mobile" className="ui-input w-full" value={form.mobile} onChange={(v) => setForm((f) => ({ ...f, mobile: v }))} />
           </div>
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Temporary password <span className="ui-required" aria-hidden="true">*</span></span>
+            <span className="text-sm font-semibold">Temporary password <span className="ui-required" aria-hidden="true">*</span></span>
             <input type="password" minLength={8} className="ui-input w-full" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} required autoComplete="new-password" />
             <span className="ui-caption">At least 8 characters.</span>
           </label>
           <div className="grid gap-1 sm:col-span-2">
-            <label className="text-sm font-medium" htmlFor="ws-user-role">Role</label>
+            <label className="text-sm font-semibold" htmlFor="ws-user-role">Role</label>
             <RoleSelect id="ws-user-role" roles={assignableRoles} value={form.roleId} onChange={(roleId) => setForm((f) => ({ ...f, roleId }))} />
           </div>
           <label className="flex items-start gap-2 text-sm sm:col-span-2">
@@ -555,23 +555,23 @@ export function SettingsUsers({ orgId, params }) {
         <form id="ws-user-edit" onSubmit={submitEdit} className="grid gap-4 sm:grid-cols-2">
           {errorNote ? <div className="sm:col-span-2">{errorNote}</div> : null}
           <label className="grid gap-1 sm:col-span-2">
-            <span className="text-sm font-medium">Name <span className="ui-required" aria-hidden="true">*</span></span>
+            <span className="text-sm font-semibold">Name <span className="ui-required" aria-hidden="true">*</span></span>
             <input className="ui-input w-full" value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} required />
           </label>
           <label className="grid gap-1 sm:col-span-2">
-            <span className="text-sm font-medium">Email <span className="ui-required" aria-hidden="true">*</span></span>
+            <span className="text-sm font-semibold">Email <span className="ui-required" aria-hidden="true">*</span></span>
             <input type="email" className="ui-input w-full" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} required spellCheck={false} />
           </label>
           <div className="grid gap-1 sm:col-span-2">
-            <label className="text-sm font-medium" htmlFor="edit-user-mobile">Mobile</label>
+            <label className="text-sm font-semibold" htmlFor="edit-user-mobile">Mobile</label>
             <PhoneInput id="edit-user-mobile" className="ui-input w-full" value={editForm.mobile || ''} onChange={(v) => setEditForm((p) => ({ ...p, mobile: v }))} />
           </div>
           <div className="grid gap-1">
-            <label className="text-sm font-medium" htmlFor="ws-user-edit-role">Role</label>
+            <label className="text-sm font-semibold" htmlFor="ws-user-edit-role">Role</label>
             <RoleSelect id="ws-user-edit-role" roles={assignableRoles} value={editForm.roleId} onChange={(roleId) => setEditForm((p) => ({ ...p, roleId }))} />
           </div>
           <label className="grid gap-1 content-start">
-            <span className="text-sm font-medium">Status</span>
+            <span className="text-sm font-semibold">Status</span>
             <select className="ui-select w-full" value={editForm.isActive ? 'active' : 'inactive'} onChange={(e) => setEditForm((p) => ({ ...p, isActive: e.target.value === 'active' }))}>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
@@ -656,22 +656,22 @@ export function SettingsUsers({ orgId, params }) {
         <form id="ws-user-leave" onSubmit={submitLeave} className="grid gap-4">
           {errorNote}
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Why they left</span>
+            <span className="text-sm font-semibold">Why they left</span>
             <select className="ui-select w-full" required value={leave.reason} onChange={(e) => setLeave((l) => ({ ...l, reason: e.target.value }))}>
               <option value="">Choose a reason</option>
               {leave.reasons.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
             </select>
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Last working day</span>
+            <span className="text-sm font-semibold">Last working day</span>
             <input type="date" className="ui-input w-full" required value={leave.lastWorkingDay} onChange={(e) => setLeave((l) => ({ ...l, lastWorkingDay: e.target.value }))} />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Note <span className="ui-caption">(optional)</span></span>
+            <span className="text-sm font-semibold">Note <span className="ui-caption">(optional)</span></span>
             <textarea className="ui-input w-full" rows={2} maxLength={1000} value={leave.note} onChange={(e) => setLeave((l) => ({ ...l, note: e.target.value }))} />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Hand over their work to</span>
+            <span className="text-sm font-semibold">Hand over their work to</span>
             <select className="ui-select w-full" value={leave.handoverUserId} onChange={(e) => setLeave((l) => ({ ...l, handoverUserId: e.target.value }))}>
               <option value="">Nobody</option>
               {successors.map((x) => <option key={x.id} value={x.id}>{nameOf(x)}</option>)}
@@ -696,7 +696,7 @@ export function SettingsUsers({ orgId, params }) {
         <form id="ws-user-password" onSubmit={submitPassword} className="grid gap-3">
           {errorNote}
           <label className="grid gap-1">
-            <span className="text-sm font-medium">New password</span>
+            <span className="text-sm font-semibold">New password</span>
             <input type="password" minLength={8} className="ui-input w-full" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password" />
             <span className="ui-caption">At least 8 characters.</span>
           </label>

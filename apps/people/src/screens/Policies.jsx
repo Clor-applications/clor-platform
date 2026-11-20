@@ -54,7 +54,7 @@ export default function Policies({ openScreen, params }) {
   const reload = () => { req.reload(); conflicts.reload(); };
 
   const columns = [
-    { key: 'title', label: 'Policy', always: true, render: (p) => <span className="font-medium">{p.title}</span> },
+    { key: 'title', label: 'Policy', always: true, render: (p) => <span>{p.title}</span> },
     { key: 'kind', label: 'Kind', render: (p) => <span>{p.categoryLabel}{p.purposeLabel ? <span className="ui-caption block">{p.purposeLabel}</span> : null}</span> },
     { key: 'owner', label: 'Owner', render: (p) => p.ownerName || '—' },
     { key: 'force', label: 'In force', render: (p) => (p.current ? <span className="tabular-nums whitespace-nowrap">v{p.current.version} from {day(p.current.effectiveFrom)}</span> : '—') },
@@ -94,7 +94,7 @@ export default function Policies({ openScreen, params }) {
           onRowClick={(p) => setOpen(p.id)}
           card={(p) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{p.title}</span>{p.latest ? (p.latest.status === 'PUBLISHED' ? <span className="ui-caption tabular-nums">v{p.latest.version}</span> : <span className={`ui-pill ${STATUS[p.latest.status]?.[1] || ''}`}>v{p.latest.version}</span>) : null}</span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{p.title}</span>{p.latest ? (p.latest.status === 'PUBLISHED' ? <span className="ui-caption tabular-nums">v{p.latest.version}</span> : <span className={`ui-pill ${STATUS[p.latest.status]?.[1] || ''}`}>v{p.latest.version}</span>) : null}</span>
               <span className="block truncate ui-caption">{[p.categoryLabel, p.current ? `in force from ${day(p.current.effectiveFrom)}` : 'nothing in force'].join(' · ')}</span>
             </span>
           )}
@@ -193,7 +193,7 @@ function PolicyDetail({ id, categories, purposes = [], languages = [], allowed, 
               {policy.versions.map((v) => (
                 <li key={v.id} className="ui-history-row space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-sm">Version {v.version}</span>
+                    <span className="text-sm">Version {v.version}</span>
                     <span className={`ui-pill ${STATUS[v.status]?.[1] || ''}`}>{STATUS[v.status]?.[0] || enumWords(v.status)}</span>
                     {v.inForce ? <span className="ui-pill ui-pill-info">In force today</span> : null}
                     <span className="ml-auto flex gap-3">

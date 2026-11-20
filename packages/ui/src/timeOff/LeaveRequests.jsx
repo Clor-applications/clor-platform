@@ -114,7 +114,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
       <span className="flex items-center gap-2.5 min-w-0">
         <Avatar person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={32} />
         <span className="min-w-0">
-          <span className="block truncate font-medium">{r.employeeName}</span>
+          <span className="block truncate">{r.employeeName}</span>
           <span className="block truncate ui-caption">{[r.employeeCode, r.department].filter(Boolean).join(' · ')}</span>
         </span>
       </span>
@@ -241,7 +241,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
           <span className="flex items-center gap-3 min-w-0">
             <Avatar person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={40} />
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employeeName}</span><span className={`ui-pill ${STATUS_PILL[r.status] || ''}`}>{STATUS_LABEL[r.status]}</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.employeeName}</span><span className={`ui-pill ${STATUS_PILL[r.status] || ''}`}>{STATUS_LABEL[r.status]}</span></span>
               <span className="block truncate ui-caption">{r.leaveTypeName} · {daysText(r.days)}</span>
               <span className="block truncate ui-caption tabular-nums">{range(r.fromDate, r.toDate)}{hoursText(r) ? `, ${hoursText(r)}` : ''}</span>
             </span>
@@ -445,7 +445,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
                   <ol className="space-y-1 mt-1" aria-label="Steps">
                     {d.step.timeline.map((t, i) => (
                       <li key={`${t.order}-${i}`} className="flex flex-wrap gap-x-2">
-                        <span className={t.status === 'WAITING' ? 'font-medium' : ''}>{t.text}</span>
+                        <span>{t.text}</span>
                         {t.on ? <span className="ui-muted tabular-nums">{t.status === 'WAITING' ? 'due ' : ''}{formatDate(t.on)}</span> : null}
                       </li>
                     ))}
@@ -497,7 +497,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
             {!d.alsoAway.length ? <p className="text-sm ui-muted">Nobody else.</p> : (
               <ul className="space-y-1.5 text-sm">
                 {d.alsoAway.slice(0, 10).map((x) => (
-                  <li key={x.id} className="flex items-center gap-2"><TypeDot row={x} /><span className="font-medium">{x.employeeName}</span><span className="ui-muted tabular-nums">{range(x.fromDate, x.toDate)}{x.status === 'PENDING' ? ', waiting' : ''}{x.department ? ` · ${x.department}` : ''}</span></li>
+                  <li key={x.id} className="flex items-center gap-2"><TypeDot row={x} /><span>{x.employeeName}</span><span className="ui-muted tabular-nums">{range(x.fromDate, x.toDate)}{x.status === 'PENDING' ? ', waiting' : ''}{x.department ? ` · ${x.department}` : ''}</span></li>
                 ))}
                 {d.alsoAway.length > 10 ? <li className="ui-muted">and {d.alsoAway.length - 10} more</li> : null}
               </ul>

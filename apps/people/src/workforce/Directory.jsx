@@ -241,7 +241,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       {tab === 'team' && !firstRun ? <MyTeamPanel onFilter={(f) => set({ ...f, page: null }, true)} openScreen={openScreen} /> : null}
       {selected.size ? (
         <div className="ui-bulkbar" role="status" aria-live="polite">
-          <span className="tabular-nums font-medium">{selected.size === total && total > rows.length ? `All ${total} matching selected` : `${selected.size} selected`}</span>
+          <span className="tabular-nums">{selected.size === total && total > rows.length ? `All ${total} matching selected` : `${selected.size} selected`}</span>
           {rows.length && rows.every((r) => selected.has(r.id)) && total > selected.size ? (
             <button type="button" className="ui-link text-sm" disabled={selectingAll} onClick={selectAllMatching}>{selectingAll ? 'Selecting…' : `Select all ${total} matching`}</button>
           ) : null}
@@ -277,7 +277,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
             <span className="flex items-center gap-3 min-w-0">
               <Avatar person={r} size={40} />
               <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><StatusBadge employee={r} quiet /></span>
+                <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><StatusBadge employee={r} quiet /></span>
                 <span className="block truncate ui-caption">{[r.code, r.designation].filter(Boolean).join(' · ')}</span>
                 <span className="block truncate ui-caption">{[r.department, r.branchName || r.areaName || r.workLocation].filter(Boolean).join(' · ')}</span>
               </span>
@@ -601,7 +601,7 @@ function BulkImpact({ ids, field, value }) {
             <ul>
               {lines.map((i) => (
                 <li key={`${i.target}:${i.title}`}>
-                  <span className="block text-sm font-medium">{i.title}{state.asked > 1 ? <span className="ui-muted font-normal tabular-nums"> · {i.people} of {state.asked}</span> : null}</span>
+                  <span className="block text-sm">{i.title}{state.asked > 1 ? <span className="ui-muted font-normal tabular-nums"> · {i.people} of {state.asked}</span> : null}</span>
                   {i.detail ? <span className="block ui-caption">{i.detail}</span> : null}
                 </li>
               ))}
@@ -685,7 +685,7 @@ function PendingActions({ data, error, reload, openScreen }) {
       <Group title="Awaiting approval" count={data.requests.length}>
         {data.requests.map((r) => (
           <li key={r.id} className="flex flex-wrap items-center gap-3 py-2">
-            <span className="min-w-0 flex-1"><span className="font-medium">{r.title}</span><span className="block ui-caption">Sent {day(r.createdAt)}{r.dueAt ? ` · step due ${day(r.dueAt)}` : ''}</span></span>
+            <span className="min-w-0 flex-1"><span>{r.title}</span><span className="block ui-caption">Sent {day(r.createdAt)}{r.dueAt ? ` · step due ${day(r.dueAt)}` : ''}</span></span>
             {r.overdue ? <span className="ui-pill ui-pill-neg">Overdue</span> : null}
             {r.mine ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen?.('approvals')}>Decide</button> : <span className="ui-caption">With the approver</span>}
             <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: r.employee.id, tab: 'history' })}>{person(r.employee)}</button>

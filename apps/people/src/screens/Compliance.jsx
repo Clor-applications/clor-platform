@@ -134,7 +134,7 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
     { key: 'due', label: 'Due', render: (o) => <span className="tabular-nums whitespace-nowrap font-semibold">{o.period === 'STANDING' ? 'Standing' : day(o.dueOn)}{o.period !== 'STANDING' && OPEN.includes(o.status) && daysTo(String(o.dueOn).slice(0, 10)) >= 0 && daysTo(String(o.dueOn).slice(0, 10)) <= 30 ? <span className="block ui-caption font-normal">in {daysTo(String(o.dueOn).slice(0, 10))} day{daysTo(String(o.dueOn).slice(0, 10)) === 1 ? '' : 's'}</span> : null}</span> },
     { key: 'title', label: 'What', always: true, render: (o) => (
       <span className="block min-w-0">
-        <span className="block font-medium">{o.title}</span>
+        <span className="block">{o.title}</span>
         <span className="block ui-caption">{[SOURCE[o.source], !o.ruleChecked ? 'not yet checked with your adviser' : null, o.proofs?.length ? `${o.proofs.length} proof${o.proofs.length === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')}</span>
       </span>
     ) },
@@ -169,7 +169,7 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
             loading={owed.loading} refreshing={owed.refreshing} onRowClick={(o) => set({ id: o.id })}
             card={(o) => (
               <span className="min-w-0 flex-1">
-                <span className="flex items-start justify-between gap-2"><span className="font-medium">{o.title}</span><ExceptionTag label={o.status === 'DONE' || o.status === 'CHECKED' ? '' : STATUS[o.status]?.[0] || o.status} normal={STATUS[o.status]?.[0]} pill={`shrink-0 ${STATUS[o.status]?.[1] || 'ui-pill-neutral'}`} /></span>
+                <span className="flex items-start justify-between gap-2"><span>{o.title}</span><ExceptionTag label={o.status === 'DONE' || o.status === 'CHECKED' ? '' : STATUS[o.status]?.[0] || o.status} normal={STATUS[o.status]?.[0]} pill={`shrink-0 ${STATUS[o.status]?.[1] || 'ui-pill-neutral'}`} /></span>
                 <span className="block ui-caption">{[o.period === 'STANDING' ? 'Standing' : `Due ${day(o.dueOn)}`, o.owner, o.establishment].filter(Boolean).join(' · ')}</span>
               </span>
             )}
@@ -382,7 +382,7 @@ function Registrations({ req, openScreen }) {
     <DataTable label="Registrations" rows={rows} total={rows.length} pageSize={Math.max(25, rows.length)} noun="registrations" loading={req.loading} refreshing={req.refreshing}
       onRowClick={openScreen ? () => openScreen('establishments') : null}
       columns={[
-        { key: 'site', label: 'Work site', always: true, render: (r) => <span className="font-medium">{r.site.name}{r.site.state ? <span className="ui-caption block">{r.site.state}</span> : null}</span> },
+        { key: 'site', label: 'Work site', always: true, render: (r) => <span>{r.site.name}{r.site.state ? <span className="ui-caption block">{r.site.state}</span> : null}</span> },
         { key: 'type', label: 'Registration', render: (r) => (r.none ? <span className="ui-muted">None added</span> : r.label) },
         { key: 'number', label: 'Number', render: (r) => <span className="tabular-nums">{r.number || '—'}</span> },
         { key: 'till', label: 'Valid till', render: (r) => <span className="tabular-nums whitespace-nowrap">{r.validTill ? day(r.validTill) : '—'}</span> },
@@ -390,7 +390,7 @@ function Registrations({ req, openScreen }) {
       ]}
       card={(r) => (
         <span className="min-w-0 flex-1">
-          <span className="flex items-start justify-between gap-2"><span className="font-medium">{r.none ? r.site.name : r.label}</span>{r.none ? null : <span className={`ui-pill shrink-0 ${state(r)[1]}`}>{state(r)[0]}</span>}</span>
+          <span className="flex items-start justify-between gap-2"><span>{r.none ? r.site.name : r.label}</span>{r.none ? null : <span className={`ui-pill shrink-0 ${state(r)[1]}`}>{state(r)[0]}</span>}</span>
           <span className="block ui-caption tabular-nums">{r.none ? 'No registrations added' : [r.site.name, r.number, r.validTill ? `till ${day(r.validTill)}` : null].filter(Boolean).join(' · ')}</span>
         </span>
       )}
@@ -424,7 +424,7 @@ function Rules({ req, canRules, onEdit }) {
         r.active && r.reviewStatus !== 'CHECKED' ? { key: 'check', label: 'I have checked this', onSelect: () => check(r) } : null,
       ] : null}
       columns={[
-        { key: 'title', label: 'Rule', always: true, render: (r) => <span className={`block ${r.active ? '' : 'ui-muted'}`}><span className="block font-medium">{r.title}</span><span className="block ui-caption">{r.legalSource}{r.threshold?.minHeadcount ? ` · from ${r.threshold.minHeadcount} people` : ''}</span></span> },
+        { key: 'title', label: 'Rule', always: true, render: (r) => <span className={`block ${r.active ? '' : 'ui-muted'}`}><span className="block">{r.title}</span><span className="block ui-caption">{r.legalSource}{r.threshold?.minHeadcount ? ` · from ${r.threshold.minHeadcount} people` : ''}</span></span> },
         { key: 'where', label: 'Where', render: (r) => reach(r.jurisdiction) },
         { key: 'when', label: 'When', render: (r) => dueWords(r.dueRule) },
         { key: 'version', label: 'Version', render: (r) => <span className="tabular-nums">{r.version}{r.active ? '' : ` · until ${day(r.effectiveTo)}`}</span> },
@@ -437,7 +437,7 @@ function Rules({ req, canRules, onEdit }) {
       ]}
       card={(r) => (
         <span className={`min-w-0 flex-1 ${r.active ? '' : 'ui-muted'}`}>
-          <span className="block font-medium">{r.title}</span>
+          <span className="block">{r.title}</span>
           <span className="block ui-caption">{[reach(r.jurisdiction), dueWords(r.dueRule), `version ${r.version}`, r.checkedLine].join(' · ')}</span>
         </span>
       )}

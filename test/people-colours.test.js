@@ -164,11 +164,11 @@ describe('moss: People declares no brand of its own (R&D redesign, 14 Nov 2026)'
     }
   });
 
-  it('draws the figure strip as KPI tiles: 36px chip, 12px uppercase label, 28px tabular number, no coloured top bar (DESIGN.md, 19 Nov 2026)', () => {
+  it('draws the figure strip as KPI tiles: 36px chip, 12px uppercase label, 22px tabular number (DESIGN.md "figure", calm register), no coloured top bar (DESIGN.md, 19 Nov 2026)', () => {
     expect(people).toMatch(/\.ui-metric-strip > \* \{[^}]*border-radius: 0\.75rem;[^}]*box-shadow: none;/);
     expect(people).toMatch(/\.ui-metric-icon \{[^}]*width: 2\.25rem;[^}]*height: 2\.25rem;/);
     expect(people).toMatch(/\.ui-metric-label \{[^}]*font-size: 0\.75rem;[^}]*text-transform: uppercase;/);
-    expect(people).toMatch(/\.ui-metric-value \{[^}]*font-size: 1\.75rem;[^}]*font-variant-numeric: tabular-nums;/);
+    expect(people).toMatch(/\.ui-metric-value \{[^}]*font-size: 1\.375rem;[^}]*font-variant-numeric: tabular-nums;/);
     expect(people).toMatch(/\.ui-metric\[data-zero\] \.ui-metric-value \{ color: rgb\(var\(--fg-subtle\)\); \}/);
     expect(people).toMatch(/\.ui-metric\[data-attention\] \.ui-metric-value \{ color: rgb\(var\(--warn\)\); \}/);
   });

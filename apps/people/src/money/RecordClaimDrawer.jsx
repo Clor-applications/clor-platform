@@ -88,7 +88,7 @@ export default function RecordClaimDrawer({ person, onClose, onDone }) {
         </ol>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setLines((ls) => [...ls, blankLine()])}><Plus size={16} aria-hidden="true" /> Add another bill</button>
-          <span className="text-sm">Total <span className="font-medium tabular-nums">{money(total)}</span></span>
+          <span className="text-sm">Total <span className="font-semibold tabular-nums">{money(total)}</span></span>
         </div>
         <p className="ui-caption">It goes for approval under {person.name}’s name, marked as recorded by you, and is paid from To pay once approved.</p>
       </form>

@@ -81,17 +81,17 @@ function NewKey({ scopes, onDone, onClose }) {
     <WsDrawer open onClose={onClose} title="New API key" description="Shown once, when made.">
       <div className="ws" style={DRAWER_WS}>
         <form onSubmit={submit} className="grid gap-4">
-          <label className="grid gap-1"><span className="text-sm font-medium">Name <span className="ui-required" aria-hidden="true">*</span></span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="What uses it, e.g. greytHR sync" /></label>
+          <label className="grid gap-1"><span className="text-sm font-semibold">Name <span className="ui-required" aria-hidden="true">*</span></span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="What uses it, e.g. greytHR sync" /></label>
           <fieldset className="grid gap-1">
-            <legend className="text-sm font-medium mb-1">It may</legend>
+            <legend className="text-sm font-semibold mb-1">It may</legend>
             {(scopes || Object.keys(SCOPE_LABEL)).map((k) => (
               <label key={k} className="flex items-center gap-2 py-0.5 text-sm">
                 <input type="checkbox" className="ui-checkbox" checked={form.scopes.includes(k)} onChange={() => toggle(k)} /> {SCOPE_LABEL[k] || k}
               </label>
             ))}
           </fieldset>
-          <label className="grid gap-1"><span className="text-sm font-medium">Only from these addresses</span><input className="ui-input w-full" value={form.allowedIps} onChange={(e) => setForm({ ...form, allowedIps: e.target.value })} placeholder="203.0.113.10" /><span className="ui-caption">Leave it empty to allow any address.</span></label>
-          <label className="grid gap-1"><span className="text-sm font-medium">Expires</span>
+          <label className="grid gap-1"><span className="text-sm font-semibold">Only from these addresses</span><input className="ui-input w-full" value={form.allowedIps} onChange={(e) => setForm({ ...form, allowedIps: e.target.value })} placeholder="203.0.113.10" /><span className="ui-caption">Leave it empty to allow any address.</span></label>
+          <label className="grid gap-1"><span className="text-sm font-semibold">Expires</span>
             <select className="ui-select" value={form.expiry} onChange={(e) => setForm({ ...form, expiry: e.target.value })}>
               <option value="365">In a year</option>
               <option value="180">In 6 months</option>
@@ -150,7 +150,7 @@ function Change({ action, credential, onDone, onClose }) {
         <form onSubmit={submit} className="grid gap-4">
           <p className="text-sm">{words}</p>
           {action === 'extend' ? (
-            <label className="grid gap-1"><span className="text-sm font-medium">Keep it working for</span>
+            <label className="grid gap-1"><span className="text-sm font-semibold">Keep it working for</span>
               <select className="ui-select" value={months} onChange={(e) => setMonths(e.target.value)}>
                 <option value="3">3 more months from today</option>
                 <option value="6">6 more months from today</option>
@@ -159,12 +159,12 @@ function Change({ action, credential, onDone, onClose }) {
             </label>
           ) : (
             <>
-              <label className="grid gap-1"><span className="text-sm font-medium">Why</span>
+              <label className="grid gap-1"><span className="text-sm font-semibold">Why</span>
                 <select className="ui-select" value={reason} onChange={(e) => setReason(e.target.value)}>
                   {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </label>
-              <label className="grid gap-1"><span className="text-sm font-medium">Note <span className="ui-caption">(optional)</span></span><input className="ui-input w-full" maxLength={150} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Kept in the history" /></label>
+              <label className="grid gap-1"><span className="text-sm font-semibold">Note <span className="ui-caption">(optional)</span></span><input className="ui-input w-full" maxLength={150} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Kept in the history" /></label>
             </>
           )}
           <div className="flex gap-2">
@@ -295,7 +295,7 @@ export default function Credentials() {
                   return (
                     <tr key={c.id}>
                       <td style={{ whiteSpace: 'normal', minWidth: 220 }}>
-                        <div className="font-medium">{c.label || c.owner?.name || KIND[c.kind]}</div>
+                        <div>{c.label || c.owner?.name || KIND[c.kind]}</div>
                         <div className="ws-head-meta">{KIND[c.kind]}{c.owner?.name && c.owner.name !== c.label ? ` · ${c.owner.name}` : ''}{c.scopes ? ` · ${c.scopes.map((x) => SCOPE_LABEL[x] || x).join(', ')}` : ''}</div>
                       </td>
                       <td className="tabular-nums" style={{ fontSize: '0.8125rem' }}>{c.tokenPrefix}…</td>

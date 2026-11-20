@@ -160,7 +160,7 @@ export default function Holidays({ openScreen } = {}) {
       tabsExtras={
         <div className="flex items-center gap-1">
           <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setYear((y) => y - 1)} aria-label="Previous year">‹</button>
-          <span className="min-w-[4ch] text-center font-medium tabular-nums">{year}</span>
+          <span className="min-w-[4ch] text-center font-semibold tabular-nums">{year}</span>
           <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setYear((y) => y + 1)} aria-label="Next year">›</button>
         </div>
       }

@@ -198,7 +198,7 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">{step.title}</span>
+                <span className="text-sm">{step.title}</span>
                 <span className={`ui-pill ${step.done ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{step.done ? 'Done' : 'To do'}</span>
               </div>
               <p className="ui-caption">{step.blurb}</p>

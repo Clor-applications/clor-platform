@@ -119,7 +119,7 @@ export default function Registers({ params = {}, updateParams, register: fixed }
         {reg.period === 'month' ? (
           <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
             <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
-            <span className="min-w-36 text-center font-medium" aria-live="polite">{monthTitle(month)}</span>
+            <span className="min-w-36 text-center font-semibold" aria-live="polite">{monthTitle(month)}</span>
             <button type="button" className="ui-icon-btn" aria-label="Next month" disabled={month >= today.slice(0, 7)} onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
           </div>
         ) : null}
@@ -153,7 +153,7 @@ export default function Registers({ params = {}, updateParams, register: fixed }
               <table className={`w-full border-collapse ${kind === 'muster' ? 'text-xs' : 'text-sm'}`} aria-label={reg.label}>
                 <thead>
                   <tr>
-                    {d.columns.map((c, i) => <th key={i} scope="col" className={`p-2 font-medium ${isDay(c) ? 'text-center p-0.5 min-w-5' : isFigure(c) ? 'text-right' : 'text-left'}`}>{c}</th>)}
+                    {d.columns.map((c, i) => <th key={i} scope="col" className={`p-2 font-semibold ${isDay(c) ? 'text-center p-0.5 min-w-5' : isFigure(c) ? 'text-right' : 'text-left'}`}>{c}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -163,7 +163,7 @@ export default function Registers({ params = {}, updateParams, register: fixed }
                     </tr>
                   ))}
                   {d.totals ? (
-                    <tr className="border-t font-medium" style={{ borderColor: 'rgb(var(--border-strong))' }}>
+                    <tr className="border-t font-semibold" style={{ borderColor: 'rgb(var(--border-strong))' }}>
                       {d.totals.map((v, i) => <td key={i} className={`p-2 ${isFigure(d.columns[i]) ? 'text-right tabular-nums' : ''}`}>{v}</td>)}
                     </tr>
                   ) : null}

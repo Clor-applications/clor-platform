@@ -30,7 +30,7 @@ export default function HelpDeskSettings() {
   const catLabel = (key) => cats.find((c) => c.key === key)?.label || key;
 
   const catColumns = [
-    { key: 'label', label: 'Category', always: true, render: (c) => <span className="font-medium">{c.label}</span> },
+    { key: 'label', label: 'Category', always: true, render: (c) => <span>{c.label}</span> },
     { key: 'queue', label: 'Queue', render: (c) => c.queue },
     { key: 'lead', label: 'Queue lead', render: (c) => userName(c.leadUserId) || <span className="ui-muted">Nobody</span> },
     { key: 'reply', label: 'Reply within', align: 'right', render: (c) => <span className="tabular-nums">{c.replyHours} h</span> },
@@ -38,7 +38,7 @@ export default function HelpDeskSettings() {
     { key: 'on', label: 'In use', render: (c) => (c.isActive ? 'Yes' : <span className="ui-muted">No</span>) },
   ];
   const tplColumns = [
-    { key: 'title', label: 'Template', always: true, render: (t) => <span className="font-medium">{t.title}</span> },
+    { key: 'title', label: 'Template', always: true, render: (t) => <span>{t.title}</span> },
     { key: 'category', label: 'For', render: (t) => (t.category ? catLabel(t.category) : <span className="ui-muted">Any category</span>) },
     { key: 'policy', label: 'Cites', render: (t) => t.policyTitle || <span className="ui-muted">No policy</span> },
   ];
@@ -56,13 +56,13 @@ export default function HelpDeskSettings() {
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : tab === 'categories' ? (
         <DataTable label="Categories" columns={catColumns} rows={cats} rowKey={(c) => c.key} loading={req.loading} refreshing={req.refreshing}
           total={cats.length} pageSize={Math.max(25, cats.length)} noun="categories" onRowClick={(c) => setEditingCat(c)}
-          card={(c) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{c.label}</span>{c.isActive ? null : <span className="ui-pill ui-pill-neutral">Off</span>}</span><span className="block truncate ui-caption">{[c.queue, `reply in ${c.replyHours} ${c.replyHours === 1 ? 'hour' : 'hours'}`, `resolve in ${c.resolveDays} days`].join(' · ')}</span></span>}
+          card={(c) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{c.label}</span>{c.isActive ? null : <span className="ui-pill ui-pill-neutral">Off</span>}</span><span className="block truncate ui-caption">{[c.queue, `reply in ${c.replyHours} ${c.replyHours === 1 ? 'hour' : 'hours'}`, `resolve in ${c.resolveDays} days`].join(' · ')}</span></span>}
           empty={<EmptyState title="No categories yet" description="Categories come with the help desk. Reload the page; if this stays empty, write to support@clor.in." />} />
       ) : (
         <DataTable label="Answer templates" columns={tplColumns} rows={templates} loading={req.loading} refreshing={req.refreshing}
           total={templates.length} pageSize={Math.max(25, templates.length)} noun="templates"
           onRowClick={(t) => setDraft({ id: t.id, title: t.title, body: t.body, category: t.category || '', policyId: t.policyId || '' })}
-          card={(t) => <span className="min-w-0 flex-1"><span className="block truncate font-medium">{t.title}</span><span className="block truncate ui-caption">{[t.category ? catLabel(t.category) : 'Any category', t.policyTitle ? `cites ${t.policyTitle}` : null].filter(Boolean).join(' · ')}</span></span>}
+          card={(t) => <span className="min-w-0 flex-1"><span className="block truncate">{t.title}</span><span className="block truncate ui-caption">{[t.category ? catLabel(t.category) : 'Any category', t.policyTitle ? `cites ${t.policyTitle}` : null].filter(Boolean).join(' · ')}</span></span>}
           empty={<EmptyState title="No templates yet" description="A template goes into a reply with one click; one that cites a policy names the version in force that day." />} />
       )}
       {editingCat ? <CategoryDrawer value={editingCat} users={users} queues={[...new Set(cats.map((c) => c.queue).filter(Boolean))]} onClose={() => setEditingCat(null)} onDone={() => { setEditingCat(null); req.reload(); }} /> : null}

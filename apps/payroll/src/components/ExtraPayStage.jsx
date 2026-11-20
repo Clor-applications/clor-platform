@@ -68,7 +68,7 @@ const PersonRow = ({ member, components, editable, runId, onChanged }) => {
                 .catch((err) => notify.error(errorWords(err, "change the extra pay")))
             }
           />
-          <span className="font-medium truncate">{name}</span>
+          <span className="truncate">{name}</span>
           {member.employee?.code ? <span className="ui-caption">{member.employee.code}</span> : null}
         </label>
         <div className="flex items-center gap-2">

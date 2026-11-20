@@ -192,7 +192,7 @@ export function Limits({ id, name, role }) {
           ['users', 'Users', d.plan.limits.maxUsers, ['user', 'users']],
         ].map(([k, label, own, words]) => (
           <div key={k} className="grid gap-1">
-            <label htmlFor={`ops-limit-${k}`} className="text-sm font-medium">{label}</label>
+            <label htmlFor={`ops-limit-${k}`} className="text-sm font-semibold">{label}</label>
             <input
               id={`ops-limit-${k}`}
               className="ui-input tabular-nums"

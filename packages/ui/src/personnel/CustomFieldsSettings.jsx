@@ -47,7 +47,7 @@ export default function CustomFieldsSettings() {
     } catch (err) { notify.error(errorWords(err, 'change the field')); }
   };
   const columns = [
-    { key: 'label', label: 'Field', always: true, render: (f) => <span className="min-w-0"><span className="block font-medium">{f.label}{f.required ? ' *' : ''}</span><span className="block ui-caption tabular-nums">{f.key}</span></span> },
+    { key: 'label', label: 'Field', always: true, render: (f) => <span className="min-w-0"><span className="block">{f.label}{f.required ? ' *' : ''}</span><span className="block ui-caption tabular-nums">{f.key}</span></span> },
     { key: 'type', label: 'Type', render: (f) => <span>{word(TYPES, f.type)}{f.type === 'CHOICE' ? <span className="ui-caption"> · {f.options.length} options</span> : null}</span> },
     { key: 'sees', label: 'Who sees', render: (f) => word(GRANTS, f.viewPermission) },
     { key: 'edits', label: 'Who edits', render: (f) => word(EDIT_GRANTS, f.editPermission) },
@@ -62,7 +62,7 @@ export default function CustomFieldsSettings() {
           total={fields.length} pageSize={Math.max(25, fields.length)} noun="fields"
           onRowClick={(f) => setDraft({ id: f.id, key: f.key, label: f.label, type: f.type, options: f.options || [], required: f.required, viewPermission: f.viewPermission, editPermission: f.editPermission, help: f.help || '' })}
           rowActions={(f) => [{ key: 'toggle', label: f.active ? 'Turn off' : 'Turn on', onSelect: () => toggle(f) }]}
-          card={(f) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{f.label}</span>{f.active ? null : <span className="ui-pill ui-pill-neutral">Off</span>}</span><span className="block truncate ui-caption">{word(TYPES, f.type)} · {word(GRANTS, f.viewPermission)}</span></span>}
+          card={(f) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{f.label}</span>{f.active ? null : <span className="ui-pill ui-pill-neutral">Off</span>}</span><span className="block truncate ui-caption">{word(TYPES, f.type)} · {word(GRANTS, f.viewPermission)}</span></span>}
           empty={<EmptyState title="No custom fields yet" description="Blood group, uniform size, a background-check flag: anything the employee form does not already ask." />} />
       )}
       {draft ? <FieldDrawer value={draft} taken={fields.map((f) => f.key)} onClose={() => setDraft(null)} onDone={() => { setDraft(null); req.reload(); }} /> : null}

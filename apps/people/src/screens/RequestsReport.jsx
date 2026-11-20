@@ -53,7 +53,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
   };
 
   const summaryColumns = [
-    { key: 'name', label: 'Request', always: true, render: (s) => <span className="font-medium">{s.formName}</span> },
+    { key: 'name', label: 'Request', always: true, render: (s) => <span>{s.formName}</span> },
     { key: 'total', label: 'Asked', align: 'right', render: (s) => <span className="tabular-nums">{s.total}</span> },
     { key: 'waiting', label: 'Waiting', align: 'right', render: (s) => <span className="tabular-nums">{s.waiting}</span> },
     { key: 'overdue', label: 'Overdue', align: 'right', render: (s) => <span className={`tabular-nums ${s.overdue ? 'ui-text-warn' : ''}`}>{s.overdue}</span> },
@@ -64,7 +64,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
   const rowColumns = [
     { key: 'person', label: 'Person', always: true, render: (r) => (
       <span className="min-w-0">
-        <span className="block truncate font-medium">{r.employeeName || '—'}</span>
+        <span className="block truncate">{r.employeeName || '—'}</span>
         {r.employeeCode ? <span className="block truncate ui-caption">{r.employeeCode}</span> : null}
       </span>
     ) },
@@ -112,7 +112,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
             refreshing={report.refreshing}
             card={(s) => (
               <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{s.formName}</span><span className="tabular-nums">{s.total}</span></span>
+                <span className="flex items-center justify-between gap-2"><span className="truncate">{s.formName}</span><span className="tabular-nums">{s.total}</span></span>
                 <span className="block ui-caption tabular-nums">{s.waiting} waiting · {s.approved} approved · {s.averageDaysToDecide ?? '—'} days to decide</span>
               </span>
             )}
@@ -133,7 +133,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
             refreshing={report.refreshing}
             card={(r) => (
               <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.employeeName}</span><ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /></span>
+                <span className="flex items-center justify-between gap-2"><span className="truncate">{r.employeeName}</span><ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /></span>
                 <span className="block truncate ui-caption">{r.formName} · {day(r.askedAt)}</span>
                 <span className="block truncate ui-caption">{r.lines.map((l) => l.value).join(' · ')}</span>
               </span>

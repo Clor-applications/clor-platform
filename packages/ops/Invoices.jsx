@@ -87,7 +87,7 @@ async function emailInvoice(inv, kind, to) {
 function Field({ id, label, hint, children }) {
   return (
     <div className="grid gap-1 content-start">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-semibold">
         {label}
       </label>
       {children}
@@ -347,7 +347,7 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
       <div className="grid gap-6">
         {account ? (
           <div className="grid gap-1">
-            <span className="text-sm font-medium">Customer account</span>
+            <span className="text-sm font-semibold">Customer account</span>
             <div className="flex items-center gap-3">
               <span>{account.name}</span>
               {invoice ? null : (
@@ -380,7 +380,7 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
         {account ? (
           <>
             <fieldset className="grid gap-3">
-              <legend className="text-sm font-medium mb-2">Lines</legend>
+              <legend className="text-sm font-semibold mb-2">Lines</legend>
               {lines.map((l, i) => (
                 <div key={i} className="grid gap-2 items-end" style={{ gridTemplateColumns: 'minmax(10rem, 1fr) 5rem 8rem 7rem auto' }}>
                   <Field id={`inv-l${i}-d`} label={i === 0 ? 'What it is for' : <span className="sr-only">What line {i + 1} is for</span>}>
@@ -412,7 +412,7 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
             </fieldset>
 
             <fieldset className="grid gap-3">
-              <legend className="text-sm font-medium mb-2">Bill to</legend>
+              <legend className="text-sm font-semibold mb-2">Bill to</legend>
               <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' }}>
                 <Field id="inv-b-name" label="Name on the invoice">
                   <input id="inv-b-name" className="ui-input" value={buyer.name} onChange={setB('name')} />
@@ -686,7 +686,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
         <label className="flex items-start gap-3">
           <input type="checkbox" checked={Boolean(inv.emailTo) && emailIt} disabled={!inv.emailTo} onChange={(e) => setEmailIt(e.target.checked)} aria-describedby="issue-email-note" />
           <span>
-            <span className="font-medium">{inv.emailTo ? `Email it to ${inv.emailTo}` : 'Email it to the customer'}</span>
+            <span className="font-semibold">{inv.emailTo ? `Email it to ${inv.emailTo}` : 'Email it to the customer'}</span>
             <span id="issue-email-note" className="ws-card-blurb" style={{ display: 'block' }}>
               {inv.emailTo
                 ? `The email carries the invoice and how to pay ${inr(inv.total)}. Either way, ${inv.account?.name || 'the customer'} sees it in Workspace, Billing.`

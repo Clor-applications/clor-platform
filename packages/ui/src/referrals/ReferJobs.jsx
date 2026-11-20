@@ -75,7 +75,7 @@ export default function ReferJobs({ api, run = asIs, wrap: Wrap = Plain, heading
                 <li key={j.id} className="py-3">
                   <button type="button" className="flex w-full items-start justify-between gap-3 text-left" aria-expanded={open === j.id} onClick={() => pick(open === j.id ? null : j.id)}>
                     <span className="min-w-0">
-                      <span className="block font-medium">{j.title}</span>
+                      <span className="block">{j.title}</span>
                       <span className="block ui-caption">{[j.department, j.where, j.places > 1 ? `${j.places} places` : null].filter(Boolean).join(' · ') || 'Posted ' + dayWords(j.postedAt)}</span>
                     </span>
                     {j.bonus ? <span className="shrink-0 text-sm tabular-nums">{rupees(j.bonus)}</span> : null}
@@ -98,7 +98,7 @@ export default function ReferJobs({ api, run = asIs, wrap: Wrap = Plain, heading
                 <li key={r.id} className="py-2.5 space-y-1">
                   <div className="flex items-start justify-between gap-3">
                     <span className="min-w-0">
-                      <span className="block truncate font-medium">{r.name}</span>
+                      <span className="block truncate">{r.name}</span>
                       <span className="block truncate ui-caption">{r.job} · referred {dayWords(r.referredAt)}</span>
                     </span>
                     <span className={`ui-pill ${STATUS_PILL[r.status] || 'ui-pill-neutral'} shrink-0`}>{r.status}</span>
@@ -125,7 +125,7 @@ export default function ReferJobs({ api, run = asIs, wrap: Wrap = Plain, heading
             <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }} aria-label="Jobs I applied for">
               {data.applications.map((a) => (
                 <li key={a.id} className="flex items-start justify-between gap-3 py-2.5">
-                  <span className="min-w-0"><span className="block truncate font-medium">{a.job}</span><span className="block ui-caption">Applied {dayWords(a.appliedAt)}</span></span>
+                  <span className="min-w-0"><span className="block truncate">{a.job}</span><span className="block ui-caption">Applied {dayWords(a.appliedAt)}</span></span>
                   <span className={`ui-pill ${STATUS_PILL[a.status] || 'ui-pill-neutral'} shrink-0`}>{a.status}</span>
                 </li>
               ))}

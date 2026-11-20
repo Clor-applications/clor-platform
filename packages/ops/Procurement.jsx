@@ -251,7 +251,7 @@ export function VendorDocuments({ role }) {
           {rows.map((d) => (
             <li key={d.id} className="r67-doc">
               <div className="min-w-0">
-                <div className="font-medium">{d.title}</div>
+                <div>{d.title}</div>
                 <div className="ws-item-sub">
                   {VENDOR_KIND_WORD[d.kind] || d.kind} · {d.fileName} · {sizeText(d.size)}
                   {d.validUntil ? ` · valid until ${day(d.validUntil)}` : ''}
@@ -325,7 +325,7 @@ function AddDocument({ onClose, onSaved }) {
     >
       <div className="grid gap-5">
         <div className="grid gap-1">
-          <label htmlFor="vd-kind" className="text-sm font-medium">
+          <label htmlFor="vd-kind" className="text-sm font-semibold">
             What it is
           </label>
           <select id="vd-kind" className="ui-input" value={kind} onChange={(e) => setKind(e.target.value)}>
@@ -337,20 +337,20 @@ function AddDocument({ onClose, onSaved }) {
           </select>
         </div>
         <div className="grid gap-1">
-          <label htmlFor="vd-title" className="text-sm font-medium">
+          <label htmlFor="vd-title" className="text-sm font-semibold">
             Name customers see
           </label>
           <input id="vd-title" className="ui-input" maxLength={120} placeholder={VENDOR_KIND_WORD[kind]} value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <div className="grid gap-1">
-          <label htmlFor="vd-valid" className="text-sm font-medium">
+          <label htmlFor="vd-valid" className="text-sm font-semibold">
             Valid until
           </label>
           <input id="vd-valid" type="date" className="ui-input" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           <span className="ws-card-blurb">Leave empty if it does not run out, as a PAN does not.</span>
         </div>
         <div className="grid gap-1">
-          <label htmlFor="vd-file" className="text-sm font-medium">
+          <label htmlFor="vd-file" className="text-sm font-semibold">
             File
           </label>
           <input id="vd-file" type="file" accept="application/pdf,image/png,image/jpeg" onChange={pick} />

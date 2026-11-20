@@ -54,7 +54,8 @@
 }
 .ws-member-company-name {
   flex: 1;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   font-weight: 600;
 }
 .ws-member-apps,
@@ -338,7 +339,7 @@
 /* ---- Roles (owner, 19 Nov 2026: "remove duplicate buttons, fix the form, adjust space") ---- */
 /* Screen-by-screen access: headings like the other lists, Yes and No as soft tags. */
 :root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access { gap: 28px; }
-:root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-head { font-size: 1rem; font-weight: 700; margin: 0 0 6px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-head { font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; margin: 0 0 6px; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-table { border-collapse: collapse; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-table thead { border-bottom: 2px solid rgb(var(--fg)); }
 :root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-table th {
@@ -379,7 +380,7 @@
   box-shadow: none;
 }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws-role-form .ui-input:focus { border-color: rgb(var(--fg) / 0.6); outline: none; box-shadow: none; }
-.ws-role-form-h { font-size: 1rem; font-weight: 700; }
+.ws-role-form-h { font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; }
 .ws-role-find { display: flex; align-items: center; gap: 12px; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws-role-find .ws-search { position: relative; display: block; flex: 1 1 auto; max-width: 24rem; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws-role-find .ws-search > svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: rgb(92 90 84); pointer-events: none; }

@@ -81,7 +81,7 @@ export default function Delegates() {
   };
 
   const columns = [
-    { key: 'manager', label: 'In place of', always: true, render: (r) => <span className="font-medium">{r.mine ? 'You' : r.managerName || '—'}</span> },
+    { key: 'manager', label: 'In place of', always: true, render: (r) => <span>{r.mine ? 'You' : r.managerName || '—'}</span> },
     { key: 'standIn', label: 'Decides', render: (r) => r.standInName || '—' },
     { key: 'what', label: 'What', render: (r) => r.what },
     { key: 'from', label: 'From', render: (r) => <span className="tabular-nums whitespace-nowrap">{formatDate(r.fromDate)}</span> },
@@ -113,7 +113,7 @@ export default function Delegates() {
           const [label, pill] = when(r, today);
           return (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><span className={`ui-pill ${pill}`}>{label}</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><span className={`ui-pill ${pill}`}>{label}</span></span>
               <span className="block ui-caption tabular-nums">{r.what} · {formatDate(r.fromDate)} – {formatDate(r.toDate)}</span>
             </span>
           );

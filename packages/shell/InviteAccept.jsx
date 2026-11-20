@@ -139,17 +139,17 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
         }}
       >
         <label className="grid gap-1">
-          <span className="text-sm font-medium">Email</span>
+          <span className="text-sm font-semibold">Email</span>
           <input className="ui-input" value={invite.email} readOnly autoComplete="username" />
         </label>
         {invite.hasLogin ? null : (
           <label className="grid gap-1">
-            <span className="text-sm font-medium">Your name</span>
+            <span className="text-sm font-semibold">Your name</span>
             <input className="ui-input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required minLength={2} />
           </label>
         )}
         <div className="grid gap-1">
-          <label htmlFor="invite-password" className="text-sm font-medium">{invite.hasLogin ? 'Your password' : 'Choose a password'}</label>
+          <label htmlFor="invite-password" className="text-sm font-semibold">{invite.hasLogin ? 'Your password' : 'Choose a password'}</label>
           <input
             id="invite-password"
             aria-describedby={invite.hasLogin ? undefined : 'invite-password-help'}

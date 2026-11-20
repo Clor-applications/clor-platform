@@ -262,7 +262,7 @@ export default function AttendanceToday({ openScreen }) {
                         <li key={r.id} className="flex items-center gap-3 py-2 text-sm">
                           <Fingerprint size={16} aria-hidden="true" className="ui-subtle shrink-0" />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate font-medium">{r.name}</span>
+                            <span className="block truncate">{r.name}</span>
                             <span className="ui-caption">Last heard {ago(r.lastSeenAt)}</span>
                           </span>
                           <span className={`ui-pill ui-pill-${st.tone}`}>{st.label}</span>

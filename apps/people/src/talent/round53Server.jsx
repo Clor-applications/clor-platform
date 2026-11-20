@@ -43,7 +43,7 @@ export function RatedAnswers({ answers }) {
   if (!rated.length) return null;
   return (
     <ul className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 ui-caption">
-      {rated.map((a) => <li key={a.question}>{a.question} <span className="tabular-nums font-medium">{a.rating || '—'}</span></li>)}
+      {rated.map((a) => <li key={a.question}>{a.question} <span className="tabular-nums">{a.rating || '—'}</span></li>)}
     </ul>
   );
 }

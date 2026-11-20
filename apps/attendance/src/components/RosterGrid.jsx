@@ -252,7 +252,7 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
           <tbody className="ui-rows">
             {rows.map((row, r) => (
               <tr key={row.employeeId}>
-                <th scope="row" className="sticky left-0 whitespace-nowrap bg-[rgb(var(--surface))] px-1 text-left font-medium" style={{ zIndex: 'var(--z-base)' }}>
+                <th scope="row" className="sticky left-0 whitespace-nowrap bg-[rgb(var(--surface))] px-1 text-left font-semibold" style={{ zIndex: 'var(--z-base)' }}>
                   <button type="button" className="rounded-lg px-2 py-1 text-left" tabIndex={-1} title={`Choose all of ${row.name}’s days`} onClick={() => selectRow(r)}>
                     {row.name}
                     {row.code ? <span className="ui-caption tabular-nums"> {row.code}</span> : null}
@@ -322,7 +322,7 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
             <tfoot>
               {footRows.map((f, i) => (
                 <tr key={f.id || 'standard'} style={i === 0 ? { borderTop: '2px solid rgb(var(--border))' } : undefined}>
-                  <th scope="row" className="sticky left-0 whitespace-nowrap bg-[rgb(var(--surface))] px-3 py-1 text-left font-medium" style={{ zIndex: 'var(--z-base)' }}>
+                  <th scope="row" className="sticky left-0 whitespace-nowrap bg-[rgb(var(--surface))] px-3 py-1 text-left font-semibold" style={{ zIndex: 'var(--z-base)' }}>
                     {f.tone ? <span className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ backgroundColor: `rgb(var(--dept-${f.tone}))` }} aria-hidden="true" /> : null}
                     {f.name}
                     {f.min ? <span className="ui-caption tabular-nums"> · at least {f.min}</span> : null}

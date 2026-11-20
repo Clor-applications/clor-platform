@@ -20,7 +20,7 @@ export default function BulkOutcome({ outcome, verb = 'approved', onClose }) {
       </div>
       <ul className="ui-bulk-outcome-list">
         {outcome.failed.map((f, i) => (
-          <li key={`${f.id || i}`}><span className="font-medium">{f.name}</span><span className="ui-muted"> — {f.reason}</span></li>
+          <li key={`${f.id || i}`}><span>{f.name}</span><span className="ui-muted"> — {f.reason}</span></li>
         ))}
       </ul>
     </section>

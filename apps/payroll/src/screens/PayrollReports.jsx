@@ -600,7 +600,7 @@ const Problems = ({ rows, fixable = false }) =>
         <li key={p.employeeId} className="flex items-start gap-2">
           <AlertTriangle size={14} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
           <span className="min-w-0 flex-1">
-            <span className="font-medium">{p.name}</span>: {p.message}
+            <span>{p.name}</span>: {p.message}
           </span>
           {fixable && p.kind ? (
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm shrink-0" onClick={() => fixPerson(p.employeeId)} aria-label={`Fix ${p.name}`}>
@@ -625,7 +625,7 @@ function FilingCard({ title, summary, note, problems, checklist, onDownload, dis
         </button>
       </div>
       {checklist ? (
-        <p className="px-4 pb-2 text-sm font-medium" aria-label="Check before you download">
+        <p className="px-4 pb-2 text-sm" aria-label="Check before you download">
           {checklistLine(checklist)}
         </p>
       ) : null}

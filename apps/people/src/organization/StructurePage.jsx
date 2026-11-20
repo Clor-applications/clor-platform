@@ -285,7 +285,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
           noun={noun}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><span className="ui-caption tabular-nums">{r.employeeCount || 0}</span></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><span className="ui-caption tabular-nums">{r.employeeCount || 0}</span></span>
               {cfg.columns[0] ? <span className="block truncate ui-caption">{cfg.columns[0].render(r, refNames)}</span> : null}
             </span>
           )}
@@ -433,7 +433,7 @@ function EditDrawer({ kind, cfg, value, items, refs, staff, onClose, onDone, onR
         {move ? (
           <div className="sm:col-span-2 grid gap-2 border-t pt-3" aria-live="polite">
             <span className="ui-label">What changes</span>
-            <p className="text-sm">Moves from <span className="font-medium">{move.from}</span> to <span className="font-medium">{move.to}</span>.</p>
+            <p className="text-sm">Moves from <span>{move.from}</span> to <span>{move.to}</span>.</p>
             <p className="text-sm">{[
               move.under ? `${move.under} ${move.under === 1 ? (kind === 'areas' ? 'location' : 'sub-department') : (kind === 'areas' ? 'locations' : 'sub-departments')} under it ${move.under === 1 ? 'moves' : 'move'} with it` : null,
               kind === 'departments' ? 'its teams and designations stay with it' : null,

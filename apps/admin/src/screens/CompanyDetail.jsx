@@ -176,14 +176,14 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
                     >
                       <p className="ws-card-blurb">Archiving keeps every record, read-only, and frees its place on your plan. Reminders, recurring invoices and connections stop. You can reactivate it any time.</p>
                       <label className="grid gap-1">
-                        <span className="text-sm font-medium">Why</span>
+                        <span className="text-sm font-semibold">Why</span>
                         <select className="ui-select w-full" required value={archiving.reason} onChange={(e) => setArchiving((a) => ({ ...a, reason: e.target.value }))}>
                           <option value="">Choose a reason</option>
                           {archiving.reasons.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
                         </select>
                       </label>
                       <label className="grid gap-1">
-                        <span className="text-sm font-medium">Note <span className="ui-caption">(optional)</span></span>
+                        <span className="text-sm font-semibold">Note <span className="ui-caption">(optional)</span></span>
                         <textarea className="ui-input w-full" rows={2} maxLength={1000} value={archiving.note} onChange={(e) => setArchiving((a) => ({ ...a, note: e.target.value }))} />
                       </label>
                       <div className="flex gap-2">

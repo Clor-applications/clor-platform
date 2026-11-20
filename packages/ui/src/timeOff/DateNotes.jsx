@@ -26,7 +26,7 @@ export default function DateNotes({ parts, label, className = '' }) {
     <div className={`space-y-1 ${className}`}>
       {charged.length ? (
         <div className="ui-date-notes-charged" role="note">
-          <p className="font-medium">
+          <p>
             {charged.length === 1 ? '1 day off in between counts' : `${charged.length} days off in between count`}
             {byRule ? ', by your company’s leave rule' : ', as this leave counts every calendar day'}:
           </p>

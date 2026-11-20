@@ -83,7 +83,7 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
                         {t.dueDate ? <span className={t.overdue ? 'ui-text-neg' : ''}> · {t.done ? 'due' : t.overdue ? 'was due' : 'due'} {formatDate(t.dueDate)}</span> : null}
                         {t.done && t.doneBy ? ` · done by ${t.doneBy}` : ''}
                       </span>
-                      {t.system === 'READERS' && !t.done ? <span className={`block ui-caption ${t.systemState === 'FAILED' ? 'ui-text-neg font-medium' : ''}`}>{readerWords(t)}</span> : null}
+                      {t.system === 'READERS' && !t.done ? <span className={`block ui-caption ${t.systemState === 'FAILED' ? 'ui-text-neg' : ''}`}>{readerWords(t)}</span> : null}
                     </span>
                   </button>
                 </li>

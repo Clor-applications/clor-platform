@@ -35,7 +35,7 @@ const Problems = ({ list }) =>
 function Field({ id, label, hint, children }) {
   return (
     <div className="grid gap-1">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-semibold">
         {label}
       </label>
       {children}
@@ -301,7 +301,7 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
 
   const modeKeys = (m) => (
     <fieldset className="grid gap-4" key={m}>
-      <legend className="text-sm font-medium" style={{ marginBottom: 8 }}>
+      <legend className="text-sm font-semibold" style={{ marginBottom: 8 }}>
         {m === 'test' ? 'Test keys' : 'Live keys'}
         {p.mode === m.toUpperCase() ? <span className="ws-item-sub"> · in use now</span> : null}
       </legend>
@@ -362,7 +362,7 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
           {keyed ? (
             <>
               <section className="grid gap-2" aria-label="Mode">
-                <span className="text-sm font-medium">Mode</span>
+                <span className="text-sm font-semibold">Mode</span>
                 <p className="ws-card-blurb">
                   {p.mode === 'LIVE' ? 'Live: the live keys are in use. Customers who pay an invoice online pay real money.' : 'Test: the test keys are in use, against the provider’s sandbox. No real money moves.'}
                 </p>
@@ -397,7 +397,7 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
                 <input id="pay-manual-payee" className="ui-input" value={manual.payeeName} disabled={!mayChange} onChange={setM('payeeName')} />
               </Field>
               <div className="grid gap-2">
-                <span className="text-sm font-medium">Your own QR image (optional)</span>
+                <span className="text-sm font-semibold">Your own QR image (optional)</span>
                 <span className="ws-card-blurb">The QR your bank gave you, as a PNG or JPEG under 300 KB. Without one, CLOR draws a QR from the UPI ID.</span>
                 <div className="flex flex-wrap items-center gap-3">
                   {manual.qrImage ? <img src={manual.qrImage} alt="CLOR’s payment QR" width={96} height={96} style={{ borderRadius: 8, border: '1px solid rgb(var(--ws-line))' }} /> : null}
@@ -417,7 +417,7 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
                 </div>
               </div>
               <fieldset className="grid gap-4">
-                <legend className="text-sm font-medium" style={{ marginBottom: 8 }}>
+                <legend className="text-sm font-semibold" style={{ marginBottom: 8 }}>
                   Bank account for transfers
                 </legend>
                 <Field id="pay-bank-name" label="Name on the account" hint="Exactly as the bank has it, so NEFT and IMPS transfers go through.">
@@ -443,7 +443,7 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
           )}
 
           <section className="grid gap-2" aria-label="Active provider">
-            <span className="text-sm font-medium">Customers pay through</span>
+            <span className="text-sm font-semibold">Customers pay through</span>
             {p.active ? (
               <p className="ws-card-blurb">{p.name}. It is the active provider.</p>
             ) : (
@@ -716,7 +716,7 @@ function RecordPayment({ onClose, onDone }) {
       <div className="grid gap-5">
         {account ? (
           <div className="grid gap-1">
-            <span className="text-sm font-medium">Customer account</span>
+            <span className="text-sm font-semibold">Customer account</span>
             <div className="flex items-center gap-3">
               <span>
                 {account.name}

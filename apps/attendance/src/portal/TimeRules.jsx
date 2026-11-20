@@ -43,7 +43,7 @@ export function FixNotices({ guard, onFix }) {
       <h2 id="fix-h" className="ui-t-sec">To fix</h2>
       {notices.map((n) => (
         <p key={n.id} className="text-sm" role="alert">
-          HR sent you {n.seq === 1 ? 'a notice' : 'a second notice'} about your absence. Report back or explain by <span className="font-medium tabular-nums">{day(n.reportBy)}</span>. The letter is under Me, My documents.
+          HR sent you {n.seq === 1 ? 'a notice' : 'a second notice'} about your absence. Report back or explain by <span className="tabular-nums">{day(n.reportBy)}</span>. The letter is under Me, My documents.
         </p>
       ))}
       {fixes.length ? (
@@ -51,7 +51,7 @@ export function FixNotices({ guard, onFix }) {
           {fixes.map((f) => (
             <li key={f.date} className="flex items-center justify-between gap-3 py-2 text-sm">
               <span className="min-w-0">
-                <span className="block font-medium">{f.what === 'NO_OUT' ? 'No punch-out' : 'No punch'}</span>
+                <span className="block">{f.what === 'NO_OUT' ? 'No punch-out' : 'No punch'}</span>
                 <span className="ui-caption block tabular-nums">{day(f.date)}{f.checkIn ? `, in at ${f.checkIn}` : ''}</span>
               </span>
               <button type="button" className="ui-btn ui-btn-secondary shrink-0" onClick={() => onFix?.(f)} aria-label={`Fix ${day(f.date)}`}>Fix</button>

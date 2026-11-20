@@ -305,17 +305,17 @@ export function AddCompanyForm({ onAdd, onCancel }) {
     >
       {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       <div className="grid gap-1">
-        <label htmlFor="co-name" className="text-sm font-medium">Company name <span className="ui-required" aria-hidden="true">*</span></label>
+        <label htmlFor="co-name" className="text-sm font-semibold">Company name <span className="ui-required" aria-hidden="true">*</span></label>
         <input id="co-name" className="ui-input" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="organization" />
       </div>
       <div className="grid gap-1">
-        <label htmlFor="co-gstin" className="text-sm font-medium">GSTIN <span className="ui-caption">(optional)</span></label>
+        <label htmlFor="co-gstin" className="text-sm font-semibold">GSTIN <span className="ui-caption">(optional)</span></label>
         <input id="co-gstin" className="ui-input ui-mono" value={gstin} onChange={(e) => setGstin(e.target.value)} maxLength={15} aria-invalid={gstinBad || undefined} aria-describedby="co-gstin-help" spellCheck={false} />
         <span id="co-gstin-help" className="ui-caption">{gstinState ? `Registered in ${gstinState}.` : 'Leave it empty if the company is not registered yet.'}</span>
       </div>
       {gstinState ? null : (
         <div className="grid gap-1">
-          <label htmlFor="co-state" className="text-sm font-medium">State <span className="ui-required" aria-hidden="true">*</span></label>
+          <label htmlFor="co-state" className="text-sm font-semibold">State <span className="ui-required" aria-hidden="true">*</span></label>
           <select id="co-state" className="ui-select" value={state} onChange={(e) => setState(e.target.value)} required>
             <option value="">Choose…</option>
             {STATES.map((s) => (

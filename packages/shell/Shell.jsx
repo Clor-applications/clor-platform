@@ -199,7 +199,7 @@ export const permissionWords = (key = '') => {
 function ScreenState({ title, text, action }) {
   return (
     <section className="ui-card p-6 max-w-xl" role="status" aria-labelledby="screen-state-title">
-      <h1 id="screen-state-title" className="ui-display text-xl">{title}</h1>
+      <h1 id="screen-state-title" className="ui-display text-2xl leading-8 font-bold">{title}</h1>
       <p className="ui-muted mt-2">{text}</p>
       {action ? (
         <button type="button" className="ui-btn ui-btn-secondary mt-4" onClick={action.run}>
@@ -1803,7 +1803,7 @@ function MoreApps({ tenant, catalog = APPS, onAdd, onOpen }) {
   return (
     <div className="space-y-6" style={{ maxWidth: '56rem' }}>
       <div>
-        <h1 className="ui-display text-2xl">More apps</h1>
+        <h1 className="ui-display text-2xl leading-8 font-bold">More apps</h1>
         <p className="ui-caption mt-1">
           Everything CLOR runs.{' '}
           {tenant.billing?.restricted
@@ -1827,7 +1827,7 @@ function MoreApps({ tenant, catalog = APPS, onAdd, onOpen }) {
               {a.available ? null : <span className="ui-pill ui-pill-neutral">Coming soon</span>}
             </div>
 
-            <h2 className="mt-3 font-medium">{a.name}</h2>
+            <h2 className="mt-3 font-semibold">{a.name}</h2>
             <p className="mt-1 text-sm ui-muted">{a.blurb}</p>
 
             <div className="mt-4">

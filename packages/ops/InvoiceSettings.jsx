@@ -15,7 +15,7 @@ import { Err, Loading, day, may, errorWords } from './kit';
 function Field({ id, label, hint, children }) {
   return (
     <div className="grid gap-1 content-start">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-semibold">
         {label}
       </label>
       {children}
@@ -524,7 +524,7 @@ function BooksConnector({ s, mayChange, onSaved }) {
             <label className="flex items-start gap-3">
               <input type="checkbox" disabled={!mayChange || busy === 'save'} checked={b.autoSend} onChange={(e) => save({ autoSend: e.target.checked }, e.target.checked ? 'Each invoice now goes to Books when it is issued.' : 'Invoices go to Books only when you send them.')} />
               <span>
-                <span className="font-medium">Send each invoice by itself when it is issued</span>
+                <span className="font-semibold">Send each invoice by itself when it is issued</span>
                 <span className="ws-card-blurb" style={{ display: 'block' }}>
                   Off, an invoice goes to Books when someone presses Send to Books on it.
                 </span>

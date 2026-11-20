@@ -132,7 +132,7 @@ function Panel({ fy, onClose, onOpenPerson }) {
         <div className="space-y-5">
           {problems.length ? (
             <div role="alert" className="rounded-xl p-3 text-sm" style={{ background: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))' }}>
-              <p className="font-medium">Nothing was saved. Correct these rows and import again:</p>
+              <p>Nothing was saved. Correct these rows and import again:</p>
               <ul className="mt-1 list-disc pl-5">
                 {problems.map((p) => (
                   <li key={`${p.line}-${p.message}`}>Row {p.line}: {p.message}</li>

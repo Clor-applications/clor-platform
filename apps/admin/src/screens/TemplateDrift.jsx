@@ -18,7 +18,7 @@ export default function TemplateDrift({ template, modules, onMatch }) {
   const extra = template.extra || [];
   return (
     <div className="ws-notice grid gap-1" role="note" aria-label={`Differs from the ${template.label} template`}>
-      <p className="font-medium">Differs from the {template.label} template</p>
+      <p className="font-semibold">Differs from the {template.label} template</p>
       {missing.length ? <p>The template also gives {list(modules, missing)}.</p> : null}
       {extra.length ? <p>This role also has {list(modules, extra)}.</p> : null}
       {onMatch ? (

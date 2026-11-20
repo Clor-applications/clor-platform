@@ -62,7 +62,7 @@ export default function Absences({ params = {}, updateParams }) {
   };
 
   const columns = [
-    { key: 'name', label: 'Employee', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span> },
+    { key: 'name', label: 'Employee', always: true, render: (r) => <span className="min-w-0"><span className="block truncate">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span> },
     { key: 'since', label: 'Absent since', render: (r) => <span className="tabular-nums whitespace-nowrap">{dayText(r.fromDate)}</span> },
     { key: 'days', label: 'Working days', align: 'right', render: (r) => <span className="tabular-nums">{r.days}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap gap-1"><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0] || enumWords(r.status)}</span>{r.backSince ? <span className="ui-pill ui-pill-pos">Back since {dayText(r.backSince)}</span> : null}{r.hold && !r.hold.releasedAt ? <span className="ui-pill ui-pill-warn">Settlement held</span> : null}</span> },
@@ -93,7 +93,7 @@ export default function Absences({ params = {}, updateParams }) {
         onRowClick={(r) => setOpenId(r.id)}
         card={(r) => (
           <span className="block min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{r.name}</span><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0]}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0]}</span></span>
             <span className="block ui-caption tabular-nums">Since {dayText(r.fromDate)} · {r.days} working days{r.next ? ` · ${NEXT[r.next.step]}` : ''}</span>
           </span>
         )}
@@ -108,7 +108,7 @@ function Step({ done, title, children }) {
   return (
     <li className="flex gap-3">
       <span className={`ui-attention-dot ${done ? 'is-pos' : 'is-quiet'} mt-1.5`} aria-hidden="true" />
-      <span className="min-w-0 space-y-0.5"><span className="block font-medium">{title}</span>{children}</span>
+      <span className="min-w-0 space-y-0.5"><span className="block">{title}</span>{children}</span>
     </li>
   );
 }
