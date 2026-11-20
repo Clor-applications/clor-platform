@@ -5,7 +5,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { formatDateIn } from '@ui/utils/dates';
-import { wholeRupees as money } from '@ui/utils/money';
+import { wholeRupees as money, moneyCell } from '@ui/utils/money';
 import { addTdsChallan, getTdsChallans, removeTdsChallan } from '../api/payrollReports';
 import { leftWords } from './filingChecks';
 import { errorWords } from '@ui/utils/errorWords';
@@ -114,7 +114,7 @@ function Panel({ fy, onClose }) {
                         <td colSpan={2} className="ui-caption">
                           <span className="ui-mono">{c.bsrCode} / {c.challanSerial}</span> · paid {formatDateIn(c.depositDate)}
                         </td>
-                        <td className="ui-col-amount">{money(c.amount)}</td>
+                        <td className="ui-col-amount">{moneyCell(c.amount)}</td>
                         <td colSpan={2} />
                         <td className="text-right">
                           <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => remove(c)} aria-label={`Remove challan ${c.challanSerial}`}>

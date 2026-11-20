@@ -52,6 +52,8 @@ import { HoldPayPanel, LatePayNote } from "../components/round66";
 import ExtraPayStage from "../components/ExtraPayStage";
 import { errorWords, monthText } from "@ui/utils/errorWords";
 import { countItems } from "../components/countItems";
+import { dateWords } from '@ui/utils/dates';
+import { moneyCell } from '@ui/utils/money';
 
 /**
  * Running payroll.
@@ -102,12 +104,6 @@ const STATUS_LABEL = {
 };
 
 
-const shownDate = (iso) => {
-  const s = String(iso || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return "—";
-  const [y, m, d] = s.split("-");
-  return `${d}/${m}/${y}`;
-};
 
 const TABS = [
   { value: "", label: "All", tone: "all" },
@@ -313,10 +309,10 @@ export default function PayRuns() {
                       {r.period?.name || "—"}
                       {r.kind === "OFF_CYCLE" ? <span className="ui-caption block">Extra pay run</span> : null}
                     </td>
-                    <td className="ui-col-date ui-col-h-center hidden md:table-cell">{shownDate(r.payrollDate)}</td>
+                    <td className="ui-col-date ui-col-h-center hidden md:table-cell">{dateWords(r.payrollDate)}</td>
                     <td className="ui-col-amount hidden md:table-cell">{r.employeeCount}</td>
-                    <td className="ui-col-amount hidden md:table-cell">{money(r.grossTotal)}</td>
-                    <td className="ui-col-amount" data-phone="key">{money(r.netTotal)}</td>
+                    <td className="ui-col-amount hidden md:table-cell">{moneyCell(r.grossTotal)}</td>
+                    <td className="ui-col-amount" data-phone="key">{moneyCell(r.netTotal)}</td>
                     <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag
                         label={["PAID", "POSTED"].includes(r.status) ? "" : STATUS_LABEL[r.status] || r.status}
@@ -479,7 +475,7 @@ const RunWorkflow = ({ runId, onBack }) => {
       <PageHeader
         entity="payRun"
         title={`${run.number} · ${run.period?.name || "pay run"}`}
-        description={`${run.kind === "OFF_CYCLE" ? "Extra pay run: " : ""}${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}, paid on ${shownDate(run.payrollDate)}.`}
+        description={`${run.kind === "OFF_CYCLE" ? "Extra pay run: " : ""}${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}, paid on ${dateWords(run.payrollDate)}.`}
         actions={
           <>
             <button
@@ -1349,9 +1345,9 @@ const ReviewStage = ({ data, byEmployee }) => {
               return (
                 <tr key={s.id}>
                   <td className="ui-col-entity">{person?.name || "Name missing"}</td>
-                  <td className="ui-col-amount">{money(s.grossEarnings)}</td>
-                  <td className="ui-col-amount">{money(s.totalDeductions)}</td>
-                  <td className="ui-col-amount">{money(s.employerCost)}</td>
+                  <td className="ui-col-amount">{moneyCell(s.grossEarnings)}</td>
+                  <td className="ui-col-amount">{moneyCell(s.totalDeductions)}</td>
+                  <td className="ui-col-amount">{moneyCell(s.employerCost)}</td>
                   <td className="ui-col-amount font-medium">
                     {money(s.netPay)}
                   </td>
@@ -1472,7 +1468,7 @@ const BooksStage = ({ runId, run, onPosted }) => {
       {preview.alreadyPosted ? (
         <p className="ui-caption">
           Posted on{" "}
-          {shownDate(String(preview.alreadyPosted.postedAt || "").slice(0, 10))}
+          {dateWords(String(preview.alreadyPosted.postedAt || "").slice(0, 10))}
           . This is the entry it made.
         </p>
       ) : null}

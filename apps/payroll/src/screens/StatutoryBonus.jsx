@@ -8,7 +8,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { fyLabel } from '@ui/picks/round34';
 import { downloadCsv } from '@ui/utils/csv';
 import { formatDateIn } from '@ui/utils/dates';
-import { rupees as money } from '@ui/utils/money';
+import { rupees as money, moneyCell } from '@ui/utils/money';
 import { listPayrollPeriods } from '../api/payrollCalendar';
 import { REGISTER_COLUMNS, yearOf, yearsBack } from '../components/bonusText';
 import { approveBonus, cancelBonus, getBonusRegister, getBonusSettings, getBonusYear, saveBonusSettings, workOutBonus } from '../api/payrollBonus';
@@ -246,7 +246,7 @@ function BonusTable({ lines }) {
                 {l.designation ? <span className="ui-caption block">{l.designation}</span> : null}
               </td>
               <td className="ui-col-amount">{l.daysWorked}</td>
-              <td className="ui-col-amount">{money(l.wages)}</td>
+              <td className="ui-col-amount">{moneyCell(l.wages)}</td>
               <td className="ui-col-amount">{l.eligible ? money(l.bonusWages) : '—'}</td>
               <td className="ui-col-amount">{l.eligible ? money(l.amount) : '—'}</td>
               <td className="ui-caption">

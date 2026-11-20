@@ -4,9 +4,9 @@ import { AlertTriangle, ArrowRight } from '@ui/components/ui/lineIcons';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { getPayrollOverview } from '../api/payrollOverview';
 import { getPayrollSetup } from '../api/payrollSetup';
-import { wholeRupees as money } from '@ui/utils/money';
+import { wholeRupees as money, moneyCell } from '@ui/utils/money';
 import PayCalendarStrip from '../components/PayCalendarStrip';
-import { todayIst } from '@ui/utils/dates';
+import { todayIst, dateWords } from '@ui/utils/dates';
 import StatutoryDues from '../components/StatutoryDues';
 import { MonthTodo } from '../components/round59';
 import { MinimumWageReminder } from '../components/MinimumWagesSection';
@@ -27,12 +27,6 @@ import { errorWords } from '@ui/utils/errorWords';
  */
 
 
-const shownDate = (iso) => {
-  const s = String(iso || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—';
-  const [y, m, d] = s.split('-');
-  return `${d}/${m}/${y}`;
-};
 
 const percentChange = (from, to) => {
   const a = Number(from || 0);
@@ -100,8 +94,8 @@ export default function PayrollOverview({ onOpen = () => {} }) {
         title="Overview"
         description={
           currentPeriod
-            ? `${currentPeriod.name} · ${shownDate(currentPeriod.startDate)} to ${shownDate(currentPeriod.endDate)}${
-                currentPeriod.paymentDate ? ` · paid on ${shownDate(currentPeriod.paymentDate)}` : ''
+            ? `${currentPeriod.name} · ${dateWords(currentPeriod.startDate)} to ${dateWords(currentPeriod.endDate)}${
+                currentPeriod.paymentDate ? ` · paid on ${dateWords(currentPeriod.paymentDate)}` : ''
               }`
             : 'No open period in the pay calendar.'
         }
@@ -266,11 +260,11 @@ export default function PayrollOverview({ onOpen = () => {} }) {
                   <tr key={t.runId}>
                     <td className="ui-col-id">{t.number}</td>
                     <td className="ui-col-entity">{t.periodName || '—'}</td>
-                    <td className="ui-col-date ui-col-h-center">{shownDate(t.payrollDate)}</td>
+                    <td className="ui-col-date ui-col-h-center">{dateWords(t.payrollDate)}</td>
                     <td className="ui-col-amount">{t.employeeCount}</td>
-                    <td className="ui-col-amount">{money(t.gross)}</td>
-                    <td className="ui-col-amount">{money(t.net)}</td>
-                    <td className="ui-col-amount">{money(t.employerCost)}</td>
+                    <td className="ui-col-amount">{moneyCell(t.gross)}</td>
+                    <td className="ui-col-amount">{moneyCell(t.net)}</td>
+                    <td className="ui-col-amount">{moneyCell(t.employerCost)}</td>
                   </tr>
                 ))}
               </tbody>

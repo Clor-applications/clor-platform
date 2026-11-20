@@ -254,5 +254,19 @@ export const rupees = (n) => {
   const whole = Math.abs(v - Math.round(v)) < 0.005;
   return `₹${v.toLocaleString('en-IN', whole ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
+/*
+ * An amount in a table cell (DESIGN.md money rule; design audit S8/G5):
+ * ₹ in front, Indian grouping, two decimals, a true minus (\u2212, not -), and
+ * "—" when it is zero or missing. A balance that should read ₹0.00 passes
+ * `{ zero: true }`. Pair it with the tabular, right-aligned cell classes.
+ * In a sentence use `rupees`, which drops ".00" from a whole amount.
+ */
+export const moneyCell = (n, { zero = false } = {}) => {
+  const v = Number(n);
+  if (!Number.isFinite(v) || (Math.abs(v) < 0.005 && !zero)) return '—';
+  const text = Math.abs(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${v <= -0.005 ? '\u2212' : ''}₹${text}`;
+};
+
 /** To the rupee: ₹1,23,457 */
 export const wholeRupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;

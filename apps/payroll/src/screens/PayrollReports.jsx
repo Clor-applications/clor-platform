@@ -9,8 +9,9 @@ import { requestOpenScreen } from '@platform/context';
 import { ESIC_COLUMNS, checklistLine, esicRow } from '../components/filingChecks';
 import { listPayrollPeriods } from '../api/payrollCalendar';
 import { getSalaryRegister, getStatutoryReport, getVarianceReport, getCostReport, getFilings } from '../api/payrollReports';
-import { rupees as money } from '@ui/utils/money';
+import { rupees as money, moneyCell } from '@ui/utils/money';
 import { errorWords } from '@ui/utils/errorWords';
+import { dateWords } from '@ui/utils/dates';
 
 /**
  * Payroll reports.
@@ -342,9 +343,9 @@ function Register({ data }) {
                         {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
                       </button>
                     </td>
-                    <td className="ui-col-amount">{money(r.grossEarnings)}</td>
-                    <td className="ui-col-amount">{money(r.totalDeductions)}</td>
-                    <td className="ui-col-amount">{money(r.netPay)}</td>
+                    <td className="ui-col-amount">{moneyCell(r.grossEarnings)}</td>
+                    <td className="ui-col-amount">{moneyCell(r.totalDeductions)}</td>
+                    <td className="ui-col-amount">{moneyCell(r.netPay)}</td>
                   </tr>
                   {isOpen ? (
                     <tr>
@@ -376,9 +377,9 @@ function Register({ data }) {
           <tfoot>
             <tr>
               <td className="ui-col-entity">{data.rows.length} {data.rows.length === 1 ? 'person' : 'people'}</td>
-              <td className="ui-col-amount">{money(data.totals.grossEarnings)}</td>
-              <td className="ui-col-amount">{money(data.totals.totalDeductions)}</td>
-              <td className="ui-col-amount">{money(data.totals.netPay)}</td>
+              <td className="ui-col-amount">{moneyCell(data.totals.grossEarnings, { zero: true })}</td>
+              <td className="ui-col-amount">{moneyCell(data.totals.totalDeductions, { zero: true })}</td>
+              <td className="ui-col-amount">{moneyCell(data.totals.netPay, { zero: true })}</td>
             </tr>
           </tfoot>
         </table>
@@ -413,9 +414,9 @@ const FullRegister = ({ data, switcher }) => (
               {data.columns.map((c) => (
                 <td key={c.code} className="ui-col-amount">{r.amounts[c.code] ? money(r.amounts[c.code]) : '—'}</td>
               ))}
-              <td className="ui-col-amount">{money(r.grossEarnings)}</td>
-              <td className="ui-col-amount">{money(r.totalDeductions)}</td>
-              <td className="ui-col-amount">{money(r.netPay)}</td>
+              <td className="ui-col-amount">{moneyCell(r.grossEarnings)}</td>
+              <td className="ui-col-amount">{moneyCell(r.totalDeductions)}</td>
+              <td className="ui-col-amount">{moneyCell(r.netPay)}</td>
             </tr>
           ))}
         </tbody>
@@ -425,9 +426,9 @@ const FullRegister = ({ data, switcher }) => (
             {data.columns.map((c) => (
               <td key={c.code} className="ui-col-amount">{data.totals.amounts[c.code] ? money(data.totals.amounts[c.code]) : '—'}</td>
             ))}
-            <td className="ui-col-amount">{money(data.totals.grossEarnings)}</td>
-            <td className="ui-col-amount">{money(data.totals.totalDeductions)}</td>
-            <td className="ui-col-amount">{money(data.totals.netPay)}</td>
+            <td className="ui-col-amount">{moneyCell(data.totals.grossEarnings, { zero: true })}</td>
+            <td className="ui-col-amount">{moneyCell(data.totals.totalDeductions, { zero: true })}</td>
+            <td className="ui-col-amount">{moneyCell(data.totals.netPay, { zero: true })}</td>
           </tr>
         </tfoot>
       </table>
@@ -471,8 +472,8 @@ const Statutory = ({ data }) => (
                       </span>
                     )}
                   </td>
-                  <td className="ui-col-amount">{money(r.wage)}</td>
-                  <td className="ui-col-amount">{money(r.employee)}</td>
+                  <td className="ui-col-amount">{moneyCell(r.wage)}</td>
+                  <td className="ui-col-amount">{moneyCell(r.employee)}</td>
                   <td className="ui-col-amount">{r.employer ? money(r.employer) : '—'}</td>
                 </tr>
               ))}
@@ -514,7 +515,7 @@ const Variance = ({ data }) => (
                 {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
               </td>
               <td className="ui-col-amount">{r.previousNetPay == null ? '—' : money(r.previousNetPay)}</td>
-              <td className="ui-col-amount">{money(r.netPay)}</td>
+              <td className="ui-col-amount">{moneyCell(r.netPay)}</td>
               <td className="ui-col-amount">{signedMoney(r.change)}</td>
               <td className="ui-col-amount">{signedPercent(r.percent)}</td>
               <td className="ui-col-meta">{r.isNew ? 'First payslip' : 'Moved more than the threshold'}</td>
@@ -545,10 +546,10 @@ const Cost = ({ data }) => (
             <tr key={r.department}>
               <td className="ui-col-entity">{r.department}</td>
               <td className="ui-col-amount">{r.headcount}</td>
-              <td className="ui-col-amount">{money(r.gross)}</td>
-              <td className="ui-col-amount">{money(r.deductions)}</td>
-              <td className="ui-col-amount">{money(r.net)}</td>
-              <td className="ui-col-amount">{money(r.employerCost)}</td>
+              <td className="ui-col-amount">{moneyCell(r.gross)}</td>
+              <td className="ui-col-amount">{moneyCell(r.deductions)}</td>
+              <td className="ui-col-amount">{moneyCell(r.net)}</td>
+              <td className="ui-col-amount">{moneyCell(r.employerCost)}</td>
             </tr>
           ))}
         </tbody>
@@ -556,10 +557,10 @@ const Cost = ({ data }) => (
           <tr>
             <td className="ui-col-entity">Everybody</td>
             <td className="ui-col-amount">{data.totals.headcount}</td>
-            <td className="ui-col-amount">{money(data.totals.gross)}</td>
-            <td className="ui-col-amount">{money(data.totals.deductions)}</td>
-            <td className="ui-col-amount">{money(data.totals.net)}</td>
-            <td className="ui-col-amount">{money(data.totals.employerCost)}</td>
+            <td className="ui-col-amount">{moneyCell(data.totals.gross, { zero: true })}</td>
+            <td className="ui-col-amount">{moneyCell(data.totals.deductions, { zero: true })}</td>
+            <td className="ui-col-amount">{moneyCell(data.totals.net, { zero: true })}</td>
+            <td className="ui-col-amount">{moneyCell(data.totals.employerCost, { zero: true })}</td>
           </tr>
         </tfoot>
       </table>
@@ -635,7 +636,6 @@ function FilingCard({ title, summary, note, problems, checklist, onDownload, dis
   );
 }
 
-const shownDate = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(String(iso || '')) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '—');
 
 /** One row per state (and collection): the return, when it is due, and what it carries. */
 function StateReturns({ rows, periodLabel, showEmployer = false }) {
@@ -665,18 +665,18 @@ function StateReturns({ rows, periodLabel, showEmployer = false }) {
                 <span className="ui-caption block" style={{ whiteSpace: 'normal' }}>{r.how}</span>
               </td>
               <td className="ui-col-date ui-col-h-center">
-                {shownDate(r.dueDate)}
+                {dateWords(r.dueDate)}
                 {r.dueKnown ? null : <span className="ui-caption block">Confirm with the state</span>}
               </td>
               <td className="ui-col-amount">{r.people}</td>
-              <td className="ui-col-amount">{money(r.employee)}</td>
+              <td className="ui-col-amount">{moneyCell(r.employee)}</td>
               {showEmployer ? (
                 <td className="ui-col-amount">
                   {money(r.employer)}
                   {r.employerTopUp ? <span className="ui-caption block">+ {money(r.employerTopUp)} to reach the {money(r.employerMinimum)} minimum</span> : null}
                 </td>
               ) : null}
-              <td className="ui-col-amount">{money(r.total)}</td>
+              <td className="ui-col-amount">{moneyCell(r.total)}</td>
             </tr>
           ))}
         </tbody>
