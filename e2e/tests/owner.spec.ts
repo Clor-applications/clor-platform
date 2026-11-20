@@ -51,7 +51,7 @@ test.describe('Suresh owns the account', () => {
     await kavya.open('Employees');
     /* The figures sit behind "Show figures" so the list comes first (FINDING-018). */
     await kavya.main.getByText('Show figures', { exact: true }).click();
-    await expect(kavya.main.getByRole('button', { name: /Working now/ })).toContainText('12');
+    await expect(kavya.main.getByRole('button', { name: /working now/i })).toContainText('12');
     await expect(kavya.main.getByRole('button', { name: 'Add employee', exact: true })).toBeVisible();
 
     /* Rahul: himself and his four, nothing to add, no company settings. */
@@ -59,7 +59,7 @@ test.describe('Suresh owns the account', () => {
     await rahul.open('Employees');
     /* The figures sit behind "Show figures" so the list comes first (FINDING-018). */
     await rahul.main.getByText('Show figures', { exact: true }).click();
-    await expect(rahul.main.getByRole('button', { name: /Working now/ })).toContainText('5');
+    await expect(rahul.main.getByRole('button', { name: /working now/i })).toContainText('5');
     await expect(rahul.main.getByRole('tab', { name: /My team/ })).toContainText('4');
     await expect(rahul.main.getByRole('button', { name: 'Add employee', exact: true })).toHaveCount(0);
     for (const name of ['Arjun Das', 'Meena Iyer', 'Kavya Nair', 'Farah Reddy']) await expect(rahul.main).not.toContainText(name);
