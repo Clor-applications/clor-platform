@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { fyLabel } from '@ui/picks/round34';
 import { Check, Clock, Download, FileText, Printer, Receipt, RotateCcw } from '@ui/components/ui/lineIcons';
 
@@ -178,7 +179,7 @@ export default function TaxDeclarations() {
                     <td className="ui-col-amount">{p.regime === 'OLD' && p.declared ? money(p.declared) : '—'}</td>
                     <td className="ui-col-amount">{p.verified != null && p.regime === 'OLD' ? money(p.verified) : '—'}</td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${STATUS[p.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[p.status]?.label || p.status}</span>
+                      <ExceptionTag label={p.status === 'VERIFIED' ? '' : STATUS[p.status]?.label || p.status} normal={STATUS[p.status]?.label} pill={STATUS[p.status]?.pill || 'ui-pill-neutral'} />
                     </td>
                   </tr>
                 ))

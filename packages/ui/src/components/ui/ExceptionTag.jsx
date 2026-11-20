@@ -8,9 +8,10 @@ import React from 'react';
  * label: the exception's word; leave it empty for a row in the expected state.
  * normal: the expected state's word, for screen readers only.
  * tone: 'warn' (default) | 'neg' | 'neutral'.
+ * pill: a whole pill class from a screen's own status map ('ui-pill-warn'), in place of tone.
  */
-export function ExceptionTag({ label, normal, tone = 'warn' }) {
-  if (label) return <span className={`ui-pill ui-pill-${tone}`}>{label}</span>;
+export function ExceptionTag({ label, normal, tone = 'warn', pill }) {
+  if (label) return <span className={`ui-pill ${pill || `ui-pill-${tone}`}`}>{label}</span>;
   return normal ? <span className="sr-only">{normal}</span> : null;
 }
 

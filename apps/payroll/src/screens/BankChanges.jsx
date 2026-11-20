@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { Check, Clock, Landmark, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -166,7 +167,7 @@ export default function BankChanges() {
                       {r.mine ? <span className="ui-caption block">by you</span> : null}
                     </td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span>
+                      <ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status]?.label || r.status} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.pill || 'ui-pill-neutral'} />
                     </td>
                     <td className="whitespace-nowrap text-end">
                       {r.status === 'PENDING' ? (
