@@ -56,7 +56,7 @@ Paste this in front of every 3D prompt so the set matches:
 
 ## Not needed
 
-- Fonts (Plus Jakarta Sans is already in), the CLOR logo, stock icons for buttons and menus.
+- Fonts (Figtree is already in), the CLOR logo, stock icons for buttons and menus.
 
 ## D. Sign-in pictures (app, not the site)
 

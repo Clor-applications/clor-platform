@@ -669,7 +669,7 @@ body:has(.fx-secnav) .nav {
   border-radius: var(--r-panel);
   background:
     radial-gradient(rgba(255, 255, 255, 0.28) 1px, transparent 1.4px) 0 0 / 7px 7px,
-    linear-gradient(135deg, #1b2f73, #0079bf 60%, #38c6e6);
+    linear-gradient(135deg, #1b2f73, #006a9e 60%, #38c6e6);
   animation: fx-in 0.35s var(--ease) both;
 }
 .fx-frame img {
@@ -1300,16 +1300,16 @@ body:has(.fx-secnav) .nav {
   --app-2: #232a66;
 }
 [data-p='payroll'] {
-  --app: #12b5e5;
-  --app-2: #0079bf;
+  --app: #1a8fc7;
+  --app-2: #006a9e;
 }
 [data-p='people'] {
-  --app: #ff7a66;
-  --app-2: #d6452c;
+  --app: #c93bd6;
+  --app-2: #a21caf;
 }
 [data-p='attendance'] {
-  --app: #ffb627;
-  --app-2: #e07b00;
+  --app: #d98a1f;
+  --app-2: #a85a00;
 }
 [data-p='projects'] {
   --app: #22c3b3;
@@ -1558,8 +1558,8 @@ body:has(.fx-secnav) .nav {
   box-shadow: 0 10px 20px -10px var(--accent-press);
 }
 .fx-next-card:last-child .fx-next-icon {
-  background: linear-gradient(140deg, #12b5e5, #0079bf);
-  box-shadow: 0 10px 20px -10px #0079bf;
+  background: linear-gradient(140deg, #1a8fc7, #006a9e);
+  box-shadow: 0 10px 20px -10px #006a9e;
 }
 .fx-next {
   background:

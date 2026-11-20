@@ -1,22 +1,22 @@
-@import '@fontsource-variable/plus-jakarta-sans';
+@import '@fontsource-variable/figtree';
 
 /* ------------------------------------------------------------------ tokens */
 /*
  * Light only. The Workspace brand from DESIGN.md: a pure white ground, Blaze
  * Orange for the primary action, the focus ring and the logo's O and mark,
- * its darker ink for orange words, slate for text. One face, Plus Jakarta
- * Sans, for words and numbers. The product accents live in site.js and stay
+ * its darker ink for orange words, warm neutrals for text. One face, Figtree,
+ * the apps' face, for words and numbers (owner, 21 Nov 2026). The product accents live in site.js and stay
  * on their own marks.
  */
 :root {
   --bg: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f8fafc;
-  --ink: #0f172a;
-  --ink-2: #475569;
-  --ink-3: #64748b;
-  --line: #e5e7eb;
-  --line-strong: #d1d5db;
+  --surface-2: #f7f7f7;
+  --ink: #1c1b18;
+  --ink-2: #5c5a54;
+  --ink-3: #6e6b64;
+  --line: #e5e5e5;
+  --line-strong: #d6d6d6;
   --accent: #ff5400;
   --accent-hover: #e64b00;
   --accent-press: #ba3900;
@@ -31,7 +31,7 @@
   --ok: #15803d;
   --bad: #b91c1c;
 
-  --font-display: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: 'Figtree Variable', 'Figtree', system-ui, sans-serif;
   --font-text: var(--font-display);
 
   /* A modular scale, 1.25, from 16px. */

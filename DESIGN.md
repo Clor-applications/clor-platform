@@ -16,7 +16,9 @@ colors:
   primary-people: "#A21CAF"
   primary-payroll: "#006A9E"
   primary-attendance: "#A85A00"
-  logo: "#FF6B00"
+  primary-ops: "#015D47"
+  rail: "#F3F3F0"
+  logo: "#FF5400"
   logo-text: "#C95000"
   success: "#166534"
   success-bg: "#E6F1E9"
@@ -126,7 +128,7 @@ also open self-service on phones.
 
 **Memorable thing:** calm and accurate. Trust is the product.
 
-**Mode per surface:** Operate (every app screen); Persuade (clor.in, owner's own text, not covered here).
+**Mode per surface:** Operate (every app screen); Persuade (clor.in, owner's own text). clor.in shares the face (Figtree), the neutrals, the logo orange and the app colours; its layout and display sizes are its own.
 
 **Key characteristics:**
 - White ground everywhere. Colour appears only where it means something.
@@ -145,18 +147,25 @@ a panel tint, a tile bar, a chart default or a heading colour.
 There is no dark theme, and `test/palette.test.js` fails if one returns.
 
 **Per app:** the shell sets `data-app` on `<html>`, and `rnd.css` maps `--act` to that app's
-primary token (graphite, magenta, deeper blue or amber). White text on each passes 4.5:1. Hover
+primary token (graphite, magenta, deeper blue or amber). The Ops console sets `data-portal="ops"` and takes forest `#015D47` (owner left the pick to Claude, 21 Nov 2026), a blue-green that does not read as the status green. White text on each passes 4.5:1. Hover
 darkens by about 15%. The CLOR logo and the gate pages keep the logo orange whatever app was
-open last. Orange fill is not a text colour (white on `#FF6B00` is 2.9:1), so text uses
-`logo-text`.
+open last. The logo orange is `#FF5400` (owner, 21 Nov 2026), the same on clor.in. Orange fill
+is not a text colour (white on `#FF5400` is 3.2:1), so text uses `logo-text`.
 
-**Neutrals:** `hover` is feedback only, never a ground. `hairline` separates rows and regions.
+**Neutrals:** `hover` is feedback only, never a ground. The one exception is `rail`, the first sidebar's light grey `#F3F3F0` (owner, 19 Nov 2026), which tells the first menu from the second; every other ground stays white. `hairline` separates rows and regions.
 `field-border` edges inputs and secondary buttons. `rule` sits under a table header and above a
 total. `text-subtle` is placeholder and disabled only, never information.
 
 **Status:** done, waiting and problem are shared by every app. Each always carries a word and is
 never decoration. In Attendance, "waiting" amber sits next to the app's amber, so a waiting tag
 there always keeps its dot and word.
+
+**Light accents on Home pages (owner, 20–21 Nov 2026):** every app's Home or overview uses the
+same three light accents, so all apps look alike: a soft-tint icon tile on each card (mint, lilac,
+peach, butter or the info blue, by subject, never by app), a soft tag naming a task's subject, and a
+soft inset top edge in the warning or problem tint on a card that needs action. Each tint pairs with
+its own ink at 4.5:1 or more. They stay on Home and overview pages; lists, forms and documents keep
+the white ground.
 
 **Charts:** ink first, then series told apart by shape, dash and direct labels. The app colour
 marks only the series the page is about. Category colours appear only when the category is also
@@ -308,3 +317,4 @@ The code still follows the old picks. Move it in this order, one PR each, and ch
 | 19 Nov 2026 | Count line replaces figure tiles; status tags only on exceptions | The outside voice's departures, chosen by Claude at the owner's request ("select what is best") |
 | 19 Nov 2026 | Kept the soft tag with a dot (owner, 19 Nov); no app-colour margin rule | A tag reads better than a bare dot now that tags are rare, and a margin rule would be a fifth job for the app colour |
 | 19 Nov 2026 | Books excluded | Books belongs to another developer |
+| 21 Nov 2026 | Logo orange `#FF5400` everywhere, clor.in on Figtree with the apps' colours, Ops forest `#015D47`, the grey rail recorded as the one ground exception, the same light accents on every Home | Owner's answers to the 21 Nov interaction audit |

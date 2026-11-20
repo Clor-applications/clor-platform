@@ -14,14 +14,14 @@ import { PRODUCTS } from '../src/site.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.join(root, 'public', 'brand');
 const logo = `data:image/png;base64,${fs.readFileSync(path.join(out, 'clor-logo-2026-11.png')).toString('base64')}`;
-const FONT = 'node_modules/@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-wght-normal.woff2';
+const FONT = 'node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2';
 const fontFile = process.argv[2] || [path.join(root, FONT), path.join(root, '..', FONT)].find((f) => fs.existsSync(f));
-const font = fontFile ? `@font-face { font-family: 'Jakarta'; src: url(data:font/woff2;base64,${fs.readFileSync(fontFile).toString('base64')}) format('woff2'); font-weight: 200 800; }` : '';
+const font = fontFile ? `@font-face { font-family: 'Figtree'; src: url(data:font/woff2;base64,${fs.readFileSync(fontFile).toString('base64')}) format('woff2'); font-weight: 200 800; }` : '';
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 const page = (p) => `<!doctype html><html><head><style>
 ${font}
-html,body{margin:0;width:1200px;height:630px;background:#fff;font-family:'Jakarta',system-ui,sans-serif;color:#0F172A}
+html,body{margin:0;width:1200px;height:630px;background:#fff;font-family:'Figtree',system-ui,sans-serif;color:#0F172A}
 .wrap{padding:150px 80px 0 80px}
 img{height:72px;display:block}
 .name{display:flex;align-items:center;gap:20px;margin-top:64px}

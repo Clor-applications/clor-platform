@@ -34,8 +34,8 @@ function Tile({ icon: Icon }) {
 const SWITCH_ON = ['books', 'people', 'payroll', 'attendance'];
 const TEAM = [
   ['RK', 'Accountant', '#232A66'],
-  ['MS', 'HR', '#C93F28'],
-  ['AP', 'Staff', '#0079BF'],
+  ['MS', 'HR', '#A21CAF'],
+  ['AP', 'Staff', '#006A9E'],
 ];
 
 /**

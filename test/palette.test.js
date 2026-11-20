@@ -59,9 +59,13 @@ describe('one palette', () => {
     for (const line of uses) expect(line).toMatch(/\.ui-app-switch-mark|--app-color/);
   });
 
-  it('the old per-portal accents are gone: no forest, moss or violet primary', () => {
-    expect(rnd).not.toMatch(/data-portal='ops'/);
-    expect(rnd).not.toMatch(/--act: 91 71 196|--act: 90 107 31|--act: 1 93 71/);
+  it('the old moss and violet primaries are gone; Ops alone takes forest (owner, 21 Nov 2026)', () => {
+    expect(rnd).not.toMatch(/--act: 91 71 196|--act: 90 107 31/);
+    const ops = rnd.match(/\[data-portal='ops'\]:not\(\[data-palette='indigo'\]\)\s*\{([^}]*)\}/);
+    expect(ops).not.toBeNull();
+    expect(ops[1]).toMatch(/--act: 1 93 71;/);
+    expect(ops[1]).toMatch(/--marker: 1 93 71;/);
+    expect(rnd.match(/--act: 1 93 71;/g)).toHaveLength(1);
   });
 
   /* Owner, 15 Nov 2026: each app has its own primary and a second colour; the CLOR logo stays Blaze. */
@@ -101,9 +105,10 @@ describe('one palette', () => {
     expect(people).not.toMatch(/\[data-app='(?:accounting|payroll|attendance)'\]/);
   });
 
-  it('the platform accent (gates, Workspace marks) stays Blaze', () => {
+  it('the platform accent (gates, Workspace marks) stays Blaze, the logo orange #FF5400 (owner, 21 Nov 2026)', () => {
     expect(rnd).toMatch(/--act: 201 80 0;/);
-    expect(rnd).toMatch(/--marker: 255 107 0;/);
+    expect(rnd).toMatch(/--marker: 255 84 0;/);
+    expect(rnd).not.toMatch(/255 107 0/);
     expect(rnd).toMatch(/--on-brand: 255 255 255;/);
   });
 
