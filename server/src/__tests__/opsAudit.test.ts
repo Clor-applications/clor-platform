@@ -58,6 +58,41 @@ describe('the audit log and home', () => {
     expect(after).toHaveProperty('failedPayments');
   }, 60_000);
 
+  it('lists quiet paying customers and trials nobody came back to, and yesterday in numbers', async () => {
+    const reader = await staff('READ_ONLY');
+    const DAY = 86_400_000;
+    const quiet = await company('quiet');
+    const busy = await company('busy');
+    const stalled = await company('stalled');
+    const before = (await request(app).get('/api/ops/home').set(reader.h).expect(200)).body;
+    /* Two paying customers: one nobody has signed in to for a month, one used this morning. */
+    for (const c of [quiet, busy]) {
+      await setSubscription(c.accountId, { apps: [{ appCode: 'accounting' }], status: 'active' });
+      await platformPrisma.subscription.update({ where: { accountId: c.accountId }, data: { status: 'active', billingInterval: 'year', periodAmount: 1200000 } });
+    }
+    await platformPrisma.user.updateMany({ where: { accountId: quiet.accountId }, data: { lastLoginAt: new Date(Date.now() - 30 * DAY) } });
+    await platformPrisma.user.updateMany({ where: { accountId: busy.accountId }, data: { lastLoginAt: new Date() } });
+    /* A trial opened ten days ago; its owner signed in that day and never again. */
+    await setSubscription(stalled.accountId, { apps: [{ appCode: 'accounting' }], status: 'trialing', trialDays: 30 });
+    const opened = new Date(Date.now() - 10 * DAY);
+    await platformPrisma.subscription.update({ where: { accountId: stalled.accountId }, data: { createdAt: opened, trialEndsAt: new Date(Date.now() + 20 * DAY) } });
+    await platformPrisma.user.updateMany({ where: { accountId: stalled.accountId }, data: { lastLoginAt: new Date(opened.getTime() + 3_600_000) } });
+    /* A ticket nobody has touched for two days. */
+    await platformPrisma.supportTicket.create({ data: { accountId: quiet.accountId, openedByUserId: quiet.userId, subject: 'Still waiting', updatedAt: new Date(Date.now() - 2 * DAY) } });
+
+    const h = (await request(app).get('/api/ops/home').set(reader.h).expect(200)).body;
+    expect(h.work.quiet.total).toBe(before.work.quiet.total + 1);
+    const row = h.work.quiet.items.find((x: any) => x.accountId === quiet.accountId);
+    /* A yearly plan shows what it comes to a month. */
+    if (row) expect(row).toMatchObject({ monthly: 100000, customer: expect.stringMatching(/^Ops Co /) });
+    expect(h.work.quiet.items.map((x: any) => x.accountId)).not.toContain(busy.accountId);
+    expect(h.work.stalled.total).toBe(before.work.stalled.total + 1);
+    expect(h.work.stalled.items.map((x: any) => x.accountId)).not.toContain(busy.accountId);
+    expect(h.ticketsOverADay).toBe(before.ticketsOverADay + 1);
+    expect(h.yesterday).toMatchObject({ signUps: expect.any(Number), demos: expect.any(Number), collected: expect.any(Number), invoicesPaid: expect.any(Number), lost: expect.any(Number) });
+    for (const g of [h.work.quiet, h.work.stalled]) expect(g.items.length).toBeLessThanOrEqual(5);
+  }, 120_000);
+
   it('lists the work itself for Home, most pressing first, to every staff role and to nobody else', async () => {
     const reader = await staff('READ_ONLY');
     const sales = await staff('SALES');

@@ -250,7 +250,7 @@ export const EmptyState = ({
       : null);
 
   return (
-    <div className="ui-in flex flex-col items-center justify-center text-center py-8 px-6">
+    <div className="ui-in ui-empty-state flex flex-col items-center justify-center text-center py-8 px-6">
       {/*
         An illustration rather than an icon in a grey circle.
 
@@ -268,9 +268,9 @@ export const EmptyState = ({
         glyphs standing in for art that did not exist; the art exists now.
         The prop stays in the signature so no caller breaks.
       */}
-      <Illustration kind={kind} size={64} className="mb-3 opacity-90" />
+      <Illustration kind={kind} size={64} className="ui-empty-art mb-3 opacity-90" />
 
-      <div className="ui-t-sec">{headline}</div>
+      <div className="ui-t-sec ui-empty-head">{headline}</div>
       {/*
         The sentence under "No customers yet" is gone.
 

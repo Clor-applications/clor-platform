@@ -239,7 +239,7 @@ function workGroups(d, go, has, now) {
     },
     {
       k: 'tickets',
-      title: 'Tickets: urgent or not taken',
+      title: d.ticketsOverADay ? `Tickets: urgent or not taken · ${n(d.ticketsOverADay, 'has', 'have')} waited over a day` : 'Tickets: urgent or not taken',
       /* Tickets has no filter for these yet, so the link says what it opens and carries no number. */
       more: total('tickets') > items('tickets').length ? { label: 'All tickets', open: () => go('tickets') } : null,
       rows: items('tickets').map((t) => ({
@@ -295,6 +295,35 @@ function workGroups(d, go, has, now) {
         sub: `Renews ${day(r.renewsAt)}${r.interval ? ` · ${r.interval === 'year' ? 'yearly' : 'monthly'}` : ''} · ${r.lastActiveAt ? `last active ${ago(r.lastActiveAt)}` : 'nobody has signed in'}`,
         money: r.amount != null ? r.amount : undefined,
         open: () => go('customers', {}, r.accountId, 'subscription'),
+      })),
+    },
+    {
+      /* A paying customer nobody has signed in to for two weeks: the money shown is what leaves if they do. */
+      k: 'quiet',
+      title: 'Paying customers gone quiet',
+      more: total('quiet') > items('quiet').length ? { label: `See all ${total('quiet')}`, open: () => go('customers', { status: 'active' }) } : null,
+      rows: items('quiet').map((q) => ({
+        id: q.accountId,
+        pill: ['Quiet', 'warn'],
+        title: q.customer || 'A customer',
+        sub: q.lastActiveAt ? `Nobody has signed in since ${day(q.lastActiveAt)}` : 'Nobody has ever signed in',
+        money: q.monthly != null ? q.monthly : undefined,
+        end: 'a month',
+        open: () => go('customers', {}, q.accountId),
+      })),
+    },
+    {
+      /* A trial opened a week or more ago that nobody came back to after the first day. */
+      k: 'stalled',
+      title: 'Trials nobody came back to',
+      more: total('stalled') > items('stalled').length ? { label: `See all ${total('stalled')}`, open: () => (has('trials') ? go('trials') : go('customers', { status: 'trialing' })) } : null,
+      rows: items('stalled').map((t) => ({
+        id: t.accountId,
+        pill: ['Stalled', 'warn'],
+        title: t.customer || 'A customer',
+        sub: `Signed up ${day(t.signedUpAt)} · ${t.lastActiveAt ? 'not seen since that day' : 'never signed in'}`,
+        end: `Trial ends ${day(t.trialEndsAt)}`,
+        open: () => go('customers', {}, t.accountId),
       })),
     },
   ].filter((g) => g.rows.length);
@@ -382,7 +411,7 @@ function NeedsAction({ d, error, go, has }) {
                         <span className="ws-item-sub">{r.sub}</span>
                       </span>
                       {r.money != null ? (
-                        <span className="ops-ink text-right tabular-nums">{inr(r.money)}</span>
+                        <span className="ops-ink text-right tabular-nums">{inr(r.money)}{r.end ? <span className="ws-item-end"> {r.end}</span> : null}</span>
                       ) : r.end ? (
                         <span className="ws-item-end">{r.end}</span>
                       ) : null}
@@ -415,6 +444,12 @@ function NeedsAction({ d, error, go, has }) {
           ) : null}
         </>
       )}
+      {d?.yesterday ? (
+        <p className="ops-quiet-line" aria-label="Yesterday">
+          Yesterday: {n(d.yesterday.signUps, 'sign-up', 'sign-ups')} · {n(d.yesterday.demos, 'demo request', 'demo requests')} · <span className="tabular-nums">{inr(d.yesterday.collected)}</span> collected
+          {d.yesterday.invoicesPaid ? ` on ${n(d.yesterday.invoicesPaid, 'invoice', 'invoices')}` : ''} · {n(d.yesterday.lost, 'customer left', 'customers left')}
+        </p>
+      ) : null}
     </section>
   );
 }
