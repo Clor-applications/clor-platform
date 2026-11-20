@@ -118,7 +118,7 @@ export default function SetupGuide({ tenant, goTo, screen }) {
               {s.done ? null : (
                 <button
                   type="button"
-                  className="ws-btn ws-btn--quiet ws-btn--small"
+                  className="ws-btn ws-btn--quiet ws-btn--small ws-btn--trail"
                   onClick={() => {
                     setOpen(false);
                     goTo?.(s.screen);
