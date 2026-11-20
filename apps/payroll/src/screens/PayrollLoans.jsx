@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { ArrowLeft, Ban, CalendarClock, Check, Clock, HandCoins, Plus, RotateCcw, SkipForward, Wallet, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -584,7 +585,7 @@ const LoanDetail = ({ loanId, onBack }) => {
                     <td className="ui-num">{money(i.dueAmount)}</td>
                     <td className="ui-num">{i.interestAmount ? money(i.interestAmount) : '—'}</td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${INSTALLMENT[i.status]?.tone || 'ui-pill-neutral'}`}>{INSTALLMENT[i.status]?.label || i.status}</span>
+                      <ExceptionTag label={i.status === 'RECOVERED' ? '' : INSTALLMENT[i.status]?.label || i.status} normal={INSTALLMENT[i.status]?.label} pill={INSTALLMENT[i.status]?.tone || 'ui-pill-neutral'} />
                       {i.skipAsk ? <span className="ui-caption block">Asked to skip: “{i.skipAsk.reason}”</span> : null}
                     </td>
                     <td className="ui-col-id">{i.slipNumber || '—'}</td>

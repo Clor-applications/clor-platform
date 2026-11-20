@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlertTriangle, ArrowLeft, Calculator, CalendarClock, Check, Clock, Info, Play, Plus, Wallet } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from "@ui/components/ColumnFilters";
@@ -308,9 +309,11 @@ export default function PayRuns() {
                     <td className="ui-col-amount hidden md:table-cell">{money(r.grossTotal)}</td>
                     <td className="ui-col-amount">{money(r.netTotal)}</td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${["APPROVED", "LOCKED", "PAID", "POSTED"].includes(r.status) ? "ui-pill-pos" : "ui-pill-neutral"}`}>
-                        {STATUS_LABEL[r.status] || r.status}
-                      </span>
+                      <ExceptionTag
+                        label={["PAID", "POSTED"].includes(r.status) ? "" : STATUS_LABEL[r.status] || r.status}
+                        normal={STATUS_LABEL[r.status]}
+                        pill={["APPROVED", "LOCKED"].includes(r.status) ? "ui-pill-pos" : "ui-pill-neutral"}
+                      />
                     </td>
                   </tr>
                 ))
