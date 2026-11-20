@@ -73,6 +73,7 @@ import { TextMessages } from './TextMessages';
 import { AppCatalogue } from './AppCatalogue';
 import { AuditLog } from './AuditLog';
 import { Health } from './Health';
+import { BrokenConnections } from './Connections';
 import { TicketPage, Tickets } from './Tickets';
 import { Alerts } from './Alerts';
 import { Announcements } from './Announcements';
@@ -121,6 +122,7 @@ const NI = {
   demos: MonitorSmartphone,
   links: Link2,
   jobs: RefreshCw,
+  connections: Link2,
   alerts: BellRing,
   pricing: Coins,
   customPlans: FilePen,
@@ -198,6 +200,7 @@ export const NAV = [
     rail: 'platform',
     items: [
       ['health', 'Background jobs', NI.jobs],
+      ['connections', 'Broken connections', NI.connections],
       ['denials', 'Access refused', NI.denials],
       ['switches', 'Feature switches', NI.switches],
       ['alerts', 'Alerts', NI.alerts],
@@ -327,6 +330,7 @@ export const SCREENS = {
   savedReplies: ({ me }) => <SavedReplies me={me} />,
   status: ({ me, go }) => <StatusPage me={me} openCustomer={(id) => go('customers', {}, id)} />,
   forms: ({ me }) => <Switches me={me} />,
+  connections: ({ go }) => <BrokenConnections openCustomer={(id) => go('customers', {}, id, 'connections')} />,
   health: ({ route, go }) => <Health key={route.params.request || ''} go={go} request={route.params.request || ''} />,
   audit: ({ go }) => <AuditLog openCustomer={(id) => go('customers', {}, id)} />,
   access: ({ go }) => <AccessRequests openCustomer={(id) => go('customers', {}, id, 'access')} />,

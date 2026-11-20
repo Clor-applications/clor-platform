@@ -21,7 +21,8 @@ const health = {
   ],
   signals: [
     { key: 'emails-failed', label: 'Emails that failed in the last day', count: 4, screen: 'emails' },
-    { key: 'readers-offline', label: 'Attendance readers offline', count: 0, screen: null },
+    { key: 'readers-offline', label: 'Attendance readers offline', count: 0, screen: 'connections' },
+    { key: 'hr-errors', label: 'HR connections reporting an error', count: 2, screen: 'connections' },
   ],
 };
 
@@ -61,6 +62,10 @@ describe('System health', () => {
     expect(screen.getByText(/about every 1 day/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'See failed emails' }));
     expect(go).toHaveBeenCalledWith('emailLog', { status: 'FAILED' });
+    /* A count of failing connections opens the list of whose they are; a zero has nothing to open. */
+    expect(screen.getAllByRole('button', { name: 'See which customers' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'See which customers' }));
+    expect(go).toHaveBeenCalledWith('connections');
   });
 
   it('opens the logs for a request ID, and says when it is not one', async () => {
