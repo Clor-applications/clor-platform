@@ -184,7 +184,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
       ) : null}
 
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <ColumnHeader label="Name" col="name" state={columns} className="ui-col-grow" />
@@ -215,17 +215,17 @@ export default function StructureList({ kind, title = '', singular = '' }) {
                 ) : (
                   shown.map((r) => (
                   <tr key={r.id} className="ui-row-click" onClick={() => setEditing({ ...r })}>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-entity" data-phone="name">
                       {r.name}
                       {r.description ? <div className="ui-caption truncate">{r.description}</div> : null}
                     </td>
-                    {cfg.parent ? <td className="ui-col-meta">{parentName.get(r[cfg.parent.key]) || '—'}</td> : null}
+                    {cfg.parent ? <td className="ui-col-meta" data-phone="sub">{parentName.get(r[cfg.parent.key]) || '—'}</td> : null}
                     {(cfg.columns || []).map((c) => <td key={c.key} className="ui-col-meta">{(c.value ? c.value(r) : r[c.key]) || '—'}</td>)}
-                    <td className="ui-col-h-center">{r.employeeCount || 0}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-col-h-center" data-phone="key">{r.employeeCount || 0}</td>
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={r.isActive ? '' : 'Inactive'} tone="neutral" normal="Active" />
                     </td>
-                    <td onClick={(e) => e.stopPropagation()}>
+                    <td onClick={(e) => e.stopPropagation()} data-phone="act">
                       <button type="button" className="ui-icon-btn" aria-label={`Delete ${r.name}`} onClick={() => remove(r)}>
                         <Trash2 size={16} aria-hidden="true" />
                       </button>

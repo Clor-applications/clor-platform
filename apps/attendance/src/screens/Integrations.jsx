@@ -263,7 +263,7 @@ function Deliveries({ hook }) {
   if (!rows.length) return <p className="ui-caption w-full pt-2">Nothing sent to this webhook yet.</p>;
   return (
     <div className="w-full overflow-x-auto ui-table-scroll pt-2">
-      <table className="ui-table w-full text-xs">
+      <table className="ui-table ui-table-phone w-full text-xs">
         <thead>
           <tr>
             <th scope="col" className="ui-th">When</th>
@@ -277,12 +277,12 @@ function Deliveries({ hook }) {
         <tbody>
           {rows.map((d) => (
             <tr key={d.id}>
-              <td className="ui-col-meta whitespace-nowrap">{ago(d.createdAt)}</td>
-              <td className="ui-mono">{d.event}</td>
-              <td className="ui-col-h-center"><ExceptionTag label={d.status === 'OK' ? '' : d.status.toLowerCase()} normal="ok" pill={DELIVERY_PILL[d.status] || 'ui-pill-neutral'} /></td>
+              <td className="ui-col-meta whitespace-nowrap" data-phone="sub">{ago(d.createdAt)}</td>
+              <td className="ui-mono" data-phone="name">{d.event}</td>
+              <td className="ui-col-h-center" data-phone="tag"><ExceptionTag label={d.status === 'OK' ? '' : d.status.toLowerCase()} normal="ok" pill={DELIVERY_PILL[d.status] || 'ui-pill-neutral'} /></td>
               <td className="tabular-nums">{d.attempts}{d.nextAttemptAt && d.status === 'PENDING' ? <span className="ui-caption block">next {ago(d.nextAttemptAt)}</span> : null}</td>
               <td className="ui-col-meta" style={d.lastError ? { color: 'rgb(var(--neg))' } : undefined}>{d.lastError || (d.lastStatus ? `answered ${d.lastStatus}` : '—')}</td>
-              <td className="text-end whitespace-nowrap">
+              <td className="text-end whitespace-nowrap" data-phone="act">
                 <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === d.id} onClick={() => resend(d)}>Send again</button>
               </td>
             </tr>

@@ -107,7 +107,7 @@ export default function MyAttendance() {
       <section className="ui-card overflow-hidden" aria-labelledby="mine-h">
         <header className="ui-card-head"><h2 id="mine-h" className="ui-t-sec">Last 30 days</h2></header>
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <th scope="col" className="ui-col-date">Day</th>
@@ -122,13 +122,13 @@ export default function MyAttendance() {
             <tbody className="ui-rows">
               {me.records.map((r) => (
                 <tr key={r.id}>
-                  <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}</td>
+                  <td className="ui-col-date whitespace-nowrap" data-phone="name">{dayLabel(r.date, { weekday: true, year: false })}</td>
                   <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
                   <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
-                  <td className="ui-num">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
+                  <td className="ui-num" data-phone="key">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
                   <td className="ui-num">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
-                  <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span></td>
-                  <td className="ui-col-meta">
+                  <td className="ui-col-h-center" data-phone="tag"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span></td>
+                  <td className="ui-col-meta" data-phone="act">
                     <button type="button" className="ui-icon-btn" title="Why does this day say this?" aria-label={`Why is ${dayLabel(r.date)} ${STATUS[r.status]?.label?.toLowerCase() || r.status}?`} onClick={() => setExplaining(r.date)}>
                       <HelpCircle size={16} aria-hidden="true" />
                     </button>

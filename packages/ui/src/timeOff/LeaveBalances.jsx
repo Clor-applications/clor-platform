@@ -348,14 +348,14 @@ function Ledger({ person, year, label, onClose, onChanged }) {
                 ) : <span className="ui-caption">Unpaid: <span className="tabular-nums">{balance.used || 0}</span> taken</span>}
               </div>
               {entries.length ? (
-                <table className="ui-table w-full text-sm">
+                <table className="ui-table ui-table-phone w-full text-sm">
                   <tbody>
                     {entries.map((e, i) => (
                       <tr key={`${e.kind}-${e.id || i}`} className={e.kind === 'UPCOMING' ? 'ui-muted' : ''}>
-                        <td className="ui-col-meta whitespace-nowrap w-28 tabular-nums">{formatDate(e.date) || e.date}</td>
-                        <td>{KIND[e.kind] || e.kind}{e.note ? <span className="ui-caption block">{e.note}</span> : null}</td>
-                        <td className="ui-num w-20 tabular-nums">{signed(e.days)}</td>
-                        <td className="w-10">
+                        <td className="ui-col-meta whitespace-nowrap w-28 tabular-nums" data-phone="sub">{formatDate(e.date) || e.date}</td>
+                        <td data-phone="name">{KIND[e.kind] || e.kind}{e.note ? <span className="ui-caption block">{e.note}</span> : null}</td>
+                        <td className="ui-num w-20 tabular-nums" data-phone="key">{signed(e.days)}</td>
+                        <td className="w-10" data-phone="act">
                           {['ADJUST', 'ENCASH'].includes(e.kind) ? <button type="button" className="ui-icon-btn" aria-label="Remove this line" onClick={() => remove(e)}><Trash2 size={14} aria-hidden="true" /></button> : null}
                           {e.kind === 'ALLOCATED' ? <button type="button" className="ui-icon-btn" aria-label={`Put ${type.name} back on the policy's days`} title="Back on the policy's days" onClick={() => backOnPolicy(type)}><Trash2 size={14} aria-hidden="true" /></button> : null}
                         </td>

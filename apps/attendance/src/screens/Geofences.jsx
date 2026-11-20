@@ -108,7 +108,7 @@ export default function Geofences() {
         loadError ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Punch area" col="name" state={filters} />
@@ -138,10 +138,10 @@ export default function Geofences() {
               ) : (
                 rows.map((f) => (
                   <tr key={f.id} className="ui-row-click" onClick={() => setEditing({ ...f, address: f.address || '', areaId: f.areaId || '' })}>
-                    <td className="ui-col-entity">{f.name}</td>
+                    <td className="ui-col-entity" data-phone="name">{f.name}</td>
                     <td className="ui-col-grow max-w-[1px]" onClick={(e) => e.stopPropagation()}><a className="ui-link block truncate text-sm font-normal" href={mapLink(f)} target="_blank" rel="noreferrer" title={f.address || `${f.latitude}, ${f.longitude}`}>{f.address || <span className="ui-mono text-xs">{f.latitude.toFixed(5)}, {f.longitude.toFixed(5)}</span>}</a></td>
-                    <td className="ui-num">{f.radiusMeters} m</td>
-                    <td>{f.areaName ? `${f.areaName} area` : 'Everyone'}</td>
+                    <td className="ui-num" data-phone="key">{f.radiusMeters} m</td>
+                    <td data-phone="sub">{f.areaName ? `${f.areaName} area` : 'Everyone'}</td>
                     <td className="ui-num">{f.people}</td>
                     <td className="ui-col-h-center">{f.isActive ? '✓' : ''}</td>
                   </tr>

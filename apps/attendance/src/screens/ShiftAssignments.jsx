@@ -175,7 +175,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
       ) : (
         <>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <ColumnHeader label="Employee" col="employee" state={filters}  className="ui-col-grow" />
@@ -203,11 +203,11 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
                 ) : (
                   pageRows.map((r) => (
                     <tr key={r.id}>
-                      <td className="ui-col-entity">{r.employeeName}</td>
-                      <td>{r.shiftName}</td>
-                      <td className="ui-col-date whitespace-nowrap">{r.effectiveFrom}</td>
-                      <td className="ui-col-date whitespace-nowrap">{r.effectiveTo || 'until changed'}</td>
-                      <td className="ui-col-meta">
+                      <td className="ui-col-entity" data-phone="name">{r.employeeName}</td>
+                      <td data-phone="sub">{r.shiftName}</td>
+                      <td className="ui-col-date whitespace-nowrap" data-phone="key">{r.effectiveFrom}</td>
+                      <td className="ui-col-date whitespace-nowrap" data-phone="tag">{r.effectiveTo || 'until changed'}</td>
+                      <td className="ui-col-meta" data-phone="act">
                         <span className="flex justify-end">
                           <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName} from ${r.shiftName}`} onClick={() => remove(r.id)}>
                             <Trash2 size={14} aria-hidden="true" /> Remove

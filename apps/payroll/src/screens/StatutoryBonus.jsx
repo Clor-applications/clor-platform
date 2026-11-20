@@ -226,7 +226,7 @@ export default function StatutoryBonus() {
 function BonusTable({ lines }) {
   return (
     <div className="ui-table-scroll">
-      <table className="ui-table w-full">
+      <table className="ui-table ui-table-phone w-full">
         <thead>
           <tr>
             <th scope="col">Employee</th>
@@ -240,7 +240,7 @@ function BonusTable({ lines }) {
         <tbody className="ui-rows">
           {lines.map((l) => (
             <tr key={l.id} className={l.eligible ? '' : 'ui-muted'}>
-              <td>
+              <td data-phone="name">
                 <span className="font-medium">{l.name}</span>
                 {l.code ? <span className="ui-mono ui-caption ml-2">{l.code}</span> : null}
                 {l.designation ? <span className="ui-caption block">{l.designation}</span> : null}
@@ -248,8 +248,8 @@ function BonusTable({ lines }) {
               <td className="ui-col-amount">{l.daysWorked}</td>
               <td className="ui-col-amount">{moneyCell(l.wages)}</td>
               <td className="ui-col-amount">{l.eligible ? money(l.bonusWages) : '—'}</td>
-              <td className="ui-col-amount">{l.eligible ? money(l.amount) : '—'}</td>
-              <td className="ui-caption">
+              <td className="ui-col-amount" data-phone="key">{l.eligible ? money(l.amount) : '—'}</td>
+              <td className="ui-caption" data-phone="sub">
                 {l.eligible ? null : <span className="ui-pill ui-pill-neutral mr-1">Does not qualify</span>}
                 {l.reason}
               </td>

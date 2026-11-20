@@ -222,7 +222,7 @@ export default function PayrollPeriods({ menuLabel } = {}) {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Period" col="name" state={filters} />
@@ -254,16 +254,16 @@ export default function PayrollPeriods({ menuLabel } = {}) {
               ) : (
                 rows.map((p) => (
                   <tr key={p.id} className={p.isLocked ? '' : 'ui-row-click'} onClick={p.isLocked ? undefined : () => setEditing(p)}>
-                    <td className="ui-col-entity">{p.name}</td>
-                    <td className="ui-col-meta">{labelFor(p.frequency)}</td>
+                    <td className="ui-col-entity" data-phone="name">{p.name}</td>
+                    <td className="ui-col-meta" data-phone="sub">{labelFor(p.frequency)}</td>
                     <td className="ui-col-date ui-col-h-center">{shown(p.startDate)}</td>
                     <td className="ui-col-date ui-col-h-center">{shown(p.endDate)}</td>
-                    <td className="ui-col-date ui-col-h-center">{shown(p.paymentDate)}</td>
+                    <td className="ui-col-date ui-col-h-center" data-phone="key">{shown(p.paymentDate)}</td>
                     <td className="ui-col-meta">{describeUsage(p.usage)}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-col-h-center" data-phone="tag">
                       <span className={`ui-pill ${p.isLocked ? 'ui-pill-neutral' : 'ui-pill-pos'}`}>{p.isLocked ? 'Closed' : 'Open'}</span>
                     </td>
-                    <td onClick={(e) => e.stopPropagation()}>
+                    <td data-phone="act" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         {/* Round 54 (unlockmonth B): a closed month is never reopened; fix it next month. */}
                         {p.isLocked ? null : (

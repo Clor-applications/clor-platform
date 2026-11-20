@@ -215,7 +215,7 @@ export default function FinalSettlements() {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="employee" state={filters} />
@@ -243,18 +243,20 @@ export default function FinalSettlements() {
               ) : (
                 rows.map((x) => (
                   <tr key={x.id} className="ui-row-click" onClick={() => setOpen(x)}>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-entity" data-phone="name">
                       {x.employeeName || '—'}
                       {x.employeeCode ? <span className="ui-caption"> · {x.employeeCode}</span> : null}
                     </td>
-                    <td className="ui-col-date whitespace-nowrap">{formatDateIn(x.leavingDate)}</td>
+                    <td className="ui-col-date whitespace-nowrap" data-phone="sub">{formatDateIn(x.leavingDate)}</td>
                     <td className="ui-col-date whitespace-nowrap">
                       {formatDateIn(x.dueDate)}
                       {x.overdue && x.status !== 'PAID' ? <span className="ui-pill ui-pill-neg ms-2">Overdue</span> : null}
                       {settlementClock(x) ? <span className="block ui-caption r52-fnf-clock">{settlementClock(x)}</span> : null}
                     </td>
-                    <td className="ui-num">{moneyCell(x.netPayable)}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-num" data-phone="key">{moneyCell(x.netPayable)}</td>
+                    <td className="ui-col-h-center" data-phone="tag">
+                      {/* Overdue lives in the Due cell on a desktop; a phone leaves that cell out, so it shows here. */}
+                      {x.overdue && x.status !== 'PAID' ? <span className="ui-pill ui-pill-neg ui-phone-only me-1" aria-hidden="true">Overdue</span> : null}
                       {x.hold ? <span className="ui-pill ui-pill-info">Held</span> : <ExceptionTag label={x.status === 'PAID' ? '' : STATUS[x.status]?.label || x.status} normal={STATUS[x.status]?.label} pill={STATUS[x.status]?.pill || 'ui-pill-neutral'} />}
                     </td>
                   </tr>

@@ -180,7 +180,7 @@ export default function PhonePunches({ menuLabel } = {}) {
         error ? null : <SkeletonCard lines={6} />
       ) : tab === 'latest' ? (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="employee" state={filters} />
@@ -193,11 +193,11 @@ export default function PhonePunches({ menuLabel } = {}) {
             <tbody className="ui-rows">
               {!rows.length ? empty(5, Users, 'No one punched from a phone', 'Each person who punched from a phone in these days shows here once, with the place and time of their last punch.') : rows.map((p) => (
                 <tr key={p.employeeId || p.id}>
-                  <td className="ui-col-entity">{p.name}</td>
-                  <td className="ui-col-grow whitespace-normal min-w-[12rem]">{placeOf(p) ? <span className="ui-punch-place" title={placeOf(p)}><MapPin size={13} aria-hidden="true" className="ui-punch-pin" />{placeOf(p)}</span> : <span className="ui-caption">Place not named</span>}</td>
-                  <td>{kindLabel(p)}</td>
-                  <td className="ui-col-date whitespace-nowrap tabular-nums">{p.time}</td>
-                  <td className="ui-col-meta"><span className="flex items-center justify-end gap-1">{tools(p)}</span></td>
+                  <td className="ui-col-entity" data-phone="name">{p.name}</td>
+                  <td className="ui-col-grow whitespace-normal min-w-[12rem]" data-phone="sub">{placeOf(p) ? <span className="ui-punch-place" title={placeOf(p)}><MapPin size={13} aria-hidden="true" className="ui-punch-pin" />{placeOf(p)}</span> : <span className="ui-caption">Place not named</span>}</td>
+                  <td data-phone="tag">{kindLabel(p)}</td>
+                  <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">{p.time}</td>
+                  <td className="ui-col-meta" data-phone="act"><span className="flex items-center justify-end gap-1">{tools(p)}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -205,7 +205,7 @@ export default function PhonePunches({ menuLabel } = {}) {
         </div>
       ) : tab === 'field' ? (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Time" col="time" state={filters} type="date" />
@@ -220,13 +220,13 @@ export default function PhonePunches({ menuLabel } = {}) {
             <tbody className="ui-rows">
               {!rows.length ? empty(7, Navigation, 'No field punches', 'People set to Field under Portal access can punch from anywhere; their punches show here with the address.') : rows.map((p) => (
                 <tr key={p.id}>
-                  <td className="ui-col-date whitespace-nowrap tabular-nums">{p.time}</td>
-                  <td className="ui-col-entity">{p.name}</td>
+                  <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">{p.time}</td>
+                  <td className="ui-col-entity" data-phone="name">{p.name}</td>
                   <td>{kindLabel(p)}</td>
-                  <td className="ui-col-grow whitespace-normal min-w-[12rem]"><span className="ui-punch-place" title={p.address || ''}>{p.address ? <><MapPin size={13} aria-hidden="true" className="ui-punch-pin" />{p.address}</> : <span className="ui-caption">Address not found</span>}</span><span className="ui-caption">{p.accuracy != null ? `±${metres(p.accuracy)}` : ''}</span></td>
+                  <td className="ui-col-grow whitespace-normal min-w-[12rem]" data-phone="sub"><span className="ui-punch-place" title={p.address || ''}>{p.address ? <><MapPin size={13} aria-hidden="true" className="ui-punch-pin" />{p.address}</> : <span className="ui-caption">Address not found</span>}</span><span className="ui-caption">{p.accuracy != null ? `±${metres(p.accuracy)}` : ''}</span></td>
                   <td>{p.nearest ? <span>{p.nearest.name}<span className="ui-caption"> · {metres(p.nearest.distance)} away</span></span> : <span className="ui-caption">—</span>}</td>
-                  <td className="ui-col-h-center"><ExceptionTag label={p.review === 'PENDING' || p.review === 'REJECTED' ? reviewLabel(p) : ''} normal={reviewLabel(p)} tone={p.review === 'REJECTED' ? 'neg' : 'warn'} /></td>
-                  <td className="ui-col-meta">
+                  <td className="ui-col-h-center" data-phone="tag"><ExceptionTag label={p.review === 'PENDING' || p.review === 'REJECTED' ? reviewLabel(p) : ''} normal={reviewLabel(p)} tone={p.review === 'REJECTED' ? 'neg' : 'warn'} /></td>
+                  <td className="ui-col-meta" data-phone="act">
                     <span className="flex items-center justify-end gap-1">
                       {tools(p)}
                       {p.review === 'PENDING' ? (
@@ -241,7 +241,7 @@ export default function PhonePunches({ menuLabel } = {}) {
         </div>
       ) : tab === 'accepted' ? (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Time" col="time" state={filters} type="date" />
@@ -256,13 +256,13 @@ export default function PhonePunches({ menuLabel } = {}) {
             <tbody className="ui-rows">
               {!rows.length ? empty(7, Smartphone, 'No phone punches', 'Nobody punched from a phone in these days. Phone punching is switched on per person under Portal access.') : rows.map((p) => (
                 <tr key={p.id}>
-                  <td className="ui-col-date whitespace-nowrap tabular-nums">{p.time}</td>
-                  <td className="ui-col-entity">{p.name}</td>
-                  <td>{kindLabel(p)}</td>
-                  <td>{p.site ? <span className="ui-punch-place"><MapPin size={13} aria-hidden="true" className="ui-punch-pin" />{p.site}</span> : <span className="ui-caption">—</span>}</td>
+                  <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">{p.time}</td>
+                  <td className="ui-col-entity" data-phone="name">{p.name}</td>
+                  <td data-phone="tag">{kindLabel(p)}</td>
+                  <td data-phone="sub">{p.site ? <span className="ui-punch-place"><MapPin size={13} aria-hidden="true" className="ui-punch-pin" />{p.site}</span> : <span className="ui-caption">—</span>}</td>
                   <td className="ui-num">{metres(p.distance)}{p.radius ? <span className="ui-caption"> / {metres(p.radius)}</span> : null}</td>
                   <td className="ui-num">{p.accuracy != null ? `±${metres(p.accuracy)}` : '—'}</td>
-                  <td className="ui-col-meta"><span className="flex items-center justify-end gap-1">{tools(p)}</span></td>
+                  <td className="ui-col-meta" data-phone="act"><span className="flex items-center justify-end gap-1">{tools(p)}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -270,7 +270,7 @@ export default function PhonePunches({ menuLabel } = {}) {
         </div>
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Time" col="time" state={filters} type="date" />
@@ -284,12 +284,12 @@ export default function PhonePunches({ menuLabel } = {}) {
             <tbody className="ui-rows">
               {!rows.length ? empty(6, Ban, 'Nothing refused', 'Every phone punch in these days was inside a punch area. Punches CLOR refuses (outside every punch area, location not accurate enough, or within a minute of the last one) are listed here.') : rows.map((r) => (
                 <tr key={r.id}>
-                  <td className="ui-col-date whitespace-nowrap tabular-nums">{r.time}</td>
-                  <td className="ui-col-entity">{r.name}</td>
-                  <td><span className="ui-pill ui-pill-warn mr-1.5">{REFUSED[r.code] || 'Refused'}</span><span className="ui-caption">{r.message}</span></td>
+                  <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">{r.time}</td>
+                  <td className="ui-col-entity" data-phone="name">{r.name}</td>
+                  <td data-phone="sub"><span className="ui-pill ui-pill-warn mr-1.5">{REFUSED[r.code] || 'Refused'}</span><span className="ui-caption">{r.message}</span></td>
                   <td>{r.nearest ? <span>{r.nearest.name}<span className="ui-caption"> · {metres(r.nearest.distance)} away (allowed {metres(r.nearest.radius)})</span></span> : <span className="ui-caption">—</span>}</td>
                   <td className="ui-num">{r.accuracy != null ? `±${metres(r.accuracy)}` : '—'}</td>
-                  <td className="ui-col-meta text-end">{r.latitude != null ? <a className="ui-icon-btn" href={mapUrl(r.latitude, r.longitude)} target="_blank" rel="noreferrer" aria-label="On a map" title="On a map"><ExternalLink size={14} aria-hidden="true" /></a> : null}</td>
+                  <td className="ui-col-meta text-end" data-phone="act">{r.latitude != null ? <a className="ui-icon-btn" href={mapUrl(r.latitude, r.longitude)} target="_blank" rel="noreferrer" aria-label="On a map" title="On a map"><ExternalLink size={14} aria-hidden="true" /></a> : null}</td>
                 </tr>
               ))}
             </tbody>

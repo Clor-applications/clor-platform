@@ -150,7 +150,7 @@ export default function MinimumWagesSection() {
 
       {rates.length ? (
         <div className="ui-table-scroll">
-          <table className="ui-table w-full">
+          <table className="ui-table ui-table-phone w-full">
             <thead>
               <tr>
                 <th scope="col">State</th>
@@ -165,20 +165,20 @@ export default function MinimumWagesSection() {
             <tbody className="ui-rows">
               {rates.map((r) => (
                 <tr key={r.id}>
-                  <td className="ui-col-meta">
+                  <td className="ui-col-meta" data-phone="name">
                     {r.stateLabel}
                     {r.note ? <span className="ui-caption block max-w-xs whitespace-normal">{r.note}</span> : null}
                   </td>
                   <td className="ui-col-meta">{r.zone || 'Whole state'}</td>
-                  <td className="ui-col-meta">{r.skillLabel.charAt(0).toUpperCase() + r.skillLabel.slice(1)}</td>
+                  <td className="ui-col-meta" data-phone="sub">{r.skillLabel.charAt(0).toUpperCase() + r.skillLabel.slice(1)}</td>
                   <td className="ui-col-date ui-col-h-center">{formatDateIn(r.effectiveFrom)}</td>
-                  <td className="ui-col-amount">{moneyCell(r.monthlyRate)}</td>
-                  <td className="text-center">
+                  <td className="ui-col-amount" data-phone="key">{moneyCell(r.monthlyRate)}</td>
+                  <td className="text-center" data-phone="tag">
                     <span className={`ui-pill ${live.has(r.id) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
                       {live.has(r.id) ? 'In force' : r.effectiveFrom > today ? 'Upcoming' : 'Earlier'}
                     </span>
                   </td>
-                  <td className="text-center">
+                  <td className="text-center" data-phone="act">
                     <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => remove(r)} aria-label={`Remove the ${r.stateLabel} ${r.skillLabel} rate from ${r.effectiveFrom}`}>
                       <Trash2 size={14} aria-hidden="true" />
                     </button>

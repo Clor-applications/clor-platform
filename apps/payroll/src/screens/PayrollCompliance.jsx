@@ -462,7 +462,7 @@ export default function PayrollCompliance({ params } = {}) {
                   <p className="ui-caption p-4">No rate for the states you have people in. Show every state, or add one.</p>
                 ) : (
                   <div className="ui-table-scroll">
-                    <table className="ui-table ui-table-sticky w-full">
+                    <table className="ui-table ui-table-sticky ui-table-phone w-full">
                       <thead>
                         <tr>
                           <th scope="col" className="ui-col-h-center">From</th>
@@ -479,18 +479,18 @@ export default function PayrollCompliance({ params } = {}) {
                       <tbody className="ui-rows">
                         {rules.map((rule) => (
                           <tr key={rule.id}>
-                            <td className="ui-col-date ui-col-h-center">{dateWords(rule.effectiveFrom)}</td>
+                            <td className="ui-col-date ui-col-h-center" data-phone="key">{dateWords(rule.effectiveFrom)}</td>
                             <td className="ui-col-date ui-col-h-center">{rule.effectiveTo ? dateWords(rule.effectiveTo) : '—'}</td>
-                            <td className="ui-col-meta">
+                            <td className="ui-col-meta" data-phone="name">
                               {rule.jurisdiction && rule.jurisdiction !== 'IN' ? (byState ? stateName(rule.jurisdiction) : rule.jurisdiction) : 'All of India'}
                               {rule.config?.localBody ? <span className="ui-caption block">{rule.config.localBody}</span> : null}
                             </td>
-                            <td className="ui-col-meta">
+                            <td className="ui-col-meta" data-phone="sub">
                               {describeRate(scheme.code, rule)}
                               {byState && rule.note ? <span className="ui-caption block max-w-xl whitespace-normal">{rule.note}</span> : null}
                             </td>
                             <td className="ui-col-amount">{rule.usedOnPayslips || 0}</td>
-                            <td>
+                            <td data-phone="tag">
                               <div className="flex flex-col items-center gap-1">
                                 <span className={`ui-pill ${rule.status === 'ACTIVE' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
                                   {rule.status === 'ACTIVE' ? 'In force' : 'Superseded'}
@@ -498,7 +498,7 @@ export default function PayrollCompliance({ params } = {}) {
                                 {rule.needsCheck ? <span className="ui-pill ui-pill-warn">Check before use</span> : null}
                               </div>
                             </td>
-                            <td>
+                            <td data-phone="act">
                               <div className="flex items-center justify-end gap-1">
                                 <button
                                   type="button"

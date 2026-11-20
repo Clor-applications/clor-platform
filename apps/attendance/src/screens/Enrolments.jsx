@@ -94,7 +94,7 @@ export default function Enrolments({ menuLabel } = {}) {
       ) : (
         <>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <ColumnHeader label="Employee" col="employee" state={filters}  className="ui-col-grow" />
@@ -123,9 +123,9 @@ export default function Enrolments({ menuLabel } = {}) {
                 ) : (
                   pageRows.map((r) => (
                     <tr key={r.pin}>
-                      <td className="ui-col-entity">{r.employeeName || <span className="ui-caption" style={{ color: 'rgb(var(--warn-ink))' }}>not matched to an employee</span>}</td>
-                      <td className="ui-mono">{r.pin}</td>
-                      <td className="ui-num">{r.fingers || '—'}</td>
+                      <td className="ui-col-entity" data-phone="name">{r.employeeName || <span className="ui-caption" style={{ color: 'rgb(var(--warn-ink))' }}>not matched to an employee</span>}</td>
+                      <td className="ui-mono" data-phone="sub">{r.pin}</td>
+                      <td className="ui-num" data-phone="key">{r.fingers || '—'}</td>
                       <td className="ui-col-h-center">{r.faces ? '✓' : '—'}</td>
                       <td className="ui-col-h-center hidden md:table-cell">{r.photo ? <button type="button" className="ui-link text-sm" onClick={() => showPhoto(r)}>View</button> : '—'}</td>
                       <td className="ui-col-date whitespace-nowrap">{r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '—'}</td>

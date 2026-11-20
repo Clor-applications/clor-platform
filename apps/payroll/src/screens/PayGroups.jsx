@@ -156,7 +156,7 @@ export default function PayGroups() {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Pay group" col="name" state={filters} />
@@ -186,15 +186,15 @@ export default function PayGroups() {
               ) : (
                 rows.map((g) => (
                   <tr key={g.id} className="ui-row-click" onClick={() => setEditing({ ...g, paymentDay: g.paymentDay ?? '' })}>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-entity" data-phone="name">
                       {g.name}
                       {g.code ? <span className="ui-caption ml-2 ui-mono">{g.code}</span> : null}
                     </td>
-                    <td className="ui-col-meta">{labelFor(g.frequency)}</td>
-                    <td className="ui-col-h-center">{g.paymentDay ? <>Day {g.paymentDay}{payDayWarning(g.paymentDay) ? <span className="ui-caption ui-text-warn block" title={payDayWarning(g.paymentDay)}>After the 7th</span> : null}</> : '—'}</td>
+                    <td className="ui-col-meta" data-phone="sub">{labelFor(g.frequency)}</td>
+                    <td className="ui-col-h-center" data-phone="key">{g.paymentDay ? <>Day {g.paymentDay}{payDayWarning(g.paymentDay) ? <span className="ui-caption ui-text-warn block" title={payDayWarning(g.paymentDay)}>After the 7th</span> : null}</> : '—'}</td>
                     <td className="ui-col-meta">{describeUsage(g.usage)}</td>
-                    <td className="ui-col-h-center">{g.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
-                    <td className="text-end" onClick={(e) => e.stopPropagation()}>
+                    <td className="ui-col-h-center" data-phone="tag">{g.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
+                    <td className="text-end" data-phone="act" onClick={(e) => e.stopPropagation()}>
                       <button type="button" className="ui-icon-btn" aria-label={`Delete ${g.name}`} onClick={() => remove(g)}>
                         <Trash2 size={16} aria-hidden="true" />
                       </button>

@@ -191,7 +191,7 @@ export default function SalaryRevisions({ params } = {}) {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="employee" state={filters} />
@@ -224,16 +224,16 @@ export default function SalaryRevisions({ params } = {}) {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id} className="ui-row-click" onClick={() => setOpenId(r.id)}>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-entity" data-phone="name">
                       {r.employeeName}
                       {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
                     </td>
                     <td className="ui-col-amount">{moneyCell(r.currentAnnualCtc)}</td>
-                    <td className="ui-col-amount">{moneyCell(r.proposedAnnualCtc)}</td>
+                    <td className="ui-col-amount" data-phone="key">{moneyCell(r.proposedAnnualCtc)}</td>
                     <td className="ui-col-amount">{r.incrementPercent ? `${r.incrementPercent}%` : '—'}</td>
-                    <td className="ui-col-date ui-col-h-center">{dateWords(r.effectiveFrom)}</td>
+                    <td className="ui-col-date ui-col-h-center" data-phone="sub">{dateWords(r.effectiveFrom)}</td>
                     <td className="ui-col-meta ui-col-grow whitespace-normal">{r.reason || '—'}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={r.status === 'APPLIED' ? '' : STATUS[r.status]?.label || r.status} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} />
                     </td>
                   </tr>

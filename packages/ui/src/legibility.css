@@ -135,7 +135,16 @@
   :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='sub'] { grid-column: 1; grid-row: 2; font-size: 0.75rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='key'] { grid-column: 2; grid-row: 1; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='tag'] { grid-column: 2; grid-row: 2; justify-self: end; text-align: right; }
+  /* The row's own controls (its menu, tick and cross) stay reachable: a third column beside both lines. */
+  :root:not(#pk) table.ui-table.ui-table-phone > tbody > tr:has(> td[data-phone='act']) { grid-template-columns: minmax(0, 1fr) auto auto; }
+  :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='act'] { grid-column: 3; grid-row: 1 / span 2; align-self: center; white-space: nowrap; }
+  /* Row controls that do not fit beside the name (two or more text buttons) take a third line of their own. */
+  :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='more'] { grid-column: 1 / -1; grid-row: 3; text-align: left; }
+  :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='more']:empty { display: none !important; }
+  :root:not(#pk) table.ui-table.ui-table-phone .ui-phone-only { display: inline-flex !important; }
 }
+/* A tag shown only on a phone (its desktop home is a cell the phone leaves out). */
+.ui-phone-only { display: none !important; }
 
 /* ---- Shared defaults, calm register (design audit 20 Nov 2026, docs/design-audit-2026-11-20.md S1-S4, S9, S10).
    The shared parts still carried pre-19 Nov rules, so every screen built on them inherited the drift. One rule each

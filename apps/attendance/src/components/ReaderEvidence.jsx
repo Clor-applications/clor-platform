@@ -101,14 +101,14 @@ export function ReaderCompatibility() {
       {!data ? <p className="ui-caption mt-2">Loading the list of readers…</p> : (
         <div className="mt-3 space-y-2">
           <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-            <table className="ui-table w-full">
+            <table className="ui-table ui-table-phone w-full">
               <thead><tr><th className="ui-th">Reader</th><th className="ui-th">Support</th><th className="ui-th">How</th><th className="ui-th">Note</th></tr></thead>
               <tbody>
                 {data.catalogue.map((c) => (
                   <tr key={c.name}>
-                    <td className="ui-col-entity">{c.name}</td>
-                    <td><SupportPill support={c} /></td>
-                    <td>{c.route}</td>
+                    <td className="ui-col-entity" data-phone="name">{c.name}</td>
+                    <td data-phone="tag"><SupportPill support={c} /></td>
+                    <td data-phone="sub">{c.route}</td>
                     <td className="ui-caption">{c.note || '—'}</td>
                   </tr>
                 ))}
