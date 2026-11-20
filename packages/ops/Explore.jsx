@@ -267,7 +267,7 @@ export function ExploreLinks({ role, openRequest }) {
 
   return (
     <>
-      <PageHead crumbs={['Customers and sales']} title="Explore links" meta={data ? (data.active ? `${data.active} open` : 'None open') : null} />
+      <PageHead crumbs={['Customers and sales']} title="Explore links" counts={data ? (data.active ? `${data.active} open` : 'None open') : null} />
       <div className="flex flex-wrap gap-2 items-center">
         <select className="ui-select" style={{ width: 'auto' }} aria-label="Which links" value={view.state} onChange={(e) => setView({ state: e.target.value, page: 0 })}>
           {VIEWS.map(([k, label]) => (

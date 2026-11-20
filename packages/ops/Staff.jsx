@@ -52,7 +52,7 @@ export function Staff({ me }) {
       <PageHead
         crumbs={['Trust']}
         title="Staff and roles"
-        meta={d ? `${rows.length} on the console${d.invites.length ? ` · ${d.invites.length} invited` : ''}` : null}
+        counts={d ? `${rows.length} on the console${d.invites.length ? ` · ${d.invites.length} invited` : ''}` : null}
         actions={<button type="button" className="ws-btn ws-btn--primary" onClick={() => setAct({ kind: 'invite' })}>Invite staff</button>}
       />
       <Err>{error}</Err>

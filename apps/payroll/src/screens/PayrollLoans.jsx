@@ -542,7 +542,7 @@ const LoanDetail = ({ loanId, onBack }) => {
                   <Ban size={16} aria-hidden="true" /> Cancel loan
                 </button>
                 <button type="button" className="ui-btn ui-btn-primary" onClick={approve} disabled={busy === 'approve'}>
-                  {busy === 'approve' ? 'Approving…' : 'Approve'}
+                  <Check size={16} aria-hidden="true" /> {busy === 'approve' ? 'Approving…' : 'Approve loan'}
                 </button>
               </>
             ) : null}

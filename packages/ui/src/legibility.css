@@ -192,3 +192,26 @@
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-dialog, .ui-confirm) { border-radius: 0.75rem !important; }
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-confirm { max-width: 420px; }
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-scrim { backdrop-filter: none; }
+
+/* ---- Shared components, calm register (design audit 20 Nov 2026, G3 and G4). Books keeps its own. ---- */
+
+/* G3. A form part is a heading over a 2px ink rule, never a box or a tinted band (DESIGN.md "Forms"; FormPart). */
+.ui-form-part + .ui-form-part { margin-top: 2rem; }
+.ui-form-part-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid rgb(var(--fg));
+}
+.ui-form-part-help { margin: 0.125rem 0 0; font-size: 0.8125rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); }
+.ui-form-part-body { padding-top: 1rem; }
+
+/* G4. A total row is bold over a rule (DESIGN.md "Tables"): every table footer, and any row marked .ui-table-total. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) table.ui-table :is(tfoot tr, tr.ui-table-total) > :is(td, th) {
+  font-weight: 700;
+  color: rgb(var(--fg));
+  border-top: 0;
+  box-shadow: inset 0 1px 0 rgb(var(--fg));
+}

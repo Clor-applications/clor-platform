@@ -44,7 +44,7 @@ export function TdsCertificates({ role, openInvoice }) {
   const owed = (rows || []).reduce((s, r) => s + (r.tdsDeducted || 0), 0);
   return (
     <>
-      <PageHead crumbs={['Billing and setup']} title="TDS certificates" meta={!rows ? null : rows.length ? `${rows.length} still to come · ${inr(owed)} of TDS` : 'None outstanding'} />
+      <PageHead crumbs={['Billing and setup']} title="TDS certificates" counts={!rows ? null : rows.length ? `${rows.length} still to come · ${inr(owed)} of TDS` : 'None outstanding'} />
       <p className="ws-card-blurb r67-lede">A customer that paid an invoice less TDS owes CLOR the Form 16A for it. Each one stays here until it comes in. TDS is entered when an invoice is marked paid.</p>
       <Err>{error}</Err>
       {!rows ? (
@@ -123,7 +123,7 @@ export function Proformas({ role, openInvoice }) {
   };
   return (
     <>
-      <PageHead crumbs={['Billing and setup']} title="Proformas" meta={rows ? (rows.length ? `${rows.length} ${rows.length === 1 ? 'proforma' : 'proformas'}` : null) : null} />
+      <PageHead crumbs={['Billing and setup']} title="Proformas" counts={rows ? (rows.length ? `${rows.length} ${rows.length === 1 ? 'proforma' : 'proformas'}` : null) : null} />
       <p className="ws-card-blurb r67-lede">Customers make a proforma in Workspace, Billing: the plan with GST, valid 15 days, for their accounts team to pay against. When the money comes, make the tax invoice from it here.</p>
       <Err>{error}</Err>
       {!rows ? (
@@ -231,7 +231,7 @@ export function VendorDocuments({ role }) {
       <PageHead
         crumbs={['Billing and setup']}
         title="Vendor documents"
-        meta={rows ? (rows.length ? `${rows.length} shared with customers` : 'None shared yet') : null}
+        counts={rows ? (rows.length ? `${rows.length} shared with customers` : 'None shared yet') : null}
         actions={
           mayChange ? (
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => setAdding(true)}>

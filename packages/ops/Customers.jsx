@@ -118,7 +118,7 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
       <PageHead
         title="Accounts"
         description="Every customer account. Open one to see its companies, subscription, users and support access."
-        meta={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'account' : 'accounts'}` : null}
+        counts={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'account' : 'accounts'}` : null}
       />
       <div className="flex flex-wrap gap-2 items-center" role="search">
         <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 460 }}>

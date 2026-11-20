@@ -76,7 +76,7 @@ export function TextMessages({ role }) {
       <PageHead
         crumbs={['Platform']}
         title="Text messages"
-        meta={`Sign-in codes by SMS · ${status}`}
+        counts={`Sign-in codes by SMS · ${status}`}
         actions={
           mayChange ? (
             <button type="submit" form="ops-sms" className="ws-btn ws-btn--primary" disabled={busy}>

@@ -123,7 +123,7 @@ export function Pricing({ role }) {
       <PageHead
         crumbs={['Billing and setup']}
         title="Pricing"
-        meta={live ? `Version ${live.version} is on clor.in, since ${day(live.publishedAt)}` : 'Nothing published: clor.in shows Request a demo'}
+        counts={live ? `Version ${live.version} is on clor.in, since ${day(live.publishedAt)}` : 'Nothing published: clor.in shows Request a demo'}
         actions={
           draft ? (
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => setBookId(draft.id)}>
@@ -265,7 +265,7 @@ function PriceBook({ id, role, catalogue, back, open, live }) {
       <PageHead
         crumbs={['Billing and setup', 'Pricing']}
         title={`Version ${book.version}`}
-        meta={
+        counts={
           <>
             <StatusPill status={book.status} /> {book.status === 'PUBLISHED' ? `since ${day(book.publishedAt)}` : `on ${day(book.archivedAt)}`}
           </>
@@ -459,7 +459,7 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
       <PageHead
         crumbs={['Billing and setup', 'Pricing']}
         title={`Version ${book.version}, draft`}
-        meta={dirty ? 'Changes not saved' : 'Saved. Not on clor.in yet'}
+        counts={dirty ? 'Changes not saved' : 'Saved. Not on clor.in yet'}
         actions={
           mayChange ? (
             <button type="button" className="ws-btn ws-btn--primary" disabled={dirty || !plans.length} title={dirty ? 'Save the draft first' : undefined} onClick={() => setConfirm('publish')}>

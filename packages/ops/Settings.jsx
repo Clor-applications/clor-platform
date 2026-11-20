@@ -65,7 +65,7 @@ export function Settings({ role }) {
       <PageHead
         crumbs={['Billing and setup']}
         title="Tax"
-        meta={tax.registered ? `GST registered · ${tax.gstin}` : 'Not GST registered'}
+        counts={tax.registered ? `GST registered · ${tax.gstin}` : 'Not GST registered'}
         actions={
           mayChange ? (
             <button type="submit" form="ops-tax" className="ws-btn ws-btn--primary" disabled={busy}>

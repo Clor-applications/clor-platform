@@ -73,7 +73,7 @@ export function DemoRequests({ openRequest }) {
   const waiting = data?.counts?.NEW || 0;
   return (
     <>
-      <PageHead crumbs={['Customers and sales']} title="Demo requests" meta={data ? (waiting ? `${waiting} new` : 'None new') : null} />
+      <PageHead crumbs={['Customers and sales']} title="Demo requests" counts={data ? (waiting ? `${waiting} new` : 'None new') : null} />
       <div className="flex flex-wrap gap-2 items-center">
         <select className="ui-select" style={{ width: 'auto' }} aria-label="Whose" value={view.view} onChange={(e) => setView((v) => ({ ...v, view: e.target.value, page: 0 }))}>
           {VIEWS.map(([k, l]) => (
@@ -242,7 +242,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
       <PageHead
         crumbs={['Customers and sales', 'Demo requests']}
         title={r.company}
-        meta={<>{r.name} · asked {day(r.createdAt)}</>}
+        counts={<>{r.name} · asked {day(r.createdAt)}</>}
         actions={
           closed && d.account ? (
             <button type="button" className="ws-btn ws-btn--quiet" onClick={() => openAccount(d.account.id)}>Open the account</button>

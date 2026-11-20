@@ -47,7 +47,7 @@ export function Breaches({ me, openCustomer }) {
       <PageHead
         crumbs={['Trust']}
         title="Data breaches"
-        meta={rows ? (rows.length ? (rows.some((b) => !b.notifiedAt) ? `${rows.filter((b) => !b.notifiedAt).length} not told yet` : 'All customers told') : 'None recorded') : null}
+        counts={rows ? (rows.length ? (rows.some((b) => !b.notifiedAt) ? `${rows.filter((b) => !b.notifiedAt).length} not told yet` : 'All customers told') : 'None recorded') : null}
         actions={
           mayChange ? (
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => setRecording(true)}>

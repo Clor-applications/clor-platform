@@ -135,7 +135,7 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
       <PageHead
         crumbs={['Billing and setup']}
         title="Invoices"
-        meta={!data ? null : unpaid?.count ? `${unpaid.count} unpaid, ${inr(unpaid.amount)}${t.OVERDUE?.count ? ` · ${t.OVERDUE.count} overdue` : ''}` : 'Nothing unpaid'}
+        counts={!data ? null : unpaid?.count ? `${unpaid.count} unpaid, ${inr(unpaid.amount)}${t.OVERDUE?.count ? ` · ${t.OVERDUE.count} overdue` : ''}` : 'Nothing unpaid'}
         actions={
           mayChange ? (
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => setMaking(true)}>
@@ -544,7 +544,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
       <PageHead
         crumbs={['Billing and setup', 'Invoices']}
         title={inv.number || 'Draft invoice'}
-        meta={
+        counts={
           <span className="flex items-center gap-2 flex-wrap">
             <InvoiceStatus status={inv.status} overdue={inv.overdue} />
             <span>

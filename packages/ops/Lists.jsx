@@ -107,7 +107,7 @@ export function Organisations({ account = '', openAccount, clearAccount }) {
       <PageHead
         title="Companies"
         description="Every company, across every account. Each company’s data is kept apart: nobody in one company can read another’s."
-        meta={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'company' : 'companies'}` : null}
+        counts={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'company' : 'companies'}` : null}
       />
       <div className="ops-filters" role="search">
         <SearchBox label="Search companies" value={view.q} onChange={(q) => set({ q })} placeholder="Search company, company ID or GSTIN" />
@@ -246,7 +246,7 @@ export function Users({ openAccount }) {
       <PageHead
         title="Users"
         description="People who can sign in, across all accounts. One person can belong to many accounts, for example a CA firm."
-        meta={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'person' : 'people'}` : null}
+        counts={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'person' : 'people'}` : null}
         actions={
           <button type="button" className="ws-btn ws-btn--quiet" onClick={exportCsv} disabled={exporting || !data?.total}>
             {exporting ? 'Exporting…' : 'Export'}
@@ -507,7 +507,7 @@ export function FeatureSwitches({ openAccount }) {
       <PageHead
         title="Feature switches"
         description="Every feature, who gets it, and the accounts CLOR switched it for. Switch one for an account on that account’s Limits tab; every change needs a reason and is logged."
-        meta={data ? `${data.accountsChanged} ${data.accountsChanged === 1 ? 'account has' : 'accounts have'} a switch set by CLOR` : null}
+        counts={data ? `${data.accountsChanged} ${data.accountsChanged === 1 ? 'account has' : 'accounts have'} a switch set by CLOR` : null}
       />
       <div className="ops-filters" role="search">
         <SearchBox label="Search switches" value={view.q} onChange={(q) => set({ q })} placeholder="Search a feature" />

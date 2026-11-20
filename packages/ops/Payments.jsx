@@ -107,7 +107,7 @@ export function Payments({ role, openCustomer }) {
       <PageHead
         crumbs={['Billing and setup']}
         title="Payments"
-        meta={active ? `Customers pay through ${active.name}${active.mode === 'LIVE' ? ', live' : active.code === 'manual' ? '' : ', in test mode'}` : 'No provider is active: subscriptions are set by hand'}
+        counts={active ? `Customers pay through ${active.name}${active.mode === 'LIVE' ? ', live' : active.code === 'manual' ? '' : ', in test mode'}` : 'No provider is active: subscriptions are set by hand'}
         actions={
           mayChange ? (
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => setRecording(true)}>

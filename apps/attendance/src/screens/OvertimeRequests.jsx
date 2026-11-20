@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarPlus, Check, Clock, Settings2, Timer, UserRound, X } from '@ui/components/ui/lineIcons';
+import { CalendarPlus, Clock, Settings2, Timer, UserRound } from '@ui/components/ui/lineIcons';
+import ApproveActions from '@ui/components/ui/ApproveActions';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -187,8 +188,7 @@ export default function OvertimeRequests() {
                         ) : (
                           <span className="flex items-center justify-end gap-1">
                             <input className="ui-input ui-ctl-compact !w-40" placeholder="Note (optional)" value={notes[r.id] || ''} onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))} aria-label="Note" />
-                            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => decide(r, true)}><Check size={14} aria-hidden="true" /> Approve</button>
-                            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => decide(r, false)}><X size={14} aria-hidden="true" /> Decline</button>
+                            <ApproveActions what={`${r.kind === 'COMP_OFF' ? 'comp-off' : 'overtime'} for ${r.employeeName}`} onApprove={() => decide(r, true)} onReject={() => decide(r, false)} rejectTitle="Decline" />
                           </span>
                         )}
                       </td>

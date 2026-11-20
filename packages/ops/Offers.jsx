@@ -233,7 +233,7 @@ export function Offers({ role }) {
           crumbs={['Billing and setup']}
           title="Offers"
           description="Codes that take a percent or an amount off a plan. Finance gives one to a customer when setting their subscription."
-          meta={d ? countLine([[n('active'), 'can be used'], [n('paused'), 'paused']], 'No offers in force') : null}
+          counts={d ? countLine([[n('active'), 'can be used'], [n('paused'), 'paused']], 'No offers in force') : null}
           actions={
             mayChange ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setEditing('new')}>

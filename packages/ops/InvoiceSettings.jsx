@@ -45,7 +45,7 @@ export function InvoiceSettings({ role, openTax, openPayments, openTemplates }) 
   const mayChange = may(role, 'BILLING');
   return (
     <>
-      <PageHead crumbs={['Billing and setup']} title="Invoice settings" meta={`Next invoice: ${s.nextNumber}`} />
+      <PageHead crumbs={['Billing and setup']} title="Invoice settings" counts={`Next invoice: ${s.nextNumber}`} />
       <div className="grid gap-6" style={{ maxWidth: 820 }}>
         <Numbering s={s} mayChange={mayChange} onSaved={load} />
         <Renewals s={s} mayChange={mayChange} onSaved={load} />

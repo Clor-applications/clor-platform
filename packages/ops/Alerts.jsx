@@ -45,7 +45,7 @@ export function Alerts({ go, me }) {
           crumbs={['Platform']}
           title="Alerts"
           description="Checked every ten minutes. An alert closes on its own when the problem clears; new ones are emailed to the team they are for."
-          meta={d ? countLine([[d.counts.open, 'open'], [d.counts.critical, 'urgent'], [d.counts.unacknowledged, 'not acknowledged']], 'No open alerts') : null}
+          counts={d ? countLine([[d.counts.open, 'open'], [d.counts.critical, 'urgent'], [d.counts.unacknowledged, 'not acknowledged']], 'No open alerts') : null}
         />
         <Tabs
           label="Which alerts"

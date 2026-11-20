@@ -2,6 +2,7 @@ import React from 'react';
 import { Check } from '@ui/components/ui/lineIcons';
 
 import Illustration from './Illustration';
+import { CountLine } from './CountLine';
 import { iconFor } from './entityIdentity';
 import { resolveStatus } from '../../utils/statusRegistry';
 import { enumWords } from '../../utils/errorWords.js';
@@ -56,8 +57,10 @@ export const EntityMark = ({ entity, size = 18 }) => {
   );
 };
 
-/* `breadcrumb`: [{ label, onClick? }] — the trail above the title (People design spec v1 §5); the last item is the current page. */
-export const PageHeader = ({ title, description, actions = null, entity = '', breadcrumb = null }) => (
+/* `breadcrumb`: [{ label, onClick? }] — the trail above the title (People design spec v1 §5); the last item is the current page.
+   `counts`: the count line under the title (DESIGN.md "Page header"; design audit G6), either CountLine items
+   ([{ label, value, onClick? }], zero clauses left out) or a ready line of text. One primary goes in `actions`. */
+export const PageHeader = ({ title, description, actions = null, entity = '', breadcrumb = null, counts = null }) => (
   <div className="ui-page-heading flex flex-wrap items-start justify-between gap-3 mb-2">
     {/* The title gives way before the actions do: they stay top right until the title would be narrower than 20rem. */}
     <div className="flex min-w-0 items-center gap-2.5" style={{ flex: '1 1 20rem' }}>
@@ -75,6 +78,7 @@ export const PageHeader = ({ title, description, actions = null, entity = '', br
           </nav>
         ) : null}
         <h1 className="ui-t-page">{title}</h1>
+        {Array.isArray(counts) ? <CountLine items={counts} /> : counts ? <p className="ui-count-line">{counts}</p> : null}
         {description ? <p className="ui-muted ui-t-body mt-0.5" title={typeof description === 'string' ? description : undefined}>{description}</p> : null}
       </div>
     </div>
