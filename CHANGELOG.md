@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-86f69a7 - 2026-11-20
+
+API revision `clor-api-00157-8xt`. Previous release `rel-81c14c0` (roll back there).
+
+- #400 Ops Home queue: take a row ("Mine") or put it away until tomorrow ("Not today")
+- #408 Release record: rel-81c14c0
+- #351 Release record: rel-f5a3c97
+- #337 Release record: rel-f16a2ae
+- #313 Release record: rel-61e7a5a
+
 ## rel-81c14c0 - 2026-11-20
 
 API revision `clor-api-00156-c7f`. Previous release `rel-4f8ddd8` (roll back there).
