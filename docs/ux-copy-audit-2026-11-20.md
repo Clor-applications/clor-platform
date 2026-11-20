@@ -14,7 +14,7 @@ unticked line says why it was left.
 
 | Area | Checklist | Fixed | Left |
 |---|---|---|---|
-| Website | [website.md](ux-copy-audit/website.md) | 60 | 2 |
+| Website | [website.md](ux-copy-audit/website.md) | 61 | 1 |
 | Shell and shared UI | [shell-ui.md](ux-copy-audit/shell-ui.md) | 66 | 5 |
 | Workspace | [workspace.md](ux-copy-audit/workspace.md) | 64 | 4 |
 | People | [people.md](ux-copy-audit/people.md) | 74 | 3 |
@@ -25,8 +25,6 @@ unticked line says why it was left.
 
 Left for the owner to decide:
 
-- Refund page sections about an on-premise edition (`website/src/pages/Pages.jsx:725`): kept
-  until it is confirmed whether such an edition is offered.
 - Notification bell wording: shared with People Overview, so change both together or neither.
 - Books-only copy in shared components ("Retry", "Select Branch", "Reset"): Books is kept as it is.
 - "Users & access" and "Billing & seats": the owner's names, kept.

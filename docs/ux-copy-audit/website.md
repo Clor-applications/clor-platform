@@ -1,6 +1,6 @@
 # UX copy audit fixes: marketing website (website/)
 
-- [ ] #1 website/src/pages/Pages.jsx:725 — skipped: legal text kept for payment-provider review; owner to confirm whether an on-premise edition is offered
+- [x] #1 website/src/pages/Pages.jsx:725, :769 — on-premise sections removed from the refund and delivery pages (owner, 20 Nov 2026: no on-premise edition); both pages now say last updated 20 Nov 2026
 - [x] #2 website/src/pages/Pages.jsx:735 — "Free tier and trials / Free plans and trial periods carry no charge and nothing to refund." → "Free trials / A free trial carries no charge, so there is nothing to refund."
 - [x] #3 website/src/pages/Demo.jsx:278 — "with the apps you chose, on a 30-day trial" → "with the products you chose, on a free trial" (no plan data on that page; the "14 days" at line 169 is the sample-company link, not the trial, so it stays)
 - [x] #4 website/src/components/Blocks.jsx:33 — "See CLOR with your own company’s figures." → "See CLOR doing work like yours."; also Home.jsx:736 "See it with your own figures" → "See it doing work like yours", Product.jsx:196 "See {name} with your own data." → "See {name} doing work like yours."

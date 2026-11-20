@@ -703,12 +703,13 @@ function StatusPosts({ title, posts }) {
 /* ------------------------------------------------------------------- legal */
 /*
  * Refund and cancellation: published on clor.in before this site (11 October
- * 2026) and kept word for word, because payment providers check for it. It is
- * the website's own page, not one of the app's shared legal documents.
+ * 2026), because payment providers check for it. The on-premise section came
+ * out on 20 Nov 2026: CLOR is sold as a cloud service only. It is the
+ * website's own page, not one of the app's shared legal documents.
  */
 const REFUND = {
   title: 'Refund and cancellation',
-  summary: 'How billing, cancellation and refunds work for CLOR. Last updated 11 Oct 2026.',
+  summary: 'How billing, cancellation and refunds work for CLOR. Last updated 20 Nov 2026.',
   Body: () => (
     <>
       <h2>Cloud subscriptions</h2>
@@ -721,11 +722,6 @@ const REFUND = {
         Monthly fees already charged are generally non-refundable. For yearly plans cancelled within 7 days of the first payment, we refund the
         amount in full. After 7 days, yearly plans are non-refundable but remain active until the term ends. If we materially fail to provide the
         service and cannot fix it, contact us and we will refund the affected period.
-      </p>
-      <h2>On-premise licences</h2>
-      <p>
-        On-premise licence fees and annual support (AMC) are non-refundable once a licence key has been issued, because the software has been
-        delivered. A trial or pilot period, where offered, lets you evaluate before paying.
       </p>
       <h2>How refunds are paid</h2>
       <p>
@@ -748,7 +744,7 @@ const REFUND = {
  */
 const DELIVERY = {
   title: 'Delivery policy',
-  summary: 'How you receive CLOR after you sign up or pay. Last updated 9 Nov 2026.',
+  summary: 'How you receive CLOR after you sign up or pay. Last updated 20 Nov 2026.',
   Body: () => (
     <>
       <h2>Nothing is shipped</h2>
@@ -766,8 +762,6 @@ const DELIVERY = {
         A paid plan or an added product starts as soon as the payment is confirmed. Nothing changes in how you sign in: the new products appear in the
         same account.
       </p>
-      <h2>On-premise licences</h2>
-      <p>The licence key and the installation guide are emailed to the address on the order once the payment is confirmed.</p>
       <h2>Invoices</h2>
       <p>The invoice for each payment is emailed to the account owner.</p>
       <h2>If something has not arrived</h2>
