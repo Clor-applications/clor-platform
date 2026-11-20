@@ -242,13 +242,13 @@ export const SET_PASSWORD_DAYS = 7;
  * `profile` lands in the company's profileJson; `requestedApp` there is the
  * app the owner asked for, for the shell to open first (roadmap item 5).
  */
-export async function provisionAccount(input: { ownerName: string; ownerEmail: string; companyName: string; state: string; plan: AccountApps; profile?: Record<string, unknown>; ip?: string; actor?: string; password?: string }) {
+export async function provisionAccount(input: { ownerName: string; ownerEmail: string; companyName: string; state: string; gstin?: string | null; plan: AccountApps; profile?: Record<string, unknown>; ip?: string; actor?: string; password?: string }) {
   const email = input.ownerEmail.trim().toLowerCase();
   const taken = await platformPrisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } });
   if (taken) throw new ProvisionError(409, 'Somebody already signs in to CLOR with this email. Ask them to sign in, or use another address.', 'EMAIL_TAKEN');
 
   const { account, user } = await createAccountWithOwner({ email, name: input.ownerName, accountName: input.companyName, passwordHash: input.password ? await bcrypt.hash(input.password, Number(process.env.BCRYPT_ROUNDS || 12)) : null, plan: input.plan });
-  const { org, branch } = await createCompany({ accountId: account.id, userId: user.id, companyName: input.companyName, state: input.state, profile: input.profile });
+  const { org, branch } = await createCompany({ accountId: account.id, userId: user.id, companyName: input.companyName, state: input.state, gstin: input.gstin, profile: input.profile });
 
   const token = input.password ? null : await issuePasswordResetToken({ id: user.id, accountId: account.id }, input.ip, SET_PASSWORD_DAYS * 86_400_000);
   const appUrl = (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');

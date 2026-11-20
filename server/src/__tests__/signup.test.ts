@@ -227,6 +227,18 @@ describe('the link and the setup step', () => {
     expect(switches.filter((s) => s.enabled).map((s) => s.key).sort()).toEqual(['attendance', 'people']);
   }, 60_000);
 
+  it('keeps the GSTIN given at setup on the company and its head office, and refuses a wrong one or one from another state', async () => {
+    const { token } = await started({ app: 'people' });
+    expect((await setup(token, { apps: ['people'], state: undefined, gstin: '29ABCDE1234F1ZW' }).expect(400)).body.code).toBe('STATE_REQUIRED');
+    expect((await setup(token, { apps: ['people'], state: 'Karnataka', gstin: '29ABCDE1234F1Z5' }).expect(400)).body.code).toBe('BAD_GSTIN');
+    expect((await setup(token, { apps: ['people'], state: 'Kerala', gstin: '29ABCDE1234F1ZW' }).expect(400)).body.code).toBe('BAD_GSTIN');
+    const r = await setup(token, { apps: ['people'], state: 'Karnataka', gstin: '29abcde1234f1zw' }).expect(201);
+    const org = await platformPrisma.org.findUniqueOrThrow({ where: { id: r.body.activeOrgId } });
+    const branch = await platformPrisma.branch.findFirstOrThrow({ where: { orgId: org.id } });
+    expect(branch.gstin).toBe('29ABCDE1234F1ZW');
+    expect(branch.gstRegistrationType).toBe('REGULAR');
+  }, 60_000);
+
   it('turns away an email that came to sign in meanwhile, and leaves the link usable', async () => {
     const { email, token } = await started();
     await request(app).post('/api/auth/signup').send({ email, password: 'Passw0rd!23', name: 'Same person' }).expect(200);
