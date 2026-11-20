@@ -143,9 +143,9 @@ export function InvoiceDrawer({ viewer }) {
 
 export const invoiceDay = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
-/** The status as a pill in the hand-off's words: paid, due on a day, overdue, cancelled. */
+/** The status as a pill in the hand-off's words: due on a day, overdue, cancelled. A paid invoice is the expected state: no pill (DESIGN.md "Status tags"). */
 export function InvoicePill({ inv }) {
-  if (inv.status === 'PAID') return <span className="ws-pill ws-pill--ok">Paid</span>;
+  if (inv.status === 'PAID') return <span className="sr-only">Paid</span>;
   if (inv.status === 'VOID') return <span className="ws-pill ws-pill--neutral">Cancelled</span>;
   if (inv.status === 'ISSUED' && inv.overdue) return <span className="ws-pill ws-pill--danger">Overdue</span>;
   if (inv.status === 'ISSUED') {

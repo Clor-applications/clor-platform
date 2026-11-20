@@ -211,7 +211,7 @@ export default function Invitations({ tenant, companies = [] }) {
                     <tr key={r.id}>
                       <td><strong style={{ fontWeight: 600 }}>{r.email}</strong></td>
                       <td>{ROLE_LABEL[r.accountRole] || r.accountRole}</td>
-                      <td><span className={pill}>{label}</span></td>
+                      <td>{r.status === 'ACCEPTED' ? <span className="sr-only">{label}</span> : <span className={pill}>{label}</span>}</td>
                       <td>{r.status === 'ACCEPTED' ? `Joined ${day(r.acceptedAt)}` : r.status === 'PENDING' ? <>{r.lastSentAt ? <span className="block">Invited {day(r.lastSentAt)}</span> : null}<span className="ws-cell-sub">Expires {day(r.expiresAt)}</span></> : `Sent ${day(r.lastSentAt)}`}</td>
                       <td className="num">
                         {open ? (
