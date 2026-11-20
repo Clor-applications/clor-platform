@@ -309,7 +309,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
                       ) : d.awaitingNetwork ? (
                         <span className="ui-pill ui-pill-warn" title={`Calling from ${d.awaitingNetwork}, which is not approved`}>New network</span>
                       ) : d.online ? (
-                        <span className="ui-pill ui-pill-pos">Online</span>
+                        <span className="ui-caption">online</span>
                       ) : (
                         <span className="ui-pill ui-pill-warn" title={d.lastSeenAt || ''}>{d.lastSeenAt ? `Last seen ${ago(d.lastSeenAt)}` : 'Never connected'}</span>
                       )}
@@ -1508,9 +1508,9 @@ function ReaderDrawer({ device, onClose, onChanged }) {
                     <span className="block truncate">{c.what}{c.employeeName ? ` — ${c.employeeName}` : c.pin ? ` — ID ${c.pin}` : ''}</span>
                     {c.lastError ? <span className="ui-caption block" style={{ color: 'rgb(var(--neg))' }}>{c.lastError}</span> : null}
                   </span>
-                  <span className={`ui-pill shrink-0 ${QUEUE_STATUS[c.status]?.pill || 'ui-pill-neutral'}`} title={c.attempts > 1 ? `Sent ${c.attempts} times` : ''}>
+                  {c.status === 'DONE' ? <span className="sr-only">Done</span> : <span className={`ui-pill shrink-0 ${QUEUE_STATUS[c.status]?.pill || 'ui-pill-neutral'}`} title={c.attempts > 1 ? `Sent ${c.attempts} times` : ''}>
                     {QUEUE_STATUS[c.status]?.label || enumWords(c.status)}
-                  </span>
+                  </span>}
                 </li>
               ))}
             </ul>
