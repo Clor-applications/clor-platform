@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-b1417a9 - 2026-11-20
+
+API revision `clor-api-00153-q8l`. Previous release `rel-4f4ccdc` (roll back there).
+
+- #383 Ops: incidents say who handles them and which customers they hit
+- #392 Design audit step 4: two-line phone rows for wide tables
+- #391 Release record: rel-4f4ccdc
+- #390 Design audit step 3: Workspace Home and employee portal on the calm register
+- #386 Design audit step 2: count lines instead of tiles, tags only on exception rows
+
 ## rel-4f4ccdc - 2026-11-20
 
 API revision `clor-api-00152-7wr`. Previous release `rel-9cfa52c` (roll back there).
