@@ -165,7 +165,7 @@ export default function Support() {
                               t.openedBy ? <span className="ws-sec-who"><Avatar name={t.openedBy} /><span>{t.openedBy}</span></span> : '—'
                             ) : (t.app ? APP_NAME[t.app] : 'Not about one app')}
                           </td>
-                          <td className="ws-mid"><span className="ws-state" data-tone={STATUS[t.status]?.tone}>{STATUS[t.status]?.label || t.status}</span></td>
+                          <td className="ws-mid">{t.status === 'SOLVED' ? <span className="sr-only">Solved</span> : <span className="ws-state" data-tone={STATUS[t.status]?.tone}>{STATUS[t.status]?.label || t.status}</span>}</td>
                           <td className="ws-mid ws-sec-when">{ago(t.updatedAt)}</td>
                           <td className="num">
                             <button type="button" className="ws-row-link" onClick={() => setOpenId(t.id)} aria-label={`Open ${t.code} ${t.subject}`}>
