@@ -1142,3 +1142,10 @@ html[data-portal='ops'] .ws-stat-value {
   .ops-health-list > li { grid-template-columns: 5.5rem minmax(0, 1fr); }
   .ops-health-action { grid-column: 2; text-align: left; }
 }
+
+/* Status page posts: the customers picked in a drawer, and a found customer to add. */
+.ops-picked { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ops-picked > li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+.ops-pick { width: 100%; text-align: left; background: none; border: 0; cursor: pointer; }
+.ops-pick:hover { background: var(--ops-hover); }
+.ops-post-inside { display: block; margin-top: 4px; }

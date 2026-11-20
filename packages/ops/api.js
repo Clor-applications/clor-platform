@@ -192,6 +192,7 @@ export const opsTags = () => apiFetch('/ops/tags', o);
 export const opsStatusPosts = () => apiFetch('/ops/status-incidents', o);
 export const opsPostStatus = (body) => apiFetch('/ops/status-incidents', { ...o, method: 'POST', body });
 export const opsUpdateStatus = (id, body) => apiFetch(`/ops/status-incidents/${enc(id)}/updates`, { ...o, method: 'POST', body });
+export const opsAssignStatus = (id, body) => apiFetch(`/ops/status-incidents/${enc(id)}`, { ...o, method: 'PATCH', body });
 export const opsRemoveStatus = (id) => apiFetch(`/ops/status-incidents/${enc(id)}`, { ...o, method: 'DELETE' });
 /* Saved replies (server: routes/opsSavedReplies.ts). */
 export const opsSavedReplies = (ticket) => apiFetch(`/ops/saved-replies${q({ ticket })}`, o);

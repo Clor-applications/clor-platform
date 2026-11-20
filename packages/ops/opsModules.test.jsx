@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() =>
   Object.fromEntries(
-    ['opsNotes', 'opsAddNote', 'opsChangeNote', 'opsRemoveNote', 'opsAddTag', 'opsRemoveTag', 'opsTags', 'opsStatusPosts', 'opsPostStatus', 'opsUpdateStatus', 'opsRemoveStatus', 'opsSavedReplies', 'opsSaveSavedReply', 'opsRemoveSavedReply', 'opsInsights', 'opsSwitches', 'opsSetSwitch'].map((k) => [k, vi.fn()]),
+    ['opsNotes', 'opsAddNote', 'opsChangeNote', 'opsRemoveNote', 'opsAddTag', 'opsRemoveTag', 'opsTags', 'opsStatusPosts', 'opsPostStatus', 'opsUpdateStatus', 'opsRemoveStatus', 'opsAssignStatus', 'opsAccounts', 'opsSavedReplies', 'opsSaveSavedReply', 'opsRemoveSavedReply', 'opsInsights', 'opsSwitches', 'opsSetSwitch'].map((k) => [k, vi.fn()]),
   ),
 );
 vi.mock('./api', () => api);
@@ -69,6 +69,46 @@ describe('operator console: status page', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Payroll' }));
     fireEvent.click(screen.getByRole('button', { name: 'Post notice' }));
     await waitFor(() => expect(api.opsPostStatus).toHaveBeenCalledWith(expect.objectContaining({ kind: 'INCIDENT', title: 'Payroll is slow', parts: ['payroll'], impact: 'MINOR' })));
+  });
+});
+
+describe('operator console: who handles a post and which customers it hits', () => {
+  const post = { id: 'i1', title: 'Payslips not opening', kind: 'INCIDENT', parts: ['payroll'], impact: 'MINOR', state: 'INVESTIGATING', startsAt: '2026-11-14T05:00:00Z', endsAt: null, resolvedAt: null, updates: [], owner: { userId: 's1', name: 'Asha Rao' }, accounts: [{ id: 'a1', name: 'Kaveri Traders', code: '4831920657' }] };
+  const staffList = [{ userId: 's1', name: 'Asha Rao' }, { userId: 's2', name: 'Vikram Shah' }];
+
+  it('names the handler, opens a hit customer, and flags a post nobody handles', async () => {
+    api.opsStatusPosts.mockResolvedValue({ open: [post, { ...post, id: 'i2', title: 'Sign-in slow', owner: null, accounts: [] }], resolved: [], staff: staffList });
+    const openCustomer = vi.fn();
+    render(<StatusPage me={{ role: 'SUPPORT' }} openCustomer={openCustomer} />);
+    const item = (await screen.findByText('Payslips not opening')).closest('li');
+    expect(item).toHaveTextContent('Handled by Asha Rao');
+    expect(item).not.toHaveTextContent('Nobody is handling this');
+    fireEvent.click(within(item).getByRole('button', { name: 'Kaveri Traders' }));
+    expect(openCustomer).toHaveBeenCalledWith('a1');
+    expect(screen.getByText('Sign-in slow').closest('li')).toHaveTextContent('Nobody is handling this');
+  });
+
+  it('hands the post over and adds a customer found by name', async () => {
+    api.opsStatusPosts.mockResolvedValue({ open: [post], resolved: [], staff: staffList });
+    api.opsAccounts.mockResolvedValue({ accounts: [{ id: 'a1', title: 'Kaveri Traders', code: '4831920657' }, { id: 'a2', title: 'Nila Foods', code: '5920013344' }] });
+    api.opsAssignStatus.mockResolvedValue({});
+    render(<StatusPage me={{ role: 'SUPPORT' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Handler and customers' }));
+    fireEvent.change(screen.getByLabelText('Handled by'), { target: { value: 's2' } });
+    fireEvent.change(screen.getByLabelText('Customers it hits'), { target: { value: 'nila' } });
+    const found = await screen.findByRole('list', { name: 'Customers found' });
+    /* The one already on the post is not offered again. */
+    expect(found).not.toHaveTextContent('Kaveri Traders');
+    fireEvent.click(within(found).getByRole('button', { name: /Nila Foods/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.opsAssignStatus).toHaveBeenCalledWith('i1', { ownerUserId: 's2', accountIds: ['a1', 'a2'] }));
+  });
+
+  it('a read-only colleague sees the handler and has no button to change it', async () => {
+    api.opsStatusPosts.mockResolvedValue({ open: [post], resolved: [], staff: staffList });
+    render(<StatusPage me={{ role: 'READ_ONLY' }} />);
+    expect((await screen.findByText('Payslips not opening')).closest('li')).toHaveTextContent('Handled by Asha Rao');
+    expect(screen.queryByRole('button', { name: 'Handler and customers' })).toBeNull();
   });
 });
 

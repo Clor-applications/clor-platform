@@ -12,6 +12,7 @@ import { CustomerNotes } from './CustomerNotes';
 import { PhoneRule, PinnedNotes } from './PinnedNotes';
 import { DealDrawer } from './Deals';
 import { APP_NAMES, Empty, Err, Loading, Pager, REASON, ReasonDrawer, SELLABLE, Tabs, appsText, day, errorWords, may, reasonShort, when } from './kit';
+import { STATE_WORD } from './StatusPage';
 import {
   opsAccount,
   opsAccountEntitlements,
@@ -338,6 +339,12 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         {a.legacyUnrestrictedAt && !s ? <span className="ws-pill ws-pill--warn">No plan: every app open</span> : null}
       </div>
       <HealthPanel health={d.health} />
+      {(d.incidents || []).map((i) => (
+        <p key={i.id} className="ws-notice" role="status">
+          <span className="ws-pill ws-pill--warn">{i.kind === 'MAINTENANCE' ? 'Maintenance' : 'Open incident'}</span> This customer is hit by “{i.title}” ({STATE_WORD[i.state] || i.state}, since {when(i.startsAt)}). {i.owner ? `${i.owner} is handling it.` : 'Nobody is handling it yet.'}{' '}
+          <button type="button" className="ops-link" onClick={() => openLink({ page: 'status' })}>Open the status page posts</button>
+        </p>
+      ))}
       {s?.status === 'active' && !s.currentPeriodEnd && !a.suspendedAt ? (
         <p className="ws-notice" role="status">
           <span className="ws-pill ws-pill--warn">No end date</span> This account is active with no paid period, so it is never invoiced and never lapses. That is right for a free grant. If the customer should pay, set the period under Subscription.
