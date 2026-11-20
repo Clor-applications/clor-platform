@@ -20,6 +20,13 @@
   --ws-ok: 1 93 71;
   --ws-ok-soft: 230 241 238;
   --ws-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* DESIGN.md motion: hover and focus 120ms, menus 150ms, the side rail 180ms in-out. */
+  --ws-dur-hover: 120ms;
+  --ws-dur-menu: 150ms;
+  --ws-dur-rail: 180ms;
+  --ws-ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+  /* The one hover grey (#F7F7F7), not the stone fill. */
+  --ws-hover: var(--hover, 247 247 247);
   --ws-warn: 138 90 0;
   --ws-warn-soft: 251 241 220;
   --ws-danger: 180 35 24;
@@ -39,6 +46,13 @@
   --ws-ok: 1 93 71;
   --ws-ok-soft: 230 241 238;
   --ws-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* DESIGN.md motion: hover and focus 120ms, menus 150ms, the side rail 180ms in-out. */
+  --ws-dur-hover: 120ms;
+  --ws-dur-menu: 150ms;
+  --ws-dur-rail: 180ms;
+  --ws-ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+  /* The one hover grey (#F7F7F7), not the stone fill. */
+  --ws-hover: var(--hover, 247 247 247);
 
   background: rgb(var(--ws-surface));
   color: rgb(var(--ws-ink));
@@ -117,7 +131,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 40px;
+  min-height: 36px;
   padding: 0 16px;
   border-radius: 8px;
   font-size: 0.875rem;
@@ -125,7 +139,7 @@
   white-space: nowrap;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 0.18s var(--ws-ease), border-color 0.18s var(--ws-ease), transform 0.12s var(--ws-ease), box-shadow 0.18s var(--ws-ease);
+  transition: background-color var(--ws-dur-hover) var(--ws-ease), border-color var(--ws-dur-hover) var(--ws-ease), transform var(--ws-dur-hover) var(--ws-ease), box-shadow var(--ws-dur-hover) var(--ws-ease);
 }
 /* DESIGN.md, button states: a disabled button is faded and not clickable. */
 .ws-btn:disabled,
@@ -165,7 +179,7 @@
   border-color: rgb(var(--ws-muted) / 0.5);
 }
 .ws-btn--small {
-  min-height: 34px;
+  min-height: 32px;
   padding: 0 12px;
   font-size: 0.8125rem;
 }
@@ -239,7 +253,7 @@
   cursor: pointer;
 }
 .ws-link svg {
-  transition: transform 0.18s var(--ws-ease);
+  transition: transform var(--ws-dur-hover) var(--ws-ease);
 }
 
 /* ------------------------------------------------------------------ setup */
@@ -250,19 +264,6 @@
   padding: 16px 20px;
   display: grid;
   gap: 12px;
-}
-.ws-progress {
-  height: 4px;
-  border-radius: 999px;
-  background: rgb(var(--ws-stone));
-  overflow: hidden;
-}
-.ws-progress > span {
-  display: block;
-  height: 100%;
-  background: rgb(var(--ws-accent));
-  border-radius: inherit;
-  transition: width 0.6s var(--ws-ease);
 }
 .ws-steps {
   list-style: none;
@@ -318,12 +319,7 @@
   border-radius: 12px;
   background: var(--ws-card-bg);
   border: 1px solid var(--ws-card-line);
-  transition: border-color 0.2s var(--ws-ease), box-shadow 0.2s var(--ws-ease), transform 0.2s var(--ws-ease);
-}
-.ws-card.is-open:hover {
-  background: rgb(255 255 255 / 0.9);
-  border-color: rgb(var(--ws-muted) / 0.45);
-  box-shadow: 0 18px 36px -24px rgb(var(--ws-ink) / 0.35);
+  transition: border-color var(--ws-dur-hover) var(--ws-ease);
 }
 .ws-card.is-soon {
   background: transparent;
@@ -476,10 +472,10 @@
   font-size: 0.875rem;
   color: rgb(var(--ws-ink));
   cursor: pointer;
-  transition: background-color 0.15s var(--ws-ease), transform 120ms var(--ws-ease);
+  transition: background-color var(--ws-dur-hover) var(--ws-ease), transform var(--ws-dur-hover) var(--ws-ease);
 }
 .ws-row:hover {
-  background: rgb(var(--ws-stone));
+  background: rgb(var(--ws-hover));
 }
 .ws-row:active {
   transform: scale(0.985);
@@ -495,7 +491,7 @@
   margin-left: auto;
   color: rgb(var(--ws-muted));
   opacity: 0;
-  transition: opacity 0.15s var(--ws-ease), transform 0.15s var(--ws-ease);
+  transition: opacity var(--ws-dur-hover) var(--ws-ease), transform var(--ws-dur-hover) var(--ws-ease);
 }
 .ws-row:hover .ws-chev {
   opacity: 1;
@@ -504,9 +500,6 @@
 @media (hover: hover) and (pointer: fine) {
   .ws-link:hover svg {
     transform: translateX(3px);
-  }
-  .ws-card.is-open:hover {
-    transform: translateY(-2px);
   }
   .ws-row:hover .ws-chev {
     transform: translateX(2px);
@@ -603,7 +596,7 @@
 }
 button.ws-stat {
   cursor: pointer;
-  transition: border-color 0.18s var(--ws-ease), box-shadow 0.18s var(--ws-ease), transform 120ms var(--ws-ease);
+  transition: border-color var(--ws-dur-hover) var(--ws-ease), box-shadow var(--ws-dur-hover) var(--ws-ease), transform var(--ws-dur-hover) var(--ws-ease);
 }
 button.ws-stat:hover {
   background: rgb(255 255 255 / 0.9);
@@ -686,7 +679,7 @@ button.ws-item {
   border-radius: 8px;
 }
 button.ws-item:hover {
-  background: rgb(var(--ws-stone));
+  background: rgb(var(--ws-hover));
 }
 .ws-item-text {
   display: grid;
@@ -1028,7 +1021,7 @@ button.ws-item:hover {
   font-size: 0.875rem;
   line-height: 1.4;
   box-shadow: none;
-  transition: border-color 0.15s var(--ws-ease), box-shadow 0.15s var(--ws-ease);
+  transition: border-color var(--ws-dur-hover) var(--ws-ease), box-shadow var(--ws-dur-hover) var(--ws-ease);
 }
 .ws textarea,
 .ws textarea.ui-input {
@@ -1355,13 +1348,24 @@ button.ws-item:hover {
   background: rgb(var(--ws-accent-soft));
   color: rgb(var(--ws-ink));
   font-size: 0.875rem;
-  transition: opacity 200ms var(--ws-ease), transform 200ms var(--ws-ease);
+  transition: opacity var(--ws-dur-menu) var(--ws-ease), transform var(--ws-dur-menu) var(--ws-ease);
 }
 /* A confirmation eases in instead of shoving the page down in one frame. */
 @starting-style {
   .ws-notice {
     opacity: 0;
     transform: translateY(-4px);
+  }
+}
+/* Reduced motion: it fades in where it stands, without the drop. */
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .ws-notice {
+      transform: none;
+    }
+  }
+  .ws-notice {
+    transition: opacity var(--ws-dur-menu) var(--ws-ease);
   }
 }
 /* An empty list: one icon, one line, centred in a quiet frame. */
@@ -1477,13 +1481,24 @@ button.ws-item:hover {
 .ws-tab:hover {
   color: rgb(var(--ws-ink));
 }
-.ws-tab[aria-selected='true'] {
+.ws-tab:is([aria-selected='true'], [aria-pressed='true']) {
   color: rgb(var(--ws-ink));
   border-bottom-color: rgb(var(--ws-accent));
 }
 .ws-tab:focus-visible {
   outline: 2px solid rgb(var(--ws-accent));
   outline-offset: -2px;
+}
+/* A tab's panel in a drawer keeps the drawer's own spacing between its parts. */
+.ws-tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.ws-tabpanel:focus-visible {
+  outline: 2px solid rgb(var(--ws-accent));
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 /* Label-over-value facts, three to a row on a drawer, two on a phone: one soft panel with no boxes inside it (README §3 "soft panel, no border"; no card-in-card). */
 .ws-facts {
@@ -1630,7 +1645,7 @@ button.ws-item:hover {
   background: var(--ws-card-bg);
   color: rgb(var(--ws-ink));
   cursor: pointer;
-  transition: background-color 0.15s var(--ws-ease), border-color 0.15s var(--ws-ease);
+  transition: background-color var(--ws-dur-hover) var(--ws-ease), border-color var(--ws-dur-hover) var(--ws-ease);
 }
 .ws-back:hover {
   background: rgb(var(--ws-surface));
@@ -1752,7 +1767,7 @@ button.ws-item:hover {
     width: min(280px, 86vw);
     transform: translateX(-100%);
     visibility: hidden;
-    transition: transform 200ms var(--ws-ease), visibility 200ms;
+    transition: transform var(--ws-dur-rail) var(--ws-ease-in-out), visibility var(--ws-dur-rail);
   }
   .ops-side[data-open] {
     transform: none;
@@ -1809,7 +1824,7 @@ button.ws-item:hover {
   cursor: pointer;
 }
 .ops-picker button:hover {
-  background: rgb(var(--ws-stone));
+  background: rgb(var(--ws-hover));
 }
 .ops-nav-item {
   display: flex;
@@ -1827,7 +1842,7 @@ button.ws-item:hover {
   white-space: nowrap;
 }
 .ops-nav-item:hover {
-  background: rgb(var(--ws-stone));
+  background: rgb(var(--ws-hover));
   color: rgb(var(--ws-ink));
 }
 .ops-nav-item[aria-current='page'] {
@@ -2392,7 +2407,7 @@ button.ws-item:hover {
   color: rgb(var(--fg, 32 35 41));
 }
 .ws-btn--quiet:hover {
-  background: rgb(var(--surface-sunken, 244 245 242));
+  background: rgb(var(--ws-hover));
   border-color: rgb(var(--border-strong, 201 204 198));
 }
 .ws-btn--small {
@@ -2456,7 +2471,6 @@ button.ws-item:hover {
   padding: 20px 24px;
   gap: 16px;
 }
-.ws-card.is-open:hover,
 button.ws-stat:hover {
   background: rgb(var(--surface, 255 255 255));
   border-color: rgb(var(--border-strong, 201 204 198));
@@ -3023,7 +3037,7 @@ button.ws-stat:hover {
   border-bottom: 1px solid rgb(var(--border, 229 229 229));
 }
 .ws .ws-table tbody tr {
-  transition: background-color 0.12s ease;
+  transition: background-color var(--ws-dur-hover) var(--ws-ease);
 }
 .ws .ws-table tbody tr:hover {
   background: rgb(var(--hover, 247 247 247));
@@ -3269,14 +3283,9 @@ button.ws-stat:hover {
   grid-column: 3;
   grid-row: 1 / span 3;
 }
-.ws .ws-stats > :nth-child(4n + 1) .ws-tile:not([class*='ws-tile--']),
-.ws .ws-stats > .ws-stat:nth-child(4n + 1) > .ws-tile:not([class*='ws-tile--']) { --tile-fg: rgb(var(--ws-blue)); background: rgb(var(--ws-blue) / 0.12); color: rgb(var(--ws-blue-ink)); }
-.ws .ws-stats > :nth-child(4n + 2) .ws-tile:not([class*='ws-tile--']),
-.ws .ws-stats > .ws-stat:nth-child(4n + 2) > .ws-tile:not([class*='ws-tile--']) { background: rgb(var(--ws-green) / 0.14); color: rgb(var(--ws-green-ink)); }
-.ws .ws-stats > :nth-child(4n + 3) .ws-tile:not([class*='ws-tile--']),
-.ws .ws-stats > .ws-stat:nth-child(4n + 3) > .ws-tile:not([class*='ws-tile--']) { background: rgb(var(--warn) / 0.13); color: rgb(var(--warn-ink)); }
-.ws .ws-stats > :nth-child(4n + 4) .ws-tile:not([class*='ws-tile--']),
-.ws .ws-stats > .ws-stat:nth-child(4n + 4) > .ws-tile:not([class*='ws-tile--']) { background: rgb(var(--marker, 255 107 0) / 0.13); color: rgb(var(--act-2, 201 80 0)); }
+/* Figure tiles are neutral (DESIGN.md: colour has one job; audit 21 Nov 2026 took out the four rotating tints). */
+.ws .ws-stats > * .ws-tile:not([class*='ws-tile--']),
+.ws .ws-stats > .ws-stat > .ws-tile:not([class*='ws-tile--']) { background: rgb(var(--ws-hover)); color: rgb(var(--ws-ink)); }
 /* Filters under them: 32px fields, and a search no wider than it needs. */
 .ws .ws-filters :is(input, select) {
   height: 32px;
@@ -3337,7 +3346,7 @@ button.ws-stat:hover {
   transform: scale(0.98);
 }
 .ws .ws-btn {
-  transition: transform 0.12s var(--ws-ease), background-color 0.12s var(--ws-ease), border-color 0.12s var(--ws-ease);
+  transition: transform var(--ws-dur-hover) var(--ws-ease), background-color var(--ws-dur-hover) var(--ws-ease), border-color var(--ws-dur-hover) var(--ws-ease);
 }
 @media (prefers-reduced-motion: reduce) {
   .ws .ws-btn:active:not(:disabled) {

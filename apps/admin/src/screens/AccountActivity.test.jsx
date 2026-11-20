@@ -45,4 +45,30 @@ describe('Workspace → Audit log', () => {
     expect(screen.getByText('kavya@x.in')).toBeInTheDocument();
     expect(screen.queryByText(/ACCOUNT_ROLE_REQUIRED/)).toBeNull();
   });
+
+  it('a failed load offers a retry instead of "Nothing here yet"', async () => {
+    accountAudit.mockRejectedValueOnce(new Error('down'));
+    render(<AccountActivity />);
+    const retry = await screen.findByRole('button', { name: 'Try again' });
+    expect(screen.queryByText(/Nothing here/)).toBeNull();
+    fireEvent.click(retry);
+    expect(await screen.findByText('Suspended in the account')).toBeInTheDocument();
+  });
+
+  it('holds Show older while the older page is out', async () => {
+    render(<AccountActivity />);
+    await screen.findByText('Suspended in the account');
+    accountAudit.mockImplementationOnce(() => new Promise(() => {}));
+    fireEvent.click(screen.getByRole('button', { name: 'Show older' }));
+    expect(await screen.findByRole('button', { name: 'Loading older…' })).toBeDisabled();
+  });
+
+  it('searches 250ms after the last key', async () => {
+    render(<AccountActivity />);
+    await screen.findByText('Suspended in the account');
+    fireEvent.change(screen.getByPlaceholderText('Search by person, action or detail'), { target: { value: 'refused' } });
+    expect(screen.getByText('Suspended in the account')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('Suspended in the account')).toBeNull());
+    expect(screen.getByText('Refused: needs an account role')).toBeInTheDocument();
+  });
 });

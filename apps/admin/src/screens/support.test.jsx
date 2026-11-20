@@ -77,4 +77,21 @@ describe('Help and support', () => {
     expect(await screen.findByText(/open a new ticket and mention T-1001/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Send reply/ })).toBeNull();
   });
+
+  /* Audit 21 Nov 2026: a failed list was a line of red with grey bars under it, and no way to try again. */
+  it('a failed list says so and offers a retry', async () => {
+    api.listTickets.mockRejectedValueOnce(new Error('down')).mockResolvedValue({ wholeAccount: false, tickets: [] });
+    render(<Support />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('No tickets yet.')).toBeInTheDocument();
+  });
+
+  it('says why Send is off on a new ticket', async () => {
+    api.listTickets.mockResolvedValue({ wholeAccount: false, tickets: [] });
+    render(<Support />);
+    fireEvent.click(await screen.findByRole('button', { name: /New ticket/ }));
+    const send = screen.getByRole('button', { name: /Send to CLOR/ });
+    expect(send).toBeDisabled();
+    expect(send).toHaveAccessibleDescription('Write a subject of at least 4 characters.');
+  });
 });

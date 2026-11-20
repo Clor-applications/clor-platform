@@ -52,4 +52,12 @@ describe('Company profile', () => {
     expect(opts.body.epfCode).toBe('KNBNG0012345000');
     expect(Object.keys(opts.body)).not.toContain('name');
   });
+
+  it('a failed read offers a retry', async () => {
+    api.apiFetch.mockRejectedValueOnce(new Error('down'));
+    render(<CompanyProfile />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    expect(await screen.findByDisplayValue('Kaveri Traders Private Limited')).toBeInTheDocument();
+  });
 });
+

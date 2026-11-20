@@ -262,4 +262,17 @@ describe('the overview’s figures', () => {
     expect(todayLines({ attendance: { headcount: 50, holiday: 'Diwali' } })[0]).toMatchObject({ value: 'Holiday', label: 'Diwali', sub: null });
     expect(todayLines({ payroll: { overview: { currentPeriod: { name: 'November 2026' }, currentRun: null } } })[0]).toMatchObject({ value: '—', sub: 'Pay run not started' });
   });
+
+  /* Audit 21 Nov 2026: an outage read as "Nothing needs your action". */
+  it('says Top actions could not be loaded, with a retry, when who you are cannot be read', async () => {
+    api.getAccountMe.mockRejectedValueOnce(new Error('down'));
+    render(<AdminHome tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={() => {}} />);
+    const retry = await screen.findByRole('button', { name: 'Try again' });
+    expect(screen.getByText('What needs your action could not be loaded.')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing needs your action right now.')).toBeNull();
+    fireEvent.click(retry);
+    expect((await screen.findAllByText('Members')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('What needs your action could not be loaded.')).toBeNull();
+    expect(api.getAccountMe).toHaveBeenCalledTimes(2);
+  });
 });

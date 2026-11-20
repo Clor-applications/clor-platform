@@ -7,7 +7,7 @@ import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { isValidGstin } from '@ui/utils/gstin';
 import { archiveCompany, getAccountOverview, reactivateCompany } from '@platform/admin/admin';
 import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
-import { AppMark, Empty, Loading, PageHead, WsDrawer } from './wsKit';
+import { AppMark, Empty, LoadError, Loading, PageHead, WsDrawer } from './wsKit';
 import CompanyDetail from './CompanyDetail';
 import './workspace.css';
 import './ws-home.css';
@@ -48,7 +48,8 @@ export function companyRows(companies, { q = '', sort = 'name', dir = 1, page = 
 
 export default function Companies({ tenant, addCompany, switchCompany, companies: tenants = [], catalog = [], openScreen, params }) {
   const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+  /* A read that failed says so with a retry: "No company yet" after a failed read is not true. */
+  const [loadError, setLoadError] = useState('');
   const [view, setView] = useState({ q: '', sort: 'name', dir: 1, page: 0 });
   const [adding, setAdding] = useState(false);
   /* A link to one company (search) opens its page straight away. */
@@ -58,11 +59,10 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
     getAccountOverview()
       .then((d) => {
         setData(d);
-        setError('');
+        setLoadError('');
       })
       .catch((e) => {
-        setData({ companies: [], plan: null, usage: null });
-        setError(errorWords(e, 'load the companies'));
+        setLoadError(errorWords(e, 'load the companies'));
       });
   }, []);
   useEffect(load, [load]);
@@ -118,9 +118,9 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
           }
         />
 
-        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
-
-        {data === null ? (
+        {data === null && loadError ? (
+          <LoadError onRetry={() => { setLoadError(''); load(); }}>{loadError}</LoadError>
+        ) : data === null ? (
           <Loading shape="rows" rows={3} label="Loading companies…" />
         ) : list.total === 0 ? (
           <Empty icon={PAGE_ICON} compact action={!companies.length && addCompany && !atLimit ? { label: 'Add company', onClick: () => setAdding(true) } : null}>
