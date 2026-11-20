@@ -235,7 +235,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
   return (
     <>
       <div>
-        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={back}>
+        <button type="button" className="ops-back" onClick={back}>
           <ArrowLeft size={14} aria-hidden="true" /> Demo requests
         </button>
       </div>

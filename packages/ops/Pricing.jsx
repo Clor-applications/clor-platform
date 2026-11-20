@@ -252,7 +252,7 @@ function PriceBook({ id, role, catalogue, back, open, live }) {
   const mayChange = may(role, 'BILLING');
   const backButton = (
     <div>
-      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={back}>
+      <button type="button" className="ops-back" onClick={back}>
         <ArrowLeft size={14} aria-hidden="true" /> Pricing
       </button>
     </div>
