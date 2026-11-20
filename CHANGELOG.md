@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-81c14c0 - 2026-11-20
+
+API revision `clor-api-00156-c7f`. Previous release `rel-4f8ddd8` (roll back there).
+
+- #401 Ops: a list of every customer's broken connections
+- #407 copy: "needs your action" in the bell, People Home and Admin center Home
+- #405 clor.in home: a proof strip after the hero and a problem section
+- #406 Release record: rel-4f8ddd8
+
 ## rel-4f8ddd8 - 2026-11-20
 
 API revision `clor-api-00155-cfk`. Previous release `rel-9788cb0` (roll back there).
