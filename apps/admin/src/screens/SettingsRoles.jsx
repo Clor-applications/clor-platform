@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
-import { confirmDialog } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listRoles, listUsers, createRole, updateRole, deleteRole } from '@platform/admin/admin';
 import Popover from '@ui/components/ui/Popover';
 import { MoreButton } from '@ui/components/list/ListPageParts';
@@ -14,7 +14,7 @@ import { RoleAccessList } from './round38';
 import { catalogKeys, displayModules, permissionLabel } from './permissionKeys';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import { Empty, Loading, PageHead, WsDrawer } from './wsKit';
+import { Empty, Loading, PageHead, WsDrawer, askDiscard } from './wsKit';
 import './workspace.css';
 import './ws-access.css';
 import './ws-security.css';
@@ -132,6 +132,10 @@ export function SettingsRoles({ orgId }) {
   const [editRole, setEditRole] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', ownDocumentsOnly: false, permissions: new Set() });
+  /* The form as it opened, so closing with edits asks first (the drawer's guard, and Cancel). */
+  const [formStart, setFormStart] = useState('');
+  /* The role being deleted: its menu waits, so the delete is not sent twice. */
+  const [deleting, setDeleting] = useState(null);
   /** The server's permission catalogue: the only list the form may offer. */
   const [catalog, setCatalog] = useState({ modules: [], presets: [] });
   /** Grants the role holds that the catalogue has since retired; dropped on save. */
@@ -146,6 +150,13 @@ export function SettingsRoles({ orgId }) {
   /** The trigger the open menu hangs from; only one row's menu is open. */
   const menuAnchorRef = useRef(null);
   const [viewRoleId, setViewRoleId] = useState(null);
+
+  const formKey = (f) => JSON.stringify([f.name, f.description, Boolean(f.ownDocumentsOnly), [...f.permissions].sort()]);
+  const startForm = (f) => {
+    setForm(f);
+    setFormStart(formKey(f));
+  };
+  const formDirty = showForm && !saving && formKey(form) !== formStart;
 
   const loadRoles = async () => {
     if (!orgId) return;
@@ -177,7 +188,7 @@ export function SettingsRoles({ orgId }) {
 
   const openCreate = () => {
     setEditRole(null);
-    setForm({ name: '', description: '', ownDocumentsOnly: false, permissions: new Set() });
+    startForm({ name: '', description: '', ownDocumentsOnly: false, permissions: new Set() });
     setRetired(0);
     setShowForm(true);
   };
@@ -196,7 +207,7 @@ export function SettingsRoles({ orgId }) {
     const known = catalogKeys(catalog.modules);
     const kept = new Set([...held].filter((k) => known.has(k)));
     setRetired(held.size - kept.size);
-    setForm({
+    startForm({
       name: r.name,
       description: r.description || '',
       ownDocumentsOnly: Boolean(r.ownDocumentsOnly),
@@ -240,6 +251,7 @@ export function SettingsRoles({ orgId }) {
         setRoles((prev) => [...prev, nextRole]);
       }
       setShowForm(false);
+      notify.success(editRole ? `Saved ${payload.name}.` : `Created the role ${payload.name}.`);
       reloadMyPermissions?.();
     } catch (err) {
       const perm = err?.data?.permission;
@@ -251,12 +263,17 @@ export function SettingsRoles({ orgId }) {
   };
 
   const removeRole = async (id, name) => {
+    if (deleting) return;
     if (!await confirmDialog({ title: name ? `Delete the role “${name}”?` : 'Delete this role?', message: 'People who hold it lose what it allowed. This cannot be undone.', confirmLabel: 'Delete role', tone: 'danger' })) return;
+    setDeleting(id);
     try {
       await deleteRole(orgId, id);
       setRoles((prev) => prev.filter((r) => r.id !== id));
+      notify.success(name ? `Deleted the role ${name}.` : 'Deleted the role.');
     } catch (err) {
       setError(failWords(err, 'delete the role'));
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -319,7 +336,7 @@ export function SettingsRoles({ orgId }) {
     const known = catalogKeys(catalog.modules);
     const held = permissionsToSet(normalizeRolePermissions(r.permissions || r._normalizedPermissions));
     setEditRole(null);
-    setForm({
+    startForm({
       name: `${r.name} (copy)`,
       description: r.description || '',
       ownDocumentsOnly: Boolean(r.ownDocumentsOnly),
@@ -366,12 +383,17 @@ export function SettingsRoles({ orgId }) {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button type="button" className="ws-row-link" onClick={() => openEdit(shownRole)}>Edit role</button>
+                    {deleting === shownRole.id ? <span className="ws-foot-note" role="status">Deleting…</span> : null}
+                    <button type="button" className="ws-row-link" disabled={deleting === shownRole.id} onClick={() => openEdit(shownRole)}>Edit role</button>
                     <button
                       type="button"
                       ref={openMenuForRoleId === shownRole.id ? menuAnchorRef : null}
                       className="ws-more-btn"
                       aria-label={`Actions for ${shownRole.name}`}
+                      /* The actions open in a popover panel (role="dialog"), not a role="menu" list. */
+                      aria-haspopup="dialog"
+                      disabled={deleting === shownRole.id}
+                      aria-busy={deleting === shownRole.id || undefined}
                       aria-expanded={openMenuForRoleId === shownRole.id}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -464,10 +486,11 @@ export function SettingsRoles({ orgId }) {
       <WsDrawer
         open={showForm}
         onClose={() => setShowForm(false)}
+        dirty={formDirty}
         title={editRole ? `Edit ${editRole.name}` : 'New role'}
         actions={(
           <>
-            <button type="button" onClick={() => setShowForm(false)} className="ws-btn ws-btn--quiet">Cancel</button>
+            <button type="button" onClick={async () => { if (await askDiscard(formDirty)) setShowForm(false); }} className="ws-btn ws-btn--quiet">Cancel</button>
             <button type="submit" form="role-settings-form" disabled={saving} className="ws-btn ws-btn--primary">
               {saving ? 'Saving…' : editRole ? 'Save role' : 'Create role'}
             </button>

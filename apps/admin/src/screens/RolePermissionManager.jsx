@@ -5,6 +5,8 @@ import { emoji } from '@ui/components/ui/emoji';
 import { listRoles, updateRole } from '@platform/admin/admin';
 import { expandPreset, getPermissionCatalog, getRolePermissions, setRolePermissions } from '@ui/api/permissions';
 import { Spinner } from '@ui/components/ui/Primitives';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
+import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { hasApp, orgId as platformOrgId, requestOpenScreen } from '@platform/context';
 import PermissionMatrix from './PermissionMatrix';
@@ -109,6 +111,8 @@ export const RolePermissionManager = () => {
     for (const k of granted) if (!baseline.has(k)) return true;
     return false;
   }, [granted, baseline, ownDocs, ownDocsBaseline]);
+  /* Leaving the page with unsaved ticks asks first, as the role switch below does. */
+  useUnsavedChanges(dirty);
 
   const toggle = useCallback((k) => {
     setGranted((prev) => {
@@ -147,6 +151,7 @@ export const RolePermissionManager = () => {
       setBaseline(new Set(keep));
       setGranted(new Set(keep));
       setSavedAt(Date.now());
+      notify.success(`Saved the permissions of ${roles.find((r) => String(r.id) === String(roleId))?.name || 'the role'}.`);
       /* How the role now stands against its template is the server's to say. */
       listRoles(platformOrgId()).then((r) => Array.isArray(r?.roles) && setRoles(r.roles)).catch(() => {});
       // The editor may have just changed their own role.
@@ -215,13 +220,13 @@ export const RolePermissionManager = () => {
         ) : (
           <div className="ws-layout">
             <div className="grid gap-4 min-w-0">
-              <div className="flex flex-wrap gap-2" role="tablist" aria-label="Permissions for">
+              {/* Filter chips (aria-pressed): they narrow one matrix, they are not tabs with panels. */}
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Permissions for">
                 {[{ id: 'all', label: 'All apps' }, ...offeredApps].map((a) => (
                   <button
                     key={a.id}
                     type="button"
-                    role="tab"
-                    aria-selected={forApp === a.id}
+                    aria-pressed={forApp === a.id}
                     onClick={() => setForApp(a.id)}
                     className={`ws-btn ws-btn--small ${forApp === a.id ? 'ws-btn--quiet' : ''}`}
                     style={forApp === a.id ? { borderColor: 'rgb(var(--ws-accent))', color: 'rgb(var(--ws-accent))' } : { background: 'none' }}
@@ -249,7 +254,12 @@ export const RolePermissionManager = () => {
               <Panel title="Role">
                 <div className="grid gap-1">
                   <label className="text-sm font-semibold" htmlFor="rpm-role">Editing</label>
-                  <select id="rpm-role" className="ui-select w-full" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+                  <select id="rpm-role" className="ui-select w-full" value={roleId} disabled={saving} onChange={async (e) => {
+                    const next = e.target.value;
+                    /* Switching role dropped the unsaved ticks without a word (audit, 21 Nov 2026). */
+                    if (dirty && !(await confirmDialog({ title: `Discard the changes to ${selectedRole?.name || 'this role'}?`, message: 'The ticks you changed have not been saved. Save them first to keep them.', confirmLabel: 'Discard and switch', cancelLabel: 'Keep editing', stayFirst: true }))) return;
+                    setRoleId(next);
+                  }}>
                     {roles.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}

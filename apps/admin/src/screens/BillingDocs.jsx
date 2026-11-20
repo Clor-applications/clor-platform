@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { apiFetch } from '@platform/http';
 import { printElement } from '@ui/utils/printElement';
-import { WsDrawer } from './wsKit';
+import { LoadError, WsDrawer } from './wsKit';
 import { InvoiceDocument, inr } from './InvoiceDocument';
 import { invoiceDay } from './InvoiceDrawer';
 import { errorWords } from '@ui/utils/errorWords';
@@ -32,6 +32,16 @@ function useList(path, key) {
   return { ...state, reload };
 }
 
+/* A part that did not load keeps its heading and says so, with a retry: it used to vanish, as if there were nothing. */
+function SectionFailed({ id, title, what, onRetry }) {
+  return (
+    <section className="ws-section r67-docs-section" aria-labelledby={id}>
+      <h2 id={id} className="ws-h2">{title}</h2>
+      <LoadError onRetry={onRetry}>{`The ${what} could not be loaded.`}</LoadError>
+    </section>
+  );
+}
+
 export default function BillingDocs() {
   return (
     <>
@@ -49,7 +59,9 @@ function PurchaseOrders() {
   const [f, setF] = useState({ number: '', poDate: '', fromDate: '', toDate: '' });
   const [problems, setProblems] = useState([]);
   const [busy, setBusy] = useState(false);
-  if (failed) return null;
+  /* The PO being removed: its link waits, so the remove is not sent twice. */
+  const [removing, setRemoving] = useState('');
+  if (failed) return <SectionFailed id="r67-po-title" title="Purchase orders" what="purchase orders" onRetry={reload} />;
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const save = async () => {
     setBusy(true);
@@ -67,12 +79,17 @@ function PurchaseOrders() {
     }
   };
   const remove = async (po) => {
-    if (!(await confirmDialog({ title: `Remove PO ${po.number}?`, message: 'Invoices already issued keep it. New ones will not carry it.', confirmLabel: 'Remove PO' }))) return;
+    if (removing) return;
+    if (!(await confirmDialog({ title: `Remove PO ${po.number}?`, message: 'Invoices already issued keep it. New ones will not carry it.', confirmLabel: 'Remove PO', tone: 'danger' }))) return;
+    setRemoving(po.id);
     try {
       await apiFetch(`/billing/purchase-orders/${encodeURIComponent(po.id)}`, { method: 'DELETE' });
+      notify.success(`Removed PO ${po.number}.`);
       reload();
     } catch (e) {
       notify.error(msg(e, 'remove the PO'));
+    } finally {
+      setRemoving('');
     }
   };
   return (
@@ -135,8 +152,8 @@ function PurchaseOrders() {
                 {po.poDate ? ` · dated ${dayOf(po.poDate)}` : ''}
               </span>
               {extra.mayChange ? (
-                <button type="button" className="ws-link" aria-label={`Remove ${po.number}`} onClick={() => remove(po)}>
-                  Remove
+                <button type="button" className="ws-link" aria-label={`Remove ${po.number}`} disabled={Boolean(removing)} aria-busy={removing === po.id || undefined} onClick={() => remove(po)}>
+                  {removing === po.id ? 'Removing…' : 'Remove'}
                 </button>
               ) : null}
             </li>
@@ -155,7 +172,7 @@ function ProformaList() {
   const [making, setMaking] = useState(false);
   const [open, setOpen] = useState(null);
   const paper = useRef(null);
-  if (failed) return null;
+  if (failed) return <SectionFailed id="r67-pf-title" title="Proformas" what="proformas" onRetry={reload} />;
   const make = async () => {
     setMaking(true);
     try {
@@ -226,8 +243,9 @@ function ProformaList() {
 const KIND_WORD = { GST: 'GST registration certificate', PAN: 'PAN card', INCORPORATION: 'Certificate of incorporation', MSME: 'MSME (Udyam) certificate', CHEQUE: 'Cancelled cheque', OTHER: 'Other document' };
 
 function VendorDocs() {
-  const { rows, failed } = useList('/billing/vendor-documents', 'documents');
-  if (failed || !rows?.length) return null;
+  const { rows, failed, reload } = useList('/billing/vendor-documents', 'documents');
+  if (failed) return <SectionFailed id="r67-vd-title" title="Vendor documents" what="vendor documents" onRetry={reload} />;
+  if (!rows?.length) return null;
   const save = async (d) => {
     try {
       const f = await apiFetch(`/billing/vendor-documents/${encodeURIComponent(d.id)}/file`);

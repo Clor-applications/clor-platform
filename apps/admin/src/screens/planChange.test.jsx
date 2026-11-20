@@ -55,4 +55,13 @@ describe('changing the plan', () => {
     expect(await screen.findByRole('button', { name: 'Ask for another change' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Move to People' })).toBeNull();
   });
+
+  /* Audit 21 Nov 2026: a failed read made the choices vanish, as if the plan could not be changed. */
+  it('says the plan choices did not load, with a retry', async () => {
+    fetches.call.mockReset();
+    fetches.call.mockRejectedValueOnce(new Error('down')).mockResolvedValue(attendance());
+    render(<PlanChange />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('button', { name: 'Move to People' })).toBeTruthy();
+  });
 });

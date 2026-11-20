@@ -108,9 +108,10 @@ export default function Inbox({ openApp, openScreen }) {
         />
 
         <div className="ws-filters ws-filters--one-row">
-          <div className="ws-tabs ws-tone-tabs" role="tablist" aria-label="Inbox">
+          {/* Filters over one list, so pressed chips rather than tabs with no panels of their own. */}
+          <div className="ws-tabs ws-tone-tabs" role="group" aria-label="Inbox">
             {TABS.map((t) => (
-              <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className="ws-tab" style={{ '--tab': `var(${t.tone})` }} onClick={() => { setTab(t.key); setApp(''); }}>
+              <button key={t.key} type="button" aria-pressed={tab === t.key} className="ws-tab" style={{ '--tab': `var(${t.tone})` }} onClick={() => { setTab(t.key); setApp(''); }}>
                 {t.label}
                 {count(t.key) ? <span className="ws-tone-count">{count(t.key)}</span> : null}
               </button>

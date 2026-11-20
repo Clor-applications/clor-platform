@@ -5,7 +5,7 @@ import { emoji } from '@ui/components/ui/emoji';
 
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { confirmDialog } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
   listUsers,
   listRoles,
@@ -35,7 +35,7 @@ import { selectedBranchId } from '@platform/context';
 import RoleSelect from './RoleSelect';
 import UserAccessPanel from './UserAccessPanel';
 import UserLocationAccessTable from './UserLocationAccessTable';
-import { Avatar, Empty, FilterSelect, Loading, PageHead, WsDrawer } from './wsKit';
+import { Avatar, Empty, FilterSelect, LoadError, Loading, PageHead, WsDrawer, askDiscard } from './wsKit';
 import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
@@ -100,6 +100,10 @@ export function SettingsUsers({ orgId, params }) {
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  /* The user list itself did not load: said with a retry, never as an empty company. */
+  const [usersFailed, setUsersFailed] = useState('');
+  /* A remove or reactivate that is out, as `${userId}:remove` / `${userId}:reactivate`: nothing is sent twice. */
+  const [rowBusy, setRowBusy] = useState('');
   const [filters, setFilters] = useState({ q: '', status: '' });
   const [menuFor, setMenuFor] = useState(null);
   const menuAnchorRef = useRef(null);
@@ -110,6 +114,8 @@ export function SettingsUsers({ orgId, params }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [createBranchIds, setCreateBranchIds] = useState([]);
   const [editForm, setEditForm] = useState({ fullName: '', email: '', mobile: '', roleId: '', isActive: true });
+  /* The edit form as it opened, so closing asks only when something was changed. */
+  const [editStart, setEditStart] = useState(null);
   /* Roles by branch: the person's branches with a role in each, and their warehouses. */
   const [access, setAccess] = useState(EMPTY_ACCESS);
   const [accessBranches, setAccessBranches] = useState([]);
@@ -143,8 +149,9 @@ export function SettingsUsers({ orgId, params }) {
     try {
       const u = await listUsers(orgId);
       setUsers(Array.isArray(u.users) ? u.users : []);
+      setUsersFailed('');
     } catch (e) {
-      msgs.push(failWords(e, 'load the users'));
+      setUsersFailed(failWords(e, 'load the users'));
     }
     if (branchesEnabled) {
       try {
@@ -201,7 +208,9 @@ export function SettingsUsers({ orgId, params }) {
   };
 
   const openEdit = (u) => {
-    setEditForm({ fullName: u.fullName || u.name || '', email: u.email || '', mobile: u.mobile || '', roleId: u.roleId || '', isActive: u.isActive !== false });
+    const start = { fullName: u.fullName || u.name || '', email: u.email || '', mobile: u.mobile || '', roleId: u.roleId || '', isActive: u.isActive !== false };
+    setEditForm(start);
+    setEditStart(start);
     open('edit', u);
   };
 
@@ -312,6 +321,7 @@ export function SettingsUsers({ orgId, params }) {
       /* Added now, to sign in later: the login exists but stays switched off. */
       if (form.isActive === false) await updateUser(orgId, res.user.id, { isActive: false });
       close();
+      notify.success(`Added ${form.fullName.trim() || form.email}.`);
       await loadData();
     }, 'add the user');
   };
@@ -324,6 +334,7 @@ export function SettingsUsers({ orgId, params }) {
       await updateUser(orgId, id, { fullName: editForm.fullName, email: editForm.email, mobile: editForm.mobile, isActive: Boolean(editForm.isActive) });
       await setUserPrimaryRole(orgId, id, editForm.roleId || null);
       close();
+      notify.success(`Saved the changes to ${editForm.fullName.trim() || editForm.email}.`);
       await loadData();
     }, 'save the changes');
   };
@@ -370,6 +381,7 @@ export function SettingsUsers({ orgId, params }) {
     }
     act(async () => {
       await changeUserPassword(orgId, panel.user.id, password);
+      notify.success(`New password set for ${nameOf(panel.user)}. Tell them yourself.`);
       close();
     }, 'set the password');
   };
@@ -404,26 +416,36 @@ export function SettingsUsers({ orgId, params }) {
   const bringBack = async (u) => {
     setMenuFor(null);
     setError('');
-    if (!(await confirmDialog({ title: `Reactivate ${nameOf(u)}?`, message: 'They can sign in again with their roles as they were. This takes a seat on your plan.', confirmLabel: 'Reactivate and take a seat' }))) return;
+    if (rowBusy) return;
+    if (!(await confirmDialog({ title: `Reactivate ${nameOf(u)}?`, message: 'They can sign in again with their roles as they were. This takes a seat on your plan.', confirmLabel: 'Reactivate and take a seat', tone: 'neutral' }))) return;
+    setRowBusy(`${u.id}:reactivate`);
     try {
       const out = await reactivateUser(orgId, u.id);
       setUsers((rows) => rows.map((r) => (r.id === u.id ? { ...r, isActive: true, left: null } : r)));
       if (panel?.user?.id === u.id) setPanel((p) => (p ? { ...p, user: { ...p.user, isActive: true, left: null } } : p));
       if (out?.emailRestored === false) setError('Reactivated. Their old email address now belongs to someone else: give them a new one under Edit.');
+      else notify.success(`${nameOf(u)} is reactivated.`);
     } catch (err) {
       setError(failWords(err, 'reactivate them'));
+    } finally {
+      setRowBusy('');
     }
   };
 
   const remove = async (u) => {
     setMenuFor(null);
+    if (rowBusy) return;
     if (!(await confirmDialog({ title: `Remove ${nameOf(u)} from this company?`, message: 'They can no longer open this company, every role they hold here goes, and their seats here are freed. You can add them again later.', confirmLabel: 'Remove from company', tone: 'danger' }))) return;
+    setRowBusy(`${u.id}:remove`);
     try {
       await deleteUser(orgId, u.id);
       setUsers((prev) => prev.filter((x) => x.id !== u.id));
       if (panel?.user?.id === u.id) close();
+      notify.success(`${nameOf(u)} is removed from this company.`);
     } catch (err) {
       setError(failWords(err, 'remove them from this company'));
+    } finally {
+      setRowBusy('');
     }
   };
 
@@ -466,9 +488,16 @@ export function SettingsUsers({ orgId, params }) {
       </label>
     </li>
   );
+  /* Typed into a form panel: closing it, by Cancel or the drawer's own ways out, asks first. */
+  const panelDirty = !busy && (
+    (panel?.kind === 'create' && Object.keys(EMPTY_FORM).some((k) => form[k] !== EMPTY_FORM[k]))
+    || (panel?.kind === 'edit' && editStart && Object.keys(editStart).some((k) => editForm[k] !== editStart[k]))
+    || (panel?.kind === 'password' && Boolean(password))
+    || (panel?.kind === 'leave' && Boolean(leave && (leave.reason || leave.note || leave.handoverUserId)))
+  );
   const footer = (formId, label) => (
     <>
-      <button type="button" className="ws-btn ws-btn--quiet" onClick={close}>Cancel</button>
+      <button type="button" className="ws-btn ws-btn--quiet" onClick={async () => { if (await askDiscard(panelDirty)) close(); }}>Cancel</button>
       <button type="submit" form={formId} className="ws-btn ws-btn--primary" disabled={busy || panelLoading}>{busy ? 'Saving…' : label}</button>
     </>
   );
@@ -537,7 +566,9 @@ export function SettingsUsers({ orgId, params }) {
             {branchesEnabled ? quiet('Branches', () => openBranches(u)) : null}
             {quiet('Roles by branch', () => openAccess(u))}
             {quiet('Set a password', () => open('password', u))}
-            {u.isActive === false ? quiet('Reactivate', () => bringBack(u)) : quiet('Mark as left', () => openLeave(u), { className: 'ws-row-link ws-row-link--danger' })}
+            {u.isActive === false
+              ? quiet(rowBusy === `${u.id}:reactivate` ? 'Reactivating…' : 'Reactivate', () => bringBack(u), { disabled: Boolean(rowBusy), 'aria-busy': rowBusy === `${u.id}:reactivate` || undefined })
+              : quiet('Mark as left', () => openLeave(u), { className: 'ws-row-link ws-row-link--danger' })}
           </div>
           <section aria-labelledby="ws-user-can" className="grid gap-2" style={{ borderTop: '1px solid rgb(var(--ws-line))', paddingTop: 16 }}>
             <h3 id="ws-user-can" className="ws-panel-title">What they can do</h3>
@@ -743,7 +774,9 @@ export function SettingsUsers({ orgId, params }) {
 
         {error && !panel ? errorNote : null}
 
-        {loading && !users.length ? (
+        {usersFailed && !users.length && !loading ? (
+          <LoadError onRetry={loadData}>{usersFailed}</LoadError>
+        ) : loading && !users.length ? (
           <Loading shape="rows" rows={3} label="Loading users…" />
         ) : rows.length === 0 ? (
           <Empty icon={EMPTY_ICON} compact actionNode={users.length ? null : <PermissionButton permission="SETTINGS::Users::CREATE" type="button" onClick={openCreate} className="ws-btn ws-btn--quiet ws-btn--small">Add user</PermissionButton>}>{users.length ? 'No user matches this search.' : 'Everyone who signs in to this company will be listed here.'}</Empty>
@@ -779,8 +812,12 @@ export function SettingsUsers({ orgId, params }) {
                         type="button"
                         ref={menuFor === row.id ? menuAnchorRef : null}
                         className="ws-more-btn"
-                        aria-label={`Actions for ${nameOf(row)}`}
+                        aria-label={rowBusy.startsWith(`${row.id}:`) ? `${rowBusy.endsWith(':remove') ? 'Removing' : 'Reactivating'} ${nameOf(row)}…` : `Actions for ${nameOf(row)}`}
+                        /* The shared Popover is a dialog of plain buttons, not a role=menu with arrow keys: said as what it is. */
+                        aria-haspopup="dialog"
                         aria-expanded={menuFor === row.id}
+                        disabled={rowBusy.startsWith(`${row.id}:`)}
+                        aria-busy={rowBusy.startsWith(`${row.id}:`) || undefined}
                         onClick={(e) => {
                           e.stopPropagation();
                           setMenuFor((prev) => (prev === row.id ? null : row.id));
@@ -815,7 +852,7 @@ export function SettingsUsers({ orgId, params }) {
         )}
       </div>
 
-      <WsDrawer open={Boolean(panel)} onClose={close} title={drawer.title} description={drawer.description} actions={drawer.actions} widthClass={drawer.wide ? 'w-[min(52rem,96vw)]' : 'w-[min(38rem,92vw)]'}>
+      <WsDrawer open={Boolean(panel)} onClose={close} dirty={panelDirty} title={drawer.title} description={drawer.description} actions={drawer.actions} widthClass={drawer.wide ? 'w-[min(52rem,96vw)]' : 'w-[min(38rem,92vw)]'}>
         {drawer.body}
       </WsDrawer>
     </div>
