@@ -6,7 +6,7 @@ import { EmptyState, PageHeader, SkeletonCard, StatusPill } from '@ui/components
 import Drawer from '@ui/components/ui/Drawer';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { rupees as money } from '@ui/utils/money';
+import { rupees as money, moneyCell } from '@ui/utils/money';
 import { listPayGroups } from '../api/payrollCalendar';
 import { listEmployees } from '../api/payrollPeople';
 import {
@@ -208,8 +208,8 @@ function SheetsTable({ sheets, onOpen, onMake }) {
               <td className="ui-col-meta">{s.payGroupName}</td>
               <td className="ui-col-meta">{monthWords(s.wageMonth)}{s.lastOfMonth ? <span className="ui-caption block">Last of the month</span> : null}</td>
               <td className="ui-col-amount">{s.workers ?? '—'}</td>
-              <td className="ui-col-amount">{money(s.gross)}</td>
-              <td className="ui-col-amount">{money(s.net)}</td>
+              <td className="ui-col-amount">{moneyCell(s.gross)}</td>
+              <td className="ui-col-amount">{moneyCell(s.net)}</td>
               <td className="ui-col-h-center"><StatusPill status={s.status} /></td>
             </tr>
           ))}
@@ -245,7 +245,7 @@ function RatesTable({ rates, onEdit }) {
                 {r.code ? <span className="ui-caption ml-2 ui-mono">{r.code}</span> : null}
               </td>
               <td className="ui-col-meta">{r.payGroupName}</td>
-              <td className="ui-col-amount">{money(r.dailyRate)}</td>
+              <td className="ui-col-amount">{moneyCell(r.dailyRate)}</td>
               <td className="ui-col-amount">{r.canteenPerDay ? money(r.canteenPerDay) : '—'}</td>
               <td className="ui-col-amount">{r.advanceBalance ? money(r.advanceBalance) : '—'}</td>
               <td className="ui-col-amount">{r.advancePerSheet ? money(r.advancePerSheet) : '—'}</td>
@@ -580,17 +580,17 @@ function SheetPage({ sheetId, onBack }) {
                   <td className="ui-col-amount">
                     {draft ? <LineNumber key={`d${l.daysWorked}`} label={`Days for ${l.name}`} value={l.daysWorked} step="0.5" onSave={(v) => act(`d${l.id}`, () => editWageLine(sheet.id, l.id, { daysWorked: v }))} /> : l.daysWorked}
                   </td>
-                  <td className="ui-col-amount">{money(l.dailyRate)}</td>
+                  <td className="ui-col-amount">{moneyCell(l.dailyRate)}</td>
                   <td className="ui-col-amount">
                     {draft ? <LineNumber key={`o${l.overtimeHours}`} label={`Overtime hours for ${l.name}`} value={l.overtimeHours} step="0.25" onSave={(v) => act(`o${l.id}`, () => editWageLine(sheet.id, l.id, { overtimeHours: v }))} /> : l.overtimeHours || '—'}
                   </td>
-                  <td className="ui-col-amount">{money(l.gross)}</td>
+                  <td className="ui-col-amount">{moneyCell(l.gross)}</td>
                   <td className="ui-col-amount">{l.pfEmployee ? money(l.pfEmployee) : '—'}</td>
                   <td className="ui-col-amount">{l.esiEmployee ? money(l.esiEmployee) : '—'}</td>
                   <td className="ui-col-amount">{l.ptEmployee ? money(l.ptEmployee) : '—'}</td>
                   <td className="ui-col-amount">{l.canteen ? money(l.canteen) : '—'}</td>
                   <td className="ui-col-amount">{l.advanceRecovery ? money(l.advanceRecovery) : '—'}</td>
-                  <td className="ui-col-amount">{money(l.net)}</td>
+                  <td className="ui-col-amount">{moneyCell(l.net)}</td>
                   <td className="text-end">
                     <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => wageSlip(sheet.id, l.employeeId).then(setSlip).catch((e) => notify.error(errorWords(e, 'open the payslip')))}>
                       Payslip<span className="sr-only"> for {l.name}</span>
@@ -824,14 +824,14 @@ function MonthView() {
                     <tr key={r.employeeId}>
                       <td className="ui-col-entity">{r.name}{r.uan ? <span className="ui-caption block ui-mono">UAN {r.uan}</span> : null}</td>
                       <td className="ui-col-amount">{r.daysWorked}</td>
-                      <td className="ui-col-amount">{money(r.gross)}</td>
-                      <td className="ui-col-amount">{money(r.pfWage)}</td>
-                      <td className="ui-col-amount">{money(r.pfEmployee)}</td>
-                      <td className="ui-col-amount">{money(r.pfEmployer)}</td>
-                      <td className="ui-col-amount">{money(r.esiEmployee)}</td>
-                      <td className="ui-col-amount">{money(r.esiEmployer)}</td>
-                      <td className="ui-col-amount">{money(r.ptEmployee)}</td>
-                      <td className="ui-col-amount">{money(r.net)}</td>
+                      <td className="ui-col-amount">{moneyCell(r.gross)}</td>
+                      <td className="ui-col-amount">{moneyCell(r.pfWage)}</td>
+                      <td className="ui-col-amount">{moneyCell(r.pfEmployee)}</td>
+                      <td className="ui-col-amount">{moneyCell(r.pfEmployer)}</td>
+                      <td className="ui-col-amount">{moneyCell(r.esiEmployee)}</td>
+                      <td className="ui-col-amount">{moneyCell(r.esiEmployer)}</td>
+                      <td className="ui-col-amount">{moneyCell(r.ptEmployee)}</td>
+                      <td className="ui-col-amount">{moneyCell(r.net)}</td>
                     </tr>
                   ))}
                   <tr>

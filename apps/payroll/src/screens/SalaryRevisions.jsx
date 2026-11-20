@@ -21,9 +21,10 @@ import {
   applySalaryRevision,
 } from '../api/payrollRevisions';
 import LoadFailed from '@ui/components/ui/LoadFailed';
-import { wholeRupees as money } from '@ui/utils/money';
+import { wholeRupees as money, moneyCell } from '@ui/utils/money';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { dateWords } from '@ui/utils/dates';
 
 /**
  * Increments, and what they really cost.
@@ -54,12 +55,6 @@ const signed = (n) => {
   return `${v > 0 ? '+' : v < 0 ? '−' : ''}${money(Math.abs(v))}`;
 };
 
-const shownDate = (iso) => {
-  const s = String(iso || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—';
-  const [y, m, d] = s.split('-');
-  return `${d}/${m}/${y}`;
-};
 
 const TABS = [
   { value: '', label: 'All', tone: 'all' },
@@ -233,10 +228,10 @@ export default function SalaryRevisions({ params } = {}) {
                       {r.employeeName}
                       {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
                     </td>
-                    <td className="ui-col-amount">{money(r.currentAnnualCtc)}</td>
-                    <td className="ui-col-amount">{money(r.proposedAnnualCtc)}</td>
+                    <td className="ui-col-amount">{moneyCell(r.currentAnnualCtc)}</td>
+                    <td className="ui-col-amount">{moneyCell(r.proposedAnnualCtc)}</td>
                     <td className="ui-col-amount">{r.incrementPercent ? `${r.incrementPercent}%` : '—'}</td>
-                    <td className="ui-col-date ui-col-h-center">{shownDate(r.effectiveFrom)}</td>
+                    <td className="ui-col-date ui-col-h-center">{dateWords(r.effectiveFrom)}</td>
                     <td className="ui-col-meta ui-col-grow whitespace-normal">{r.reason || '—'}</td>
                     <td className="ui-col-h-center">
                       <ExceptionTag label={r.status === 'APPLIED' ? '' : STATUS[r.status]?.label || r.status} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} />
@@ -447,8 +442,8 @@ const Impact = ({ impact, compact = false }) => (
                   <td className="ui-col-meta">
                     {l.type === 'DEDUCTION' ? 'Deduction' : l.type === 'EMPLOYER_CONTRIBUTION' ? 'Employer cost' : 'Earning'}
                   </td>
-                  <td className="ui-col-amount">{money(l.from)}</td>
-                  <td className="ui-col-amount">{money(l.to)}</td>
+                  <td className="ui-col-amount">{moneyCell(l.from)}</td>
+                  <td className="ui-col-amount">{moneyCell(l.to)}</td>
                   <td className="ui-col-amount">{signed(l.change)}</td>
                 </tr>
               ))}
@@ -506,7 +501,7 @@ const RevisionDetail = ({ revisionId, onBack }) => {
   const apply = async () => {
     const ok = await confirmDialog({
       title: 'Put this salary into effect?',
-      message: `From ${shownDate(revision.effectiveFrom)}, ${revision.employeeName} is on ${money(
+      message: `From ${dateWords(revision.effectiveFrom)}, ${revision.employeeName} is on ${money(
         revision.proposedAnnualCtc
       )} a year. Their current salary closes the day before, and payroll pays the new one from then on.`,
       confirmLabel: 'Put into effect',
@@ -578,7 +573,7 @@ const RevisionDetail = ({ revisionId, onBack }) => {
         title={revision.employeeName}
         description={`${money(revision.currentAnnualCtc)} → ${money(revision.proposedAnnualCtc)} a year${
           revision.incrementPercent ? ` · ${revision.incrementPercent}%` : ''
-        } · from ${shownDate(revision.effectiveFrom)}${revision.reason ? ` · ${revision.reason}` : ''}`}
+        } · from ${dateWords(revision.effectiveFrom)}${revision.reason ? ` · ${revision.reason}` : ''}`}
         actions={
           <div className="flex items-center gap-2">
             <button type="button" className="ui-btn ui-btn-secondary" onClick={onBack}>
@@ -600,7 +595,7 @@ const RevisionDetail = ({ revisionId, onBack }) => {
       {revision.status === 'APPROVED' ? (
         <p className="ui-caption">
           Approved, but not yet anybody&rsquo;s salary. Putting it into effect is what changes what payroll pays, from{' '}
-          {shownDate(revision.effectiveFrom)}.
+          {dateWords(revision.effectiveFrom)}.
         </p>
       ) : null}
 

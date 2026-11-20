@@ -22,6 +22,7 @@ import { rupees as money } from '@ui/utils/money';
 import { wagesHalfWords } from '@ui/picks/round66';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { dateWords } from '@ui/utils/dates';
 
 /**
  * The shape of a salary, before anybody is on it.
@@ -52,12 +53,6 @@ const STATUSES = [
 ];
 
 
-const shownDate = (iso) => {
-  const s = String(iso || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—';
-  const [y, m, d] = s.split('-');
-  return `${d}/${m}/${y}`;
-};
 
 const blankStructure = () => ({
   name: '',
@@ -239,7 +234,7 @@ export default function SalaryStructures() {
                   <tr key={x.id} className="ui-row-click" onClick={() => open(x.id)}>
                     <td className="ui-col-entity">{x.name}</td>
                     <td className="ui-col-meta">{cycleOf(x)}</td>
-                    <td className="ui-col-date ui-col-h-center">{shownDate(x.effectiveFrom)}</td>
+                    <td className="ui-col-date ui-col-h-center">{dateWords(x.effectiveFrom)}</td>
                     <td className="ui-col-amount">{x.components.length}</td>
                     <td className="ui-col-amount">{x.assignedCount}</td>
                     <td className="ui-col-h-center">

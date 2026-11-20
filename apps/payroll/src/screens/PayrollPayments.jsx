@@ -23,9 +23,10 @@ import {
   getBankAdvice,
 } from '../api/payrollPayments';
 import LoadFailed from '@ui/components/ui/LoadFailed';
-import { rupees as money } from '@ui/utils/money';
+import { rupees as money, moneyCell } from '@ui/utils/money';
 import { dayText, errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { dateWords } from '@ui/utils/dates';
 
 /**
  * Paying people, and saying what the bank did about it.
@@ -68,12 +69,6 @@ const METHODS = [
 ];
 
 
-const shownDate = (iso) => {
-  const s = String(iso || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—';
-  const [y, m, d] = s.split('-');
-  return `${d}/${m}/${y}`;
-};
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -249,9 +244,9 @@ export default function PayrollPayments({ menuLabel } = {}) {
                   <tr key={p.id} className="ui-row-click" onClick={() => setOpenId(p.id)}>
                     <td className="ui-col-id">{p.number}</td>
                     <td className="ui-col-entity">{p.runNumber || '—'}</td>
-                    <td className="ui-col-date ui-col-h-center">{shownDate(p.paymentDate)}</td>
-                    <td className="ui-col-amount">{money(p.totalAmount)}</td>
-                    <td className="ui-col-amount">{money(p.paidAmount)}</td>
+                    <td className="ui-col-date ui-col-h-center">{dateWords(p.paymentDate)}</td>
+                    <td className="ui-col-amount">{moneyCell(p.totalAmount)}</td>
+                    <td className="ui-col-amount">{moneyCell(p.paidAmount)}</td>
                     <td className="ui-col-amount">{p.failedCount || '—'}</td>
                     <td className="ui-col-h-center">
                       <ExceptionTag label={p.status === 'COMPLETED' ? '' : STATUS[p.status]?.label || p.status} normal={STATUS[p.status]?.label} pill={STATUS[p.status]?.tone || 'ui-pill-neutral'} />
@@ -342,7 +337,7 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
           <select id="pay-run" className="ui-select w-full" value={form.runId} onChange={(e) => set({ runId: e.target.value })} required>
             {runs.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.number} · {r.period?.name || shownDate(r.payrollDate)}
+                {r.number} · {r.period?.name || dateWords(r.payrollDate)}
               </option>
             ))}
           </select>
@@ -525,7 +520,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
       <PageHeader
         entity="payment"
         title={payment.number}
-        description={`${payment.runNumber || 'Payroll'} · ${shownDate(payment.paymentDate)} · ${
+        description={`${payment.runNumber || 'Payroll'} · ${dateWords(payment.paymentDate)} · ${
           METHODS.find((m) => m.id === payment.method)?.label || payment.method
         }${payment.ledgerAccountName ? ` from ${payment.ledgerAccountName}` : ''}`}
         actions={
@@ -659,7 +654,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
                   <td className="ui-col-meta">
                     {l.bankAccountMasked ? `${l.bankAccountMasked}${l.bankIfsc ? ` · ${l.bankIfsc}` : ''}` : 'No account on file'}
                   </td>
-                  <td className="ui-col-amount">{money(l.amount)}</td>
+                  <td className="ui-col-amount">{moneyCell(l.amount)}</td>
                   <td>
                     <ExceptionTag label={l.status === 'PAID' ? '' : LINE_STATUS[l.status]?.label || l.status} normal={LINE_STATUS[l.status]?.label} pill={LINE_STATUS[l.status]?.tone || 'ui-pill-neutral'} />
                   </td>

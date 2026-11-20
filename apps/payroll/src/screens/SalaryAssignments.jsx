@@ -22,10 +22,11 @@ import {
   checkMinimumWage,
 } from '../api/payrollPeople';
 import LoadFailed from '@ui/components/ui/LoadFailed';
-import { wholeRupees as money } from '@ui/utils/money';
+import { wholeRupees as money, moneyCell } from '@ui/utils/money';
 import { CtcSplit } from '../components/round59';
 import { dayText, errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { dateWords } from '@ui/utils/dates';
 
 /**
  * Who is paid what.
@@ -42,12 +43,6 @@ import { countItems } from '../components/countItems';
  */
 
 
-const shownDate = (iso) => {
-  const s = String(iso || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—';
-  const [y, m, d] = s.split('-');
-  return `${d}/${m}/${y}`;
-};
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -281,7 +276,7 @@ export default function SalaryAssignments({ params } = {}) {
                       </td>
                       <td className="ui-col-meta" data-phone="sub">{p.designation || '—'}</td>
                       <td className="ui-col-meta">{current ? structureName(current.structureId) : '—'}</td>
-                      <td className="ui-col-date ui-col-h-center">{current ? shownDate(current.effectiveFrom) : '—'}</td>
+                      <td className="ui-col-date ui-col-h-center">{current ? dateWords(current.effectiveFrom) : '—'}</td>
                       <td className="ui-col-amount">{current ? money(current.annualCtc) : '—'}</td>
                       <td className="ui-col-amount" data-phone="key">{current ? money(current.monthlyCtc) : '—'}</td>
                       <td className="ui-col-h-center" data-phone="tag">
@@ -435,9 +430,9 @@ const SalaryTab = ({ person, structures, history, onSaved }) => {
               <tbody className="ui-rows">
                 {history.map((a) => (
                   <tr key={a.id}>
-                    <td className="ui-col-date ui-col-h-center">{shownDate(a.effectiveFrom)}</td>
-                    <td className="ui-col-date ui-col-h-center">{a.effectiveTo ? shownDate(a.effectiveTo) : '—'}</td>
-                    <td className="ui-col-amount">{money(a.annualCtc)}</td>
+                    <td className="ui-col-date ui-col-h-center">{dateWords(a.effectiveFrom)}</td>
+                    <td className="ui-col-date ui-col-h-center">{a.effectiveTo ? dateWords(a.effectiveTo) : '—'}</td>
+                    <td className="ui-col-amount">{moneyCell(a.annualCtc)}</td>
                     <td className="ui-col-meta">{a.status === 'ACTIVE' ? 'Current' : 'Past'}</td>
                   </tr>
                 ))}
@@ -572,7 +567,7 @@ const RaiseForm = ({ person, structures, current, onCancel, onSaved }) => {
       ) : null}
 
       <p className="ui-caption">
-        The salary before this one closes the day before {shownDate(form.effectiveFrom)}. Nothing already paid changes.
+        The salary before this one closes the day before {dateWords(form.effectiveFrom)}. Nothing already paid changes.
       </p>
 
       <div className="flex items-center justify-end gap-2">

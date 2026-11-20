@@ -3,7 +3,7 @@ import { AlertTriangle, Plus, Trash2, Upload } from '@ui/components/ui/lineIcons
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { formatDateIn, todayIst } from '@ui/utils/dates';
-import { wholeRupees as money } from '@ui/utils/money';
+import { moneyCell } from '@ui/utils/money';
 import { requestOpenScreen } from '@platform/context';
 import { inForceIds, SKILL_LEVELS } from './minimumWageText';
 import { addMinimumWage, getMinimumWages, importMinimumWages, removeMinimumWage } from '../api/payrollMinimumWages';
@@ -172,7 +172,7 @@ export default function MinimumWagesSection() {
                   <td className="ui-col-meta">{r.zone || 'Whole state'}</td>
                   <td className="ui-col-meta">{r.skillLabel.charAt(0).toUpperCase() + r.skillLabel.slice(1)}</td>
                   <td className="ui-col-date ui-col-h-center">{formatDateIn(r.effectiveFrom)}</td>
-                  <td className="ui-col-amount">{money(r.monthlyRate)}</td>
+                  <td className="ui-col-amount">{moneyCell(r.monthlyRate)}</td>
                   <td className="text-center">
                     <span className={`ui-pill ${live.has(r.id) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
                       {live.has(r.id) ? 'In force' : r.effectiveFrom > today ? 'Upcoming' : 'Earlier'}

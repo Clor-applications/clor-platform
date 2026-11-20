@@ -16,6 +16,8 @@ import DraftStrip from '../components/DraftStrip';
 import { SPLIT_NOTE, SPLIT_TITLE, countWords, splitLines } from '@ui/picks/payLines';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { dateWords } from '@ui/utils/dates';
+import { moneyCell } from '@ui/utils/money';
 
 /**
  * Payslips.
@@ -34,12 +36,6 @@ import { countItems } from '../components/countItems';
 const money = (n) =>
   `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const shownDate = (iso) => {
-  const s = String(iso || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—';
-  const [y, m, d] = s.split('-');
-  return `${d}/${m}/${y}`;
-};
 
 const TABS = [
   { value: '', label: 'All', tone: 'all' },
@@ -169,9 +165,9 @@ export default function SalarySlips() {
                       {x.employee?.code ? <span className="ui-caption"> · {x.employee.code}</span> : null}
                     </td>
                     <td className="ui-col-meta" data-phone="sub">{x.period?.name || '—'}{x.extraPayRun ? <span className="ui-caption"> · Extra pay run</span> : null}</td>
-                    <td className="ui-num">{money(x.grossEarnings)}</td>
-                    <td className="ui-num">{money(x.totalDeductions)}</td>
-                    <td className="ui-num font-medium" data-phone="key">{money(x.netPay)}</td>
+                    <td className="ui-num">{moneyCell(x.grossEarnings)}</td>
+                    <td className="ui-num">{moneyCell(x.totalDeductions)}</td>
+                    <td className="ui-num font-medium" data-phone="key">{moneyCell(x.netPay)}</td>
                     <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={isPaid(x) ? '' : 'Unpaid'} normal="Paid" />
                     </td>
@@ -233,7 +229,7 @@ const SlipDocument = ({ slipId }) => {
           {[slip.employee.designation, slip.employee.department].filter(Boolean).join(' · ') || '—'}
         </p>
         <p className="ui-caption">
-          {slip.period?.name || ''} · paid {shownDate(slip.payrollDate)}
+          {slip.period?.name || ''} · paid {dateWords(slip.payrollDate)}
           {/* An extra only (a bonus, arrears) paid no days: the month's salary did. */}
           {slip.extraPayRun && !slip.days.workingDays ? ' · Extra pay run' : <>{slip.extraPayRun ? ' · Extra pay run' : ''} · {slip.days.payableDays} of {slip.days.periodDays} days</>}
         </p>

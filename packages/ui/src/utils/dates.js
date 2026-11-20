@@ -79,6 +79,30 @@ export const localDateIso = (value = new Date()) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
+/*
+ * A date in words: 9 Dec 2026 (DESIGN.md, "Dates in words"; design audit S7/G5).
+ *
+ * The one way People, Payroll, Attendance and Workspace show a date. A calendar
+ * date (YYYY-MM-DD) is shown as stored; a timestamp is shown as its day in India,
+ * the server's `dateWords` rule. Month names are fixed here because en-IN writes
+ * "Sept" on some engines. Books keeps `formatDateIn`, which follows the company's
+ * chosen date format.
+ */
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export const dateWords = (value, empty = '—') => {
+  if (value === null || value === undefined || value === '') return empty;
+  const s = value instanceof Date ? '' : String(value).trim();
+  let iso = /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+  if (!iso) {
+    const d = value instanceof Date ? value : new Date(s);
+    if (Number.isNaN(d.getTime())) return empty;
+    iso = istDate(d.getTime());
+  }
+  const [y, m, d] = iso.split('-');
+  const month = MONTHS_SHORT[Number(m) - 1];
+  return month ? `${Number(d)} ${month} ${y}` : empty;
+};
+
 /** The reverse, for anything that takes typing: 12/09/2026 → 2026-09-12. */
 export const parseDateIn = (text) => {
   const raw = String(text || '').trim();
