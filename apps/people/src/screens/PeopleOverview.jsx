@@ -374,7 +374,7 @@ export default function PeopleOverview({ openScreen }) {
           {/* Titled by the day, not a time-of-day greeting (8 Nov 2026). */}
           <h1 className="ui-t-page">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</h1>
           <p className="people-home-sub">
-            {waiting === null ? <>Could not check what waits for your answer</> : !todos && !leave ? <>Checking what waits for your answer</> : waiting ? <><strong>{plural(waiting, 'thing')}</strong> {waiting === 1 ? 'waits' : 'wait'} for your answer</> : <>Nothing waits for your answer</>}
+            {waiting === null ? <>Could not check what needs your action</> : !todos && !leave ? <>Checking what needs your action</> : waiting ? <><strong>{plural(waiting, 'item')}</strong> {waiting === 1 ? 'needs' : 'need'} your action</> : <>Nothing needs your action</>}
             {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
           </p>
         </div>

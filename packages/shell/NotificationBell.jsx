@@ -59,7 +59,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
   const items = state.key === tenantKey ? state.items : [];
   const unread = state.key === tenantKey ? state.unread : 0;
   const waitingN = Number(waiting) || 0;
-  /* The badge counts distinct unread notices (the server reads a stacked daily digest as one); what waits for your answer is the first line of the list. */
+  /* The badge counts distinct unread notices (the server reads a stacked daily digest as one); what needs this person's action is the first line of the list. */
   const badge = unread;
   const badgeLabel = `${unread} unread`;
 
@@ -91,7 +91,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
         <Popover.Popup className="ui-menu ui-bell-panel" style={{ outline: 'none' }} aria-label="Notifications">
           {onOpenWaiting ? (
             <button type="button" className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken" onClick={() => { setOpen(false); onOpenWaiting(); }}>
-              <span>{waitingN ? <><strong className="tabular-nums">{waitingN}</strong> {waitingN === 1 ? 'thing waits' : 'things wait'} for your answer</> : 'Nothing waits for your answer'}</span>
+              <span>{waitingN ? <><strong className="tabular-nums">{waitingN}</strong> {waitingN === 1 ? 'item needs' : 'items need'} your action</> : 'Nothing needs your action'}</span>
               <span className="ui-caption whitespace-nowrap">Open Inbox</span>
             </button>
           ) : null}

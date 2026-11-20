@@ -599,7 +599,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               ))}
             </ul>
           ) : (
-            <p className="wsg-calm">Nothing needs you right now.</p>
+            <p className="wsg-calm">Nothing needs your action right now.</p>
           )}
         </section>
 
