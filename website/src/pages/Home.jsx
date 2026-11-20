@@ -152,7 +152,7 @@ const FAQ = [
   ['Do I have to buy every product?', 'No. Each CLOR product works on its own. Start with the one you need and add others later; they share one sign-in and one list of employees.'],
   ['Is CLOR made for Indian companies?', 'Yes. GST, e-invoices and e-way bills, TDS, PF, ESI, professional tax and Form 16 are part of the products, not add-ons.'],
   ['Where is my data kept?', `In ${SITE.hosting}. Each company’s records are kept apart inside the database itself, not only by the application.`],
-  ['Can my accountant or CA work with me?', 'Yes. Invite them from your Workspace (Access, then Invitations) with their own sign-in, choose what they can see and change, and end it at any time. An account for the firm’s own staff is planned.'],
+  ['Can my accountant or CA work with me?', 'Yes. Invite them from your Admin center (Access, then Invitations) with their own sign-in, choose what they can see and change, and end it at any time. An account for the firm’s own staff is planned.'],
   ['Can I leave with my data?', 'Yes. You can export your company’s data at any time, and closing a company comes with a notice period.'],
 ];
 

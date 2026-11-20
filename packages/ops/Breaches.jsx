@@ -56,7 +56,7 @@ export function Breaches({ me, openCustomer }) {
           ) : null
         }
       />
-      <p className="ws-card-blurb r67-lede">When customer data reaches someone it should not, record it here the day it is found, then tell the customers’ administrators. A company’s own breach of its staff data is recorded by that company in Workspace, Privacy.</p>
+      <p className="ws-card-blurb r67-lede">When customer data reaches someone it should not, record it here the day it is found, then tell the customers’ administrators. A company’s own breach of its staff data is recorded by that company in the Admin center, Privacy.</p>
       <Err>{error}</Err>
       {!rows ? (
         error ? null : <Loading />

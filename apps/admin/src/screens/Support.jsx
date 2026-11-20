@@ -43,7 +43,7 @@ const APP = [
   ['people', 'People'],
   ['attendance', 'Attendance'],
   ['payroll', 'Payroll'],
-  ['workspace', 'Workspace'],
+  ['workspace', 'Admin center'],
 ];
 const APP_NAME = Object.fromEntries(APP.filter(([k]) => k));
 /* Coloured tabs, as on the Inbox (owner, 19 Nov 2026). */

@@ -15,7 +15,7 @@ import { Empty, Err, Loading, Tabs, errorWords, may, when } from './kit';
  * to be hit. Both stay inside Ops: the public page never shows them. A hit
  * customer's own page in Ops shows the open post.
  */
-export const PART_NAMES = { platform: 'Sign-in and Workspace', accounting: 'Books', people: 'People and Attendance', payroll: 'Payroll' };
+export const PART_NAMES = { platform: 'Sign-in and Admin center', accounting: 'Books', people: 'People and Attendance', payroll: 'Payroll' };
 const IMPACT = { MINOR: ['Minor', 'ws-pill'], MAJOR: ['Major', 'ws-pill ws-pill--warn'], OUTAGE: ['Down', 'ws-pill ws-pill--danger'] };
 export const STATE_WORD = {
   INVESTIGATING: 'Looking into it',

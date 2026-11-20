@@ -296,7 +296,7 @@ export async function addSeats(accountId: string, add: number, userId: string, e
 
   const invoice = free
     ? null
-    : await raiseFor(change.id, accountId, q.line, q.from, q.to, `Seats added from Workspace. Unpaid by ${shown(istDay(dueAt))}, these ${q.unit === 'USER' ? 'users' : 'employees'} come off the plan.`, userId, settings.payDays, 'The invoice for these seats could not be raised, so nothing was added. Try again, or ask CLOR.');
+    : await raiseFor(change.id, accountId, q.line, q.from, q.to, `Seats added from the Admin center. Unpaid by ${shown(istDay(dueAt))}, these ${q.unit === 'USER' ? 'users' : 'employees'} come off the plan.`, userId, settings.payDays, 'The invoice for these seats could not be raised, so nothing was added. Try again, or ask CLOR.');
   await recordAccountEvent({
     accountId,
     actorUserId: userId,

@@ -92,7 +92,7 @@ function AccountName({ name, owners = null, onRenamed, onDirty }) {
       }}
     >
       <label className="ws-field">
-        <span>Workspace name</span>
+        <span>Account name</span>
         <input
           className="ui-input"
           value={value}
@@ -230,7 +230,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
         if (!cancelled) setData(res);
       })
       .catch((e) => {
-        if (!cancelled) setFailed(errorWords(e, 'load Workspace settings'));
+        if (!cancelled) setFailed(errorWords(e, 'load Account settings'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -274,8 +274,8 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Settings', 'Workspace settings']} scope="account"
-          title="Workspace settings"
+          crumbs={['Settings', 'Account settings']} scope="account"
+          title="Account settings"
           description={
             data ? (
               <>
@@ -295,7 +295,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
           }
         />
 
-        {loading ? <Loading shape="card" rows={3} label="Loading Workspace settings…" /> : null}
+        {loading ? <Loading shape="card" rows={3} label="Loading Account settings…" /> : null}
         {failed ? (
           <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>
             {failed}

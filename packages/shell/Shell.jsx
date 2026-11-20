@@ -1026,7 +1026,7 @@ function ShellScreens() {
               onClick={() => openApp(ADMIN_APP_ID)}
             >
               <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': 'var(--app-admin, 32 35 41)' }}><Settings size={16} aria-hidden="true" /></span>
-              <span className="text-sm font-semibold flex-1">Workspace</span>
+              <span className="text-sm font-semibold flex-1">Admin center</span>
               {app.id === ADMIN_APP_ID ? <Check size={16} aria-hidden="true" className="shrink-0" /> : null}
             </MenuItem>
         </MenuPanel>
@@ -1158,7 +1158,7 @@ function ShellScreens() {
           </span>
         </button>
       ) : null}
-      {/* The Workspace lists the apps on its Overview and the switcher has More apps; its own panel is administration only. */}
+      {/* The Admin center lists the apps on its Overview and the switcher has More apps; its own panel is administration only. */}
       {app?.id === ADMIN_APP_ID || !phone ? null : (
         <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
           <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
@@ -1290,8 +1290,8 @@ function ShellScreens() {
           {!phone || Root ? <div className="flex-1" /> : null}
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
-          {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
-          {/* On a phone the company is chosen in the app menu ("People ⌄"), or, where the bar has no app menu (the Workspace),
+          {/* The company in use. The Admin center shows it too: half its pages change only this company. */}
+          {/* On a phone the company is chosen in the app menu ("People ⌄"), or, where the bar has no app menu (the Admin center),
               from a building button: two companies ran the picker under the bell and the profile button at 390px (#80 QA). */}
           {/* Outside Books the company is chosen in your name menu (owner's pick, 17 Nov 2026). */}
           {!phone && Root ? (
@@ -1355,7 +1355,7 @@ function ShellScreens() {
             }}
           />
           {/* A phone's bar has no room for it (it pushed the bar past the screen); help is in the phone's Menu. */}
-          {/* Help sits in the bar in every app (owner, 16 Nov 2026); a rail foot may still carry its own item (the Workspace's Setup). */}
+          {/* Help sits in the bar in every app (owner, 16 Nov 2026); a rail foot may still carry its own item (the Admin center's Setup). */}
           {!phone && !app?.railFoot?.helpIcon ? <HelpMenu /> : null}
 
           {/* Books' own profile menu (density, its settings) lands here, where every other app has its face. */}
@@ -1452,7 +1452,7 @@ function ShellScreens() {
         ) : null}
         {tenant.archivedAt ? (
           <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
-            <span className="min-w-0 flex-1">This company is archived. You can read and export its records; nothing new can be saved. An account owner or admin can reactivate it in Workspace → Companies.</span>
+            <span className="min-w-0 flex-1">This company is archived. You can read and export its records; nothing new can be saved. An account owner or admin can reactivate it in Admin center → Companies.</span>
           </div>
         ) : null}
         {unbought ? (
@@ -1565,7 +1565,7 @@ function ShellScreens() {
               <ScreenBoundary appName="My profile" resetKey={`profile:${tenant.id}`}>
                 {/* The profile opens from the header, not the sidebar, so it needs
                     its own way back to the screen it was opened from. */}
-                {/* In the Workspace the profile sits on the Workspace surface (workspace.css, loaded with its screens). */}
+                {/* In the Admin center the profile sits on the Admin center surface (workspace.css, loaded with its screens). */}
                 <div className={app?.id === ADMIN_APP_ID ? 'ws ws-legacy' : undefined}>
                   <div className={app?.id === ADMIN_APP_ID ? 'ws-inner' : undefined} style={app?.id === ADMIN_APP_ID ? { gap: 12 } : undefined}>
                     <div className={app?.id === ADMIN_APP_ID ? '' : app?.flush ? 'pt-3' : 'mb-3'}>

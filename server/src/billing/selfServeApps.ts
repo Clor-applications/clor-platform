@@ -200,7 +200,7 @@ export async function addApp(accountId: string, planCode: string, quantity: numb
 
   const invoice = free
     ? null
-    : await raiseFor(made.change.id, accountId, q.line, q.from, q.to, `${q.appName} added from Workspace. Unpaid by ${shown(istDay(dueAt))}, ${q.appName} comes off the plan.`, userId, payDays, `The invoice for ${q.appName} could not be raised, so it was not added. Try again, or ask CLOR.`);
+    : await raiseFor(made.change.id, accountId, q.line, q.from, q.to, `${q.appName} added from the Admin center. Unpaid by ${shown(istDay(dueAt))}, ${q.appName} comes off the plan.`, userId, payDays, `The invoice for ${q.appName} could not be raised, so it was not added. Try again, or ask CLOR.`);
   await recordAccountEvent({
     accountId,
     actorUserId: userId,

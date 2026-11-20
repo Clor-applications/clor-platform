@@ -18,9 +18,9 @@ export default function OpenInCompanyAdmin({ title, screen, forApp = '' }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={title} description="This is in Workspace now, with everything else your apps share." />
+      <PageHeader title={title} description="This is in the Admin center now, with everything else your apps share." />
       <button type="button" className="ui-btn ui-btn-primary" onClick={() => requestOpenApp('admin', screen, forApp ? { for: forApp } : {})}>
-        Open in Workspace <ArrowRight size={16} aria-hidden="true" />
+        Open in the Admin center <ArrowRight size={16} aria-hidden="true" />
       </button>
     </div>
   );

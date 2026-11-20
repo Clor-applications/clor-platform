@@ -138,7 +138,7 @@ export async function appOwnershipReason(accountId: string, featureKey: string):
   if (!app) return null;
   const access = await appAccess(accountId);
   if (access.entitledApps.includes(app.code)) return null;
-  if (access.ownedApps.includes(app.code)) return `This subscription is ${statusWords(access.status)}, so ${app.name} is paused. An owner can renew it under Workspace → Billing.`;
+  if (access.ownedApps.includes(app.code)) return `This subscription is ${statusWords(access.status)}, so ${app.name} is paused. An owner can renew it under Admin center → Billing.`;
   return `${app.name} is not on this account's subscription.`;
 }
 

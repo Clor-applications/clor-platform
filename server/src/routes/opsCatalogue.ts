@@ -64,7 +64,7 @@ opsCatalogueRouter.put('/ops/apps/:code', requireOperatorRole(), requireOperator
     if (!base) return res.status(404).json({ error: 'No such app.' });
     const parsed = entryBody.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the entry.' });
-    if (code === 'workspace' && parsed.data.status !== 'AVAILABLE') return res.status(400).json({ error: 'Workspace is where every customer manages their account; it cannot be hidden or marked coming soon.' });
+    if (code === 'workspace' && parsed.data.status !== 'AVAILABLE') return res.status(400).json({ error: 'Admin center is where every customer manages their account; it cannot be hidden or marked coming soon.' });
     const before = (await appListing()).find((a) => a.code === code)!;
     const data = { status: parsed.data.status, blurb: parsed.data.blurb, updatedByUserId: req.auth!.userId };
     await platformPrisma.appCatalogueEntry.upsert({ where: { code }, create: { code, ...data }, update: data });

@@ -104,7 +104,7 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
    * authenticator. Reactivating is an account route, outside this middleware.
    */
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !ARCHIVED_STILL_ALLOWED.test(req.path) && (await isArchived(req.tenant.orgId))) {
-    return res.status(403).json({ error: 'This company is archived, so it is read-only. An account owner or admin can reactivate it in Workspace → Companies.', code: 'COMPANY_ARCHIVED' });
+    return res.status(403).json({ error: 'This company is archived, so it is read-only. An account owner or admin can reactivate it in Admin center → Companies.', code: 'COMPANY_ARCHIVED' });
   }
 
   /*

@@ -22,7 +22,7 @@ const PAGE_ICON = emoji('inbox-tray');
  */
 const getInbox = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/workspace/inbox`, { skipWarehouseHeader: true });
 
-const APP_NAME = { accounting: 'Books', payroll: 'Payroll', people: 'People', attendance: 'Attendance', admin: 'Workspace' };
+const APP_NAME = { accounting: 'Books', payroll: 'Payroll', people: 'People', attendance: 'Attendance', admin: 'Admin center' };
 
 const TABS = [
   /* Each tab its own accent (owner, 19 Nov 2026): orange to decide, blue for tasks, green for updates. */
@@ -32,7 +32,7 @@ const TABS = [
 ];
 
 const label = (app) => APP_NAME[app] || appName(app);
-const appTag = (app) => (app === 'admin' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={app}>{label(app)}</AppTag>);
+const appTag = (app) => (app === 'admin' ? <span className="ws-tag ws-tag--workspace">Admin center</span> : <AppTag app={app}>{label(app)}</AppTag>);
 const dayMs = 86400000;
 
 export default function Inbox({ openApp, openScreen }) {
