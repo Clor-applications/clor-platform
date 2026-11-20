@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight } from '@ui/components/ui/lineIcons';
-import { GST_STATE_BY_CODE } from '@ui/utils/gst';
+import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
+import { isValidGstin } from '@ui/utils/gstin';
 
 import { signupConfirm, signupOptions, signupPending, signupStart } from '@platform/auth';
 import AuthLayout from './AuthLayout';
@@ -18,7 +19,7 @@ import { readStartLinkOnce } from './startLink';
  *  - sent: check your mail, with a way to send it again.
  *  - setup: the link from the mail lands here (/start?t=<token>). The email
  *    is confirmed by the click, so the page asks only what the account needs:
- *    who, the company's name, a password to sign in with from then on, which
+ *    who, the company's name and, if registered, its GSTIN, a password to sign in with from then on, which
  *    apps first, and the state when Books is among them (GST's place of
  *    supply). Then "Open CLOR" makes the account
  *    (server: routes/signup.ts, the same account-making code the operator
@@ -259,7 +260,7 @@ function ResendLine({ email, app, plan }) {
 }
 
 function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHome, onEnded }) {
-  const [form, setForm] = useState({ ownerName: '', companyName: '', password: '', state: '' });
+  const [form, setForm] = useState({ ownerName: '', companyName: '', gstin: '', password: '', state: '' });
   /* The app the pricing button named (kept with the link) is ticked first. */
   const [chosen, setChosen] = useState(() => new Set([pending.app || link.app].filter(Boolean)));
   const [busy, setBusy] = useState(false);
@@ -276,10 +277,21 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
       return n;
     });
   const set = (patch) => {
-    setForm((f) => ({ ...f, ...patch }));
+    setForm((f) => {
+      const next = { ...f, ...patch };
+      /* A GSTIN begins with its state's code, so typing one answers the state too. */
+      if (patch.gstin !== undefined) {
+        const derived = getGstStateFromGstin(patch.gstin);
+        if (derived && GST_STATES.includes(derived)) next.state = derived;
+      }
+      return next;
+    });
     setError('');
   };
   const withBooks = has('accounting');
+  const gstin = form.gstin.trim();
+  const fromGstin = gstin ? getGstStateFromGstin(gstin) : '';
+  const askState = withBooks || Boolean(gstin);
   const picked = apps.map((a) => a.code).filter(has);
 
   const submit = async (e) => {
@@ -288,13 +300,16 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
     if (form.companyName.trim().length < 2) return setError('Give your company a name.');
     if (form.password.length < 8) return setError('Choose a password of at least 8 characters.');
     if (!picked.length) return setError('Tick at least one product.');
+    if (gstin && !isValidGstin(gstin)) return setError('Check the GSTIN: it has 15 characters, like 29ABCDE1234F1ZW. Leave it blank if you are not registered yet.');
     if (withBooks && !form.state) return setError('Choose the state of your head office. It decides CGST and SGST or IGST on every invoice.');
+    if (gstin && !form.state) return setError('Choose the state the GSTIN is registered in.');
+    if (gstin && fromGstin && form.state !== fromGstin) return setError(`This GSTIN is registered in ${fromGstin}, not ${form.state}. Check the GSTIN or the state.`);
     setBusy(true);
     setError('');
     try {
       /* Signed out of the other company first, so the sign-out cannot end the new session. */
       if (signedIn && signOut) await signOut();
-      const r = await signupConfirm({ token: link.token, ownerName: form.ownerName.trim(), companyName: form.companyName.trim(), apps: picked, state: withBooks ? form.state : undefined, password: form.password });
+      const r = await signupConfirm({ token: link.token, ownerName: form.ownerName.trim(), companyName: form.companyName.trim(), apps: picked, state: askState ? form.state : undefined, gstin: gstin || undefined, password: form.password });
       try {
         localStorage.setItem('token', r.token);
         for (const store of [localStorage, sessionStorage]) for (const key of Object.keys(store)) if (key.startsWith('clor.sel.')) store.removeItem(key);
@@ -330,6 +345,30 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
           </div>
         </div>
 
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label className="ui-label" htmlFor="start-gstin">
+              GSTIN <span className="ui-caption">· optional</span>
+            </label>
+            <input id="start-gstin" className="ui-input h-11 w-full ui-mono" value={form.gstin} onChange={(e) => set({ gstin: e.target.value.toUpperCase() })} autoComplete="off" spellCheck={false} maxLength={15} placeholder="29ABCDE1234F1ZW" aria-describedby="start-gstin-hint" />
+            <p id="start-gstin-hint" className="ui-caption mt-1">Leave it blank if you are not registered yet. You can add it later.</p>
+          </div>
+          {askState ? (
+            <div>
+              <label className="ui-label" htmlFor="start-state">State of your head office</label>
+              <select id="start-state" className="ui-select h-11 w-full" value={form.state} onChange={(e) => set({ state: e.target.value })} aria-describedby="start-state-hint">
+                <option value="">Choose a state</option>
+                {GST_STATES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <p id="start-state-hint" className="ui-caption mt-1">
+                {fromGstin && form.state === fromGstin ? 'Taken from the GSTIN.' : 'For GST: it decides CGST and SGST or IGST on every invoice.'}
+              </p>
+            </div>
+          ) : null}
+        </div>
+
         <div>
           {/* The address the password belongs to, for a password manager; not shown. */}
           <div className="sr-only" aria-hidden="true">
@@ -361,18 +400,6 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
           {chosen.has('people') ? <p className="ui-caption mt-2">People includes Attendance, so both are on.</p> : null}
         </fieldset>
 
-        {withBooks ? (
-          <div>
-            <label className="ui-label" htmlFor="start-state">State of your head office</label>
-            <select id="start-state" className="ui-select h-11 w-full" value={form.state} onChange={(e) => set({ state: e.target.value })} aria-describedby="start-state-hint">
-              <option value="">Choose a state</option>
-              {GST_STATES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-            <p id="start-state-hint" className="ui-caption mt-1">For GST: it decides CGST and SGST or IGST on every invoice.</p>
-          </div>
-        ) : null}
 
         <Err>{error}</Err>
         <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg w-full" disabled={busy}>

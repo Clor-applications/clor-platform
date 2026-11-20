@@ -11,7 +11,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { setRefreshCookie } from '../utils/refreshCookie.js';
 import { isDevOrTest } from '../utils/devMode.js';
-import { deriveStateCodeFromInput } from '../utils/gstin.js';
+import { deriveStateCodeFromInput, validateGstinOrThrow } from '../utils/gstin.js';
 import { clientIp, createSession, recordAuthEvent, signAccessToken } from '../services/auth.js';
 import { sendTemplate } from '../services/mailer.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
@@ -195,6 +195,8 @@ const confirmBody = z.object({
   apps: z.array(z.string()).default([]),
   /* The head office's state: asked only when Books is chosen (it decides CGST + SGST or IGST). */
   state: z.string().trim().max(60).optional().nullable(),
+  /* Optional: a registered company's GSTIN. Its first two digits must be the state's code. */
+  gstin: z.string().trim().max(20).optional().nullable(),
   /* Chosen on the setup page. Optional only for a page opened before this field existed: that owner gets the set-password mail. */
   password: z.string().max(200).optional(),
 });
@@ -222,6 +224,15 @@ signupRouter.post('/public/signup/confirm', ...signupLinkLimiter, (req: Request,
     const state = String(d.state || '').trim();
     if (apps.includes('accounting') && !deriveStateCodeFromInput(state)) return res.status(400).json({ error: 'Choose the state of your head office. It decides CGST and SGST or IGST on every invoice.', code: 'STATE_REQUIRED' });
     if (state && !deriveStateCodeFromInput(state)) return res.status(400).json({ error: `Choose a state from the list. “${state}” is not one of them.`, code: 'STATE_REQUIRED' });
+    const gstin = String(d.gstin || '').trim().toUpperCase();
+    if (gstin) {
+      if (!state) return res.status(400).json({ error: 'Choose the state the GSTIN is registered in.', code: 'STATE_REQUIRED' });
+      try {
+        validateGstinOrThrow(gstin, state);
+      } catch (e) {
+        return res.status(400).json({ error: (e as Error).message, code: 'BAD_GSTIN' });
+      }
+    }
 
     /* The trial's length comes from the plan that carries these apps, the shortest among them as a quote does. */
     const trial = await trialOffer(apps, row.planCode);
@@ -245,6 +256,7 @@ signupRouter.post('/public/signup/confirm', ...signupLinkLimiter, (req: Request,
         ownerEmail: row.email,
         companyName: d.companyName,
         state,
+        gstin: gstin || null,
         plan: { apps, status: 'trialing', trialEndsAt },
         profile: { requestedApp: first, source: 'self-serve', planCode: trial.planCode, trialDays: trial.trialDays },
         ip,

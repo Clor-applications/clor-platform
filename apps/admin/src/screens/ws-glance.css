@@ -332,3 +332,82 @@
   justify-content: space-between;
   gap: 12px;
 }
+
+/* 20 Nov polish: the greeting's facts follow a dot, not a wide gap. */
+.wsh .wsg-lede {
+  gap: 4px 8px;
+}
+.wsh .wsg-lede-facts::before {
+  content: '·';
+  margin-right: 8px;
+}
+/* A card says what it is by a small line icon beside its title (ink, never the app colour). */
+.wsh .wsg-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wsh .wsg-card-ico {
+  flex: none;
+  color: rgb(var(--fg-muted));
+}
+/* Card actions are text links, as "Open inbox" is: one boxed button per screen is enough. */
+.wsh .wsg-foot {
+  gap: 8px 20px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgb(var(--border));
+}
+.wsh .wsg-act .wsg-foot {
+  margin-top: auto;
+}
+.wsh .wsg-foot .ws-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/*
+ * Light colour accents (owner, 20 Nov 2026: "add light color accent so it looks
+ * visible properly"). Soft content tints from rnd.css, never the app colour:
+ * each glance card's icon sits on its own tint, each action names its subject
+ * in that tint, and an urgent action gets a soft edge of its state colour.
+ */
+/* The same content tints People's tags use (rnd.css), which are scoped to People there. */
+.wsh {
+  --mint-soft: 225 245 238;  --mint-ink: 16 102 71;
+  --lilac-soft: 236 234 250; --lilac-ink: 57 46 124;
+  --peach-soft: 252 237 230; --peach-ink: 136 60 30;
+  --butter-soft: 252 241 219; --butter-ink: 138 90 0;
+}
+.wsh .wsg-glance { --k-soft: var(--neutral-soft); --k-ink: var(--neutral-ink); }
+.wsh .wsg-glance[data-kind='members'] { --k-soft: var(--info-soft); --k-ink: var(--info); }
+.wsh .wsg-glance[data-kind='apps'] { --k-soft: var(--lilac-soft); --k-ink: var(--lilac-ink); }
+.wsh .wsg-glance[data-kind='plan'] { --k-soft: var(--peach-soft); --k-ink: var(--peach-ink); }
+.wsh .wsg-glance[data-kind='security'] { --k-soft: var(--mint-soft); --k-ink: var(--mint-ink); }
+.wsh .wsg-card-ico {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgb(var(--k-soft, var(--neutral-soft)));
+  color: rgb(var(--k-ink, var(--neutral-ink)));
+}
+.wsh .wsg-glance .wsg-figure { color: rgb(var(--fg)); }
+.wsh .wsg-glance .ws-meter-bar { background: rgb(var(--k-soft)); }
+.wsh .wsg-glance .ws-meter-bar > span:not([data-tight]) { background: rgb(var(--k-ink)); }
+
+.wsh .wsg-act-area {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgb(var(--a-soft, var(--neutral-soft)));
+  color: rgb(var(--a-ink, var(--neutral-ink)));
+}
+.wsh .wsg-act-area[data-area='Members'] { --a-soft: var(--info-soft); --a-ink: var(--info); }
+.wsh .wsg-act-area[data-area='Apps'] { --a-soft: var(--lilac-soft); --a-ink: var(--lilac-ink); }
+.wsh .wsg-act-area[data-area='Billing'] { --a-soft: var(--peach-soft); --a-ink: var(--peach-ink); }
+.wsh .wsg-act-area[data-area='Security'] { --a-soft: var(--mint-soft); --a-ink: var(--mint-ink); }
+.wsh .wsg-act-area[data-area='Companies'] { --a-soft: var(--butter-soft); --a-ink: var(--butter-ink); }
+.wsh .wsg-act[data-tone='warn'] { box-shadow: inset 0 3px 0 rgb(var(--warn-soft)); border-color: rgb(var(--warn-soft)); }
+.wsh .wsg-act[data-tone='danger'] { box-shadow: inset 0 3px 0 rgb(var(--neg-soft)); border-color: rgb(var(--neg-soft)); }
