@@ -66,7 +66,7 @@ beforeEach(() => {
  * Every state and figure comes from the server; a member is not shown numbers
  * they may not read.
  */
-describe('the Workspace overview', () => {
+describe('Home', () => {
   it('names each app’s state from the subscription, the plan and the person’s own access', () => {
     const me = ['accounting'];
     expect(appState(CATALOG[1], tenant, me).label).toBe('Active');
@@ -76,74 +76,62 @@ describe('the Workspace overview', () => {
     expect(appState(CATALOG[3], { subscriptions: [], billing: null }).label).toBe('Not switched on');
   });
 
-  it('shows an owner the business at a glance, what needs attention first, and the subscription', async () => {
+  it('shows an owner the account at a glance, then the top actions, most urgent first', async () => {
     const openScreen = vi.fn();
     render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={openScreen} openApp={() => {}} accountName="Neev Group" />);
-    /* The hero greets the reader by name with no retired kicker above it; the account's facts sit on one line. */
-    expect(screen.queryByText('Welcome to CLOR Workspace')).toBeNull();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Home$/);
     expect(screen.getByText(/^Hello, Kavya/)).toBeInTheDocument();
     expect(await screen.findByText('Owner')).toBeInTheDocument();
-    /* The account's name only: the counts are said once, in the figures row below. */
     expect(await screen.findByText('Neev Group')).toBeInTheDocument();
-    expect(screen.queryByText(/1 company · 2 of 3 apps/)).toBeNull();
-    /* The figures across the top, each opening the screen that owns it. */
-    const glance = within(await screen.findByRole('list', { name: 'Workspace at a glance' }));
-    fireEvent.click(glance.getByRole('button', { name: /^2\s*Members/ }));
-    expect(openScreen).toHaveBeenCalledWith('members');
-    /* Under each figure, the line that says what the number alone does not. */
-    expect(await glance.findByText('1 invited, not joined yet')).toBeInTheDocument();
-    expect(glance.getByText('GSTIN not added')).toBeInTheDocument();
-    expect(glance.getByText('Accounting, Payroll')).toBeInTheDocument();
-    /* What needs attention and the setup steps are the two cards above the figures, so no figure repeats them. */
-    expect(glance.queryByText(/Needs? attention/)).toBeNull();
-    expect(glance.queryByText(/Setup/)).toBeNull();
-    /* No Apps screen in this person's menu: the figure is shown, not a way in. */
-    expect(glance.getByText('Active apps').closest('button')).toBeNull();
-    /* No app here reports a day (Books has no summary yet): no Today card, and nothing said twice. */
-    expect(screen.queryByRole('group', { name: 'Today' })).toBeNull();
-    /* Quick actions: only the screens this person may open. */
-    const quick = within(screen.getByRole('region', { name: 'Quick actions' }));
-    fireEvent.click(quick.getByRole('button', { name: /^Add company/ }));
-    expect(openScreen).toHaveBeenCalledWith('companies');
-    expect(quick.queryByRole('button', { name: /^Integrations/ })).toBeNull();
     /* One primary action, top right. */
     fireEvent.click(screen.getByRole('button', { name: /Invite people/ }));
     expect(openScreen).toHaveBeenCalledWith('invitations');
-    /* Payroll's seats are bought, Accounting's are not metered: no "of" total that would be wrong. */
-    expect(screen.getByRole('list', { name: '2 urgent items' })).toBeInTheDocument();
-    /* One company: the Company overview card says it once; no Companies table repeating it. */
-    expect(screen.queryByRole('region', { name: 'Companies' })).toBeNull();
-    expect(within(screen.getByRole('region', { name: 'Company overview' })).getByText('Needs GSTIN')).toBeInTheDocument();
-    const attention = within(screen.getByRole('region', { name: 'Needs your attention' }));
-    expect(await attention.findByText('1 pending invitation')).toBeInTheDocument();
-    expect(await attention.findByText('1 administrator without an authenticator')).toBeInTheDocument();
-    /* The line opens Members already showing those administrators, not the whole list. */
-    fireEvent.click(attention.getByRole('button', { name: /administrator without an authenticator/ }));
+
+    /* At a glance: one card per subject, each a figure, a breakdown and its buttons. */
+    const members = within(await screen.findByRole('region', { name: 'Members' }));
+    expect(await members.findByText('2')).toBeInTheDocument();
+    expect(await members.findByText('1 invitation not accepted yet')).toBeInTheDocument();
+    expect(members.getByText('2 / 5')).toBeInTheDocument();
+    /* People is on the plan but switched on in no company: no seat bar that reads as people working in it. */
+    expect(members.queryByText('People')).toBeNull();
+    fireEvent.click(members.getByRole('button', { name: 'Manage members' }));
+    expect(openScreen).toHaveBeenCalledWith('members');
+    const apps = within(screen.getByRole('region', { name: 'Apps' }));
+    expect(apps.getByText('Active apps')).toBeInTheDocument();
+    /* No Apps screen in this person's menu: no button to it. */
+    expect(apps.queryByRole('button', { name: 'Manage apps' })).toBeNull();
+    const plan = within(screen.getByRole('region', { name: 'Plan' }));
+    expect(plan.getByText('₹2,499')).toBeInTheDocument();
+    expect(plan.getByText('Renews')).toBeInTheDocument();
+    expect(plan.getByText('Nothing')).toBeInTheDocument();
+    const security = within(screen.getByRole('region', { name: 'Security' }));
+    expect(await security.findByText('1 administrator without one')).toBeInTheDocument();
+    expect(security.getByText('Needs a look')).toBeInTheDocument();
+    /* The glance folds away. */
+    fireEvent.click(screen.getByRole('button', { name: 'At a glance' }));
+    expect(screen.queryByRole('region', { name: 'Members' })).toBeNull();
+
+    /* Top actions: one card each, the urgent ones tagged, each with the button that does it. */
+    const top = within(screen.getByRole('region', { name: 'Top actions' }));
+    expect(await top.findByText('1 pending invitation')).toBeInTheDocument();
+    expect(await top.findByText('1 administrator without an authenticator')).toBeInTheDocument();
+    fireEvent.click(top.getByRole('button', { name: /Review members: 1 administrator without an authenticator/ }));
     expect(openScreen).toHaveBeenCalledWith('members', { risk: 'no2fa' });
-    expect(attention.getByText('Neev Steels has no GSTIN')).toBeInTheDocument();
-    expect(attention.getByText('Gate is offline')).toBeInTheDocument();
-    /* Urgent first: the sync problem sits above the invitation. */
-    const titles = attention.getAllByRole('listitem').map((li) => li.textContent);
+    expect(top.getByText('Neev Steels has no GSTIN')).toBeInTheDocument();
+    expect(top.getByText('Gate is offline')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: '2 urgent items' })).toBeInTheDocument();
+    const titles = top.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
     expect(titles.findIndex((t) => t.includes('sync problem'))).toBeLessThan(titles.findIndex((t) => t.includes('pending invitation')));
-    const sub = within(screen.getByRole('region', { name: 'Plan' }));
-    expect(sub.getByText('₹2,499')).toBeInTheDocument();
-    expect(sub.getByText('Renews')).toBeInTheDocument();
-    expect(sub.getByText('Nothing')).toBeInTheDocument();
-    expect(sub.getByText('2 / 5')).toBeInTheDocument();
-    expect(sub.queryByText('Books seats')).toBeNull();
-    expect(within(screen.getByRole('region', { name: 'Security' })).getByText('1 / 2')).toBeInTheDocument();
-    expect(within(screen.getByRole('region', { name: 'Connections' })).getByText('Needs a look')).toBeInTheDocument();
+    /* The chips show one subject at a time. */
+    fireEvent.click(top.getByRole('button', { name: /^Companies/ }));
+    expect(top.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Neev Steels has no GSTIN']);
+    fireEvent.click(top.getByRole('button', { name: /^All/ }));
+    expect(top.getAllByRole('heading', { level: 3 }).length).toBeGreaterThan(1);
+
+    /* One company: no Companies table repeating it. */
+    expect(screen.queryByRole('region', { name: 'Companies' })).toBeNull();
     expect(await screen.findByText('Invitation sent')).toBeInTheDocument();
-    /* The apps live in the Apps module; the Overview shows the team instead: who is in, and how many people each app has. */
-    expect(screen.queryByRole('button', { name: 'Open books.clor.in' })).toBeNull();
-    const team = within(screen.getByRole('region', { name: 'Team and access' }));
-    expect(team.getByRole('figure', { name: '2 active, 1 invited, 1 suspended' })).toBeInTheDocument();
-    expect(team.getByText('People in each app')).toBeInTheDocument();
-    expect(team.getByText('Payroll')).toBeInTheDocument();
-    /* People is on the plan but switched on in no company: no bar that reads as people working in it. */
-    expect(team.queryByText('People')).toBeNull();
-    expect(document.querySelectorAll('.wsh-seats .ws-appmark').length).toBeGreaterThan(0);
+    expect(screen.getByRole('region', { name: 'Help and support' })).toBeInTheDocument();
   });
 
   it('lists the companies in a table only when the account has more than one', async () => {
@@ -161,10 +149,11 @@ describe('the Workspace overview', () => {
       renewal: { status: 'trialing', warn: 'trial-ending', endsAt: '2026-11-16T00:00:00Z', daysLeft: 5, renewsAt: null, invoices: { unpaid: 1, overdue: 1, due: 118000 } } });
     const openScreen = vi.fn();
     render(<AdminHome tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={openScreen} openApp={() => {}} />);
-    const attention = within(await screen.findByRole('region', { name: 'Needs your attention' }));
+    const attention = within(await screen.findByRole('region', { name: 'Top actions' }));
     const first = (await attention.findAllByRole('listitem'))[0];
     expect(first).toHaveTextContent('1 CLOR invoice overdue');
     expect(first).toHaveTextContent('₹1,180');
+    expect(first).toHaveTextContent('Urgent');
     expect(attention.getByText('Your trial ends in 5 days')).toBeInTheDocument();
     fireEvent.click(attention.getByRole('button', { name: /CLOR invoice overdue/ }));
     expect(openScreen).toHaveBeenCalledWith('billing');
@@ -188,11 +177,11 @@ describe('the Workspace overview', () => {
     });
     const openApp = vi.fn();
     render(<AdminHome tenant={{ ...tenant, subscriptions: ['people', 'accounting', 'payroll'] }} catalog={CATALOG} navItems={[{ key: 'home' }]} openApp={openApp} />);
-    const waitingList = within(await screen.findByRole('region', { name: 'Needs your attention' }));
+    const waitingList = within(await screen.findByRole('region', { name: 'Top actions' }));
     const people = await waitingList.findByRole('button', { name: /3 requests to approve/ });
-    expect(people).toHaveTextContent('In People.');
+    expect(people.closest('li')).toHaveTextContent('In People.');
     expect(http.apiFetch.mock.calls[0][0]).toMatch(/\/workspace\/waiting$/);
-    expect(waitingList.getByRole('button', { name: /2 documents to approve/ })).toHaveTextContent('In Books.');
+    expect(waitingList.getByRole('button', { name: /2 documents to approve/ }).closest('li')).toHaveTextContent('In Books.');
     expect(screen.queryByText(/payrolls to approve/)).toBeNull();
     fireEvent.click(people);
     expect(openApp).toHaveBeenCalledWith('people', 'approvals', {});
