@@ -4,6 +4,7 @@ import {
   Briefcase,
   Building,
   Building2,
+  ChartBar,
   CircleHelp,
   CircleX,
   Database,
@@ -70,6 +71,7 @@ const Inbox = screen('Inbox');
 const Integrations = screen('Integrations');
 const Apps = screen('Apps');
 const Invoices = screen('Invoices');
+const Usage = screen('Usage');
 
 /* Lucide, one family (redesign §7): rail and panel icons; the shell sets their size. */
 const RAIL = {
@@ -102,6 +104,7 @@ const NAV = {
   accessHome: UsersRound,
   billing: Receipt,
   invoices: FileText,
+  usage: ChartBar,
   sso: LockKeyhole,
   sessions: MonitorSmartphone,
   auditLog: ScrollText,
@@ -170,6 +173,7 @@ export const adminApp = {
     { label: 'Create an API key', screen: 'credentials', keywords: ['api key', 'token', 'key', 'webhook secret'] },
     { label: 'Let an accountant in', screen: 'outsideAccess', keywords: ['accountant', 'ca', 'auditor', 'outside access', 'chartered'] },
     { label: 'Download CLOR invoices', screen: 'invoices', keywords: ['invoice', 'bill', 'receipt', 'download invoice', 'payment'] },
+    { label: 'See unused seats', screen: 'usage', keywords: ['usage', 'unused seats', 'idle users', 'not signing in', 'seats in use', 'inactive'] },
     { label: 'Change plan or seats', screen: 'billing', keywords: ['plan', 'upgrade', 'seats', 'subscription', 'renew', 'pricing'] },
     { label: 'Export data', screen: 'export', keywords: ['export', 'backup', 'download data'] },
     { label: 'Ask CLOR support', screen: 'support', keywords: ['support', 'ticket', 'help', 'contact'] },
@@ -186,7 +190,7 @@ export const adminApp = {
       /* Permissions is the same grid as Roles and is opened from a role, so it has no line of its own here (17 Nov 2026). */
       { label: 'More', items: ['users', 'invitations', 'supportAccess', 'accessHome'] },
     ] },
-    { key: 'plan', label: 'Plan', icon: RAIL.plan, items: ['billing', 'invoices'] },
+    { key: 'plan', label: 'Plan', icon: RAIL.plan, items: ['billing', 'usage', 'invoices'] },
     { key: 'security', label: 'Security', icon: RAIL.security, /* The overview first: a tap on Security opens the summary, not single sign-on (17 Nov 2026). */
       items: ['securityHome', 'security', 'sso', 'accountActivity', 'credentials'] },
     { key: 'settings', label: 'Settings', icon: RAIL.settings, groups: [
@@ -229,6 +233,8 @@ export const adminApp = {
     { key: 'supportAccess', label: 'Support access', icon: NAV.supportAccess, permission: 'SETTINGS::Users::VIEW' },
     { key: 'accessHome', label: 'Access overview', short: 'Access', icon: NAV.accessHome, permission: 'SETTINGS::Users::VIEW' },
     { key: 'billing', label: 'Billing & seats', icon: NAV.billing, permission: 'SETTINGS::Company Profile::VIEW' },
+    /* Is the account using what it pays for: seats per app, people not signing in, each company (src/screens/Usage.jsx). */
+    { key: 'usage', label: 'Usage', icon: NAV.usage, permission: 'SETTINGS::Company Profile::VIEW', keywords: ['seats in use', 'unused seats', 'idle', 'not signing in', 'inactive users'] },
     /* CLOR's tax invoices to this account (routes/billing.ts GET /billing/invoices). */
     { key: 'invoices', label: 'Invoices', icon: NAV.invoices, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'sso', label: 'Single sign-on', icon: NAV.sso, permission: 'SETTINGS::Users::VIEW' },
@@ -277,6 +283,7 @@ export const adminApp = {
     integrations: Integrations,
     apps: Apps,
     invoices: Invoices,
+    usage: Usage,
   },
 };
 
