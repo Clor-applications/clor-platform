@@ -1,3 +1,4 @@
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, BellRing, ChevronDown, Cpu, Fingerprint, History, RefreshCw, Router, Wifi } from '@ui/components/ui/lineIcons';
 
@@ -144,7 +145,7 @@ export default function ReaderHealth() {
                     {a.lastError ? ` · e-mail failed: ${a.lastError}` : ''}
                   </span>
                 </span>
-                <span className={`ui-pill ${a.resolvedAt ? 'ui-pill-pos' : SEVERITY_PILL[a.severity]}`}>{a.resolvedAt ? 'cleared' : 'open'}</span>
+                <ExceptionTag label={a.resolvedAt ? '' : 'open'} normal="cleared" pill={SEVERITY_PILL[a.severity]} />
               </li>
             ))}
           </ul>
@@ -293,7 +294,7 @@ function ReaderList({ readers, onTimeline }) {
                         </span>
                       </span>
                     </td>
-                    <td className="ui-col-h-center"><span className={`ui-pill ${st.pill}`}>{st.label}</span></td>
+                    <td className="ui-col-h-center"><ExceptionTag label={st === STATUS.ok ? '' : st.label} normal={st.label} pill={st.pill} /></td>
                     <td style={!r.online && r.isActive && r.lastSeenAt ? { color: 'rgb(var(--neg))' } : undefined}>{r.online ? 'Online' : ago(r.lastSeenAt)}</td>
                     <td className="hidden lg:table-cell">{ago(r.lastPunchAt)}</td>
                     <td className="hidden sm:table-cell" style={drift ? { color: 'rgb(var(--neg))' } : undefined}>{r.clockOffsetSec === null || r.clockOffsetSec === undefined ? <span className="ui-caption">Not checked</span> : clock(r.clockOffsetSec)}</td>
