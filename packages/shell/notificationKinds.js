@@ -72,6 +72,8 @@ export const KIND = {
   'workspace.invitation_waiting': 'Invitations not accepted yet',
   'workspace.admin_no_authenticator': 'Administrators without an authenticator app',
   'workspace.closure_soon': 'Company closure coming up',
+  'workspace.outside_access_ending': 'Accountant access about to end',
+  'workspace.not_signing_in': 'People who stopped signing in',
   'credentials.expiring': 'Keys about to expire',
   'credentials.review': 'Keys to review',
   'payment.claimed': 'UPI payments to confirm',

@@ -12,7 +12,9 @@ import { adminUserIds } from '../roleGuards.js';
  *
  *  - an invitation into this company still not accepted: whoever sent it hears, once per time it was sent;
  *  - an administrator of this company with no authenticator app: the owner hears, once per administrator;
- *  - this company's closure is near: the owner hears, once per closing date.
+ *  - this company's closure is near: the owner hears, once per closing date;
+ *  - an accountant's (outside firm's) access to this company is about to end: the owner hears, once per end date;
+ *  - somebody who can open this company has stopped signing in: the owner hears, once per person and quiet spell.
  *
  * Each is about one thing that happens once, so each is one notice per person under its own key (`sendNotice`
  * with a dedupe key): a second run, the same day or the next, sends nothing more.
@@ -142,5 +144,99 @@ export const closureSoon = defineRecipe({
       }
     }
     return { count: told.length, recipients: told, failed };
+  },
+});
+
+export const outsideAccessEnding = defineRecipe({
+  module: 'workspace', key: 'outsideAccessEnding', group: ACCESS,
+  sentence: 'Tell {n} days before an accountant’s access to this company ends',
+  defaultOn: false, n: { default: 7, min: 1, max: 30 }, ...MORNING, recipients: TO_OWNER,
+  run: async ({ accountId, orgId, n, now, to }) => {
+    const days = n ?? 7;
+    const ending = await platformPrisma.outsideAccess.findMany({
+      where: { accountId, orgId, status: 'ACTIVE', expiresAt: { gt: now, lte: new Date(now.getTime() + days * DAY) } },
+      select: { id: true, userId: true, expiresAt: true },
+      orderBy: { expiresAt: 'asc' },
+    });
+    if (!ending.length) return { count: 0, recipients: [] };
+    const ids = await recipientUsers({ accountId, orgId }, to, { fallback: TO_OWNER.default });
+    const who = await namesOf(ending.map((e) => e.userId));
+    const told = new Set<string>();
+    let count = 0;
+    let failed = 0;
+    for (const e of ending) {
+      const on = istDate(e.expiresAt!);
+      const left = Math.max(1, Math.ceil((e.expiresAt!.getTime() - now.getTime()) / DAY));
+      try {
+        /* Keyed on the end date: extended and coming up again, it is said again; otherwise once. */
+        const sent = await sendNotice(accountId, orgId, ids, {
+          kind: 'workspace.outside_access_ending',
+          title: `${who.get(e.userId) || 'An accountant'}’s access ends in ${daysWord(left)}`,
+          body: `After ${dayWords(on)} they can no longer open this company. Extend it if their work is not finished; otherwise nothing needs doing.`,
+          link: { app: 'admin', screen: 'outsideAccess' },
+        }, { dedupeKey: `outside-access-ending:${e.id}:${on}` });
+        count += sent;
+        if (sent) ids.forEach((id) => told.add(id));
+      } catch (err) {
+        console.error('[automations] workspace notice not sent:', err instanceof Error ? err.message : err);
+        failed += 1;
+      }
+    }
+    const names = await namesOf([...told]);
+    return { count, recipients: [...told].map((id) => names.get(id) || 'A user'), failed };
+  },
+});
+
+/** At most this many people are named in one morning; the rest follow on the mornings after, each once. */
+const QUIET_PER_RUN = 10;
+
+export const notSigningIn = defineRecipe({
+  module: 'workspace', key: 'notSigningIn', group: ACCESS,
+  sentence: 'Tell when somebody who can open this company has not signed in for {n} days',
+  defaultOn: false, n: { default: 30, min: 14, max: 180 }, ...MORNING, recipients: TO_OWNER,
+  run: async ({ accountId, orgId, n, now, to }) => {
+    const days = n ?? 30;
+    const cutoff = new Date(now.getTime() - days * DAY);
+    /* In this company for the chosen days at least: somebody added last week is not "quiet" yet. */
+    const members = await platformPrisma.userOrgMembership.findMany({ where: { accountId, orgId, createdAt: { lte: cutoff } }, select: { userId: true } });
+    if (!members.length) return { count: 0, recipients: [] };
+    const quiet = await platformPrisma.user.findMany({
+      where: { id: { in: members.map((m) => m.userId) }, isActive: true, OR: [{ lastLoginAt: null }, { lastLoginAt: { lte: cutoff } }] },
+      select: { id: true, fullName: true, lastLoginAt: true },
+      /* Never signed in first, then the longest away. */
+      orderBy: [{ lastLoginAt: { sort: 'asc', nulls: 'first' } }, { fullName: 'asc' }],
+    });
+    if (!quiet.length) return { count: 0, recipients: [] };
+    const ids = await recipientUsers({ accountId, orgId }, to, { fallback: TO_OWNER.default });
+    const told = new Set<string>();
+    let count = 0;
+    let failed = 0;
+    let named = 0;
+    for (const u of quiet) {
+      if (named >= QUIET_PER_RUN) break;
+      /* Nobody is told about themself: whoever reads the notice has signed in. */
+      const others = ids.filter((id) => id !== u.id);
+      if (!others.length) continue;
+      const last = u.lastLoginAt ? istDate(u.lastLoginAt) : null;
+      try {
+        /* Keyed on the last sign-in: once per quiet spell. Back and quiet again later, it is said again. */
+        const sent = await sendNotice(accountId, orgId, others, {
+          kind: 'workspace.not_signing_in',
+          title: last ? `${u.fullName} has not signed in for ${daysWord(Math.floor((now.getTime() - u.lastLoginAt!.getTime()) / DAY))}` : `${u.fullName} has never signed in`,
+          body: `${last ? `Last signed in on ${dayWords(last)}.` : `Added ${daysWord(days)} or more ago.`} If they no longer need CLOR, take away their access to free the seat.`,
+          link: { app: 'admin', screen: 'usage' },
+        }, { dedupeKey: `not-signing-in:${u.id}:${last || 'never'}` });
+        count += sent;
+        if (sent) {
+          named += 1;
+          others.forEach((id) => told.add(id));
+        }
+      } catch (err) {
+        console.error('[automations] workspace notice not sent:', err instanceof Error ? err.message : err);
+        failed += 1;
+      }
+    }
+    const names = await namesOf([...told]);
+    return { count, recipients: [...told].map((id) => names.get(id) || 'A user'), failed };
   },
 });
