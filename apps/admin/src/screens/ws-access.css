@@ -399,3 +399,13 @@
 /* picks.css sizes every h3 in a flat section and darkens the focused search with !important; these win back. */
 .ws .ws-flat h3.ws-role-group { font-size: 0.75rem !important; line-height: 1rem !important; }
 .ws .ws-role-find .ws-search > input.ui-input:not(:focus) { border-color: rgb(var(--border-field, 220 223 217)) !important; box-shadow: none !important; }
+
+/* One person's access as sentences, app by app; and what only they hold, read before they leave. */
+.ws-member-words { display: grid; gap: 8px; margin: 0; }
+.ws-member-words > div { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 12px; align-items: baseline; font-size: 0.875rem; }
+.ws-member-words dt { color: rgb(var(--fg-muted)); }
+.ws-member-words dd { margin: 0; display: grid; gap: 2px; }
+.ws-member-handover { display: grid; gap: 8px; }
+.ws-member-handover ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 0.875rem; }
+.ws-member-handover li { padding-bottom: 8px; border-bottom: 1px solid rgb(var(--border)); }
+.ws-member-handover li:last-child { border-bottom: 0; padding-bottom: 0; }

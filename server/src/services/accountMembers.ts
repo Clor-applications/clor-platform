@@ -4,6 +4,8 @@ import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { resolveAccess } from './access.js';
 import { adminUserIds } from './roleGuards.js';
 import { appsForModule } from '../middleware/rbac.js';
+import { accessInWords } from './accessWords.js';
+import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { clearAccessCache } from '../utils/accessCache.js';
 import { revokeAllSessions } from './auth.js';
 import { ACCOUNT_ADMINS, AccountMembershipError, accountRoleOf, recordAccountEvent } from './accountMembership.js';
@@ -123,6 +125,8 @@ export async function memberAccess(accountId: string, userId: string) {
             name: o.name,
             isAdmin: access.isAdmin,
             apps: appsOfPermissions(access.permissions, access.isAdmin),
+            /* The same permissions as sentences, app by app (services/accessWords.ts). */
+            words: accessInWords(access.permissions, access.isAdmin),
             branches: branches.map((b) => b.branchName).filter(Boolean),
             roles: roles.map((r) => {
               const d = direct.find((x) => x.roleId === r.id);
@@ -153,8 +157,43 @@ export async function memberAccess(accountId: string, userId: string) {
       status: m.status,
       memberSince: m.createdAt,
       companies,
+      handover: await memberHandover(accountId, userId, orgs.filter((o) => memberOf.has(o.id))),
     };
   });
+}
+
+/**
+ * What would be left without anybody if this person went: read before somebody is marked as left,
+ * suspended or removed. Each line is one thing they alone hold or started, with the screen where it
+ * is put right. Nothing here stops the leaving; it says what to do first. An empty list means there
+ * is nothing to hand over.
+ */
+export type HandoverItem = { key: string; text: string; screen: string; orgId: string | null };
+const many = (n: number, one: string, more: string) => `${n} ${n === 1 ? one : more}`;
+
+async function memberHandover(accountId: string, userId: string, orgs: Array<{ id: string; name: string }>): Promise<HandoverItem[]> {
+  const items: HandoverItem[] = [];
+  const owners = await platformPrisma.accountMembership.findMany({ where: { accountId, role: 'OWNER', status: 'ACTIVE' }, select: { userId: true } });
+  if (owners.length === 1 && owners[0].userId === userId) {
+    items.push({ key: 'sole-owner', text: 'The only owner of this account. Make somebody else an owner first, or nobody can change the plan or the owners.', screen: 'members', orgId: null });
+  }
+  const invites = await platformPrisma.accountInvitation.count({ where: { accountId, invitedByUserId: userId, status: 'PENDING', expiresAt: { gt: new Date() } } });
+  if (invites) items.push({ key: 'invitations', text: `${many(invites, 'invitation they sent is', 'invitations they sent are')} still waiting. Whoever looks after access should follow them up.`, screen: 'invitations', orgId: null });
+  for (const o of orgs) {
+    await runInTenant(o.id, async () => {
+      const admins = await adminUserIds(platformPrisma, accountId, o.id);
+      if (admins.has(userId) && admins.size === 1) {
+        items.push({ key: `sole-admin:${o.id}`, text: `The only administrator of ${o.name}. Give somebody else the administrator role there first.`, screen: 'users', orgId: o.id });
+      }
+      const keys = await platformPrisma.credential.count({ where: { accountId, orgId: o.id, createdByUserId: userId, status: 'ACTIVE', kind: { in: ['API_KEY', 'SCIM', 'AGENT'] }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } });
+      if (keys) items.push({ key: `keys:${o.id}`, text: `${many(keys, 'key they created is', 'keys they created are')} still in use in ${o.name}. Check who looks after ${keys === 1 ? 'it' : 'them'} now.`, screen: 'credentials', orgId: o.id });
+      /* Automations that name this person as the one to tell (services/people/engagement/automations.ts: `PERSON:<userId>`). */
+      const settings = await peoplePrisma.engagementSettings.findUnique({ where: { orgId: o.id }, select: { automations: true } }).catch(() => null);
+      const named = Object.values((settings?.automations as Record<string, { on?: boolean; to?: string[] }> | null) || {}).filter((a) => a?.on !== false && Array.isArray(a?.to) && a.to.includes(`PERSON:${userId}`)).length;
+      if (named) items.push({ key: `automations:${o.id}`, text: `${many(named, 'automation tells', 'automations tell')} this person in ${o.name}. Choose somebody else, or ${named === 1 ? 'it goes' : 'they go'} to the owner.`, screen: 'automations', orgId: o.id });
+    });
+  }
+  return items;
 }
 
 /** The caller may manage people in the account; an owner is touched only by an owner; nobody acts on themself. */
