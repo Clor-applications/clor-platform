@@ -442,7 +442,13 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
     const asker = waiting ? await platformPrisma.user.findUnique({ where: { id: waiting.requestedBy }, select: { fullName: true, email: true } }) : null;
     const lastActiveAt = users.reduce<Date | null>((m, u) => (u.lastLoginAt && (!m || u.lastLoginAt > m) ? u.lastLoginAt : m), null);
     const counts = await healthCounts([id]);
+    /* Open status-page posts that name this customer (routes/opsStatus.ts), with who is handling each. */
+    const hitBy = await platformPrisma.statusIncident.findMany({ where: { resolvedAt: null, affectedAccountIds: { has: id } }, orderBy: { startsAt: 'desc' }, select: { id: true, title: true, kind: true, impact: true, state: true, startsAt: true, ownerUserId: true } });
+    const handlerIds = [...new Set(hitBy.map((i) => i.ownerUserId).filter((x): x is string => Boolean(x)))];
+    const handlers = handlerIds.length ? await platformPrisma.user.findMany({ where: { id: { in: handlerIds } }, select: { id: true, fullName: true, email: true } }) : [];
+    const handlerName = new Map(handlers.map((u) => [u.id, u.fullName || u.email]));
     res.json({
+      incidents: hitBy.map((i) => ({ id: i.id, title: i.title, kind: i.kind, impact: i.impact, state: i.state, startsAt: i.startsAt, owner: i.ownerUserId ? handlerName.get(i.ownerUserId) || null : null })),
       health: accountHealth({
         plan: account.suspendedAt ? 'suspended' : sub ? sub.status : account.legacyUnrestrictedAt ? 'legacy' : 'no-plan',
         trialEndsAt: sub?.trialEndsAt || null,

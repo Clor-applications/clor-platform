@@ -325,7 +325,7 @@ export const SCREENS = {
   announcements: ({ me }) => <Announcements me={me} />,
   insights: () => <Insights />,
   savedReplies: ({ me }) => <SavedReplies me={me} />,
-  status: ({ me }) => <StatusPage me={me} />,
+  status: ({ me, go }) => <StatusPage me={me} openCustomer={(id) => go('customers', {}, id)} />,
   forms: ({ me }) => <Switches me={me} />,
   health: ({ route, go }) => <Health key={route.params.request || ''} go={go} request={route.params.request || ''} />,
   audit: ({ go }) => <AuditLog openCustomer={(id) => go('customers', {}, id)} />,

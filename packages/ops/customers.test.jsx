@@ -98,6 +98,18 @@ describe('a customer’s page', () => {
     expect(panel.getByText('Used today')).toBeInTheDocument();
   });
 
+  it('says when an open incident hits this customer, who handles it, and links to the posts', async () => {
+    api.opsAccount.mockResolvedValue(detail({ incidents: [{ id: 'i1', title: 'Payslips not opening', kind: 'INCIDENT', impact: 'MINOR', state: 'IDENTIFIED', startsAt: '2026-11-14T05:00:00Z', owner: 'Asha Rao' }] }));
+    const openLink = vi.fn();
+    render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} openLink={openLink} />);
+    const note = (await screen.findByText('Open incident')).closest('p');
+    expect(note).toHaveTextContent('Payslips not opening');
+    expect(note).toHaveTextContent('Cause found');
+    expect(note).toHaveTextContent('Asha Rao is handling it.');
+    fireEvent.click(within(note).getByRole('button', { name: 'Open the status page posts' }));
+    expect(openLink).toHaveBeenCalledWith({ page: 'status' });
+  });
+
   it('shows no health panel for an account that is not judged', async () => {
     api.opsAccount.mockResolvedValue(detail({ health: null }));
     render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} />);

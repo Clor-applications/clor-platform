@@ -2203,6 +2203,10 @@ model StatusIncident {
   endsAt          DateTime?
   resolvedAt      DateTime?
   createdByUserId String
+  /// Inside CLOR only, never on clor.in/status: the staff member handling it.
+  ownerUserId     String?
+  /// Inside CLOR only: the customer accounts known to be hit.
+  affectedAccountIds String[]            @default([])
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   updates         StatusIncidentUpdate[]

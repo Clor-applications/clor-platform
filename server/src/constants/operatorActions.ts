@@ -37,6 +37,7 @@ export const OPERATOR_ACTION_LABELS: Record<string, string> = {
   STATUS_INCIDENT_UPDATED: 'Updated a status page post',
   STATUS_INCIDENT_RESOLVED: 'Resolved a status page post',
   STATUS_INCIDENT_REMOVED: 'Removed a status page post',
+  STATUS_INCIDENT_ASSIGNED: 'Set who handles a status page post and which customers it hits',
   SAVED_REPLY_ADDED: 'Added a saved reply',
   SAVED_REPLY_CHANGED: 'Changed a saved reply',
   SAVED_REPLY_REMOVED: 'Removed a saved reply',

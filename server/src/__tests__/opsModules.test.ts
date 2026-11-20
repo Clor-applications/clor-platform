@@ -103,6 +103,57 @@ describe('status page posts', () => {
     expect(pub.parts.find((p: any) => p.key === 'payroll').impact).toBeUndefined();
     await request(app).delete(`/api/ops/status-incidents/${m.id}`).set(sup.h).expect(200);
   }, 90_000);
+
+  it('carries who handles it and which customers it hits, inside Ops only, and shows on those customers', async () => {
+    const sup = await staff('SUPPORT');
+    const other = await staff('SUPPORT');
+    const sales = await staff('SALES');
+    const hit = await company('hit');
+    const spared = await company('spared');
+    const title = `Payslips not opening ${rnd()}`;
+    const url = '/api/ops/status-incidents';
+
+    await request(app).post(url).set(sup.h).send({ title, body: 'Payslips show a blank page.', accountIds: ['no-such-account'] }).expect(400);
+    await request(app).post(url).set(sup.h).send({ title, body: 'Payslips show a blank page.', ownerUserId: hit.userId }).expect(400);
+    const inc = (await request(app).post(url).set(sup.h).send({ title, body: 'Payslips show a blank page.', parts: ['payroll'], accountIds: [hit.accountId, hit.accountId] }).expect(201)).body.incident;
+    /* Whoever posts it handles it until it is handed over. */
+    expect(inc.owner.userId).toBe(sup.userId);
+    expect(inc.accounts.map((a: any) => a.id)).toEqual([hit.accountId]);
+
+    const list = (await request(app).get(url).set(sales.h).expect(200)).body;
+    expect(list.staff.map((x: any) => x.userId)).toEqual(expect.arrayContaining([sup.userId, other.userId]));
+    expect(list.staff.map((x: any) => x.userId)).not.toContain(hit.userId);
+
+    const onHit = (await request(app).get(`/api/ops/accounts/${hit.accountId}`).set(sales.h).expect(200)).body.incidents;
+    expect(onHit).toEqual([expect.objectContaining({ id: inc.id, title, state: 'INVESTIGATING' })]);
+    expect(onHit[0].owner).toBeTruthy();
+    expect((await request(app).get(`/api/ops/accounts/${spared.accountId}`).set(sales.h).expect(200)).body.incidents).toEqual([]);
+
+    /* The public page says nothing about customers or staff. */
+    forgetPublicStatus();
+    const shown = (await request(app).get('/api/public/status').expect(200)).body.incidents.find((i: any) => i.id === inc.id);
+    expect(shown).toBeTruthy();
+    expect(JSON.stringify(shown)).not.toContain(hit.accountId);
+    expect(JSON.stringify(shown)).not.toContain(sup.userId);
+    expect(Object.keys(shown)).not.toEqual(expect.arrayContaining(['owner']));
+    expect(Object.keys(shown)).not.toEqual(expect.arrayContaining(['accounts']));
+
+    /* Handing over and adding a customer: Support only, audited. */
+    await request(app).patch(`${url}/${inc.id}`).set(sales.h).send({ ownerUserId: other.userId }).expect(403);
+    await request(app).patch(`${url}/${inc.id}`).set(sup.h).send({ ownerUserId: hit.userId }).expect(400);
+    const handed = (await request(app).patch(`${url}/${inc.id}`).set(sup.h).send({ ownerUserId: other.userId, accountIds: [hit.accountId, spared.accountId] }).expect(200)).body.incident;
+    expect(handed.owner.userId).toBe(other.userId);
+    expect(handed.accounts).toHaveLength(2);
+    expect(await lastAudit(sup.userId, 'STATUS_INCIDENT_ASSIGNED')).toBeTruthy();
+    const freed = (await request(app).patch(`${url}/${inc.id}`).set(sup.h).send({ ownerUserId: null }).expect(200)).body.incident;
+    expect(freed.owner).toBeNull();
+    expect(freed.accounts).toHaveLength(2);
+
+    /* Resolved: off the customer's page, and no more changes. */
+    await request(app).post(`${url}/${inc.id}/updates`).set(sup.h).send({ state: 'RESOLVED', body: 'Payslips open again.' }).expect(200);
+    expect((await request(app).get(`/api/ops/accounts/${hit.accountId}`).set(sales.h).expect(200)).body.incidents).toEqual([]);
+    await request(app).patch(`${url}/${inc.id}`).set(sup.h).send({ ownerUserId: sup.userId }).expect(409);
+  }, 120_000);
 });
 
 describe('saved replies', () => {
