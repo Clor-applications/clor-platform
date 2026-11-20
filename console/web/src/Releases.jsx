@@ -163,7 +163,7 @@ export default function Releases({ me }) {
         <ConfirmDialog title="Approve this run?" lede={`The ${String(ask.what || 'run').toLowerCase()} carries on now${data.staged ? `, and customers move to ${data.staged.revision}` : ''}. Once it has run it cannot be stopped from here; use Roll back to undo a release.`} confirm="Approve run" cancel="Not yet" onClose={() => setAsk(null)} onConfirm={() => act.through(() => api.approve(ask.id), 'Approved. The run is continuing.')} />
       ) : null}
       {ask?.kind === 'rollback' ? (
-        <ReasonDialog title="Roll back the API" lede={`Every customer moves from ${data.serving} to ${ask.revision}. A database change made since then stays as it is.`} label="Why" confirm="Roll back" danger onClose={() => setAsk(null)} onConfirm={(reason) => act.through(() => api.rollback(ask.revision, reason), 'The rollback has started.')} />
+        <ReasonDialog title="Roll back the API" lede={`Every customer moves from ${data.serving} to ${ask.revision}. A database change made since then stays as it is. An owner approves it before it runs.`} label="Why" confirm="Roll back" danger onClose={() => setAsk(null)} onConfirm={(reason) => act.through(() => api.rollback(ask.revision, reason), 'The rollback is waiting for an owner. Approve it under Running now.')} />
       ) : null}
     </>
   );

@@ -111,7 +111,7 @@ if [ -n "$ROLLBACK" ]; then
   if [ "$MODE" = go ]; then
     command -v gcloud >/dev/null || stop "gcloud is not installed."
     FOUND=$(gcloud run revisions describe "$ROLLBACK" --project "$PROJECT" --region "$REGION" --format='value(metadata.name)' || true)
-    [ -n "$FOUND" ] || stop "Cloud Run has no revision named $ROLLBACK. No traffic was moved."
+    [ -n "$FOUND" ] || stop "Could not read the revision $ROLLBACK: it does not exist, or this account may not read it (see the error above). No traffic was moved."
     WAS=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format=json \
       | node -e 'const s=JSON.parse(require("fs").readFileSync(0,"utf8"));const t=(s.status.traffic||[]).filter(x=>x.percent>0).sort((a,b)=>b.percent-a.percent);process.stdout.write(t.length?t[0].revisionName:"")')
     say "Serving before: ${WAS:-unknown}"
