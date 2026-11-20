@@ -133,7 +133,7 @@ export default function SalarySlips() {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <th scope="col">Payslip</th>
@@ -164,15 +164,15 @@ export default function SalarySlips() {
                 rows.map((x) => (
                   <tr key={x.id} className="ui-row-click" onClick={() => setOpenId(x.id)}>
                     <td className="ui-col-id">{x.number}</td>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-entity" data-phone="name">
                       {x.employee?.name || 'Name missing'}
                       {x.employee?.code ? <span className="ui-caption"> · {x.employee.code}</span> : null}
                     </td>
-                    <td className="ui-col-meta">{x.period?.name || '—'}{x.extraPayRun ? <span className="ui-caption"> · Extra pay run</span> : null}</td>
+                    <td className="ui-col-meta" data-phone="sub">{x.period?.name || '—'}{x.extraPayRun ? <span className="ui-caption"> · Extra pay run</span> : null}</td>
                     <td className="ui-num">{money(x.grossEarnings)}</td>
                     <td className="ui-num">{money(x.totalDeductions)}</td>
-                    <td className="ui-num font-medium">{money(x.netPay)}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-num font-medium" data-phone="key">{money(x.netPay)}</td>
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={isPaid(x) ? '' : 'Unpaid'} normal="Paid" />
                     </td>
                   </tr>

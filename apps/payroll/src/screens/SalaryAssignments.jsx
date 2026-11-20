@@ -236,7 +236,7 @@ export default function SalaryAssignments({ params } = {}) {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="name" state={filters} />
@@ -275,16 +275,16 @@ export default function SalaryAssignments({ params } = {}) {
                   const current = currentByEmployee.get(p.id);
                   return (
                     <tr key={p.id} className="ui-row-click" onClick={() => setOpen(p)}>
-                      <td className="ui-col-entity">
+                      <td className="ui-col-entity" data-phone="name">
                         {p.name}
                         {p.code ? <span className="ui-caption"> · {p.code}</span> : null}
                       </td>
-                      <td className="ui-col-meta">{p.designation || '—'}</td>
+                      <td className="ui-col-meta" data-phone="sub">{p.designation || '—'}</td>
                       <td className="ui-col-meta">{current ? structureName(current.structureId) : '—'}</td>
                       <td className="ui-col-date ui-col-h-center">{current ? shownDate(current.effectiveFrom) : '—'}</td>
                       <td className="ui-col-amount">{current ? money(current.annualCtc) : '—'}</td>
-                      <td className="ui-col-amount">{current ? money(current.monthlyCtc) : '—'}</td>
-                      <td className="ui-col-h-center">
+                      <td className="ui-col-amount" data-phone="key">{current ? money(current.monthlyCtc) : '—'}</td>
+                      <td className="ui-col-h-center" data-phone="tag">
                         <ExceptionTag {...(exceptionOf(p, Boolean(current)) || {})} normal="Active" />
                       </td>
                     </tr>

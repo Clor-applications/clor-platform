@@ -106,3 +106,33 @@
 /* ---- Page titles: 24/32, 700 in every app (DESIGN.md "title", 19 Nov 2026). At 16px a title read no bigger
    than its table's names; one size in every app replaces the 16, 20 and 28px titles. Books keeps its own. ---- */
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-page-heading h1 { font-size: 1.5rem !important; line-height: 2rem !important; font-weight: 700 !important; letter-spacing: -0.01em; }
+
+/*
+ * Phone rows for wide tables (DESIGN.md "Layout", calm register step 5).
+ *
+ * Below 640px a table with more than three columns stops being a grid of cells: each row is a two-line
+ * entry, the name over one line of detail on the left, the key amount over the state on the right.
+ * A table opts in with `ui-table-phone` and marks the cells it keeps: data-phone="name" | "sub" | "key" |
+ * "tag". Every other cell is left out on a phone; the row still opens the record, which shows them all.
+ * The header row stays for screen readers only.
+ */
+@media (max-width: 639px) {
+  :root:not(#pk) table.ui-table.ui-table-phone { display: block; width: 100%; min-width: 0; }
+  :root:not(#pk) table.ui-table.ui-table-phone > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :root:not(#pk) table.ui-table.ui-table-phone > tbody { display: block; }
+  :root:not(#pk) table.ui-table.ui-table-phone > tbody > tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.75rem; row-gap: 0.125rem; align-items: center;
+    min-height: 44px; height: auto; padding: 0.625rem 0; border-bottom: 1px solid rgb(var(--border));
+  }
+  :root:not(#pk) table.ui-table.ui-table-phone > tbody > tr > td {
+    display: none !important; padding: 0 !important; border: 0 !important; height: auto !important; min-width: 0; width: auto;
+    background: none !important; box-shadow: none !important; text-align: left;
+  }
+  :root:not(#pk) table.ui-table.ui-table-phone > tbody > tr > td[data-phone],
+  :root:not(#pk) table.ui-table.ui-table-phone > tbody > tr > td[colspan] { display: block !important; }
+  :root:not(#pk) table.ui-table.ui-table-phone > tbody > tr > td[colspan] { grid-column: 1 / -1; }
+  :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='name'] { grid-column: 1; grid-row: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='sub'] { grid-column: 1; grid-row: 2; font-size: 0.75rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='key'] { grid-column: 2; grid-row: 1; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  :root:not(#pk) table.ui-table.ui-table-phone td[data-phone='tag'] { grid-column: 2; grid-row: 2; justify-self: end; text-align: right; }
+}
