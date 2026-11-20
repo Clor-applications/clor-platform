@@ -130,7 +130,7 @@ function SwapDrawer({ swap, canCancel, onClose, onDone, openScreen }) {
           {swap.colleagueNote ? <div className="sm:col-span-2"><dt className="ui-t-label">{swap.colleague.name} said</dt><dd>{swap.colleagueNote}</dd></div> : null}
           {swap.decisionNote || swap.closedNote ? <div className="sm:col-span-2"><dt className="ui-t-label">Note</dt><dd>{swap.closedNote || swap.decisionNote}</dd></div> : null}
         </dl>
-        <table className="w-full text-sm" aria-label="Days">
+        <table className="ui-table w-full" aria-label="Days">
           <thead>
             <tr className="text-left ui-t-label"><th className="py-1.5 pr-3 font-semibold">Day</th><th className="py-1.5 pr-3 font-semibold">{swap.requester.name} works</th><th className="py-1.5 font-semibold">{swap.colleague.name} works</th></tr>
           </thead>

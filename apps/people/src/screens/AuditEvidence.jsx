@@ -34,12 +34,12 @@ export default function AuditEvidence() {
           <ul className="text-sm space-y-0.5">
             {data.grants.map((g) => <li key={g.id}><span>{g.purpose}</span><span className="ui-caption"> · until {new Date(g.untilAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span></li>)}
           </ul>
-          <table className="w-full text-sm">
+          <table className="ui-table w-full">
             <thead><tr className="ui-caption text-left"><th className="py-1.5 font-semibold">Document</th><th className="py-1.5 font-semibold">Kind</th><th className="py-1.5 font-semibold">Open until</th></tr></thead>
             <tbody className="divide-y">
               {data.documents.map((d) => (
                 <tr key={d.id}>
-                  <td className="py-2 pr-2"><button type="button" className="ui-link font-medium" onClick={() => open(d)}>{d.title}</button></td>
+                  <td className="py-2 pr-2"><button type="button" className="ui-link font-semibold" onClick={() => open(d)}>{d.title}</button></td>
                   <td className="py-2 pr-2">{String(d.kind || '').replaceAll('_', ' ').toLowerCase()}</td>
                   <td className="py-2 tabular-nums">{new Date(d.untilAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</td>
                 </tr>

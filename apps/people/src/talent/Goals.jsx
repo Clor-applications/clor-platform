@@ -26,7 +26,7 @@ import { FormError, Footer, HEALTH, Pill, SHEET, day, staffOptions, tabItems, to
  * is going and a note, so the goal keeps its history instead of one bare percentage.
  */
 const TABS = [['ACTIVE', 'Active'], ['DONE', 'Done'], ['DROPPED', 'Dropped'], ['all', 'All']];
-const STATUS = { ACTIVE: ['Active', 'ui-pill-info'], DONE: ['Done', 'ui-pill-pos'], DROPPED: ['Dropped', 'ui-pill-neutral'] };
+const STATUS = { ACTIVE: ['Active', 'ui-pill-neutral'], DONE: ['Done', 'ui-pill-pos'], DROPPED: ['Dropped', 'ui-pill-neutral'] };
 
 /* Progress as a ring per goal (owner's round 8 pick): the app colour, the good-state colour once done; the figure is always written. */
 export const Progress = ({ value }) => {
@@ -35,7 +35,7 @@ export const Progress = ({ value }) => {
     <span className="ui-goal-ring">
       <svg viewBox="0 0 36 36" width="22" height="22" aria-hidden="true">
         <circle cx="18" cy="18" r="15" fill="none" strokeWidth="5" stroke="rgb(var(--border))" />
-        <circle cx="18" cy="18" r="15" fill="none" strokeWidth="5" strokeLinecap="round" stroke={v >= 100 ? 'rgb(var(--pos))' : 'rgb(var(--act, var(--fg)))'} strokeDasharray={`${v * 0.94} 94`} transform="rotate(-90 18 18)" />
+        <circle cx="18" cy="18" r="15" fill="none" strokeWidth="5" strokeLinecap="round" stroke={v >= 100 ? 'rgb(var(--pos))' : 'rgb(var(--fg))'} strokeDasharray={`${v * 0.94} 94`} transform="rotate(-90 18 18)" />
       </svg>
       <span className="tabular-nums">{Math.round(v)}%</span>
     </span>
@@ -70,7 +70,10 @@ export default function Goals({ params = {} }) {
     { key: 'title', label: 'Goal', always: true, render: (g) => <span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-1.5"><span className="truncate">{g.title}</span><GoalMarks goal={g} /></span>{g.measure ? <span className="block truncate ui-caption">{g.measure}</span> : null}</span> },
     { key: 'due', label: 'Due', render: (g) => <span className={`tabular-nums whitespace-nowrap ${g.overdue ? 'ui-text-neg' : ''}`}>{day(g.dueDate) || '—'}{g.overdue ? ' (late)' : ''}</span> },
     { key: 'progress', label: 'Progress', render: (g) => <Progress value={g.progress} /> },
-    { key: 'health', label: 'How it is going', render: (g) => (g.status === 'ACTIVE' ? <Pill map={HEALTH} value={g.health} /> : <ExceptionTag label={g.status === 'DONE' ? '' : STATUS[g.status]?.[0] || g.status} normal={STATUS[g.status]?.[0]} pill={`${STATUS[g.status]?.[1] || 'ui-pill-neutral'}`} />) },
+    { key: 'health', label: 'How it is going', render: (g) => (g.status === 'ACTIVE'
+      /* Only a goal at risk or behind carries a tag; on track, done or dropped reads as plain words to a screen reader. */
+      ? <ExceptionTag label={['AT_RISK', 'BEHIND'].includes(g.health) ? HEALTH[g.health][0] : ''} normal={HEALTH[g.health]?.[0] || 'On track'} pill={HEALTH[g.health]?.[1]} />
+      : <span className="ui-muted">{STATUS[g.status]?.[0] || g.status}</span>) },
     { key: 'last', label: 'Last check-in', render: (g) => <span className="tabular-nums whitespace-nowrap">{g.lastCheckIn ? day(g.lastCheckIn) : <span className="ui-muted">None</span>}</span> },
   ];
   const blank = { employeeId: person || (people.length === 1 ? people[0].id : me && !staff.length ? me.id : '') };

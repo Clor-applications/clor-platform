@@ -32,7 +32,7 @@ export function ReferralBlock({ opening, onChanged }) {
   return (
     <section className="space-y-2 border-t pt-3" style={{ borderColor: 'rgb(var(--border))' }} aria-label="Referrals">
       <p className="ui-label">Referrals</p>
-      {req.error ? <ErrorState error={req.error} compact onRetry={req.reload} /> : !s ? <p className="text-sm ui-muted">Loading…</p> : (
+      {req.error ? <ErrorState error={req.error} compact onRetry={req.reload} /> : !s ? <div className="space-y-2" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div> : (
         <>
           <p className="text-sm">{words}</p>
           {['FILLED', 'CLOSED'].includes(opening.status) ? null : (

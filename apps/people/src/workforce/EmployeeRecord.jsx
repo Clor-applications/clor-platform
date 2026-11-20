@@ -73,12 +73,13 @@ const FormDirty = createContext(null);
 /* The section's Edit, so an empty detail can offer "Add" straight to the same form (owner's round 13 pick). */
 const SectionEdit = createContext(null);
 
-function Field({ label, value, mono = false }) {
+/* `mono`: an identifier (employee ID, card number), set in JetBrains Mono. `num`: figures such as dates, tabular in Figtree. */
+function Field({ label, value, mono = false, num = false }) {
   const onEdit = useContext(SectionEdit);
   return (
     <div className="ui-field-row">
       <dt className="ui-caption">{label}</dt>
-      <dd className={`text-sm ${mono ? 'tabular-nums' : ''}`}>{shown(value) ?? (
+      <dd className={`text-sm ${mono ? 'ui-mono' : num ? 'tabular-nums' : ''}`}>{shown(value) ?? (
         <span className="ui-empty-detail"><span className="ui-muted">Not added yet</span>{onEdit ? <button type="button" className="ui-link" onClick={onEdit} aria-label={`Add ${String(label).toLowerCase()}`}>Add</button> : null}</span>
       )}</dd>
     </div>
@@ -275,7 +276,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
             {person.status !== 'LEFT' ? <OnLeaveToday employeeId={person.id} canRead={canLeaveRead} /> : null}
             {typeName ? <span className="pc-chip">{typeName}</span> : null}
             {person.hours === 'PART_TIME' ? <span className="pc-chip">Part-time</span> : null}
-            {person.code ? <span className="pc-chip"><span>{person.code}</span> <CopyWord value={person.code} what="employee ID" /></span> : null}
+            {person.code ? <span className="pc-chip"><span className="ui-mono">{person.code}</span> <CopyWord value={person.code} what="employee ID" /></span> : null}
           </div>
           {probation === 'ON' || probation === 'OVER' || (person.contractEndDate && person.status !== 'LEFT') ? (
             <p className="pc-summary-alerts">
@@ -576,7 +577,7 @@ function Overview({ person, data, lists, allowed, openScreen, goTo, go }) {
         <Section title="Job details" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('employment')}>Open</button>}>
           <dl className="ui-field-grid">
             <Field label="Employee ID" value={person.code} mono />
-            <Field label="Joining date" value={person.dateOfJoining ? formatDate(String(person.dateOfJoining).slice(0, 10)) : null} mono />
+            <Field label="Joining date" value={person.dateOfJoining ? formatDate(String(person.dateOfJoining).slice(0, 10)) : null} num />
             <Field label="Department" value={person.department} />
             <Field label="Designation" value={person.designation} />
             <Field label="Employment type" value={typeName} />
@@ -867,7 +868,7 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
           {editing === k ? (
             <SectionForm person={person} fields={s.fields} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
           ) : (
-            <dl className="ui-field-grid">{shownFields(person, s.fields).filter((f) => !f.hideEmpty || person[f.key]).map((f) => <Field key={f.key} label={f.label} value={value(s, f)} mono={f.mono} />)}</dl>
+            <dl className="ui-field-grid">{shownFields(person, s.fields).filter((f) => !f.hideEmpty || person[f.key]).map((f) => <Field key={f.key} label={f.label} value={value(s, f)} num={f.mono} />)}</dl>
           )}
           {s.note ? <p className="ui-caption mt-2">{s.note}</p> : null}
         </Section>
@@ -953,11 +954,11 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
             <Field label="Work mode" value={workTypeName} />
             <Field label="Job role" value={lists?.roles?.find((r) => r.id === person.jobRoleId)?.name} />
             <Field label="How they were hired" value={HIRE_WORDS[person.hireSource]} />
-            <Field label={person.currentEpisodeSeq > 1 ? 'Rejoined' : 'Joining date'} value={person.dateOfJoining ? formatDate(String(person.dateOfJoining).slice(0, 10)) : null} mono />
-            {person.currentEpisodeSeq > 1 ? <Field label="First joined" value={person.firstJoiningDate ? formatDate(person.firstJoiningDate) : null} mono /> : null}
-            {dates.probation || person.probationEndDate || person.confirmedOn ? <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn ? formatDate(person.confirmedOn) : person.probationEndDate ? formatDate(person.probationEndDate) : null} mono /> : null}
-            {dates.contract || person.contractEndDate ? <Field label={dates.contractLabel} value={person.contractEndDate ? formatDate(person.contractEndDate) : null} mono /> : null}
-            {person.resignedOn ? <Field label="Resignation received" value={`${formatDate(String(person.resignedOn).slice(0, 10))}${person.noticeWaived ? ' · notice waived' : ''}`} mono /> : null}
+            <Field label={person.currentEpisodeSeq > 1 ? 'Rejoined' : 'Joining date'} value={person.dateOfJoining ? formatDate(String(person.dateOfJoining).slice(0, 10)) : null} num />
+            {person.currentEpisodeSeq > 1 ? <Field label="First joined" value={person.firstJoiningDate ? formatDate(person.firstJoiningDate) : null} num /> : null}
+            {dates.probation || person.probationEndDate || person.confirmedOn ? <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn ? formatDate(person.confirmedOn) : person.probationEndDate ? formatDate(person.probationEndDate) : null} num /> : null}
+            {dates.contract || person.contractEndDate ? <Field label={dates.contractLabel} value={person.contractEndDate ? formatDate(person.contractEndDate) : null} num /> : null}
+            {person.resignedOn ? <Field label="Resignation received" value={`${formatDate(String(person.resignedOn).slice(0, 10))}${person.noticeWaived ? ' · notice waived' : ''}`} num /> : null}
             {person.dateOfLeaving ? <Field label={person.status === 'LEFT' ? 'Left' : 'Last day'} value={`${formatDate(person.dateOfLeaving)}${person.leavingType ? ` · ${LEAVING_TYPES[person.leavingType] || enumWords(person.leavingType)}` : ''}${person.leavingReason ? ` · ${person.leavingReason}` : ''}`} /> : null}
           </dl>
         )}

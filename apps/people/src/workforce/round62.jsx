@@ -7,7 +7,9 @@ import useRequest from '@ui/components/ui/useRequest';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { getLeaveBalances, listLeaveRequests, listRecords, swatchOf } from '@ui/timeOff/api';
 import { todayIst } from '@ui/utils/dates';
-import { wholeRupees as rupees } from '@ui/utils/money';
+import { moneyCell } from '@ui/utils/money';
+/* CTC with its paise, as every amount (DESIGN.md: two decimals). */
+const rupees = (n) => moneyCell(n, { zero: true });
 import { formatPhone } from '@ui/utils/phone';
 import { phoneLinks } from '@ui/components/ui/CallButtons';
 import { leaveToday, monthLine, neighbours, readRecordList } from '@ui/picks/round62';

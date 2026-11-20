@@ -202,7 +202,7 @@ function ClaimDrawer({ claim: c, reimbursement, mayPay, onClose, onDone }) {
             <label className="block sm:col-span-2"><span className="ui-label">Reference</span><SuggestInput value={form.reference} onChange={(v) => setForm({ ...form, reference: v })} maxLength={80} placeholder="UTR or cheque number" suggestions={[]} /></label>
           </div>
         ) : null}
-        <table className="w-full text-sm">
+        <table className="ui-table w-full">
           <thead><tr className="ui-t-label text-left"><th className="py-1.5 pr-3 font-semibold">Bill</th><th className="py-1.5 pr-3 text-right font-semibold">Asked</th><th className="py-1.5 text-right font-semibold">Allowed</th></tr></thead>
           <tbody>
             {c.lines.map((l) => (
@@ -316,13 +316,24 @@ function SalaryAdvanceList({ params: p, set, mayPay }) {
   const req = useRequest(() => listSalaryAdvances(), []);
   const q = String(p.q || '').trim().toLowerCase();
   const rows = (req.data || []).filter((a) => a.status !== 'WITHDRAWN' && (!q || `${a.employeeName} ${a.employeeCode} ${a.reason}`.toLowerCase().includes(q)));
+  const [sending, setSending] = useState(null);
   const again = async (a) => {
+    if (sending) return;
+    const ok = await confirmDialog({
+      title: `Send ${money(a.amount)} for ${a.employeeName || 'this person'} to Payroll?`,
+      message: `Payroll gets a loan of ${money(a.amount)}, taken back at ${money(a.emi)} a month over ${a.months} month${a.months === 1 ? '' : 's'}.`,
+      confirmLabel: 'Send to Payroll',
+    });
+    if (!ok) return;
+    setSending(a.id);
     try {
       const r = await sendToPayroll(a.id);
       notify.success(`Payroll loan ${r.number || ''} made.`.replace('  ', ' '));
       req.reload();
     } catch (e) {
       notify.error(errorWords(e, 'send it'));
+    } finally {
+      setSending(null);
     }
   };
   const loanText = (a) => (a.loan ? `${a.loan.number} · ${a.loan.status === 'DRAFT' ? 'waiting for Payroll to approve' : `${money(a.loan.outstanding)} left`}` : a.payrollNote || '');
@@ -330,7 +341,7 @@ function SalaryAdvanceList({ params: p, set, mayPay }) {
     { key: 'person', label: 'Person', always: true, render: (a) => <PersonCell person={{ name: a.employeeName || '—' }} line={a.employeeCode || ''} /> },
     { key: 'terms', label: 'Asked', render: (a) => <span className="min-w-0"><span className="block tabular-nums">{money(a.amount)} over {a.months} month{a.months === 1 ? '' : 's'}</span><span className="block ui-caption tabular-nums">{money(a.emi)} a month · {a.reason}</span></span> },
     { key: 'status', label: 'Status', render: (a) => <span className={`ui-pill ui-pill-${PILL[a.status] === 'warn' && a.status === 'APPROVED' ? 'pos' : PILL[a.status] || 'neutral'}`}>{a.statusLabel}</span> },
-    { key: 'loan', label: 'Payroll loan', render: (a) => <span className="block max-w-xs"><span className={`block ${a.payrollNote && !a.loan ? 'ui-text-warn' : ''}`}>{loanText(a) || '—'}</span>{mayPay && a.status === 'APPROVED' && !a.loan ? <button type="button" className="ui-link text-xs" onClick={(e) => { e.stopPropagation(); again(a); }}>Send to Payroll</button> : null}</span> },
+    { key: 'loan', label: 'Payroll loan', render: (a) => <span className="block max-w-xs"><span className={`block ${a.payrollNote && !a.loan ? 'ui-text-warn' : ''}`}>{loanText(a) || '—'}</span>{mayPay && a.status === 'APPROVED' && !a.loan ? <button type="button" className="ui-link text-xs" disabled={Boolean(sending)} aria-busy={sending === a.id || undefined} onClick={(e) => { e.stopPropagation(); again(a); }}>{sending === a.id ? 'Sending…' : 'Send to Payroll'}</button> : null}</span> },
   ];
   return (
     <DataTable label="Salary advances" columns={columns} rows={rows} total={rows.length} pageSize={Math.max(25, rows.length)} noun="salary advances" loading={req.loading} refreshing={req.refreshing}
@@ -357,7 +368,7 @@ function Report({ mayExport }) {
     <section className="space-y-2" aria-label={title}>
       <h2 className="ui-t-sec">{title}</h2>
       {rows.length ? (
-        <table className="w-full text-sm">
+        <table className="ui-table w-full">
           <thead><tr className="ui-t-label text-left"><th className="py-1.5 pr-3 font-semibold">{name}</th><th className="py-1.5 pr-3 text-right font-semibold">Bills</th><th className="py-1.5 pr-3 text-right font-semibold">GST kept</th><th className="py-1.5 text-right font-semibold">Approved</th></tr></thead>
           <tbody>{rows.map((x) => <tr key={x.key} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}><td className="py-2 pr-3">{x.label}</td><td className="py-2 pr-3 text-right tabular-nums">{x.bills}</td><td className="py-2 pr-3 text-right tabular-nums">{x.gst ? money(x.gst) : '—'}</td><td className="py-2 text-right tabular-nums">{money(x.amount)}</td></tr>)}</tbody>
         </table>
@@ -388,7 +399,7 @@ function Report({ mayExport }) {
             <section className="space-y-2" aria-label="Advances still open">
               <h2 className="ui-t-sec">Advances still open</h2>
               {r.openAdvances.length ? (
-                <table className="w-full text-sm">
+                <table className="ui-table w-full">
                   <thead><tr className="ui-t-label text-left"><th className="py-1.5 pr-3 font-semibold">Person</th><th className="py-1.5 pr-3 font-semibold">Bills by</th><th className="py-1.5 text-right font-semibold">Open</th></tr></thead>
                   <tbody>{r.openAdvances.map((a) => <tr key={a.id} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}><td className="py-2 pr-3">{a.employeeName}<span className="ui-caption block">{a.number} · {a.purpose}</span></td><td className="py-2 pr-3">{day(a.settleBy)}{a.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</td><td className="py-2 text-right tabular-nums">{money(a.open)}</td></tr>)}</tbody>
                 </table>

@@ -1,4 +1,5 @@
 import { errorWords } from '@ui/utils/errorWords';
+import { moneyCell } from '@ui/utils/money';
 import React, { useEffect, useState } from 'react';
 import RangePresets from '@ui/components/ui/RangePresets';
 import { Download, Printer } from '@ui/components/ui/lineIcons';
@@ -38,7 +39,8 @@ function shown(col, value) {
   if (value === null || value === undefined || value === '') return '—';
   if (col.kind === 'date') return formatDate(String(value).slice(0, 10)) || String(value);
   if (col.kind === 'pct' && typeof value === 'number') return `${value < 0 ? '−' : ''}${Math.abs(value).toFixed(1)}%`;
-  if (col.kind === 'money' && typeof value === 'number') return `${value < 0 ? '−' : ''}₹${Math.abs(value).toLocaleString('en-IN')}`;
+  /* Money in a table: ₹, Indian grouping, two decimals, a true minus (DESIGN.md); zero reads "—". */
+  if (col.kind === 'money' && typeof value === 'number') return moneyCell(value);
   /* Round 63 "negformat" A: a minus figure reads "−1,200", the sign before the figure (red: cellClass). */
   if (typeof value === 'number') return signedFigure(value).text;
   return String(value);

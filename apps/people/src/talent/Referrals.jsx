@@ -24,9 +24,9 @@ import { Footer, FormError, ReasonDrawer, STAGES, day, tabItems, useParamState, 
 const TABS = [['all', 'All'], ['open', 'In process'], ['joined', 'Joined'], ['bonusWaiting', 'Bonus waiting'], ['bonusDue', 'Bonus due'], ['bonusPaid', 'Bonus paid'], ['notTaken', 'Rejected'], ['report', 'By employee']];
 const BONUS = {
   NONE: ['No bonus yet', 'ui-pill-neutral'],
-  WAITING: ['Waiting', 'ui-pill-info'],
+  WAITING: ['Waiting', 'ui-pill-neutral'],
   DUE: ['Due', 'ui-pill-warn'],
-  SENT: ['With Payroll', 'ui-pill-info'],
+  SENT: ['With Payroll', 'ui-pill-warn'],
   PAID: ['Paid', 'ui-pill-pos'],
   FORFEITED: ['Not payable', 'ui-pill-neutral'],
 };
@@ -132,7 +132,7 @@ export default function Referrals({ params = {}, openScreen }) {
 
 /** By employee: who refers, how many joined, and the bonus owed and paid; the totals above it. */
 function Report({ data, loading, money }) {
-  if (loading && !data) return <p className="text-sm ui-muted">Loading…</p>;
+  if (loading && !data) return <div className="space-y-2" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>;
   const t = data?.totals || {};
   const stats = [
     ['Referred', t.referred, false], ['In process', t.inProcess, false], ['Joined', t.joined, false],

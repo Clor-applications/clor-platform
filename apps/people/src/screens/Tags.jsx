@@ -3,17 +3,22 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
+import ErrorState from '@ui/components/ui/ErrorState';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createTag, deleteTag, listTags } from '@ui/personnel/api';
-import '../people-settings.css';
 
-/* The categorical series (rnd.css --cat-1..8), stored as hex because a tag keeps its colour. */
+/* The categorical series, stored as hex because a tag keeps its colour; drawn from the token (rnd.css --cat-1..8)
+   so the screen never paints a raw hex. A colour from before the series is drawn as it was stored. */
 const SWATCHES = ['#2A78D6', '#EB6834', '#1BAF7A', '#EDA100', '#E87BA4', '#008300', '#6250D6', '#E34948'];
 const SWATCH_NAMES = ['Blue', 'Orange', 'Aqua', 'Yellow', 'Pink', 'Green', 'Violet', 'Red'];
+const dotColour = (hex) => {
+  const i = SWATCHES.indexOf(String(hex || '').toUpperCase());
+  return i >= 0 ? `rgb(var(--cat-${i + 1}))` : hex || 'rgb(var(--border-strong))';
+};
 
 /**
  * Labels for grouping people — Remote, Night shift, Key person (PEOPLE-39): the list on the page ground under one
@@ -21,13 +26,14 @@ const SWATCH_NAMES = ['Blue', 'Orange', 'Aqua', 'Yellow', 'Pink', 'Green', 'Viol
  */
 export default function Tags() {
   const [tags, setTags] = useState(null);
+  const [loadError, setLoadError] = useState(null);
   const [q, setQ] = useState('');
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [color, setColor] = useState(SWATCHES[0]);
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(() => listTags().then(setTags).catch((e) => notify.error(errorWords(e, 'load tags'))), []);
+  const load = useCallback(() => listTags().then((t) => { setTags(t); setLoadError(null); }).catch((e) => setLoadError(e)), []);
   useEffect(() => {
     load();
   }, [load]);
@@ -58,8 +64,13 @@ export default function Tags() {
   const remove = async (t) => {
     const ok = await confirmDialog({ title: `Delete ${t.name}?`, message: 'It comes off everyone who has it.', confirmLabel: 'Delete tag' });
     if (!ok) return;
-    await deleteTag(t.id).catch((err) => notify.error(errorWords(err, 'delete the tag')));
-    load();
+    try {
+      await deleteTag(t.id);
+      notify.success(`${t.name} deleted`);
+      load();
+    } catch (err) {
+      notify.error(errorWords(err, 'delete the tag'));
+    }
   };
 
   const shown = useMemo(() => {
@@ -67,6 +78,7 @@ export default function Tags() {
     return (tags || []).filter((t) => !needle || t.name.toLowerCase().includes(needle));
   }, [tags, q]);
 
+  if (!tags && loadError) return <ErrorState error={loadError} onRetry={load} />;
   if (!tags) return <SkeletonCard lines={4} />;
   return (
     <div className="space-y-6 pb-8">
@@ -98,7 +110,7 @@ export default function Tags() {
                 <tr key={t.id}>
                   <td>
                     <span className="people-tag-chip">
-                      <span className="people-tag-dot" style={{ background: t.color }} aria-hidden="true" />
+                      <span className="people-tag-dot" style={{ background: dotColour(t.color) }} aria-hidden="true" />
                       {t.name}
                     </span>
                   </td>
@@ -135,7 +147,9 @@ export default function Tags() {
               <span className="ui-label" id="tag-colour">Colour</span>
               <div role="radiogroup" aria-labelledby="tag-colour" className="flex flex-wrap gap-2 pt-1">
                 {SWATCHES.map((c, i) => (
-                  <button key={c} type="button" role="radio" aria-checked={color === c} aria-label={SWATCH_NAMES[i]} className="people-tag-swatch" style={{ backgroundColor: c }} onClick={() => setColor(c)} />
+                  <button key={c} type="button" role="radio" aria-checked={color === c} className="people-tag-swatch" onClick={() => setColor(c)}>
+                    <span className="people-tag-dot" style={{ background: dotColour(c) }} aria-hidden="true" />{SWATCH_NAMES[i]}
+                  </button>
                 ))}
               </div>
             </div>

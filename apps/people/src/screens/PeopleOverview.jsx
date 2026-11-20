@@ -25,8 +25,6 @@ const CHART_COLOURS = 8;
  * News and events coloured by what they are, never by their place in the list (review of #123): a post for a group
  * is clay, one for everyone violet; a Fun Friday clay, any other event violet. Marigold stays with "Waiting for you".
  */
-const newsTint = (n) => (n.details?.audienceKind && n.details.audienceKind !== 'ALL' ? 'peach' : 'lilac');
-const eventTint = (e) => (/fun friday/i.test(e.title || '') ? 'peach' : 'lilac');
 /* The business day is India's, whatever the browser's clock zone: who is out today, and today's headcount. */
 const isoToday = todayIst;
 /* A stored day (YYYY-MM-DD) read on its own calendar, never shifted by the browser's clock zone. */
@@ -50,7 +48,7 @@ const backOn = (to) => {
 /* A face in its team's colour: the photo when there is one, initials when not. */
 function Face({ person, size = 40, colour }) {
   /* No text under 12px (DESIGN.md): a small face grows its initials to 12px rather than shrinking them. */
-  const style = { width: size, height: size, '--dept': `var(--dept-${colour ?? 0})`, fontSize: Math.max(12, Math.round(size * 0.36)) };
+  const style = { width: size, height: size, '--dept': `var(--dept-${colour ?? 0})`, fontSize: size >= 56 ? 17 : size >= 40 ? 14 : size >= 32 ? 13 : 12 }; /* initials on the type scale: 12, 13, 14 or 17 */
   return person?.photoUrl ? (
     <img src={person.photoUrl} alt="" className="people-face" style={style} />
   ) : (
@@ -412,7 +410,7 @@ export default function PeopleOverview({ openScreen }) {
       ) : null}
 
       <div className="people-kpis">
-        <button type="button" className="people-kpi" data-tint="sky" onClick={go('employees')}>
+        <button type="button" className="people-kpi" onClick={go('employees')}>
           <span className="people-kpi-icon"><Users size={20} aria-hidden="true" /></span>
           <span className="people-kpi-label">Headcount</span>
           <span className="people-kpi-row"><span className="people-kpi-value" data-zero={Number(data.headcount) === 0 || undefined}>{data.headcount}</span></span>
@@ -420,7 +418,7 @@ export default function PeopleOverview({ openScreen }) {
         </button>
         {/* An overview figure never shows at zero (DESIGN.md "Overview pages"); the count line under the title says it. */}
         {leave && outToday.length === 0 ? null : (
-        <button type="button" className="people-kpi" data-tint="peach" onClick={go('leaveCalendar')}>
+        <button type="button" className="people-kpi" onClick={go('leaveCalendar')}>
           <span className="people-kpi-icon"><Plane size={20} aria-hidden="true" /></span>
           <span className="people-kpi-label">Out today</span>
           <span className="people-kpi-row">
@@ -436,16 +434,16 @@ export default function PeopleOverview({ openScreen }) {
         )}
         {/* No approvals among Home's figures (owner, 8 Nov 2026): the Inbox owns them. Probation is a decision that is Home's. */}
         {todos && probationDue === 0 && !probationOver ? null : (
-        <button type="button" className="people-kpi" data-tint="mint" data-attention={probationDue > 0 || undefined} onClick={go('employees', { prob: 'on' })}>
+        <button type="button" className="people-kpi" data-attention={probationDue > 0 || undefined} onClick={go('employees', { prob: 'on' })}>
           <span className="people-kpi-icon"><Hourglass size={20} aria-hidden="true" /></span>
           <span className="people-kpi-label">Probation due</span>
-          <span className="people-kpi-row"><span className="people-kpi-value" data-zero={(todos && probationDue === 0) || undefined}>{todos ? probationDue : '–'}</span></span>
+          <span className="people-kpi-row"><span className="people-kpi-value">{todos ? Math.max(probationDue, probationOver) : '–'}</span></span>
           <span className="people-kpi-note">{failed.todos ? 'Could not load' : !todos ? 'Checking' : probationOver ? `${plural(probationOver, 'person', 'people')} past their date` : nextProbation ? `Next ends ${shortDate(nextProbation.endsOn)}` : 'None in the next 30 days'}</span>
         </button>
         )}
         {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
         {data.leavingsHidden || (Number(onNotice) === 0 && !data.leftThisMonth) ? null : (
-          <button type="button" className="people-kpi" data-tint="butter" onClick={go('employees')}>
+          <button type="button" className="people-kpi" onClick={go('employees')}>
             <span className="people-kpi-icon"><LogOut size={20} aria-hidden="true" /></span>
             <span className="people-kpi-label">On notice</span>
             <span className="people-kpi-row"><span className="people-kpi-value" data-zero={Number(onNotice) === 0 || undefined}>{onNotice}</span></span>
@@ -610,7 +608,7 @@ export default function PeopleOverview({ openScreen }) {
                 {posts.map((n, i) => (
                   <li key={n.id}>
                     <button type="button" className="people-row people-row-action items-start" onClick={go('announcements')}>
-                      <span className="people-news-icon" data-tint={newsTint(n)}>
+                      <span className="people-news-icon">
                         {symbolOf(n.details?.symbol) ? <span aria-hidden="true">{symbolOf(n.details.symbol).emoji}</span> : i === 0 ? <Pin size={16} aria-hidden="true" /> : <Megaphone size={16} aria-hidden="true" />}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -623,7 +621,7 @@ export default function PeopleOverview({ openScreen }) {
                 ))}
               </ul>
             ) : failed.news ? <CardFailed what="announcements" onRetry={loadNews} /> : (
-              <p className="people-empty people-list">{news ? 'Nothing posted yet. Share news, a policy change or a welcome.' : 'Loading…'}</p>
+              (news ? <p className="people-empty people-list">Nothing posted yet. Share news, a policy change or a welcome.</p> : <div className="space-y-2" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>)
             )}
           </Block>
 
@@ -636,7 +634,7 @@ export default function PeopleOverview({ openScreen }) {
                   return (
                     <li key={e.id}>
                       <button type="button" className="people-row people-row-action" onClick={go('events')}>
-                        <span className="people-date" data-tint={eventTint(e)}><b>{d.day}</b><span>{d.month}</span></span>
+                        <span className="people-date"><b>{d.day}</b><span>{d.month}</span></span>
                         <span className="min-w-0 flex-1">
                           <span className="people-row-title truncate">{symbolOf(e.details?.symbol) ? <span className="mr-1.5" aria-hidden="true">{symbolOf(e.details.symbol).emoji}</span> : null}{fun ? `Fun Friday: ${e.title.replace(/^fun friday:\s*/i, '')}` : e.title}</span>
                           <span className="ui-caption block truncate">{d.weekday}{e.details?.location ? `, ${e.details.location}` : ''}</span>
@@ -647,7 +645,7 @@ export default function PeopleOverview({ openScreen }) {
                 })}
               </ul>
             ) : failed.events ? <CardFailed what="events" onRetry={loadEvents} /> : (
-              <p className="people-empty people-list">{events ? 'No events planned. A Fun Friday is a good start.' : 'Loading…'}</p>
+              (events ? <p className="people-empty people-list">No events planned. A Fun Friday is a good start.</p> : <div className="space-y-2" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>)
             )}
           </Block>
         </aside>

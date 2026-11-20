@@ -648,14 +648,15 @@ function BulkResult({ result, onClose }) {
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Bulk change finished"
       footer={<>{failed.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={save}>Download skipped</button> : null}<button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Done</button></>}>
-      <dl className="ui-metric-strip">
-        {result.effectiveFrom
-          ? <div className="ui-metric" data-tint="mint" data-zero={Number(result.scheduled) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.scheduled}</dd><dt className="ui-metric-label">Change on {formatDate(result.effectiveFrom)}</dt></span></div>
-          : <div className="ui-metric" data-tint="mint" data-zero={Number(result.changed) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.changed}</dd><dt className="ui-metric-label">Changed</dt></span></div>}
-        <div className="ui-metric" data-tint="sky" data-zero={Number(result.unchanged) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.unchanged}</dd><dt className="ui-metric-label">Already so</dt></span></div>
-        <div className="ui-metric" data-tint="peach" data-zero={failed.length === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{failed.length}</dd><dt className="ui-metric-label">Skipped</dt></span></div>
-        <div className="ui-metric" data-tint="peach" data-zero={Number(result.notFound) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{result.notFound}</dd><dt className="ui-metric-label">Not found</dt></span></div>
-      </dl>
+      {/* One count line, the zero clauses left out (DESIGN.md "Page header"). */}
+      <CountLine label="Bulk change result" items={[
+        result.effectiveFrom
+          ? { key: 'scheduled', label: `change on ${formatDate(result.effectiveFrom)}`, value: Number(result.scheduled) || 0 }
+          : { key: 'changed', label: 'changed', value: Number(result.changed) || 0 },
+        { key: 'unchanged', label: 'already so', value: Number(result.unchanged) || 0 },
+        { key: 'skipped', label: 'skipped', value: failed.length, tone: 'warn' },
+        { key: 'notFound', label: 'not found', value: Number(result.notFound) || 0, tone: 'warn' },
+      ]} />
       {failed.length ? (
         <ul className="mt-4 divide-y text-sm" aria-label="Skipped">
           {failed.map((s) => <li key={s.id} className="py-2 flex justify-between gap-3"><span>{s.name}</span><span className="ui-muted">{s.why}</span></li>)}
@@ -732,7 +733,7 @@ function SavedViews({ params, prefs, onApply, canShare }) {
   const save = async () => {
     try {
       const v = await saveView({ id: naming.id, screen: 'employees', name: naming.name, shared: naming.shared, filters: naming.id ? naming.filters : withColumns });
-      notify.success(`Saved "${v.name}".`);
+      notify.success(naming.id ? `View "${v.name}" saved` : `View "${v.name}" saved. It is under Saved views.`);
       setNaming(null);
       views.reload();
     } catch (e) {
@@ -740,8 +741,8 @@ function SavedViews({ params, prefs, onApply, canShare }) {
     }
   };
   const remove = async (v) => {
-    if (!(await confirmDialog({ title: `Delete the view "${v.name}"?`, confirmLabel: 'Delete' }))) return;
-    try { await deleteView(v.id); views.reload(); } catch (e) { notify.error(errorWords(e, 'delete it')); }
+    if (!(await confirmDialog({ title: `Delete the view "${v.name}"?`, message: 'The filters and columns it keeps go; nobody’s employee records change.', confirmLabel: 'Delete view' }))) return;
+    try { await deleteView(v.id); notify.success(`View "${v.name}" deleted`); views.reload(); } catch (e) { notify.error(errorWords(e, 'delete it')); }
   };
   const WORDS = { q: 'Search', status: 'Status', dept: 'Department', pos: 'Designation', type: 'Employment type', wtype: 'Work mode', hrs: 'Hours', prob: 'Probation', contract: 'Contract end', area: 'Location', est: 'Work site', branch: 'Works at', unit: 'Business unit', grade: 'Grade', centre: 'Cost centre', tag: 'Tag', mgr: 'Manager', from: 'Joined from', to: 'Joined to', sort: 'Sorted' };
   const describe = (f = {}) => { const used = Object.keys(f).filter((k) => WORDS[k] && k !== 'dir'); return used.length ? used.map((k) => WORDS[k]).join(', ') : 'All employees'; };

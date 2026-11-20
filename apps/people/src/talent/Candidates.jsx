@@ -6,13 +6,14 @@ import { Avatar } from '@ui/personnel/Employees';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import ErrorState from '@ui/components/ui/ErrorState';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import SearchField from '@ui/components/ui/SearchField';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { listCandidates, listOpenings, moveCandidate } from '../api/talent';
 import CandidateDrawer, { CandidateForm } from './CandidateDrawer';
-import { OPEN_STAGES, Pill, SOURCES, STAGES, day, tabItems, useParamState, usePerm, word } from './shared';
+import { OPEN_STAGES, SOURCES, STAGES, day, tabItems, useParamState, usePerm, word } from './shared';
 
 /**
  * Candidates (TALENT-DECISIONS.md): everyone applying, on one pipeline from Applied to Hired,
@@ -21,6 +22,10 @@ import { OPEN_STAGES, Pill, SOURCES, STAGES, day, tabItems, useParamState, usePe
  */
 const TABS = [['open', 'In the running'], ['APPLIED', 'Applied'], ['SCREENING', 'Screening'], ['INTERVIEW', 'Interview'], ['OFFER', 'Offer'], ['HIRED', 'Hired'], ['closed', 'Not going ahead'], ['all', 'All']];
 const COUNT_KEY = { open: 'open', closed: 'closed' };
+/* The stage is plain words; only an offer out, waiting on the candidate's answer, carries a tag (DESIGN.md "Status tags"). */
+const stageCell = (stage) => (stage === 'OFFER'
+  ? <ExceptionTag label={word(STAGES, stage)} pill="ui-pill-warn" />
+  : <span className="whitespace-nowrap">{word(STAGES, stage)}</span>);
 const VIEW_KEY = 'clor.people.candidates.view';
 const readView = () => { try { return localStorage.getItem(VIEW_KEY) === 'board' ? 'board' : 'list'; } catch { return 'list'; } };
 
@@ -65,7 +70,7 @@ export default function Candidates({ params = {}, openScreen }) {
     { key: 'source', label: 'Came through', render: (r) => word(SOURCES, r.source) },
     { key: 'since', label: 'Since', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.stageAt)}</span> },
     { key: 'resume', label: 'Résumé', render: (r) => (r.resume || r.resumeUrl ? 'Yes' : <span className="ui-muted">No</span>) },
-    { key: 'stage', label: 'Stage', render: (r) => <Pill map={STAGES} value={r.stage} /> },
+    { key: 'stage', label: 'Stage', render: (r) => stageCell(r.stage) },
   ];
   const oneStage = !['open', 'closed', 'all'].includes(stage);
   const rowActions = (r) => (canEdit && OPEN_STAGES.includes(r.stage) ? OPEN_STAGES.filter((s) => s !== r.stage).map((s) => ({ key: s, label: `Move to ${word(STAGES, s).toLowerCase()}`, onSelect: () => move(r, s) })) : []);
@@ -94,7 +99,7 @@ export default function Candidates({ params = {}, openScreen }) {
           onRowClick={(r) => setOpen(r.id)} rowActions={rowActions}
           card={(r) => (
             <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><Pill map={STAGES} value={r.stage} /></span>
+              <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span>{stageCell(r.stage)}</span>
               <span className="block truncate ui-caption">{[r.openingTitle, word(SOURCES, r.source), day(r.stageAt)].filter(Boolean).join(' · ')}</span>
             </span>
           )}
@@ -134,7 +139,7 @@ function Board({ rows, openings, loading, canEdit, onOpen, onMove, onAdd }) {
           return (
             <section key={s} aria-label={word(STAGES, s)} className="pt-lane">
               <h3 className="pt-lane-head"><span>{word(STAGES, s)} <span className="tabular-nums">{here.length}</span></span>{onAdd && s === OPEN_STAGES[0] ? <button type="button" className="ui-icon-btn pt-lane-add" aria-label="Add a candidate to Applied" title="Add a candidate to Applied" onClick={onAdd}><Plus size={16} aria-hidden="true" /></button> : null}</h3>
-              {loading ? <p className="text-sm ui-muted">Loading…</p> : !here.length ? <p className="text-sm ui-muted">Nobody</p> : here.map((r) => (
+              {loading ? <div className="ui-skel h-16 w-full" aria-busy="true" aria-label="Loading" /> : !here.length ? <p className="text-sm ui-muted">Nobody</p> : here.map((r) => (
                 <article key={r.id} className="pt-cand">
                   <button type="button" className="flex w-full min-w-0 items-center gap-2.5 text-left" onClick={() => onOpen(r)}>
                     <Avatar person={{ name: r.name }} size={28} />

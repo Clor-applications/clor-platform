@@ -267,7 +267,7 @@ function Auditors({ canEdit }) {
 }
 
 function GiveAccess({ onClose, onDone }) {
-  const lists = useRequest(() => Promise.all([orgUsers(), apiFetch(`/orgs/${encodeURIComponent(orgId())}/people/documents`, opts).then((r) => r?.documents || []).catch(() => [])]), []);
+  const lists = useRequest(() => Promise.all([orgUsers(), apiFetch(`/orgs/${encodeURIComponent(orgId())}/people/documents`, opts).then((r) => r?.documents || [])]), []);
   const [users, docs] = lists.data || [[], []];
   const [draft, setDraft] = useState({ userId: '', purpose: '', documentIds: [], untilAt: istDay(Date.now() + 14 * 86_400_000) });
   const [busy, setBusy] = useState(false);
@@ -294,11 +294,11 @@ function GiveAccess({ onClose, onDone }) {
         <div><label className="ui-label" htmlFor="grant-until">Until *</label><DatePicker id="grant-until" min={todayIst()} max={istDay(Date.now() + 90 * 86_400_000)} value={draft.untilAt} onChange={(v) => setDraft({ ...draft, untilAt: v || '' })} /></div>
         <fieldset className="sm:col-span-2">
           <legend className="ui-label">Documents * <span className="ui-caption tabular-nums">{draft.documentIds.length} chosen</span></legend>
-          {docs.length ? (
+          {lists.error && !lists.data ? <ErrorState error={lists.error} onRetry={lists.reload} compact /> : docs.length ? (
             <ul className="max-h-72 overflow-y-auto divide-y border-t">
               {docs.map((d) => <li key={d.id}><label className="flex items-center gap-2 py-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={draft.documentIds.includes(d.id)} onChange={() => toggleDoc(d.id)} /><span className="min-w-0 flex-1 truncate">{d.title}</span><span className="ui-caption">{d.kind?.replaceAll('_', ' ').toLowerCase()}</span></label></li>)}
             </ul>
-          ) : <p className="text-sm ui-muted">{lists.data ? 'No documents on file.' : 'Loading…'}</p>}
+          ) : lists.data ? <p className="text-sm ui-muted">No documents on file.</p> : <div className="space-y-2" aria-busy="true" aria-label="Loading documents"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>}
         </fieldset>
       </form>
     </Drawer>

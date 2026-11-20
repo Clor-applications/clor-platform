@@ -75,7 +75,7 @@ export default function AppAccessSend({ people, onClose }) {
               <ul className="divide-y text-sm">
                 {handed.map((s) => (
                   <li key={s.employeeId} className="flex flex-wrap items-center gap-3 py-2">
-                    <span className="min-w-0 flex-1">{s.name} <span className="ui-muted tabular-nums">({s.employeeCode})</span>{s.phoneEnding ? <span className="block ui-caption">Phone ending <span className="tabular-nums">{s.phoneEnding}</span></span> : null}</span>
+                    <span className="min-w-0 flex-1">{s.name} <span className="ui-muted">(<span className="ui-mono">{s.employeeCode}</span>)</span>{s.phoneEnding ? <span className="block ui-caption">Phone ending <span className="tabular-nums">{s.phoneEnding}</span></span> : null}</span>
                     <span className="font-semibold tabular-nums" aria-label={`Activation code for ${s.name}`}>{s.activationCode}</span>
                     {s.whatsappUrl ? <a className="ui-btn ui-btn-secondary ui-btn-sm" href={s.whatsappUrl} target="_blank" rel="noreferrer">Send on WhatsApp</a> : <span className="ui-caption">No number for WhatsApp</span>}
                   </li>

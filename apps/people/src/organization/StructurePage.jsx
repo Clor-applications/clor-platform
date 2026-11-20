@@ -117,7 +117,7 @@ export const KINDS = {
       { key: 'cin', label: 'CIN', type: 'text' },
       { key: 'address', label: 'Registered address', type: 'text', wide: true, max: 500 },
     ],
-    columns: [{ key: 'pan', label: 'PAN', render: (r) => <span className="tabular-nums">{r.pan || '—'}</span> }],
+    columns: [{ key: 'pan', label: 'PAN', render: (r) => (r.pan ? <span className="ui-mono">{r.pan}</span> : '—') }],
   },
   'business-units': { blurb: 'Divisions with their own head and results, for reports and approvals.', title: 'Business units', singular: 'business unit', screen: 'businessUnits', fields: [], columns: [] },
   grades: { blurb: 'Pay and seniority bands. Grades decide which salary structure and benefits apply.', title: 'Grades', singular: 'grade', screen: 'grades', fields: [], columns: [] },

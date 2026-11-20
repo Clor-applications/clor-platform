@@ -91,3 +91,13 @@ it('searches by name, by what the report says and by group', async () => {
   fireEvent.change(screen.getByRole('searchbox', { name: 'Search reports' }), { target: { value: 'zzz' } });
   expect(await screen.findByText('No report matches “zzz”.')).toBeTruthy();
 });
+
+it('a failed load says so with a retry, never "No report is open to your role"', async () => {
+  hr.listHrReports.mockRejectedValueOnce(Object.assign(new Error('Server down'), { status: 503 }));
+  render(<ReportsHome openScreen={vi.fn()} navItems={[]} />);
+  expect(await screen.findByText('Something went wrong on our side')).toBeTruthy();
+  expect(screen.queryByText('No report is open to your role.')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(await screen.findByText('Headcount over time')).toBeTruthy();
+  expect(hr.listHrReports).toHaveBeenCalledTimes(2);
+});

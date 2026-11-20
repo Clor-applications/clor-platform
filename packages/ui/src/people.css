@@ -66,7 +66,7 @@
 :root[data-app='people'] #main-content .ui-list-header .ui-page-heading { margin-bottom: 0; }
 :root[data-app='people'] #main-content .ui-list-desc { display: block; margin-top: 0.375rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
 :root[data-app='people'] #main-content .ui-list-header .ui-datatable-toolbar { display: none; }
-:root[data-app='people'] #main-content :is(section > .flex .ui-t-sec, section > h2.ui-t-sec) { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
+:root[data-app='people'] #main-content :is(section > .flex .ui-t-sec, section > h2.ui-t-sec) { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; letter-spacing: 0; }
 :root[data-app='people'] #main-content :is(p, .ui-caption, .ui-side-sub, .ui-t-sec) { text-wrap-style: pretty; }
 
 /* An empty list's own button steps down when the page already has its primary: one primary per screen. */
@@ -84,7 +84,7 @@
 
 /* View tabs: an underline row under one hairline, the open tab in ink with a 2px moss marker. */
 :root[data-app='people'] #main-content .ui-record-tablist { gap: 1.5rem; max-width: 100%; padding: 0; background: transparent; border-bottom: 1px solid rgb(var(--border)); border-radius: 0; box-shadow: none; }
-:root[data-app='people'] #main-content .ui-record-tablist .ui-tab { height: 2.5rem; padding: 0 0.125rem; border-radius: 0; background: transparent; font-size: 0.875rem; font-weight: 500; color: rgb(var(--fg-muted)); box-shadow: none; }
+:root[data-app='people'] #main-content .ui-record-tablist .ui-tab { height: 2.5rem; padding: 0 0.125rem; border-radius: 0; background: transparent; font-size: 0.875rem; font-weight: 400; color: rgb(var(--fg-muted)); box-shadow: none; }
 :root[data-app='people'] #main-content .ui-record-tablist :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { color: rgb(var(--fg)); font-weight: 600; background: transparent; }
 :root[data-app='people'] :is(.ui-tab.is-active::after, .ui-tab-indicator) { background-color: rgb(var(--marker)); }
 :root[data-app='people'] .ui-tab-indicator[data-scaled] { transition: transform var(--dur-surface) var(--ease-out); }
@@ -95,7 +95,7 @@
 
 /* A segmented switch: a neutral tray, the chosen segment in ink (rnd.css's --choice). */
 :root[data-app='people'] #main-content .ui-segmented.ui-segmented-solid { gap: 0.25rem; padding: 0.25rem; border: 1px solid rgb(var(--border)); border-radius: 0.5rem; background: rgb(var(--surface-sunken)); box-shadow: none; }
-:root[data-app='people'] #main-content .ui-segmented-solid .ui-segment { height: 1.75rem; padding: 0 0.75rem; border: 0; border-radius: 0.375rem; background: transparent; box-shadow: none; color: rgb(var(--fg-muted)); font-size: 0.8125rem; font-weight: 500; }
+:root[data-app='people'] #main-content .ui-segmented-solid .ui-segment { height: 1.75rem; padding: 0 0.75rem; border: 0; border-radius: 0.5rem; background: transparent; box-shadow: none; color: rgb(var(--fg-muted)); font-size: 0.8125rem; font-weight: 400; }
 :root[data-app='people'] #main-content .ui-segmented-solid .ui-segment[aria-checked='true'] { background: rgb(var(--surface)) !important; color: rgb(var(--fg)) !important; font-weight: 600 !important; box-shadow: 0 0 0 1px rgb(var(--border-field)); }
 :root[data-app='people'] #main-content .ui-segmented-solid .ui-segment .ui-segment-count { margin-inline-start: 0.375rem; padding: 0 0.375rem; border-radius: 999px; font-size: 0.75rem; background: rgb(var(--neutral-soft)); color: rgb(var(--neutral-ink)); }
 
@@ -154,7 +154,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 /* The outline lists and the structure rows: the page ground under hairlines. */
 :root[data-app='people'] #main-content .ui-org-outline { border-radius: 0; background: none; box-shadow: none; border-top: 1px solid rgb(var(--border)); overflow: visible; }
 :root[data-app='people'] #main-content .ui-org-outline > li { padding-inline: 0.5rem; border-color: rgb(var(--border)); }
-:root[data-app='people'] #main-content .ui-org-outline > li:hover { background: rgb(var(--panel)); }
+:root[data-app='people'] #main-content .ui-org-outline > li:hover { background: rgb(var(--hover)); }
 :root[data-app='people'] #main-content .ui-attention { border-radius: 0; background: transparent; padding: 0.5rem 0; border: 0; border-bottom: 1px solid rgb(var(--border)); }
 
 /* The line between a list and its side panel runs the page's full height. */
@@ -164,16 +164,15 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 :root[data-app='people'] #main-content .ui-side-block + .ui-side-block { border-top: 0; padding-top: 0; margin-top: 1.5rem; }
 :root[data-app='people'] #main-content .ui-side-chip[data-tint] > svg { color: rgb(var(--tint-ink)); }
 :root[data-app='people'] .ui-side-bar { background: rgb(var(--surface-sunken)); }
-:root[data-app='people'] :is(.org-count-bar, .ui-side-bar) > span { background: rgb(var(--marker)); }
+:root[data-app='people'] :is(.org-count-bar, .ui-side-bar) > span { background: rgb(var(--fg-muted)); }
 :root[data-app='people'] .ui-side-alert[data-tone='warn'] { box-shadow: inset 3px 0 0 rgb(var(--warn)); }
 :root[data-app='people'] .ui-balance-low { color: rgb(var(--warn-ink)); }
 
 /* ------------------------------------------------------------------ KPI tiles */
 
 /*
- * The figure strip as KPI tiles (README §5): a 12px tile on a field hairline with a 3px top accent in the figure's
- * identity colour, a 36px tinted icon chip, a 12px uppercase label beside it, and the number under them at 28/36,
- * tabular. A figure with no tint is neutral. Same markup as before (`.ui-metric-strip > [data-tint] > .ui-metric`).
+ * The figure strip (DESIGN.md "Layout"): at most four tiles on a field hairline, a plain muted icon (no tinted chip),
+ * the label in sentence case at 12/16 600, and the figure under them at 22/28 600, tabular, at every width.
  */
 :root[data-app='people'] #main-content .ui-metric-strip {
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
@@ -212,8 +211,8 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   height: 2.25rem;
   padding: 0.5rem;
   border-radius: 0.5rem;
-  background: rgb(var(--tint));
-  color: rgb(var(--tint-ink));
+  background: transparent;
+  color: rgb(var(--fg-muted));
 }
 :root[data-app='people'] #main-content .ui-metric-label {
   grid-area: label;
@@ -223,21 +222,21 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   white-space: nowrap;
   font-size: 0.75rem;
   line-height: 1rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
   color: rgb(var(--fg-muted));
 }
 :root[data-app='people'] #main-content .ui-metric-value {
   grid-area: value;
   font-size: 1.375rem;
   line-height: 1.75rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   color: rgb(var(--fg));
 }
-:root[data-app='people'] #main-content button.ui-metric:hover { background: rgb(var(--surface-sunken)); }
+:root[data-app='people'] #main-content button.ui-metric:hover { background: rgb(var(--hover)); }
 :root[data-app='people'] #main-content .ui-metric[data-zero] .ui-metric-value { color: rgb(var(--fg-subtle)); }
 :root[data-app='people'] #main-content .ui-metric[data-attention] .ui-metric-value { color: rgb(var(--warn)); }
 /* Data health draws its strip as a definition list: the same tile. */
@@ -246,7 +245,6 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   :root[data-app='people'] #main-content .ui-metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
   :root[data-app='people'] #main-content .ui-metric-strip > * { border-right: 1px solid rgb(var(--border-field)); grid-column: auto; }
   :root[data-app='people'] #main-content .ui-metric { padding: 1rem; row-gap: 0.625rem; }
-  :root[data-app='people'] #main-content .ui-metric-value { font-size: 1.5rem; line-height: 2rem; }
 }
 
 /* ------------------------------------------------------------------ Settings */
@@ -278,7 +276,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   border-radius: 0.75rem;
   background: rgb(var(--surface));
 }
-:root[data-app='people'] #main-content .ui-settings-row:hover { background: rgb(var(--panel)); border-color: rgb(var(--panel-border)); }
+:root[data-app='people'] #main-content .ui-settings-row:hover { background: rgb(var(--hover)); border-color: rgb(var(--panel-border)); }
 :root[data-app='people'] #main-content .ui-settings-row-icon {
   grid-area: icon;
   display: grid;
@@ -306,7 +304,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 
 /* An empty state on the page ground (PEOPLE-52): the picture, a 17px heading, one line, then its routes. */
 :root[data-app='people'] #main-content .ui-datatable > .ui-in { min-height: 14rem; padding-block: 3rem; }
-:root[data-app='people'] #main-content .ui-datatable > .ui-in .ui-t-sec { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; }
+:root[data-app='people'] #main-content .ui-datatable > .ui-in .ui-t-sec { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; }
 :root[data-app='people'] #main-content .ui-datatable > .ui-in :is(p, .ui-muted) { max-width: 30rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
 :root[data-app='people'] .people-directory .ui-datatable > .ui-in .ui-card { box-shadow: none; border-color: rgb(var(--border-field)); border-radius: 0.75rem; }
 
@@ -326,7 +324,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 :root[data-app='people'] #main-content .ui-wizard-actions { max-width: 56rem; margin: 1.5rem 0 0; padding: 0.75rem 0; background: rgb(var(--surface)); }
 :root[data-app='people'] #main-content .ui-step-mark { width: 1.625rem; height: 1.625rem; border-radius: 999px; }
 :root[data-app='people'] #main-content .ui-stepper { gap: 0.5rem 1.25rem; }
-:root[data-app='people'] #main-content .ui-profile .ui-pill:not(.ui-pill-pos, .ui-pill-warn, .ui-pill-neg, .ui-pill-neutral, .ui-pill-info) { background: rgb(var(--tint)); color: rgb(var(--act-ink)); }
+:root[data-app='people'] #main-content .ui-profile .ui-pill:not(.ui-pill-pos, .ui-pill-warn, .ui-pill-neg, .ui-pill-neutral, .ui-pill-info) { background: rgb(var(--neutral-soft)); color: rgb(var(--neutral-ink)); }
 :root[data-app='people'] #main-content input[type='checkbox'] { width: 1.125rem; height: 1.125rem; flex: none; accent-color: rgb(var(--act)); }
 
 /* Drawers and dialogs sit outside the page: fields and buttons in the same shapes. */
@@ -369,13 +367,9 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 
 /* ------------------------------------------------------------------ motion */
 
-/* Pressed shows on the press, not after it. Release eases back. */
+/* Hover and focus: 120ms ease-out (DESIGN.md "Motion"). Nothing scales on a press. */
 :root[data-app='people'] :is(.ui-tab, .ui-segment, .ui-split-item, button.ui-side-line, .ui-side-chip, button.ui-side-alert, .ui-side-more, button.ui-metric, .ui-choice-chip, .ui-settings-row) {
-  transition: transform 140ms var(--ease-out), background-color var(--dur-state) ease, color var(--dur-state) ease, box-shadow var(--dur-state) ease;
-}
-:root[data-app='people'] :is(.ui-tab, .ui-segment, .ui-split-item, button.ui-side-line, .ui-side-chip, button.ui-side-alert, .ui-side-more, button.ui-metric, .ui-choice-chip, .ui-settings-row):active:not(:disabled) {
-  transform: scale(0.98);
-  transition-duration: 70ms;
+  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 }
 :root[data-app='people'] .ui-popover[data-side='top'] { animation-name: ui-popover-up; }
 :root[data-app='people'] .ui-popover.ui-popover-out { animation: ui-popover-out-down 100ms var(--ease-in) both; }
@@ -384,17 +378,12 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   /* A list is read, not watched: rows arrive as they are. */
   :root[data-app='people'] .ui-rows > tr { animation: none; }
 }
-/* Less motion is not no motion: surfaces that slide or pop arrive and leave as a short fade instead. */
+/* Reduced motion stops all motion (DESIGN.md): surfaces appear and leave at once (Drawer and Modal close on a
+   timer, not only on animationend), and nothing fades or slides on hover. */
 @media (prefers-reduced-motion: reduce) {
-  :root[data-app='people'] .ui-scrim > .ui-surface:not(.ui-out-edge),
-  :root[data-app='people'] .ui-in-pop { animation: ui-fade 160ms ease-out both !important; }
-  :root[data-app='people'] .ui-scrim > .ui-surface.ui-out-edge,
-  :root[data-app='people'] .ui-scrim.ui-out-fade { animation: ui-out-fade 120ms linear both !important; }
-  :root[data-app='people'] .ui-scrim:not(.ui-out-fade) { animation: ui-fade 120ms linear both !important; }
-  :root[data-app='people'] .ui-popover { animation: ui-fade 120ms ease-out both !important; }
-  :root[data-app='people'] .ui-popover.ui-popover-out { animation: ui-out-fade 100ms linear both !important; }
-  :root[data-app='people'] :is(.ui-tab, .ui-segment, .ui-split-item, button.ui-side-line, .ui-side-chip, button.ui-metric, .ui-choice-chip, .ui-settings-row):active:not(:disabled) { transform: none; }
-  .people-row-action, .people-out-row { transition: none; }
+  :root[data-app='people'] :is(.ui-scrim, .ui-scrim > .ui-surface, .ui-in-pop, .ui-popover, .ui-tab-indicator) { animation: none !important; transition: none !important; }
+  :root[data-app='people'] :is(.ui-tab, .ui-segment, .ui-split-item, button.ui-side-line, .ui-side-chip, button.ui-side-alert, .ui-side-more, button.ui-metric, .ui-choice-chip, .ui-settings-row) { transition: none !important; }
+  :is(.people-row-action, .people-out-row, .people-kpi, .people-glance-row, .people-step, .org-card, .att-summary-keys button) { transition: none !important; }
 }
 
 /* ------------------------------------------------------------------ People Home (PEOPLE-01) */
@@ -429,14 +418,14 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   border-radius: 0.75rem;
   background: rgb(var(--surface));
   color: rgb(var(--fg));
-  transition: background-color var(--dur-state, 150ms) ease;
+  transition: background-color 120ms var(--ease-out);
 }
-.people-kpi:hover { background: rgb(var(--surface-sunken)); }
+.people-kpi:hover { background: rgb(var(--hover)); }
 .people-kpi:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 .people-kpi-icon { grid-area: icon; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 0.5rem; background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
-.people-kpi-label { grid-area: label; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; line-height: 1rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: rgb(var(--fg-muted)); }
+.people-kpi-label { grid-area: label; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; line-height: 1rem; font-weight: 600; letter-spacing: 0; color: rgb(var(--fg-muted)); }
 .people-kpi-row { grid-area: value; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.people-kpi-value { font-size: 1.375rem; line-height: 1.75rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.people-kpi-value { font-size: 1.375rem; line-height: 1.75rem; font-weight: 600; letter-spacing: 0; font-variant-numeric: tabular-nums; }
 .people-kpi-value[data-zero] { color: rgb(var(--fg-subtle)); }
 .people-kpi[data-attention] .people-kpi-value:not([data-zero]) { color: rgb(var(--warn)); }
 .people-kpi-note { grid-area: note; display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-size: 0.8125rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); }
@@ -444,14 +433,14 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .people-home-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, 20rem); gap: 2rem; align-items: start; }
 .people-home-main, .people-home-side { display: flex; flex-direction: column; gap: 2rem; min-width: 0; }
 .people-block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding-bottom: 0.75rem; }
-.people-block-title { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: rgb(var(--fg)); }
+.people-block-title { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; letter-spacing: 0; color: rgb(var(--fg)); }
 
 /* A list under one hairline, a hairline under each row. */
 .people-list { border-top: 1px solid rgb(var(--border)); }
 .people-list > li { border-bottom: 1px solid rgb(var(--border)); }
 .people-row { display: flex; align-items: center; gap: 0.875rem; width: 100%; min-height: 3.5rem; padding: 0.625rem 0.25rem; text-align: left; color: rgb(var(--fg)); }
-.people-row-action { transition: background-color var(--dur-surface, 200ms) ease; }
-.people-row-action:hover { background: rgb(var(--panel)); }
+.people-row-action { transition: background-color 120ms var(--ease-out); }
+.people-row-action:hover { background: rgb(var(--hover)); }
 .people-row-action:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
 .people-row-title { display: block; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; }
 .people-row-count {
@@ -475,9 +464,9 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .people-more:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 .people-empty { padding: 1rem 0.25rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
 .people-chip { display: inline-flex; align-items: center; height: 2rem; padding: 0 0.75rem; border: 1px solid rgb(var(--border-field)); border-radius: 0.5rem; background: rgb(var(--surface)); font-size: 0.8125rem; font-weight: 600; color: rgb(var(--fg)); }
-.people-chip:hover { background: rgb(var(--surface-sunken)); }
+.people-chip:hover { background: rgb(var(--hover)); }
 .people-chip:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
-.people-name-link { font-weight: 600; color: rgb(var(--fg)); border-radius: 4px; }
+.people-name-link { font-weight: 600; color: rgb(var(--fg)); border-radius: 0.5rem; }
 .people-name-link:hover { text-decoration: underline; text-underline-offset: 2px; }
 
 /* A leave type: its colour as a small square beside its name, never the colour alone. */
@@ -515,22 +504,22 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .people-celebrate-badge[data-kind='anniversary'] { background: rgb(var(--peach-soft)); color: rgb(var(--peach-ink)); }
 .people-when { flex: none; font-size: 0.8125rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* News and events: a date tile or an icon chip in the item's identity colour. */
-.people-news-icon, .people-date { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: 0.5rem; background: rgb(var(--tint, var(--surface-sunken))); color: rgb(var(--tint-ink, var(--fg-muted))); font-size: 1rem; }
+/* News and events: a date or an icon in a neutral hairline box (no tint, no app colour). */
+.people-news-icon, .people-date { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border: 1px solid rgb(var(--border)); border-radius: 0.5rem; background: rgb(var(--surface)); color: rgb(var(--fg-muted)) !important; font-size: 1rem; }
 .people-date { height: 2.5rem; grid-template-rows: auto auto; align-content: center; gap: 0; line-height: 1; }
-.people-date b { font-size: 1.0625rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.people-date span { font-size: 0.75rem; font-weight: 600; }
+.people-date b { font-size: 0.875rem; line-height: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.people-date span { font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted)) !important; }
 .people-row-body { display: -webkit-box; margin-top: 0.125rem; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Probation ending, this week and last month's close: short lists on the page ground. */
 .people-glance { display: grid; gap: 1.5rem 2rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
 .people-glance-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding-bottom: 0.5rem; }
-.people-glance-title { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; color: rgb(var(--fg)); }
+.people-glance-title { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; color: rgb(var(--fg)); }
 .people-glance-list { border-top: 1px solid rgb(var(--border)); }
 .people-glance-list > li { border-bottom: 1px solid rgb(var(--border)); }
-.people-glance-row { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3rem; padding: 0 0.25rem; text-align: left; font-size: 0.875rem; color: rgb(var(--fg)); transition: background-color var(--dur-surface, 200ms) ease; }
+.people-glance-row { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3rem; padding: 0 0.25rem; text-align: left; font-size: 0.875rem; color: rgb(var(--fg)); transition: background-color 120ms var(--ease-out); }
 .people-glance-row b { font-weight: 600; }
-.people-glance-row:hover { background: rgb(var(--panel)); }
+.people-glance-row:hover { background: rgb(var(--hover)); }
 .people-glance-row:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
 .people-glance-when { flex: none; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
 .people-glance-month { flex: none; }
@@ -583,15 +572,15 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .att-summary [data-tone='neg'] { --t: var(--neg); }
 .att-summary [data-tone='none'] { --t: var(--border-strong); }
 .att-summary-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; font-size: 0.8125rem; }
-.att-summary-keys button { display: inline-flex; align-items: center; gap: 0.4rem; height: 1.875rem; padding: 0 0.625rem; border-radius: 999px; color: rgb(var(--fg-muted)); transition: background-color 200ms ease, color 200ms ease; }
-.att-summary-keys button:hover { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+.att-summary-keys button { display: inline-flex; align-items: center; gap: 0.4rem; height: 1.875rem; padding: 0 0.625rem; border-radius: 999px; color: rgb(var(--fg-muted)); transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out); }
+.att-summary-keys button:hover { background: rgb(var(--hover)); color: rgb(var(--fg)); }
 .att-summary-keys button[aria-pressed='true'] { background: rgb(var(--t) / 0.12); color: rgb(var(--fg)); font-weight: 600; }
 .att-summary-keys button:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 1px; }
 .att-summary-keys i { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: rgb(var(--t)); }
 .att-summary-keys b { font-weight: 700; color: rgb(var(--fg)); font-variant-numeric: tabular-nums; }
 .att-summary-late { margin-left: auto; padding: 0.125rem 0.625rem; border-radius: 999px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); font-weight: 600; }
 
-.att-face { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 999px; background: rgb(var(--tint)); color: rgb(var(--act-ink)); font-size: 0.75rem; font-weight: 700; }
+.att-face { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 999px; background: rgb(var(--neutral-soft)); color: rgb(var(--neutral-ink)); font-size: 0.75rem; font-weight: 700; }
 .att-line { position: relative; display: block; min-width: 9rem; height: 0.625rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
 .att-line-shift { position: absolute; top: 0; bottom: 0; background: rgb(var(--border-strong) / 0.35); }
 .att-line-span { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: rgb(var(--pos)); }
@@ -601,7 +590,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .att-act-in { color: rgb(var(--pos)); }
 .att-mark { width: auto; min-width: 6.5rem; }
 
-.att-cell { display: inline-grid; place-items: center; width: 1.375rem; height: 1.375rem; border-radius: 0.3125rem; font-size: 0.75rem; font-weight: 700; background: rgb(var(--surface-sunken) / 0.6); color: rgb(var(--fg-subtle)); }
+.att-cell { display: inline-grid; place-items: center; width: 1.375rem; height: 1.375rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 600; background: rgb(var(--surface-sunken) / 0.6); color: rgb(var(--fg-subtle)); }
 .att-cell[data-s='PRESENT'] { background: rgb(var(--pos-soft)); color: rgb(var(--pos)); }
 .att-cell[data-s='HALF_DAY'] { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
 .att-cell[data-s='ABSENT'] { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
@@ -611,7 +600,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 /* ------------------------------------------------------------------ Organisation */
 
 /* Departments and branches as full-width rows: mark, name, head, share of the company, people. */
-.org-tile { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 0.5rem; background: rgb(var(--tint, var(--surface-sunken))); color: rgb(var(--tint-ink, var(--fg))); font-weight: 700; font-size: 0.8125rem; }
+.org-tile { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border: 1px solid rgb(var(--border)); border-radius: 0.5rem; background: rgb(var(--surface)); color: rgb(var(--fg-muted)); font-weight: 600; font-size: 0.8125rem; }
 .org-cards { display: block; border-top: 1px solid rgb(var(--border)); }
 .org-cards > li { border-bottom: 1px solid rgb(var(--border)); }
 .org-card {
@@ -623,16 +612,16 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   padding: 0.625rem 0.5rem;
   text-align: left;
   border-radius: 0.5rem;
-  transition: background-color var(--dur-state, 150ms) ease;
+  transition: background-color 120ms var(--ease-out);
 }
-.org-card:hover { background: rgb(var(--panel)); }
+.org-card:hover { background: rgb(var(--hover)); }
 .org-card:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
 .org-card-top { display: contents; }
 .org-card .org-tile { order: 1; }
 .org-card-name { order: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: rgb(var(--fg)); }
 .org-card-head { order: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
 .org-card-bar { order: 4; height: 0.375rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
-.org-card-bar > span { display: block; height: 100%; border-radius: 999px; background: rgb(var(--id, var(--marker))); }
+.org-card-bar > span { display: block; height: 100%; border-radius: 999px; background: rgb(var(--fg-muted)); }
 .org-card > .ui-caption { order: 5; text-align: right; font-variant-numeric: tabular-nums; }
 .org-card-n { order: 6; text-align: right; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
 .org-cards-sm .org-card { grid-template-columns: minmax(9rem, 1fr) minmax(8rem, 2fr) 3rem; }
@@ -664,11 +653,11 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 
 .people-first-run { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 3.5rem 1.5rem; text-align: center; border: 1px dashed rgb(var(--border-strong)); border-radius: 0.75rem; }
 .people-first-run > svg { width: 3rem; height: 3rem; }
-.people-first-run-title { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: rgb(var(--fg)); }
+.people-first-run-title { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; letter-spacing: 0; color: rgb(var(--fg)); }
 .people-first-run-text { max-width: 30rem; margin-bottom: 0.5rem; font-size: 0.875rem; line-height: 1.375rem; color: rgb(var(--fg-muted)); }
 .people-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
-.people-step { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); grid-template-areas: 'icon title' 'note note'; align-items: center; column-gap: 0.75rem; row-gap: 0.75rem; width: 100%; height: 100%; padding: 1.25rem; text-align: left; border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface)); transition: background-color var(--dur-state, 150ms) ease; }
-.people-step:hover { background: rgb(var(--panel)); border-color: rgb(var(--panel-border)); }
+.people-step { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); grid-template-areas: 'icon title' 'note note'; align-items: center; column-gap: 0.75rem; row-gap: 0.75rem; width: 100%; height: 100%; padding: 1.25rem; text-align: left; border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface)); transition: background-color 120ms var(--ease-out); }
+.people-step:hover { background: rgb(var(--hover)); border-color: rgb(var(--panel-border)); }
 .people-step:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 .people-step-icon { grid-area: icon; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; background: rgb(var(--surface-sunken)); }
 .people-step-icon > svg { width: 1.5rem; height: 1.5rem; }
@@ -683,7 +672,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .ui-company-goals-list { display: grid; gap: 12px 24px; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
 .ui-company-goal { min-width: 0; font-size: 0.875rem; }
 .ui-company-goal-bar { display: block; height: 4px; margin-top: 6px; border-radius: 9999px; background: rgb(var(--border)); overflow: hidden; }
-.ui-company-goal-bar > span { display: block; height: 100%; background: rgb(var(--act, var(--fg))); }
+.ui-company-goal-bar > span { display: block; height: 100%; background: rgb(var(--fg-muted)); }
 
 /* ── One People look (19 Nov): the Workspace pass, in People's magenta ──────────────────────────
    Same rules the owner approved across Workspace: hairline quiet buttons, soft state tags, plain
@@ -747,8 +736,8 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   box-shadow: none !important;
 }
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-kpi-icon {
-  background: color-mix(in srgb, rgb(var(--id, var(--border-strong))) 12%, rgb(var(--surface)));
-  color: color-mix(in srgb, rgb(var(--id, var(--border-strong))) 75%, black);
+  background: transparent;
+  color: rgb(var(--fg-muted));
 }
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-glance-head {
   border-bottom: 2px solid rgb(var(--fg));
@@ -780,12 +769,11 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   color: rgb(255 255 255) !important;
 }
 /* A person or record named in a table reads as ink, not Books' teal. */
-:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content td.ui-col-entity { color: rgb(var(--fg)); font-weight: 500; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content td.ui-col-entity { color: rgb(var(--fg)); font-weight: 600; }
 /* Preset choices (a period, a range): the chosen one is a soft app tint, not a
    second solid button beside the page's one primary action. Codes and file
-   headings stay in the one face. */
+   headings stay in the one face; identifiers (.ui-mono) keep JetBrains Mono. */
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-btn-choice[aria-pressed='true'] { background: rgb(var(--app-people) / 0.1); border-color: rgb(var(--app-people) / 0.45); color: color-mix(in srgb, rgb(var(--app-people)) 80%, black); font-weight: 600; }
-:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content .ui-mono { font-family: inherit; font-variant-numeric: tabular-nums; }
 
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content :is(input[type='radio'], input[type='checkbox']) { accent-color: rgb(var(--app-people)); }
 
@@ -810,7 +798,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-company-goals h2.ui-label {
   font-size: 1.0625rem;
   line-height: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   color: rgb(var(--fg));
 }
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .rg-side-block > .rg-h2 + * { border-top: 0 !important; }
@@ -838,6 +826,34 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   border-color: rgb(var(--app-people)) !important;
 }
 
+
+
+/* Tags (Settings › Tags): a neutral pill with the tag's colour as a small dot and its name in ink. The colour
+   picker is the same pill, one per colour with its name; the chosen one takes an ink ring. */
+:root[data-app='people'] :is(.people-tag-chip, .people-tag-swatch) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.5rem;
+  padding: 0 0.625rem;
+  border-radius: 999px;
+  background: rgb(var(--neutral-soft));
+  color: rgb(var(--fg));
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+:root[data-app='people'] .people-tag-swatch { height: 2rem; border: 1px solid transparent; transition: background-color 120ms var(--ease-out); }
+:root[data-app='people'] .people-tag-swatch:hover { background: rgb(var(--hover)); }
+:root[data-app='people'] .people-tag-swatch[aria-checked='true'] { border-color: rgb(var(--fg)); background: rgb(var(--surface)); }
+:root[data-app='people'] .people-tag-swatch:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(var(--ring) / 0.28); }
+:root[data-app='people'] .people-tag-dot { width: 0.375rem; height: 0.375rem; border-radius: 999px; flex: none; }
+
+/* The import drop zone says when a file is over it: an ink edge and the hover grey. */
+:root[data-app='people'] .ui-dropzone { border-radius: 0.75rem; transition: border-color 120ms var(--ease-out), background-color 120ms var(--ease-out); }
+:root[data-app='people'] .ui-dropzone[data-over] { border-style: solid; border-color: rgb(var(--fg)); background: rgb(var(--hover)); }
+@media (prefers-reduced-motion: reduce) { :root[data-app='people'] .ui-dropzone { transition: none; } }
 
 /*
  * The employee app (shared with Attendance). Waiting reads as the Attention status and the open tab carries the

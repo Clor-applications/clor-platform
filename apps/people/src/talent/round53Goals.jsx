@@ -4,6 +4,7 @@ import { Plus } from '@ui/components/ui/lineIcons';
 import Drawer from '@ui/components/ui/Drawer';
 import DatePicker from '@ui/components/ui/DatePicker';
 import useRequest from '@ui/components/ui/useRequest';
+import ErrorState from '@ui/components/ui/ErrorState';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createCompanyGoal, listCompanyGoals, updateCompanyGoal } from '../api/talent';
 import { FormError, Footer, SHEET, day } from './shared';
@@ -15,14 +16,24 @@ import { FormError, Footer, SHEET, day } from './shared';
  */
 
 export function useCompanyGoals() {
-  const req = useRequest(() => listCompanyGoals().catch(() => ({ goals: [], canEdit: false })), []);
-  return { goals: req.data?.goals || [], canEdit: Boolean(req.data?.canEdit), reload: req.reload, loaded: Boolean(req.data) };
+  const req = useRequest(() => listCompanyGoals(), []);
+  /* A role that may not see company goals gets no strip; any other failure says so instead of "None set". */
+  const error = req.error && req.error.status !== 403 ? req.error : null;
+  return { goals: req.data?.goals || [], canEdit: Boolean(req.data?.canEdit), reload: req.reload, loaded: Boolean(req.data), error };
 }
 
 /** The company goals over the Goals list: each with how far its linked goals have come. HR adds and closes them. */
 export function CompanyGoals({ state }) {
-  const { goals, canEdit, reload, loaded } = state;
+  const { goals, canEdit, reload, loaded, error } = state;
   const [editing, setEditing] = useState(null);
+  if (error && !loaded) {
+    return (
+      <section aria-label="Company goals" className="ui-company-goals">
+        <h2 className="ui-label">Company goals</h2>
+        <ErrorState error={error} onRetry={reload} compact />
+      </section>
+    );
+  }
   if (!loaded || (!goals.length && !canEdit)) return null;
   const close = async (g, status) => {
     if (!(await confirmDialog({ title: status === 'DONE' ? `Mark "${g.title}" done?` : `Drop "${g.title}"?`, message: 'It leaves the strip. Goals linked to it keep the link.', confirmLabel: status === 'DONE' ? 'Mark done' : 'Drop', tone: status === 'DONE' ? 'neutral' : 'danger' }))) return;
@@ -87,7 +98,7 @@ function CompanyGoalForm({ value, onClose, onSaved }) {
 export function GoalMarks({ goal }) {
   return (
     <>
-      {goal.forTeam ? <span className="ui-pill ui-pill-info">Team goal</span> : null}
+      {goal.forTeam ? <span className="ui-pill ui-pill-neutral">Team goal</span> : null}
       {goal.visibility === 'PRIVATE' ? <span className="ui-pill ui-pill-neutral">Only them and their manager</span> : null}
       {goal.peer ? <span className="ui-pill ui-pill-neutral">Teammate</span> : null}
     </>
