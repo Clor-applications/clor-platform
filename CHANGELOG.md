@@ -142,6 +142,22 @@ API revision `clor-api-00140-77z`. Previous release `rel-61e7a5a` (roll back the
 
 - #311 Invoice numbers without gaps, GSTR-3B without drafts, People routes in the employee app need People
 
+## rel-61e7a5a - 2026-11-17
+
+API revision `clor-api-00139-4vc`. Previous release `rel-f374dd4` (roll back there).
+
+- #310 Sign-in codes by text message, beside the authenticator app
+- #306 CLOR invoices: email on issue, send again, remind, and an automatic schedule; Members sign-in column
+- #312 Round 12 style picks and batch A, except Books
+- #309 Jobs four at a time, seats held to what was bought, a flag for accounts with no end date
+- #305 Books: a draft invoice is not in the ledger; other charges are income
+- #308 Apply the owner's style picks everywhere except Books
+- #307 Books: GST by the issuing branch's state, TDS yearly limit once, currency sent with a foreign invoice
+- #304 Books: reports and GST returns read every page, and say so when they cannot
+- #302 Books: a document whose figures disagree with its lines is refused
+- #298 Security: audit findings of 17 Nov closed, with a test for each
+- #299 Trial sign-up: the owner chooses a password on the setup page
+
 ## rel-f374dd4 - 2026-11-17
 
 API revision `clor-api-00138-fmj`. Previous release `rel-51fe69e` (roll back there).
