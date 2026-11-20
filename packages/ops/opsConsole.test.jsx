@@ -39,7 +39,7 @@ vi.mock('../shell/session', () => ({ useSession: () => session.value }));
 vi.mock('qrcode', () => ({ default: { toDataURL: async () => 'data:image/png;base64,' } }));
 vi.mock('../shell/SignIn', () => ({ default: () => <p>Sign in form</p> }));
 
-import OpsConsole, { parseRoute, routeHash } from './OpsConsole';
+import OpsConsole, { NAV, SCREENS, parseRoute, routeHash } from './OpsConsole';
 
 beforeEach(() => {
   api.opsMe.mockReset();
@@ -50,6 +50,13 @@ beforeEach(() => {
 });
 
 describe('the operator console', () => {
+  it('has a screen behind every menu item', () => {
+    /* A menu item with no screen opens nothing (a "Gateways" item once shipped that way). */
+    const keys = NAV.flatMap((g) => g.items.map(([key]) => key));
+    expect(keys.filter((k) => typeof SCREENS[k] !== 'function')).toEqual([]);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
   it('asks a signed-out visitor to sign in', () => {
     session.value = { user: null, restoring: false };
     render(<OpsConsole />);
