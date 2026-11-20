@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Notice from '../components/Notice';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { AlertTriangle, Check } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
@@ -118,11 +121,7 @@ export default function PayrollLedgerMapping() {
       />
       <div className="px-5 lg:px-7 pb-8 space-y-4 max-w-4xl">
 
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
+      <LoadFailed message={error} onRetry={load} />
 
       {!accounts.length ? (
         <EmptyState
@@ -137,18 +136,12 @@ export default function PayrollLedgerMapping() {
       ) : (
         <>
           {missing.length ? (
-            <div className="ui-card p-3 flex items-start gap-2">
-              <AlertTriangle size={15} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
-              <p className="text-sm">
-                {missing.length} {missing.length === 1 ? 'component has' : 'components have'} nowhere to post yet, so payroll cannot be
-                written into the books: {missing.map((c) => c.name).join(', ')}.
-              </p>
-            </div>
+            <Notice tone="warn" word="Not ready to post">
+              {missing.length} {missing.length === 1 ? 'component has' : 'components have'} nowhere to post yet, so payroll cannot be
+              written into the books: {missing.map((c) => c.name).join(', ')}.
+            </Notice>
           ) : (
-            <div className="ui-card p-3 flex items-start gap-2">
-              <Check size={15} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--pos))' }} />
-              <p className="text-sm">Everything has somewhere to post. Payroll can be written into the books.</p>
-            </div>
+            <p className="ui-caption">Everything has somewhere to post. Payroll can be written into the books.</p>
           )}
 
           <div className="ui-list-surface overflow-hidden">
@@ -212,7 +205,8 @@ export default function PayrollLedgerMapping() {
                           )}
                         </td>
                         <td>
-                          <span className={`ui-pill ${ready ? 'ui-pill-pos' : 'ui-pill-warn'}`}>{ready ? 'Yes' : 'Not yet'}</span>
+                          {/* Ready is the expected state; only a line still to map carries a tag. */}
+                          <ExceptionTag label={ready ? '' : 'Not yet'} normal="Yes" tone="warn" />
                         </td>
                       </tr>
                     );

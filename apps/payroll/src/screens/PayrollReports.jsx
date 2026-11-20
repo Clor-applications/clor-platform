@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { AlertTriangle, Download } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
@@ -212,11 +213,7 @@ export default function PayrollReports({ menuLabel } = {}) {
       />
       <div className="px-5 lg:px-7 pb-8 space-y-4">
 
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
+      <LoadFailed message={error} onRetry={load} />
 
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-[14rem] max-w-sm">
@@ -241,7 +238,7 @@ export default function PayrollReports({ menuLabel } = {}) {
             <label className="ui-label" htmlFor="report-threshold">Bigger than</label>
             <input
               id="report-threshold"
-              type="number"
+              type="text" inputMode="decimal"
               min="0"
               max="100"
               className="ui-input ui-num w-full"

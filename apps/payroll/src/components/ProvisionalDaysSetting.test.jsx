@@ -22,7 +22,7 @@ it('is off by default and switches on with a cut-off day', async () => {
 
   const box = await screen.findByRole('checkbox', { name: 'Count the days after the cut-off as present' });
   expect(box).not.toBeChecked();
-  const day = screen.getByRole('spinbutton', { name: /Cut-off day of the month/ });
+  const day = screen.getByRole('textbox', { name: /Cut-off day of the month/ });
   expect(day).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
 

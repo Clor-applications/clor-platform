@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
-import { wholeRupees as money } from '@ui/utils/money';
+import { rupees as money } from '@ui/utils/money';
 import { holdable, latePayNote } from '@ui/picks/round66';
 import { holdSlipPay, releaseSlipPay } from '../api/payrollPayments';
 import { errorWords } from '@ui/utils/errorWords';

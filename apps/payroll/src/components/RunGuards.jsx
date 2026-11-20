@@ -17,7 +17,8 @@ import { errorWords } from "@ui/utils/errorWords";
  *   corrected, or until somebody acknowledges it with a reason.
  */
 
-const warnStyle = { background: "rgb(var(--warn-soft))", color: "rgb(var(--warn-ink))" };
+/* A note on the page's white ground with a hairline; the icon carries the status ink (DESIGN.md: never a tinted panel). */
+const warnStyle = { background: "rgb(var(--surface))", border: "1px solid rgb(var(--border))", color: "rgb(var(--fg))" };
 
 /** A plain warning above the days. Nothing when every month was closed. */
 export function ProvisionalNotice({ openMonths }) {
@@ -25,7 +26,7 @@ export function ProvisionalNotice({ openMonths }) {
   if (!text) return null;
   return (
     <div className="ui-card p-3 text-sm flex items-start gap-2" role="status" style={warnStyle}>
-      <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+      <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: "rgb(var(--warn-ink))" }} />
       <span>{text}</span>
     </div>
   );
@@ -82,7 +83,7 @@ export function LopCheckPanel({ runId, run, refreshKey, onLocked }) {
     <section className="space-y-3" aria-label="Unpaid days check">
       {check.snapshotChanged ? (
         <div className="ui-card p-3 text-sm flex items-start gap-2" role="alert" style={warnStyle}>
-          <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: "rgb(var(--warn-ink))" }} />
           <span>{check.snapshotChanged.message}</span>
         </div>
       ) : null}

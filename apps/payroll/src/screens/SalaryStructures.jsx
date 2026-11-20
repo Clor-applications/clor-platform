@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
+import Notice from '../components/Notice';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { ArrowLeft, GripVertical, Layers, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
@@ -378,20 +380,15 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
       <div className="px-5 lg:px-7 pb-8 space-y-4">
 
       {locked ? (
-        <div
-          className="ui-card flex items-start gap-2 p-3 text-sm"
-          style={{ background: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))' }}
-          role="status"
-        >
-          <span>
-            {initial.assignedCount} {initial.assignedCount === 1 ? 'person is' : 'people are'} on this structure, so what it
-            pays can no longer change. Raising pay means a new structure from the date the new pay applies. The name,
-            description and status are still yours to edit.
-          </span>
-        </div>
+        <Notice tone="warn" word="In use">
+          {initial.assignedCount} {initial.assignedCount === 1 ? 'person is' : 'people are'} on this structure, so what it
+          pays can no longer change. Raising pay means a new structure from the date the new pay applies. The name,
+          description and status are still yours to edit.
+        </Notice>
       ) : null}
 
-      <div className="ui-card p-4 space-y-3">
+      {/* On the page ground, not in a box (DESIGN.md "Forms"). */}
+      <div className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_9rem_10rem] gap-3">
           <div>
             <label className="ui-label" htmlFor="structure-name">Name</label>
@@ -480,6 +477,7 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
             </div>
           ) : (
             <div className="ui-table-scroll">
+              <fieldset className="contents" disabled={locked}>
               <table className="ui-table ui-table-sticky w-full">
                 <thead>
                   <tr>
@@ -492,7 +490,6 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
                   </tr>
                 </thead>
                 <tbody className="ui-rows">
-                  <fieldset className="contents" disabled={locked}>
                     {lines.map((l, idx) => {
                       const c = byId.get(l.componentId);
                       const paid = preview?.lines?.find((x) => x.componentId === l.componentId);
@@ -548,9 +545,9 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
                         </tr>
                       );
                     })}
-                  </fieldset>
                 </tbody>
               </table>
+              </fieldset>
             </div>
           )}
 
@@ -576,14 +573,15 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
         </div>
 
         {/* ---- what it pays ---------------------------------------------- */}
-        <div className="ui-card p-4 space-y-3 lg:sticky lg:top-4">
-          <div className="ui-sec-head">What this pays</div>
+        <div className="space-y-3 lg:sticky lg:top-4">
+          {/* A heading over a rule, not a box. */}
+          <div className="ui-form-part-head"><h3 className="ui-t-sec">What this pays</h3></div>
 
           <div>
             <label className="ui-label" htmlFor="structure-sample-ctc">At an annual CTC of</label>
-            <input
+            <MoneyInput
               id="structure-sample-ctc"
-              type="number"
+              type="text" inputMode="decimal"
               min="0"
               step="1000"
               className="ui-input ui-num w-full"

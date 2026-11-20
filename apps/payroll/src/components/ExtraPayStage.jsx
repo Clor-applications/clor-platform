@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Plus } from "@ui/components/ui/lineIcons";
 import { notify } from "@ui/components/ui/notify";
-import { wholeRupees as money } from "@ui/utils/money";
+import { rupees as money } from "@ui/utils/money";
 import { saveExtraPay, setRunEmployeeIncluded } from "../api/payrollRuns";
 import { listEmployees } from "../api/payrollPeople";
 import { listSalaryComponents } from "../api/payrollComponents";

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { Ban, Check, Pencil, Percent, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
@@ -6,8 +7,9 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import Drawer from '@ui/components/ui/Drawer';
+import { SkeletonCard, EmptyState, FieldError } from '@ui/components/ui/Primitives';
+import useFieldErrors from '@ui/components/ui/useFieldErrors';
+import Drawer from '../components/EditDrawer';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayrollPeriods } from '../api/payrollCalendar';
@@ -406,21 +408,26 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
   const carried = Boolean(row.carried);
   const [saving, setSaving] = useState(false);
   const set = (patch) => setForm((p) => ({ ...p, ...patch }));
+  /* What is wrong is said under the field it is about, not in the corner (design audit, Batch 3). */
+  const v = useFieldErrors('adj');
+  /* The money field keeps its own ref (it puts the caret back after the commas), so the field is registered by its wrapper. */
+  const moneyProps = (k) => {
+    const p = v.props(k);
+    delete p.ref;
+    return p;
+  };
 
   const chosen = components.find((c) => c.id === form.componentId);
 
   const counted = form.counted && !carried;
   const save = async (e) => {
     e.preventDefault();
+    if (saving) return;
     const amount = counted ? countAmount(form.quantity, form.rate) : Number(form.amount);
-    if (!(amount > 0)) {
-      notify.error('Enter an amount more than ₹0.');
-      return;
-    }
-    if (carried && form.correctionReason.trim().length < 5) {
-      notify.error('Say why the amount is corrected.');
-      return;
-    }
+    v.reset();
+    v.check(counted ? 'rate' : 'amount', amount > 0, counted ? 'The count times the rate comes to ₹0. Type a count and a rate above 0.' : 'Enter an amount more than ₹0.');
+    if (carried) v.check('correctionReason', form.correctionReason.trim().length >= 5, 'Say why the amount is corrected, in a few words.');
+    if (v.failed()) return;
     setSaving(true);
     try {
       const payload = {
@@ -503,33 +510,36 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
           <div className="sm:col-span-2 grid grid-cols-3 gap-3">
             <label className="block">
               <span className="ui-label">Count</span>
-              <input type="number" min="0" step="0.01" className="ui-input ui-num w-full" value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} required aria-label="Count" />
+              <input type="text" inputMode="decimal" min="0" step="0.01" className="ui-input ui-num w-full" value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} required aria-label="Count" />
             </label>
             <label className="block">
               <span className="ui-label">Unit</span>
               <SuggestInput value={form.unit} onChange={(v) => set({ unit: v })} maxLength={24} placeholder="meal" suggestions={COUNT_UNITS} aria-label="What was counted" />
             </label>
-            <label className="block">
+            <label className="block" ref={(el) => v.register('rate', el)}>
               <span className="ui-label">Rate</span>
-              <input type="number" min="0" step="0.01" className="ui-input ui-num w-full" value={form.rate} onChange={(e) => set({ rate: e.target.value })} required aria-label="Rate" />
+              <MoneyInput type="text" inputMode="decimal" min="0" step="0.01" className="ui-input ui-num w-full" value={form.rate} onChange={(e) => set({ rate: e.target.value })} required aria-label="Rate" {...moneyProps('rate')} />
+              <FieldError error={v.error('rate')} id={v.errorId('rate')} />
             </label>
             <p className="col-span-3 text-sm tabular-nums" role="status">
               {countAmount(form.quantity, form.rate) > 0 ? <>{countWords({ quantity: form.quantity, rate: form.rate, unit: form.unit })} = <strong>{money(countAmount(form.quantity, form.rate))}</strong></> : 'Type the count and the rate.'}
             </p>
           </div>
         ) : (
-          <div>
+          <div ref={(el) => v.register('amount', el)}>
             <label className="ui-label" htmlFor="adj-amount">Amount</label>
-            <input
+            <MoneyInput
               id="adj-amount"
-              type="number"
+              type="text" inputMode="decimal"
               min="0"
               step="0.01"
               className="ui-input ui-num w-full"
               value={form.amount}
               onChange={(e) => set({ amount: e.target.value })}
               required
+              {...moneyProps('amount')}
             />
+            <FieldError error={v.error('amount')} id={v.errorId('amount')} />
           </div>
         )}
 
@@ -541,7 +551,8 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
         {carried ? (
           <div className="sm:col-span-2">
             <label className="ui-label" htmlFor="adj-correction">Why is the amount corrected?</label>
-            <SuggestInput id="adj-correction" value={form.correctionReason} onChange={(v) => set({ correctionReason: v })} maxLength={160} placeholder="e.g. Agreed with the owner, 2 Nov" suggestions={[]} aria-label="Why is the amount corrected?" />
+            <SuggestInput id="adj-correction" value={form.correctionReason} onChange={(v) => set({ correctionReason: v })} maxLength={160} placeholder="e.g. Agreed with the owner, 2 Nov" suggestions={[]} aria-label="Why is the amount corrected?" {...v.props('correctionReason')} />
+            <FieldError error={v.error('correctionReason')} id={v.errorId('correctionReason')} />
             <span className="ui-caption">Kept on this adjustment and in the audit log.</span>
           </div>
         ) : null}

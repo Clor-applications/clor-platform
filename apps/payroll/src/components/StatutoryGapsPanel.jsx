@@ -7,8 +7,9 @@ import { requestOpenScreen } from "@platform/context";
 import { recordStatutoryWaiver } from "../api/payrollRuns";
 import { errorWords } from "@ui/utils/errorWords";
 
-const warnStyle = { background: "rgb(var(--warn-soft))", color: "rgb(var(--warn-ink))" };
-const infoStyle = { background: "rgb(var(--info-soft))", color: "rgb(var(--info))" };
+/* A note on the page's white ground with a hairline; the icon carries the status ink (DESIGN.md: never a tinted panel). */
+const warnStyle = { background: "rgb(var(--surface))", border: "1px solid rgb(var(--border))", color: "rgb(var(--fg))" };
+const infoStyle = { background: "rgb(var(--surface))", border: "1px solid rgb(var(--border))", color: "rgb(var(--fg))" };
 
 const list = (parts) => (parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0] || "");
 
@@ -62,7 +63,7 @@ export default function StatutoryGapsPanel({ run, gaps, canWaive, onSaved }) {
   if (!open.length) {
     return (
       <section className="ui-card p-3 text-sm flex items-start gap-2" style={infoStyle} aria-labelledby="stat-gaps-h">
-        <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+        <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: "rgb(var(--fg-muted))" }} />
         <div className="min-w-0">
           <h3 id="stat-gaps-h" className="font-semibold">
             {list(done.map((g) => g.name))} recorded as not applying to this company
@@ -77,7 +78,7 @@ export default function StatutoryGapsPanel({ run, gaps, canWaive, onSaved }) {
     <section className="ui-card p-3 space-y-2 text-sm" style={warnStyle} aria-labelledby="stat-gaps-h">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-2 min-w-0 max-w-3xl">
-          <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: "rgb(var(--warn-ink))" }} />
           <div className="min-w-0 space-y-1">
             <h3 id="stat-gaps-h" className="font-semibold">Not ready to approve</h3>
             <ul className="space-y-0.5">

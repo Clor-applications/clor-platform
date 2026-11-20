@@ -1,8 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import MoneyInput from '@ui/components/ui/MoneyInput';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { AlertTriangle, Check, PenLine, Plus, Trash2 } from '@ui/components/ui/lineIcons';
+import { rupees } from '@ui/utils/money';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import Drawer from '@ui/components/ui/Drawer';
+import { PageHeader, SkeletonCard, EmptyState, FieldError } from '@ui/components/ui/Primitives';
+import useFieldErrors from '@ui/components/ui/useFieldErrors';
+import Drawer from '../components/EditDrawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { todayIst, dateWords } from '@ui/utils/dates';
 import {
@@ -40,7 +45,7 @@ import { errorWords } from '@ui/utils/errorWords';
  * confirmed them, or corrected them with a new version.
  */
 
-const money = (n) => (n == null ? '—' : `₹${Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`);
+const money = (n) => (n == null ? '—' : rupees(n));
 
 
 /** "WEST BENGAL" → "West Bengal". */
@@ -299,11 +304,7 @@ export default function PayrollCompliance({ params } = {}) {
       />
       <div className="px-5 lg:px-7 pb-8 space-y-4">
 
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
-      ) : null}
+      <LoadFailed message={error} onRetry={load} />
 
       {checks.length ? (
         <section className="ui-list-surface overflow-hidden" aria-labelledby="check-before-use">
@@ -403,9 +404,8 @@ export default function PayrollCompliance({ params } = {}) {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="ui-t-sec">{scheme.name}</h3>
-                      <span className={`ui-pill ${scheme.isEnabled ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                        {scheme.isEnabled ? 'Applies' : 'Not applied'}
-                      </span>
+                      {/* Applying is the expected state; only a scheme switched off carries a tag. */}
+                      <ExceptionTag label={scheme.isEnabled ? '' : 'Not applied'} normal="Applies" tone="neutral" />
                     </div>
                     {scheme.description ? <p className="ui-caption mt-0.5">{scheme.description}</p> : null}
                     {REG_LABEL[scheme.code] ? (
@@ -492,9 +492,7 @@ export default function PayrollCompliance({ params } = {}) {
                             <td className="ui-col-amount">{rule.usedOnPayslips || 0}</td>
                             <td data-phone="tag">
                               <div className="flex flex-col items-center gap-1">
-                                <span className={`ui-pill ${rule.status === 'ACTIVE' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>
-                                  {rule.status === 'ACTIVE' ? 'In force' : 'Superseded'}
-                                </span>
+                                {rule.status === 'ACTIVE' ? <span className="sr-only">In force</span> : <span className="ui-caption">Superseded</span>}
                                 {rule.needsCheck ? <span className="ui-pill ui-pill-warn">Check before use</span> : null}
                               </div>
                             </td>
@@ -763,9 +761,9 @@ const PtBandsEditor = ({ value, onChange }) => {
           <tbody className="ui-rows">
             {value.bands.map((b, i) => (
               <tr key={i}>
-                <td><input aria-label={`Band ${i + 1}: pay from`} type="number" min="0" step="0.01" className="ui-input ui-num w-28" value={b.from} onChange={(e) => setBand(i, { from: e.target.value })} /></td>
-                <td><input aria-label={`Band ${i + 1}: up to`} type="number" min="0" step="0.01" className="ui-input ui-num w-28" value={b.to} placeholder="No limit" onChange={(e) => setBand(i, { to: e.target.value })} /></td>
-                <td><input aria-label={`Band ${i + 1}: tax`} type="number" min="0" step="0.01" className="ui-input ui-num w-24" value={b.amount} onChange={(e) => setBand(i, { amount: e.target.value })} /></td>
+                <td><MoneyInput aria-label={`Band ${i + 1}: pay from`} type="text" inputMode="decimal" min="0" step="0.01" className="ui-input ui-num w-28" value={b.from} onChange={(e) => setBand(i, { from: e.target.value })} /></td>
+                <td><MoneyInput aria-label={`Band ${i + 1}: up to`} type="text" inputMode="decimal" min="0" step="0.01" className="ui-input ui-num w-28" value={b.to} placeholder="No limit" onChange={(e) => setBand(i, { to: e.target.value })} /></td>
+                <td><MoneyInput aria-label={`Band ${i + 1}: tax`} type="text" inputMode="decimal" min="0" step="0.01" className="ui-input ui-num w-24" value={b.amount} onChange={(e) => setBand(i, { amount: e.target.value })} /></td>
                 <td>
                   <select aria-label={`Band ${i + 1}: for`} className="ui-select w-36" value={b.gender} onChange={(e) => setBand(i, { gender: e.target.value })}>
                     <option value="">Everyone</option>
@@ -782,7 +780,7 @@ const PtBandsEditor = ({ value, onChange }) => {
                   </select>
                 </td>
                 <td>
-                  <input aria-label={`Band ${i + 1}: amount in that month`} type="number" min="0" step="0.01" className="ui-input ui-num w-24" value={b.specialAmount} disabled={!b.specialMonth} onChange={(e) => setBand(i, { specialAmount: e.target.value })} />
+                  <MoneyInput aria-label={`Band ${i + 1}: amount in that month`} type="text" inputMode="decimal" min="0" step="0.01" className="ui-input ui-num w-24" value={b.specialAmount} disabled={!b.specialMonth} onChange={(e) => setBand(i, { specialAmount: e.target.value })} />
                 </td>
                 <td>
                   <button type="button" className="ui-icon-btn" aria-label={`Remove band ${i + 1}`} onClick={() => set({ bands: value.bands.filter((_, j) => j !== i) })}>
@@ -828,6 +826,8 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
   });
   const [saving, setSaving] = useState(false);
   const set = (patch) => setForm((p) => ({ ...p, ...patch }));
+  /* A settings text that does not read is said under it, not in the corner. */
+  const v = useFieldErrors('rate');
   /* Professional tax: plain bands rather than the settings text. */
   const [pt, setPt] = useState(() => ptFormFrom(current?.config));
   const isPt = scheme.code === 'PT';
@@ -841,12 +841,13 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
     let config;
     if (isPt) config = ptConfigOf(pt);
     else {
+      v.reset();
       try {
         config = JSON.parse(form.config || '{}');
       } catch {
-        notify.error('These settings could not be saved: a bracket, quote or comma is missing. Undo your last change, or close this and start again from the rate in force.');
-        return;
+        v.fail('config', 'A bracket, quote or comma is missing, so these settings cannot be read. Undo your last change, or close this and start again from the rate in force.');
       }
+      if (v.failed()) return;
     }
     setSaving(true);
     try {
@@ -905,7 +906,7 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
             <label className="ui-label" htmlFor="rate-employee">Employee share (%)</label>
             <input
               id="rate-employee"
-              type="number"
+              type="text" inputMode="decimal"
               min="0"
               max="100"
               step="0.01"
@@ -918,7 +919,7 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
             <label className="ui-label" htmlFor="rate-employer">Employer share (%)</label>
             <input
               id="rate-employer"
-              type="number"
+              type="text" inputMode="decimal"
               min="0"
               max="100"
               step="0.01"
@@ -929,9 +930,9 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
           </div>
           <div>
             <label className="ui-label" htmlFor="rate-ceiling">Wage ceiling</label>
-            <input
+            <MoneyInput
               id="rate-ceiling"
-              type="number"
+              type="text" inputMode="decimal"
               min="0"
               className="ui-input ui-num w-full"
               value={form.wageCeiling}
@@ -941,9 +942,9 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
           </div>
           <div>
             <label className="ui-label" htmlFor="rate-threshold">Applies up to</label>
-            <input
+            <MoneyInput
               id="rate-threshold"
-              type="number"
+              type="text" inputMode="decimal"
               min="0"
               className="ui-input ui-num w-full"
               value={form.eligibilityThreshold}
@@ -982,7 +983,9 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
             className="ui-input ui-mono w-full text-sm"
             value={form.config}
             onChange={(e) => set({ config: e.target.value })}
+            {...v.props('config')}
           />
+          <FieldError error={v.error('config')} id={v.errorId('config')} />
           <span className="ui-caption block">
             These settings are in a technical format. Change only the numbers, and keep every bracket, quote and comma where it is.
           </span>

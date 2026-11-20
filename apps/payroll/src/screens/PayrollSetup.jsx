@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { ArrowRight, Check, Wallet } from '@ui/components/ui/lineIcons';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
+import { FormPart } from '@ui/components/ui/FormPart';
 import { notify } from '@ui/components/ui/notify';
 import { getPayrollSetup } from '../api/payrollSetup';
 import { ProvisionalDaysSetting } from '../components/ProvisionalDaysSetting';
@@ -111,9 +113,7 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
       <div className="space-y-3">
         <PageHeader entity="settings" title="Setup" description="Paying people, and the books that follow from it." />
         <div className="px-5 lg:px-7 pb-8 space-y-4 max-w-3xl">
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>
-          {error}
-        </div>
+        <LoadFailed message={error} onRetry={load} />
         </div>
       </div>
     );
@@ -129,11 +129,8 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
         <PageHeader entity="settings" title="Setup" description="Paying people, and the books that follow from it." />
         <div className="px-5 lg:px-7 pb-8 space-y-4 max-w-3xl">
 
-        <div className="ui-card p-4 space-y-3" style={{ maxWidth: '44rem' }}>
-          <div className="flex items-center gap-2">
-            <Wallet size={18} aria-hidden="true" />
-            <div className="ui-t-sec">Start using Payroll</div>
-          </div>
+        <FormPart id="start-payroll" title="Start using Payroll" className="max-w-[44rem]">
+          <div className="space-y-3">
           <p className="text-sm">
             Payroll works out what everybody is owed, what is withheld for provident fund, ESI, professional tax and income tax, and
             writes the whole month into the same books the rest of the company uses. It keeps its own records, separate from the
@@ -143,11 +140,12 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
             Nothing is paid and nothing reaches the books until you say so. Switching it on just makes it available to set up.
           </p>
           <div>
-            <button type="button" className="ui-btn ui-btn-primary !ps-4 !pe-3.5" onClick={start} disabled={starting}>
-              {starting ? 'Switching on…' : 'Start using Payroll'} <ArrowRight size={16} aria-hidden="true" />
-            </button>
+            <Button variant="primary" icon={Wallet} onClick={start} loading={starting}>
+              {starting ? 'Switching on…' : 'Start using Payroll'}
+            </Button>
           </div>
-        </div>
+          </div>
+        </FormPart>
         </div>
       </div>
     );
@@ -182,16 +180,12 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
       <ol className="ui-list-surface overflow-hidden divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
         {setup.steps.map((step, i) => (
           <li key={step.key} className="flex items-start gap-3 px-4 py-3">
+            {/* The step's marker: a hairline ring with its number, or a tick in the done ink. Classes and tokens, no fill. */}
             <span
               aria-hidden="true"
-              className="mt-0.5 shrink-0 inline-flex items-center justify-center rounded-full"
-              style={{
-                width: 22,
-                height: 22,
-                fontSize: 12,
-                background: step.done ? 'rgb(var(--pos))' : 'rgb(var(--surface-2, var(--border)))',
-                color: step.done ? 'white' : 'inherit',
-              }}
+              className={`mt-0.5 shrink-0 inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border text-xs font-semibold tabular-nums ${
+                step.done ? 'border-[rgb(var(--pos))] text-[rgb(var(--pos))]' : 'border-[rgb(var(--border-field))] text-[rgb(var(--fg-muted))]'
+              }`}
             >
               {step.done ? <Check size={13} aria-hidden="true" /> : i + 1}
             </span>
@@ -199,7 +193,8 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm">{step.title}</span>
-                <span className={`ui-pill ${step.done ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{step.done ? 'Done' : 'To do'}</span>
+                {/* Done is what a step should be, so only the step still to do carries a tag. */}
+                {step.done ? <span className="sr-only">Done</span> : <span className="ui-pill ui-pill-neutral">To do</span>}
               </div>
               <p className="ui-caption">{step.blurb}</p>
               <p className="ui-caption">{step.detail}</p>

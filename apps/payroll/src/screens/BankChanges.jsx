@@ -7,7 +7,7 @@ import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import { formatDateIn } from '@ui/utils/dates';
+import { dateWords } from '@ui/utils/dates';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { approveBankChange, listBankChanges, rejectBankChange } from '../api/payrollPeople';
 import LoadFailed from '@ui/components/ui/LoadFailed';
@@ -164,7 +164,7 @@ export default function BankChanges() {
                     <td className="ui-mono text-sm">{account(r.oldAccount, r.oldIfsc, r.oldBankName)}</td>
                     <td className="ui-mono text-sm" data-phone="sub">{account(r.newAccount, r.newIfsc, r.newBankName)}</td>
                     <td className="ui-col-date whitespace-nowrap" data-phone="key">
-                      {formatDateIn(String(r.requestedAt).slice(0, 10))}
+                      {dateWords(String(r.requestedAt).slice(0, 10))}
                       {r.mine ? <span className="ui-caption block">by you</span> : null}
                     </td>
                     <td className="ui-col-h-center" data-phone="tag">

@@ -1,5 +1,5 @@
 import React from "react";
-import { wholeRupees as money } from "@ui/utils/money";
+import { rupees as money } from "@ui/utils/money";
 
 /*
  * Round 32 picks (Payroll).

@@ -72,3 +72,49 @@ it('approving with tax withheld without a PAN names the people and sends who was
   await waitFor(() => expect(approvePayrollRun).toHaveBeenLastCalledWith('r1', { noPanAcknowledged: ['e7'] }));
   expect(vi.mocked(confirmDialog).mock.calls[1][0].message).toMatch(/Ravi Kumar has no valid PAN/);
 });
+
+/* Design audit, Batch 1: a second click while the first request is on its way must not start a second run. */
+it('starting a pay run cannot be sent twice', async () => {
+  const { createPayrollRun } = await import('../api/payrollRuns');
+  vi.mocked(listPayrollRuns).mockResolvedValue([]);
+  vi.mocked(listPayrollPeriods).mockResolvedValue([{ id: 'p1', name: 'November 2026' }]);
+  vi.mocked(listPayGroups).mockResolvedValue([]);
+  let finish;
+  vi.mocked(createPayrollRun).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  const user = userEvent.setup();
+  render(<PayRuns />);
+  await screen.findByText('No pay runs yet');
+  await user.click(screen.getAllByRole('button', { name: /Run payroll/ })[0]);
+  await user.click(await screen.findByRole('button', { name: 'Start pay run' }));
+  const busy = await screen.findByRole('button', { name: /Starting/ });
+  await user.click(busy);
+  await user.click(busy);
+  expect(createPayrollRun).toHaveBeenCalledTimes(1);
+  expect(busy).toHaveAttribute('aria-busy', 'true');
+  finish({ run: { id: 'r1', number: 'PR-0001', kind: 'REGULAR' }, eligible: 3 });
+});
+
+/* Design audit, Batch 1: posting writes to the books, so it asks first and names the debit total. */
+it('post to accounts asks first with the debit total, and posts nothing when declined', async () => {
+  const { confirmDialog } = await import('@ui/components/ui/notify');
+  const { previewPayrollPosting, postPayrollRun } = await import('../api/payrollRuns');
+  vi.mocked(previewPayrollPosting).mockResolvedValue({ balanced: true, problems: [], lines: [], totalDebit: 125000.5, totalCredit: 125000.5 });
+  vi.mocked(confirmDialog).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+  vi.mocked(postPayrollRun).mockResolvedValue({});
+  const user = userEvent.setup();
+  render(<RunPrimaryAction run={{ ...calculated, status: 'LOCKED', number: 'PR-0002', period: { name: 'November 2026' } }} busy="" act={act} runId="r1" setIssues={() => {}} />);
+  await user.click(screen.getByRole('button', { name: 'Post to accounts' }));
+  await waitFor(() => expect(confirmDialog).toHaveBeenCalledTimes(1));
+  const asked = vi.mocked(confirmDialog).mock.calls[0][0];
+  expect(asked.title).toBe('Post PR-0002 to accounts?');
+  expect(asked.message).toMatch(/₹1,25,000\.50 debit/);
+  expect(postPayrollRun).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: 'Post to accounts' }));
+  await waitFor(() => expect(postPayrollRun).toHaveBeenCalledWith('r1'));
+});
+
+it('locking names the net pay and the head count', async () => {
+  const { lockWords } = await import('../components/round59');
+  const words = lockWords({ period: { name: 'November 2026', endDate: '2026-11-30' }, netTotal: 80000, employeeCount: 3 });
+  expect(words.message).toMatch(/^₹80,000 net pay to 3 people\. After locking/);
+});

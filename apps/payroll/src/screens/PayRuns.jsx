@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlertTriangle, ArrowLeft, CalendarClock, Check, Info, Play } from '@ui/components/ui/lineIcons';
 
@@ -10,7 +10,12 @@ import {
   PageHeader,
   SkeletonCard,
   EmptyState,
+  Button,
 } from "@ui/components/ui/Primitives";
+import RecordTabs from "@ui/components/ui/RecordTabs";
+import useUnsavedChanges from "@ui/components/ui/useUnsavedChanges";
+import { Figures } from "../components/Figure";
+import Notice from "../components/Notice";
 import { confirmDialog, notify } from "@ui/components/ui/notify";
 import { hasApp, requestOpenScreen } from "@platform/context";
 import { listPayrollPeriods, listPayGroups } from "../api/payrollCalendar";
@@ -45,7 +50,7 @@ import { RegistrationNotice } from "../components/StatutoryRegistrationsStep";
 import { openMonthsOf } from "../components/runGuardText";
 import { PaidCount, PayChanges } from "../components/round32";
 import { lockWords } from "../components/round59";
-import { wholeRupees as money } from "@ui/utils/money";
+import { rupees as money } from "@ui/utils/money";
 import { BANK_CUTOFF_NOTE, afterBankCutoff } from "@ui/picks/round54";
 import { EarlierNote, NextMonthNote } from "../components/RunNotes";
 import { HoldPayPanel, LatePayNote } from "../components/round66";
@@ -147,6 +152,7 @@ export default function PayRuns() {
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [startKey, setStartKey] = useState(0);
   const [status, setStatus] = useState("");
 
   /* Periods refused or failed: the runs still list, and starting one waits (QA: one refused list failed the whole screen). */
@@ -179,7 +185,13 @@ export default function PayRuns() {
     load();
   }, [load]);
 
+  /* One request at a time: a second click while the first is on its way would start a second run (design audit, Batch 1). */
+  const [saving, setSaving] = useState(false);
+  const inFlight = useRef(false);
   const start = async (payload) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSaving(true);
     try {
       const made = await createPayrollRun(payload);
       notify.success(
@@ -192,6 +204,9 @@ export default function PayRuns() {
       load();
     } catch (e) {
       notify.error(errorWords(e, "start that pay run"));
+    } finally {
+      inFlight.current = false;
+      setSaving(false);
     }
   };
 
@@ -226,7 +241,11 @@ export default function PayRuns() {
     );
   }
 
-  const begin = () => setStarting(true);
+  /* Opened again: a fresh form from the first open period, not last time's choice. */
+  const begin = () => {
+    setStartKey((k) => k + 1);
+    setStarting(true);
+  };
 
   return (
     <div className="ui-touch-44">
@@ -259,8 +278,8 @@ export default function PayRuns() {
       statusCounts={counts}
       onStatusChange={setStatus}
       tabsLabel="Run status"
-      above={starting ? <StartRun periods={periods} payGroups={payGroups} onCancel={() => setStarting(false)} onStart={start} /> : null}
     >
+      <StartRun key={startKey} open={starting} periods={periods} payGroups={payGroups} saving={saving} onCancel={() => setStarting(false)} onStart={start} />
       <LoadFailed message={error} onRetry={load} />
       {periodsFailed && runs ? <p className="ui-caption mb-2">Could not load the payroll periods, so a new run cannot be started here.</p> : null}
       {!runs ? (
@@ -332,29 +351,36 @@ export default function PayRuns() {
   );
 }
 
-const StartRun = ({ periods, payGroups, onCancel, onStart }) => {
-  const [form, setForm] = useState({
-    periodId: periods[0]?.id || "",
-    payGroupId: "",
-    kind: "REGULAR",
-  });
+/* Run payroll asks in a drawer, so the list page keeps one primary button (DESIGN.md "One primary action"). */
+const StartRun = ({ open, periods, payGroups, saving, onCancel, onStart }) => {
+  const firstPeriod = periods[0]?.id || "";
+  const [form, setForm] = useState({ periodId: firstPeriod, payGroupId: "", kind: "REGULAR" });
   const extra = form.kind === "OFF_CYCLE";
   const set = (patch) => setForm((p) => ({ ...p, ...patch }));
+  const dirty = form.kind !== "REGULAR" || Boolean(form.payGroupId) || form.periodId !== firstPeriod;
 
   return (
-    <form
-      className="ui-card p-4 space-y-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onStart(
-          extra
-            ? { periodId: form.periodId, kind: "OFF_CYCLE", people: [] }
-            : { periodId: form.periodId, payGroupId: form.payGroupId || null },
-        );
+    <Drawer
+      open={open}
+      onClose={() => {
+        if (!saving) onCancel();
       }}
+      title="Run payroll"
+      description="Pick the month and who it is for. Nobody is paid until the run is checked and approved."
+      dirty={dirty && !saving}
     >
-      <div className="ui-sec-head">Run payroll</div>
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (saving) return;
+          onStart(
+            extra
+              ? { periodId: form.periodId, kind: "OFF_CYCLE", people: [] }
+              : { periodId: form.periodId, payGroupId: form.payGroupId || null },
+          );
+        }}
+      >
         <div>
           <label className="ui-label" htmlFor="run-kind">
             Kind
@@ -404,20 +430,16 @@ const StartRun = ({ periods, payGroups, onCancel, onStart }) => {
             </select>
           </div>
         )}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="ui-btn ui-btn-secondary"
-            onClick={onCancel}
-          >
+        <div className="flex justify-end gap-2">
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>
             Cancel
           </button>
-          <button type="submit" className="ui-btn ui-btn-primary">
-            Start pay run
-          </button>
+          <Button type="submit" variant="primary" icon={Play} loading={saving} disabled={!form.periodId}>
+            {saving ? "Starting…" : "Start pay run"}
+          </Button>
         </div>
-      </div>
-    </form>
+      </form>
+    </Drawer>
   );
 };
 
@@ -430,12 +452,20 @@ const RunWorkflow = ({ runId, onBack }) => {
   const [stage, setStage] = useState("people");
   /* A big step done (locked, approved): a green note on the page, not a toast. */
   const [doneNote, setDoneNote] = useState(null);
+  /* A failed load says so with a way to try again, instead of a skeleton that never ends. */
+  const [loadError, setLoadError] = useState("");
+  /* Days typed and not saved yet: switching stage or going back asks first. */
+  const [daysDirty, setDaysDirty] = useState(false);
+  useUnsavedChanges(daysDirty);
+  /* What the running step is doing, in words, on its button ("Checking 142 people…"). */
+  const [step, setStep] = useState("");
 
   const load = useCallback(async () => {
     try {
       setData(await getPayrollRun(runId));
+      setLoadError("");
     } catch (e) {
-      notify.error(errorWords(e, "load that pay run"));
+      setLoadError(errorWords(e, "load that pay run"));
     }
   }, [runId]);
 
@@ -443,17 +473,43 @@ const RunWorkflow = ({ runId, onBack }) => {
     load();
   }, [load]);
 
+  const busyRef = useRef(false);
   const act = async (label, fn, after) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(label);
     try {
-      const out = await fn();
+      const out = await fn(setStep);
       if (after) after(out);
       await load();
     } catch (e) {
       notify.error(errorWords(e, label));
     } finally {
+      busyRef.current = false;
       setBusy("");
+      setStep("");
     }
+  };
+
+  const leaveDays = async () => {
+    if (!daysDirty) return true;
+    const ok = await confirmDialog({
+      title: "Leave without saving the days?",
+      message: "The days typed on this stage are not saved yet. Leaving now drops them.",
+      confirmLabel: "Leave without saving",
+      tone: "danger",
+    });
+    if (ok) setDaysDirty(false);
+    return ok;
+  };
+  const goStage = async (id) => {
+    if (id === stage) return;
+    if (stage === "inputs" && !(await leaveDays())) return;
+    setStage(id);
+  };
+  const goBack = async () => {
+    if (!(await leaveDays())) return;
+    onBack();
   };
 
   const run = data?.run;
@@ -465,7 +521,25 @@ const RunWorkflow = ({ runId, onBack }) => {
     [data],
   );
 
-  if (!data) return <SkeletonCard lines={6} />;
+  if (!data) {
+    if (!loadError) return <SkeletonCard lines={6} />;
+    return (
+      <div className="space-y-3 ui-touch-44">
+        <PageHeader
+          entity="payRun"
+          title="Pay run"
+          actions={
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={onBack}>
+              <ArrowLeft size={16} aria-hidden="true" /> Back
+            </button>
+          }
+        />
+        <div className="px-5 lg:px-7 pb-8">
+          <LoadFailed message={loadError} onRetry={load} />
+        </div>
+      </div>
+    );
+  }
 
   const errorCount = issues ? issues.errors : run.errorCount;
   const warningCount = issues ? issues.warnings : run.warningCount;
@@ -481,18 +555,21 @@ const RunWorkflow = ({ runId, onBack }) => {
             <button
               type="button"
               className="ui-btn ui-btn-secondary"
-              onClick={onBack}
+              onClick={goBack}
+              disabled={Boolean(busy)}
             >
               <ArrowLeft size={16} aria-hidden="true" /> Back
             </button>
             <RunPrimaryAction
               run={run}
               busy={busy}
+              step={step}
               issues={issues}
               act={act}
               runId={runId}
               setIssues={setIssues}
               onLopMismatch={() => setStage("review")}
+              onPostBlocked={() => setStage("books")}
               onDone={setDoneNote}
             />
           </>
@@ -500,6 +577,10 @@ const RunWorkflow = ({ runId, onBack }) => {
       />
 
       <div className="px-5 lg:px-7 pb-8 space-y-4">
+      {/* Sent back: the reason first, as a plain note, since it is what the preparer has to act on. */}
+      {run.rejectionReason ? (
+        <Notice tone="warn" word="Sent back">{run.rejectionReason}</Notice>
+      ) : null}
       {doneNote ? <SuccessNote title={doneNote.title} onClose={() => setDoneNote(null)}>{doneNote.next}</SuccessNote> : null}
       {/* What last month's payroll left for this one (picks round 32). */}
       <EarlierNote note={run.earlierNote} />
@@ -511,12 +592,15 @@ const RunWorkflow = ({ runId, onBack }) => {
       {/* Returns this payroll cannot be filed under yet: the registration numbers setup asks for. */}
       <RegistrationNotice gaps={data.registrationGaps} />
       {/* The run's totals as figures on the page, not four cards (DESIGN.md "figure"; design audit step 2). */}
-      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
-        <Tile label="People" value={run.employeeCount} />
-        <Tile label="Gross" value={moneyCell(run.grossTotal, { zero: true })} />
-        <Tile label="Deductions" value={moneyCell(run.deductionTotal, { zero: true })} />
-        <Tile label="Net pay" value={moneyCell(run.netTotal, { zero: true })} />
-      </dl>
+      <Figures
+        label="Pay run totals"
+        items={[
+          { label: "People", value: run.employeeCount, raw: run.employeeCount },
+          { label: "Gross", value: moneyCell(run.grossTotal, { zero: true }), raw: run.grossTotal },
+          { label: "Deductions", value: moneyCell(run.deductionTotal, { zero: true }), raw: run.deductionTotal },
+          { label: "Net pay", value: moneyCell(run.netTotal, { zero: true }), raw: run.netTotal },
+        ]}
+      />
       {/* Round 32: how many payslips the bank has paid. */}
       <PaidCount slips={data.slips} status={run.status} />
       {/* Round 66: paid after the legal date, and one person's pay held with a reason. */}
@@ -551,27 +635,19 @@ const RunWorkflow = ({ runId, onBack }) => {
 
       <RunSteps status={run.status} />
 
-      <div className="ui-segmented" role="tablist" aria-label="Payroll stage">
-        {[
-          ["people", "People"],
-          ["inputs", "Days"],
-          ["issues", "Checks"],
-          ["review", "Review"],
-          ["books", "Accounting"],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={stage === id}
-            className="ui-segment"
-            onClick={() => setStage(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
+      {/* The shared tabs: arrow keys, Home and End, and a tab panel the tabs point at. */}
+      <RecordTabs
+        label="Payroll stage"
+        value={stage}
+        onChange={goStage}
+        tabs={[
+          { key: "people", label: "People" },
+          { key: "inputs", label: "Days" },
+          { key: "issues", label: "Checks" },
+          { key: "review", label: "Review" },
+          { key: "books", label: "Accounting" },
+        ]}
+      >
       {stage === "people" && run.kind === "OFF_CYCLE" ? (
         <ExtraPayStage data={data} editable={editable} runId={runId} onChanged={load} />
       ) : stage === "people" ? (
@@ -594,6 +670,7 @@ const RunWorkflow = ({ runId, onBack }) => {
           editable={editable}
           runId={runId}
           onSaved={load}
+          onDirty={setDaysDirty}
         />
       ) : stage === "issues" ? (
         <ChecksStage issues={issues} byEmployee={byEmployee} data={data} />
@@ -608,21 +685,9 @@ const RunWorkflow = ({ runId, onBack }) => {
           <ReviewStage data={data} byEmployee={byEmployee} />
         </div>
       ) : (
-        <BooksStage runId={runId} run={run} onPosted={load} />
+        <BooksStage runId={runId} run={run} />
       )}
-
-      {run.rejectionReason ? (
-        <div
-          className="ui-card p-3 text-sm"
-          role="status"
-          style={{
-            background: "rgb(var(--warn-soft))",
-            color: "rgb(var(--warn-ink))",
-          }}
-        >
-          Sent back: {run.rejectionReason}
-        </div>
-      ) : null}
+      </RecordTabs>
       </div>
     </div>
   );
@@ -675,36 +740,78 @@ const SendBack = ({ run, busy, onSend }) => {
   );
 };
 
-export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch, onDone }) => {
+const peopleWord = (n) => `${n} ${n === 1 ? "person" : "people"}`;
+const thingsToResolve = (n) => `${n} thing${n === 1 ? "" : "s"} to resolve first`;
+
+/**
+ * Check, then calculate, with each step named on the button and the result
+ * said after ("Checked 142 people: 3 things to resolve first").
+ */
+const checkAndCalculate = (run, runId, setIssues, again) => async (step) => {
+  const n = Number(run.employeeCount || 0);
+  step?.(n ? `Checking ${peopleWord(n)}…` : "Checking…");
+  const out = await validatePayrollRun(runId);
+  setIssues(out);
+  if (!out.canCalculate) {
+    notify.error(`Checked ${n ? peopleWord(n) : "the pay run"}: ${thingsToResolve(out.errors)}.`);
+    return out;
+  }
+  step?.("Calculating…");
+  await calculatePayrollRun(runId);
+  const warn = Number(out.warnings || 0);
+  notify.success(
+    `${again ? "Calculated again" : "Pay run calculated"}${n ? ` for ${peopleWord(n)}` : ""}.${warn ? ` ${warn} worth checking under Checks.` : ""}`,
+  );
+  return out;
+};
+
+/**
+ * Post to accounts, asked first with the entry's debit total. One button for
+ * it, at the top: the Accounting stage shows the entry and says where to post.
+ * A preview that does not balance or has problems is not posted; the stage
+ * that says why opens instead.
+ */
+const postToAccounts = (run, runId, onPostBlocked) => async (step) => {
+  step?.("Preparing the entry…");
+  const preview = await previewPayrollPosting(runId);
+  if (preview?.alreadyPosted) return { replayed: true };
+  if (!preview?.balanced || preview?.problems?.length) {
+    notify.error("The accounting entry is not ready to post. The Accounting stage says why.");
+    onPostBlocked?.();
+    return null;
+  }
+  const ok = await confirmDialog({
+    title: `Post ${run.number || "this pay run"} to accounts?`,
+    message: `This writes a journal of ${money(preview.totalDebit)} debit and ${money(preview.totalCredit)} credit to the books for ${run.period?.name || "this period"}. A posted entry is corrected by a new entry, not by changing this one.`,
+    confirmLabel: "Post to accounts",
+  });
+  if (!ok) return null;
+  step?.("Posting…");
+  return postPayrollRun(runId);
+};
+const posted = (out) => {
+  if (out) notify.success(out.replayed ? "Already posted." : "Posted to accounts.");
+};
+
+export const RunPrimaryAction = ({ run, busy, step = "", act, runId, setIssues, onLopMismatch, onPostBlocked, onDone }) => {
   /* The run screen shows a green note; anywhere else falls back to the toast. */
   const done = (title, next) => (onDone ? onDone({ title, next }) : notify.success(`${title} ${next}`.trim()));
+  const working = Boolean(busy);
+  /* The button that started the work names the step; its siblings wait, disabled. */
+  const label = (what, idle) => (busy === what ? step || "Working…" : idle);
   if (
     run.status === "DRAFT" ||
     (run.status === "CALCULATED" && run.errorCount > 0)
   ) {
     return (
-      <button
-        type="button"
-        className="ui-btn ui-btn-primary"
-        disabled={Boolean(busy)}
-        onClick={() =>
-          act("check this pay run", async () => {
-            const out = await validatePayrollRun(runId);
-            setIssues(out);
-            if (out.canCalculate) {
-              await calculatePayrollRun(runId);
-              notify.success("Pay run calculated.");
-            } else {
-              notify.error(
-                `${out.errors} thing${out.errors === 1 ? "" : "s"} to resolve first.`,
-              );
-            }
-            return out;
-          })
-        }
+      <Button
+        variant="primary"
+        loading={busy === "check this pay run"}
+        disabled={working && busy !== "check this pay run"}
+        onClick={() => act("check this pay run", checkAndCalculate(run, runId, setIssues, false))}
       >
-        {busy ? "Working…" : "Check and calculate"}
-      </button>
+        {label("check this pay run", "Check and calculate")}
+      </Button>
     );
   }
   const waitsForReason = Boolean(run.overLimit?.people?.length && !run.overLimit.reason);
@@ -713,30 +820,17 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
     const stale = run.stale || "";
     return (
       <>
-        <button
-          type="button"
-          className="ui-btn ui-btn-secondary"
-          disabled={Boolean(busy)}
-          onClick={() =>
-            act("calculate again", async () => {
-              const out = await validatePayrollRun(runId);
-              setIssues(out);
-              if (!out.canCalculate) {
-                notify.error(`${out.errors} thing${out.errors === 1 ? "" : "s"} to resolve first.`);
-                return out;
-              }
-              await calculatePayrollRun(runId);
-              notify.success("Calculated again.");
-              return out;
-            })
-          }
+        <Button
+          loading={busy === "calculate again"}
+          disabled={working && busy !== "calculate again"}
+          onClick={() => act("calculate again", checkAndCalculate(run, runId, setIssues, true))}
         >
-          Calculate again
-        </button>
-        <button
-          type="button"
-          className="ui-btn ui-btn-primary"
-          disabled={Boolean(busy) || waitsForReason || Boolean(stale)}
+          {label("calculate again", "Calculate again")}
+        </Button>
+        <Button
+          variant="primary"
+          loading={busy === "send for review"}
+          disabled={(working && busy !== "send for review") || waitsForReason || Boolean(stale)}
           title={stale || (waitsForReason ? "Deductions pass the limit: reduce them or record why they stand" : undefined)}
           onClick={() =>
             act(
@@ -746,19 +840,19 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
             )
           }
         >
-          Send for review
-        </button>
+          {busy === "send for review" ? "Sending…" : "Send for review"}
+        </Button>
       </>
     );
   }
   if (run.status === "APPROVED") {
     return (
       <>
-        <button
-          type="button"
-          className="ui-btn ui-btn-secondary"
-          disabled={Boolean(busy)}
+        <Button
+          loading={busy === "lock"}
+          disabled={working && busy !== "lock"}
           onClick={async () => {
+            if (working) return;
             /* Round 59 lockexplain A: what locking does, in plain words, before it happens. */
             if (!(await confirmDialog(lockWords(run)))) return;
             act(
@@ -776,25 +870,9 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
             );
           }}
         >
-          Lock pay run
-        </button>
-        <button
-          type="button"
-          className="ui-btn ui-btn-primary"
-          disabled={Boolean(busy)}
-          onClick={() =>
-            act(
-              "post to accounts",
-              () => postPayrollRun(runId),
-              (out) =>
-                notify.success(
-                  out?.replayed ? "Already posted." : "Posted to accounts.",
-                ),
-            )
-          }
-        >
-          Post to accounts
-        </button>
+          {busy === "lock" ? "Locking…" : "Lock pay run"}
+        </Button>
+        <PostButton busy={busy} step={step} onClick={() => act("post to accounts", postToAccounts(run, runId, onPostBlocked), posted)} />
       </>
     );
   }
@@ -812,12 +890,13 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
             )
           }
         />
-        <button
-          type="button"
-          className="ui-btn ui-btn-primary"
-          disabled={Boolean(busy) || waitsForReason}
+        <Button
+          variant="primary"
+          loading={busy === "approve"}
+          disabled={(working && busy !== "approve") || waitsForReason}
           title={waitsForReason ? "Deductions pass the limit: reduce them or record why they stand" : undefined}
           onClick={async () => {
+            if (working) return;
             const ok = await confirmDialog({
               title: `Approve ${run.number}?`,
               message: `Approving freezes these figures: ${money(run.netTotal)} to ${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}. To change anything after this, the pay run has to be sent back.${afterBankCutoff() ? ` ${BANK_CUTOFF_NOTE}` : ""}`,
@@ -848,133 +927,137 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
               );
           }}
         >
-          Approve pay run
-        </button>
+          {busy === "approve" ? "Approving…" : "Approve pay run"}
+        </Button>
       </>
     );
   }
-  if (run.status === "APPROVED" || run.status === "LOCKED") {
-    return (
-      <button
-        type="button"
-        className="ui-btn ui-btn-primary"
-        disabled={Boolean(busy)}
-        onClick={() =>
-          act(
-            "post to accounts",
-            () => postPayrollRun(runId),
-            (out) =>
-              notify.success(
-                out?.replayed ? "Already posted." : "Posted to accounts.",
-              ),
-          )
-        }
-      >
-        Post to accounts
-      </button>
-    );
+  if (run.status === "LOCKED") {
+    return <PostButton busy={busy} step={step} onClick={() => act("post to accounts", postToAccounts(run, runId, onPostBlocked), posted)} />;
   }
   return null;
 };
 
-const Tile = ({ label, value }) => (
-  <div className="min-w-0">
-    <dt className="ui-t-label">{label}</dt>
-    <dd className="ui-num m-0 text-[1.375rem] leading-7 font-semibold tabular-nums">{value}</dd>
-  </div>
+const PostButton = ({ busy, step, onClick }) => (
+  <Button
+    variant="primary"
+    loading={busy === "post to accounts"}
+    disabled={Boolean(busy) && busy !== "post to accounts"}
+    onClick={onClick}
+  >
+    {busy === "post to accounts" ? step || "Posting…" : "Post to accounts"}
+  </Button>
 );
 
-const PeopleStage = ({ data, editable, runId, onChanged }) => (
-  <div className="ui-list-surface overflow-hidden">
-    <div className="ui-table-scroll">
-      <table className="ui-table ui-table-sticky w-full">
-        <thead>
-          <tr>
-            <th scope="col" className="ui-col-h-center w-10">
-              Include
-            </th>
-            <th scope="col">
-              Employee
-            </th>
-            <th scope="col">
-              Designation
-            </th>
-            <th scope="col" className="ui-col-h-center">
-              State
-            </th>
-          </tr>
-        </thead>
-        <tbody className="ui-rows">
-          {data.employees.map((m) => (
-            <tr key={m.employeeId}>
-              <td className="ui-col-h-center">
-                <input
-                  type="checkbox"
-                  className="ui-checkbox"
-                  aria-label={`Include ${m.employee?.name || "this person"} in this payroll`}
-                  checked={m.inclusion === "INCLUDED"}
-                  disabled={!editable}
-                  onChange={(e) =>
-                    setRunEmployeeIncluded(
-                      runId,
-                      m.employeeId,
-                      e.target.checked,
-                    )
-                      .then(onChanged)
-                      .catch((err) =>
-                        notify.error(
-                          errorWords(err, "change who is in this pay run"),
-                        ),
-                      )
-                  }
-                />
-              </td>
-              <td className="ui-col-entity">
-                {m.employee?.name || "Name missing"}
-                {m.employee?.code ? (
-                  <span className="ui-caption block">{m.employee.code}</span>
-                ) : null}
-              </td>
-              <td className="ui-col-meta">{m.employee?.designation || "—"}</td>
-              <td>
-                <span
-                  className={`ui-pill ${m.state === "ERROR" ? "ui-pill-neg" : m.state === "WARNING" ? "ui-pill-warn" : "ui-pill-neutral"}`}
-                >
-                  {m.state === "CALCULATED"
-                    ? "Calculated"
-                    : m.state === "ERROR"
-                      ? "Needs fixing"
-                      : m.state === "WARNING"
-                        ? "Check"
-                        : m.state === "READY"
-                          ? "Ready"
-                          : "Pending"}
-                </span>
-              </td>
+const STATE_WORDS = { CALCULATED: "Calculated", ERROR: "Needs fixing", WARNING: "Check", READY: "Ready" };
+
+const PeopleStage = ({ data, editable, runId, onChanged }) => {
+  /* The row being changed waits, disabled, until the server answers: a second click would undo the first. */
+  const [saving, setSaving] = useState(() => new Set());
+  const toggle = async (m, include) => {
+    if (saving.has(m.employeeId)) return;
+    setSaving((s) => new Set(s).add(m.employeeId));
+    try {
+      await setRunEmployeeIncluded(runId, m.employeeId, include);
+      await onChanged();
+    } catch (err) {
+      notify.error(errorWords(err, "change who is in this pay run"));
+    } finally {
+      setSaving((s) => {
+        const next = new Set(s);
+        next.delete(m.employeeId);
+        return next;
+      });
+    }
+  };
+  return (
+    <div className="ui-list-surface overflow-hidden">
+      <div className="ui-table-scroll">
+        <table className="ui-table ui-table-sticky w-full">
+          <thead>
+            <tr>
+              <th scope="col" className="ui-col-h-center w-10">
+                Include
+              </th>
+              <th scope="col">
+                Employee
+              </th>
+              <th scope="col">
+                Designation
+              </th>
+              <th scope="col" className="ui-col-h-center">
+                State
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="ui-rows">
+            {data.employees.map((m) => {
+              const busyRow = saving.has(m.employeeId);
+              return (
+                <tr key={m.employeeId} aria-busy={busyRow || undefined}>
+                  <td className="ui-col-h-center">
+                    <input
+                      type="checkbox"
+                      className="ui-checkbox"
+                      aria-label={`Include ${m.employee?.name || "this person"} in this payroll`}
+                      checked={m.inclusion === "INCLUDED"}
+                      disabled={!editable || busyRow}
+                      onChange={(e) => toggle(m, e.target.checked)}
+                    />
+                  </td>
+                  <td className="ui-col-entity">
+                    {m.employee?.name || "Name missing"}
+                    {m.employee?.code ? (
+                      <span className="ui-caption block">{m.employee.code}</span>
+                    ) : null}
+                  </td>
+                  <td className="ui-col-meta">{m.employee?.designation || "—"}</td>
+                  <td className="ui-col-h-center">
+                    {/* Only a person who needs something carries a tag (DESIGN.md "Status tags"). */}
+                    <ExceptionTag
+                      label={m.state === "ERROR" || m.state === "WARNING" ? STATE_WORDS[m.state] : ""}
+                      normal={STATE_WORDS[m.state] || "Pending"}
+                      tone={m.state === "ERROR" ? "neg" : "warn"}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
-);
-
-const DaysStage = ({ data, editable, runId, onSaved }) => {
-  const [rows, setRows] = useState(() =>
-    data.employees
-      .filter((m) => m.inclusion === "INCLUDED")
-      .map((m) => ({
-        employeeId: m.employeeId,
-        name: m.employee?.name || "Name missing",
-        workingDays: m.input?.workingDays ?? 30,
-        payableDays: m.input?.payableDays ?? 30,
-        lwpDays: m.input?.lwpDays ?? 0,
-        variablePay: m.input?.variablePay ?? 0,
-        overtimeHours: m.input?.overtimeHours ?? 0,
-        source: m.input?.source || null,
-        notes: m.input?.notes || "",
-      })),
   );
+};
+
+const DAY_FIELDS = ["workingDays", "payableDays", "lwpDays", "overtimeHours", "variablePay"];
+const daysOf = (data) =>
+  data.employees
+    .filter((m) => m.inclusion === "INCLUDED")
+    .map((m) => ({
+      employeeId: m.employeeId,
+      name: m.employee?.name || "Name missing",
+      workingDays: m.input?.workingDays ?? 30,
+      payableDays: m.input?.payableDays ?? 30,
+      lwpDays: m.input?.lwpDays ?? 0,
+      variablePay: m.input?.variablePay ?? 0,
+      overtimeHours: m.input?.overtimeHours ?? 0,
+      source: m.input?.source || null,
+      notes: m.input?.notes || "",
+    }));
+
+const DaysStage = ({ data, editable, runId, onSaved, onDirty }) => {
+  const [rows, setRows] = useState(() => daysOf(data));
+  const [initial] = useState(() => daysOf(data));
+  const dirty = useMemo(
+    () => rows.some((r, i) => DAY_FIELDS.some((f) => String(r[f]) !== String(initial[i]?.[f]))),
+    [rows, initial],
+  );
+  useEffect(() => {
+    onDirty?.(dirty);
+  }, [dirty, onDirty]);
+  /* Leaving the stage (or the run) clears the flag; the workflow already asked. */
+  useEffect(() => () => onDirty?.(false), [onDirty]);
   const [saving, setSaving] = useState(false);
   const [taking, setTaking] = useState(false);
   const fromAttendance = async () => {
@@ -1046,6 +1129,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
     setRows((list) => list.map((r, i) => (i === idx ? { ...r, ...p } : r)));
 
   const save = async () => {
+    if (saving) return;
     setSaving(true);
     try {
       await saveRunInputs(
@@ -1060,6 +1144,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
         })),
       );
       notify.success("Days saved.");
+      onDirty?.(false);
       onSaved();
     } catch (e) {
       notify.error(errorWords(e, "save those days"));
@@ -1131,7 +1216,6 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
               </tr>
             </thead>
             <tbody className="ui-rows">
-              <fieldset className="contents" disabled={!editable}>
                 {rows.map((r, idx) => (
                   <tr key={r.employeeId}>
                     <td className="ui-col-entity">
@@ -1144,17 +1228,13 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
                         <span className="ui-caption block">Typed</span>
                       ) : null}
                     </td>
-                    {[
-                      "workingDays",
-                      "payableDays",
-                      "lwpDays",
-                      "overtimeHours",
-                      "variablePay",
-                    ].map((field) => (
+                    {DAY_FIELDS.map((field) => (
                       <td key={field} className="ui-col-amount">
+                        {/* Text, not a number field: a mouse wheel over a number field changes the days or the pay. */}
                         <input
-                          type="number"
-                          min="0"
+                          type="text"
+                          inputMode="decimal"
+                          disabled={!editable}
                           className="ui-input ui-num w-full min-w-0 px-2 py-1"
                           aria-label={`${field === "workingDays" ? "Working days" : field === "payableDays" ? "Payable days" : field === "lwpDays" ? "Unpaid days" : field === "overtimeHours" ? "Overtime hours" : "Variable pay"} for ${r.name}`}
                           value={r[field]}
@@ -1166,7 +1246,6 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
                     ))}
                   </tr>
                 ))}
-              </fieldset>
             </tbody>
           </table>
         </div>
@@ -1199,36 +1278,27 @@ const checksSentence = (checks) => {
 };
 
 const StatutoryChecksBlocker = ({ checks }) => (
-  <div
-    className="ui-card p-3 text-sm flex flex-wrap items-start justify-between gap-3"
-    role="status"
-    style={{ background: "rgb(var(--warn-soft))", color: "rgb(var(--warn-ink))" }}
+  <Notice
+    tone="warn"
+    word="Not ready to approve"
+    action={
+      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => requestOpenScreen("compliance")}>
+        Confirm or correct
+      </button>
+    }
   >
-    <div className="flex items-start gap-2 min-w-0 max-w-3xl">
-      <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
-      <div>
-        <div className="font-semibold">Not ready to approve</div>
-        <div>
-          This payroll uses figures CLOR could not confirm from an official notice: {checksSentence(checks)}. Check each
-          against the state’s notice, then confirm it, or correct it and calculate again.
-        </div>
-      </div>
-    </div>
-    <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => requestOpenScreen("compliance")}>
-      Confirm or correct
-    </button>
-  </div>
+    This payroll uses figures CLOR could not confirm from an official notice: {checksSentence(checks)}. Check each
+    against the state’s notice, then confirm it, or correct it and calculate again.
+  </Notice>
 );
 
 const ChecksStage = ({ issues, byEmployee, data }) => {
   const list = issues?.issues || data.employees.flatMap((m) => m.issues || []);
   if (!list.length) {
     return (
-      <div className="ui-card p-4">
-        <p className="ui-caption">
-          Nothing to resolve. Run the check to see the latest.
-        </p>
-      </div>
+      <p className="ui-caption">
+        Nothing to resolve. Run the check to see the latest.
+      </p>
     );
   }
   const order = { ERROR: 0, WARNING: 1, INFO: 2 };
@@ -1294,12 +1364,10 @@ const ChecksStage = ({ issues, byEmployee, data }) => {
 const ReviewStage = ({ data, byEmployee }) => {
   if (!data.slips.length) {
     return (
-      <div className="ui-card p-4">
-        <p className="ui-caption">
-          Nothing calculated yet. Check and calculate, and the payslips appear
-          here.
-        </p>
-      </div>
+      <p className="ui-caption">
+        Nothing calculated yet. Check and calculate, and the payslips appear
+        here.
+      </p>
     );
   }
   return (
@@ -1379,19 +1447,26 @@ const ReviewStage = ({ data, byEmployee }) => {
  * after it has been posted is how a misconfigured component becomes a
  * correcting journal next month.
  */
-const BooksStage = ({ runId, run, onPosted }) => {
+const BooksStage = ({ runId, run }) => {
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState("");
-  const [posting, setPosting] = useState(false);
   const [connectors, setConnectors] = useState([]);
+  /* The connector a send is on its way through: one send at a time, and the button says so. */
+  const [sending, setSending] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let alive = true;
-    tallyConnectors().then((c) => alive && setConnectors(c));
+    tallyConnectors()
+      .then((c) => alive && setConnectors(c || []))
+      .catch(() => alive && setConnectors([]));
     return () => {
       alive = false;
     };
   }, []);
   const sendTally = async (agentId) => {
+    if (sending) return;
+    setSending(agentId);
     try {
       const r = await sendPayrollToTally(runId, agentId);
       notify.success(
@@ -1399,6 +1474,8 @@ const BooksStage = ({ runId, run, onPosted }) => {
       );
     } catch (e) {
       notify.error(errorWords(e, "send the entry to Tally"));
+    } finally {
+      setSending("");
     }
   };
 
@@ -1414,22 +1491,17 @@ const BooksStage = ({ runId, run, onPosted }) => {
     return () => {
       alive = false;
     };
-  }, [runId, run.status]);
+  }, [runId, run.status, attempt]);
 
-  if (error) {
-    return (
-      <div
-        className="ui-card p-3 text-sm"
-        role="alert"
-        style={{ borderColor: "rgb(var(--neg))", color: "rgb(var(--neg))" }}
-      >
-        {error}
-      </div>
-    );
-  }
+  if (error) return <LoadFailed message={error} onRetry={() => {
+    setError("");
+    setAttempt((n) => n + 1);
+  }} />;
   if (!preview) return <SkeletonCard lines={4} />;
 
   const tally = async () => {
+    if (downloading) return;
+    setDownloading(true);
     try {
       const r = await payrollTallyXml(runId);
       const url = URL.createObjectURL(
@@ -1445,22 +1517,12 @@ const BooksStage = ({ runId, run, onPosted }) => {
       );
     } catch (e) {
       notify.error(errorWords(e, "make the Tally file"));
-    }
-  };
-  const post = async () => {
-    setPosting(true);
-    try {
-      const out = await postPayrollRun(runId);
-      notify.success(
-        out?.replayed ? "Already posted." : "Posted to accounts.",
-      );
-      onPosted();
-    } catch (e) {
-      notify.error(errorWords(e, "post that pay run"));
     } finally {
-      setPosting(false);
+      setDownloading(false);
     }
   };
+  const ready = preview.balanced && !preview.problems.length;
+  const canPost = !preview.alreadyPosted && ready && ["APPROVED", "LOCKED"].includes(run.status);
 
   return (
     <div className="space-y-3">
@@ -1515,20 +1577,20 @@ const BooksStage = ({ runId, run, onPosted }) => {
                 <tr key={`${l.ledgerAccountId}-${i}`}>
                   <td className="ui-col-entity">{l.ledgerName}</td>
                   <td className="ui-col-amount">
-                    {l.debit > 0 ? money(l.debit) : ""}
+                    {l.debit > 0 ? moneyCell(l.debit) : ""}
                   </td>
                   <td className="ui-col-amount">
-                    {l.credit > 0 ? money(l.credit) : ""}
+                    {l.credit > 0 ? moneyCell(l.credit) : ""}
                   </td>
                 </tr>
               ))}
               <tr>
                 <td className="ui-col-entity font-semibold">Total</td>
                 <td className="ui-col-amount font-semibold">
-                  {money(preview.totalDebit)}
+                  {moneyCell(preview.totalDebit, { zero: true })}
                 </td>
                 <td className="ui-col-amount font-semibold">
-                  {money(preview.totalCredit)}
+                  {moneyCell(preview.totalCredit, { zero: true })}
                 </td>
               </tr>
             </tbody>
@@ -1536,50 +1598,33 @@ const BooksStage = ({ runId, run, onPosted }) => {
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <span
-          className={`ui-pill ${preview.balanced ? "ui-pill-pos" : "ui-pill-neg"}`}
-        >
-          {preview.balanced ? "Balanced" : "Does not balance"}
-        </span>
-        <span className="flex flex-wrap items-center gap-2">
-          {preview.balanced && !preview.problems.length ? (
-            <>
-              <button
-                type="button"
-                className="ui-btn ui-btn-secondary"
-                onClick={tally}
-                title="Tally Prime / ERP 9 import file"
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Balanced is what an entry should be, so only the exception carries a tag. */}
+        {preview.balanced ? (
+          <span className="ui-caption">
+            {canPost ? "Debits and credits agree. Post it with Post to accounts at the top of the page." : "Debits and credits agree."}
+          </span>
+        ) : (
+          <span className="ui-pill ui-pill-neg">Does not balance</span>
+        )}
+        {ready ? (
+          <span className="flex flex-wrap items-center gap-2">
+            <Button onClick={tally} loading={downloading} disabled={Boolean(sending)} title="Tally Prime / ERP 9 import file">
+              {downloading ? "Making the file…" : "Download Tally XML"}
+            </Button>
+            {connectors.map((c) => (
+              <Button
+                key={c.id}
+                onClick={() => sendTally(c.id)}
+                loading={sending === c.id}
+                disabled={Boolean(sending) && sending !== c.id}
+                title={`Posts into Tally at ${c.tally.host} through the connector`}
               >
-                Download Tally XML
-              </button>
-              {connectors.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className="ui-btn ui-btn-secondary"
-                  onClick={() => sendTally(c.id)}
-                  title={`Posts into Tally at ${c.tally.host} through the connector`}
-                >
-                  Send to Tally via {c.name}
-                </button>
-              ))}
-            </>
-          ) : null}
-          {!preview.alreadyPosted &&
-          preview.balanced &&
-          !preview.problems.length &&
-          ["APPROVED", "LOCKED"].includes(run.status) ? (
-            <button
-              type="button"
-              className="ui-btn ui-btn-primary"
-              onClick={post}
-              disabled={posting}
-            >
-              {posting ? "Posting…" : "Post to accounts"}
-            </button>
-          ) : null}
-        </span>
+                {sending === c.id ? "Sending…" : `Send to Tally via ${c.name}`}
+              </Button>
+            ))}
+          </span>
+        ) : null}
       </div>
     </div>
   );

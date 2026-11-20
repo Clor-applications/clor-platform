@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
+import { Figures } from '../components/Figure';
 import { FormPart } from '@ui/components/ui/FormPart';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlertTriangle, ArrowLeft, Plus, TrendingUp } from '@ui/components/ui/lineIcons';
@@ -22,7 +24,7 @@ import {
   applySalaryRevision,
 } from '../api/payrollRevisions';
 import LoadFailed from '@ui/components/ui/LoadFailed';
-import { wholeRupees as money, moneyCell } from '@ui/utils/money';
+import { rupees as money, moneyCell } from '@ui/utils/money';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
 import { dateWords } from '@ui/utils/dates';
@@ -348,9 +350,9 @@ const RevisionForm = ({ people, structures, onCancel, onCreated, initialEmployee
             </div>
             <div>
               <label className="ui-label" htmlFor="rev-ctc">New cost to company (a year)</label>
-              <input
+              <MoneyInput
                 id="rev-ctc"
-                type="number"
+                type="text" inputMode="decimal"
                 min="0"
                 step="1"
                 className="ui-input ui-num w-full"
@@ -399,17 +401,20 @@ const RevisionForm = ({ people, structures, onCancel, onCreated, initialEmployee
  */
 const Impact = ({ impact, compact = false }) => (
   <div className="space-y-3">
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <Figure label="Net pay a month" value={money(impact.monthly.to)} change={impact.monthly.change} />
-      <Figure label="Deductions a month" value={money(impact.deductions.to)} change={impact.deductions.change} />
-      <Figure label="Company pays a month" value={money(impact.employerCost.to)} change={impact.employerCost.change} />
-      <Figure
-        label="Cost to company a year"
-        value={money(impact.ctc.to)}
-        change={impact.ctc.change}
-        hint={impact.ctc.percent ? `${impact.ctc.percent}%` : ''}
-      />
-    </div>
+    <Figures
+      label="What the revision changes"
+      items={[
+        { label: 'Net pay a month', value: moneyCell(impact.monthly.to, { zero: true }), raw: impact.monthly.to, hint: signed(impact.monthly.change) },
+        { label: 'Deductions a month', value: moneyCell(impact.deductions.to, { zero: true }), raw: impact.deductions.to, hint: signed(impact.deductions.change) },
+        { label: 'Company pays a month', value: moneyCell(impact.employerCost.to, { zero: true }), raw: impact.employerCost.to, hint: signed(impact.employerCost.change) },
+        {
+          label: 'Cost to company a year',
+          value: moneyCell(impact.ctc.to, { zero: true }),
+          raw: impact.ctc.to,
+          hint: `${signed(impact.ctc.change)}${impact.ctc.percent ? ` · ${impact.ctc.percent}%` : ''}`,
+        },
+      ]}
+    />
 
     {impact.notes?.length ? (
       <div className="space-y-1">
@@ -458,16 +463,6 @@ const Impact = ({ impact, compact = false }) => (
   </div>
 );
 
-const Figure = ({ label, value, change, hint = '' }) => (
-  <div className="ui-card p-3">
-    <div className="ui-caption">{label}</div>
-    <div className="ui-amount mt-0.5">{value}</div>
-    <div className="ui-caption">
-      {signed(change)}
-      {hint ? ` · ${hint}` : ''}
-    </div>
-  </div>
-);
 
 const RevisionDetail = ({ revisionId, onBack }) => {
   const [revision, setRevision] = useState(null);

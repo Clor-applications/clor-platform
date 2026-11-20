@@ -19,7 +19,7 @@ it('explains the limit, refuses more than half, and saves', async () => {
   const user = userEvent.setup();
   render(<DeductionCapSetting />);
 
-  const share = await screen.findByRole('spinbutton', { name: /Share of wages/ });
+  const share = await screen.findByRole('textbox', { name: /Share of wages/ });
   const statutory = screen.getByRole('checkbox', { name: /Count PF, ESI/ });
   expect(statutory).toBeChecked();
   expect(screen.getByText(/check with your adviser/)).toBeInTheDocument();

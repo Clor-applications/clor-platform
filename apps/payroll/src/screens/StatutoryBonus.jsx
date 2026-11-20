@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calculator, Download, SlidersHorizontal } from '@ui/components/ui/lineIcons';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
-import Drawer from '@ui/components/ui/Drawer';
+import { PageHeader, SkeletonCard, EmptyState, FieldError } from '@ui/components/ui/Primitives';
+import useFieldErrors from '@ui/components/ui/useFieldErrors';
+import Drawer from '../components/EditDrawer';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { fyLabel } from '@ui/picks/round34';
 import { downloadCsv } from '@ui/utils/csv';
-import { formatDateIn } from '@ui/utils/dates';
+import { dateWords } from '@ui/utils/dates';
 import { rupees as money, moneyCell } from '@ui/utils/money';
 import { listPayrollPeriods } from '../api/payrollCalendar';
 import { REGISTER_COLUMNS, yearOf, yearsBack } from '../components/bonusText';
@@ -49,6 +50,8 @@ export default function StatutoryBonus() {
   const [error, setError] = useState('');
   const [rate, setRate] = useState('');
   const [busy, setBusy] = useState('');
+  /* A share that is not a number is said under the field, not in the corner. */
+  const v = useFieldErrors('bonus');
   const [rulesOpen, setRulesOpen] = useState(false);
   const [approving, setApproving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -72,8 +75,11 @@ export default function StatutoryBonus() {
   const eligible = run ? run.lines.filter((l) => l.eligible) : [];
 
   const workOut = async () => {
+    if (busy) return;
     const ratePercent = Number(rate);
-    if (!Number.isFinite(ratePercent) || rate === '') return notify.error('Give the bonus share, like 8.33.');
+    v.reset();
+    v.check('rate', Number.isFinite(ratePercent) && rate !== '', 'Give the bonus share as a number, like 8.33.');
+    if (v.failed()) return;
     setBusy('work');
     try {
       const r = await workOutBonus({ financialYear: fy, ratePercent });
@@ -164,8 +170,10 @@ export default function StatutoryBonus() {
               value={rate}
               disabled={run?.status === 'APPROVED'}
               onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))}
-              aria-describedby="bonus-rate-hint"
+              {...v.props('rate')}
+              aria-describedby={v.error('rate') ? v.errorId('rate') : 'bonus-rate-hint'}
             />
+            <FieldError error={v.error('rate')} id={v.errorId('rate')} />
           </div>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setRulesOpen(true)}>
             <SlidersHorizontal size={16} aria-hidden="true" /> Rules
@@ -212,7 +220,7 @@ export default function StatutoryBonus() {
         {data?.history?.length ? (
           <p className="ui-caption">
             Cancelled before:{' '}
-            {data.history.map((h) => `${h.ratePercent}% on ${formatDateIn(String(h.cancelledAt || h.createdAt).slice(0, 10))}${h.cancelReason ? ` (${h.cancelReason})` : ''}`).join('; ')}
+            {data.history.map((h) => `${h.ratePercent}% on ${dateWords(String(h.cancelledAt || h.createdAt).slice(0, 10))}${h.cancelReason ? ` (${h.cancelReason})` : ''}`).join('; ')}
           </p>
         ) : null}
       </div>
