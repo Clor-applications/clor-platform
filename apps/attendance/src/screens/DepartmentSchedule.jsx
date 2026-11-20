@@ -104,7 +104,7 @@ export default function DepartmentSchedule() {
         loadError ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Department" col="department" state={filters}  className="ui-col-grow" />
@@ -132,11 +132,11 @@ export default function DepartmentSchedule() {
               ) : (
                 shownRows.map((r) => (
                   <tr key={r.id}>
-                    <td className="ui-col-entity">{r.departmentName}</td>
-                    <td>{r.shiftName}</td>
-                    <td className="ui-col-date whitespace-nowrap">{r.effectiveFrom}</td>
-                    <td className="ui-col-date whitespace-nowrap">{r.effectiveTo || 'until changed'}</td>
-                    <td className="ui-col-meta">
+                    <td className="ui-col-entity" data-phone="name">{r.departmentName}</td>
+                    <td data-phone="sub">{r.shiftName}</td>
+                    <td className="ui-col-date whitespace-nowrap" data-phone="key">{r.effectiveFrom}</td>
+                    <td className="ui-col-date whitespace-nowrap" data-phone="tag">{r.effectiveTo || 'until changed'}</td>
+                    <td className="ui-col-meta" data-phone="act">
                       <span className="flex justify-end">
                         <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.departmentName} from ${r.effectiveFrom}`} onClick={async () => { try { await removeDepartmentSchedule(r.id); load(); } catch (err) { notify.error(errorWords(err, 'remove it')); } }}>
                           <Trash2 size={14} aria-hidden="true" /> Remove

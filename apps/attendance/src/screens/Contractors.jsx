@@ -111,7 +111,7 @@ export default function Contractors({ openScreen } = {}) {
         loadError ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Contractor" col="name" state={filters}  className="ui-col-grow" />
@@ -141,15 +141,15 @@ export default function Contractors({ openScreen } = {}) {
               ) : (
                 rows.map((c) => (
                   <tr key={c.id} className="ui-row-click" onClick={() => setEditing({ ...BLANK, ...c })}>
-                    <td className="ui-col-entity">{c.name}{c.code ? <span className="ui-caption"> · {c.code}</span> : null}</td>
-                    <td>{[c.contactPerson, c.phone].filter(Boolean).join(' · ') || '—'}</td>
+                    <td className="ui-col-entity" data-phone="name">{c.name}{c.code ? <span className="ui-caption"> · {c.code}</span> : null}</td>
+                    <td data-phone="sub">{[c.contactPerson, c.phone].filter(Boolean).join(' · ') || '—'}</td>
                     <td className="whitespace-nowrap">
                       {c.licenceNo || '—'}
                       {c.licenceValidTo ? (
                         <span className={`ui-pill ml-2 ${c.licenceExpired ? 'ui-pill-neg' : 'ui-pill-neutral'}`}>{c.licenceExpired ? 'expired' : 'valid to'} {c.licenceValidTo}</span>
                       ) : null}
                     </td>
-                    <td className="ui-num">{c.workers}</td>
+                    <td className="ui-num" data-phone="key">{c.workers}</td>
                     <td className="ui-num">{c.presentToday}</td>
                     <td className="ui-col-h-center">{c.isActive ? '✓' : ''}</td>
                   </tr>

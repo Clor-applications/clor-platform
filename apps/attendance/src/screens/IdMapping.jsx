@@ -92,18 +92,18 @@ export default function IdMapping({ openScreen, menuLabel }) {
             <h2 id="unk-h" className="ui-t-sec px-4 pt-4 pb-2">Unknown reader IDs with punches</h2>
             {data.unmatched.length ? (
               <div className="ui-table-scroll">
-                <table className="ui-table ui-table-sticky w-full">
+                <table className="ui-table ui-table-sticky ui-table-phone w-full">
                   <thead><tr><th scope="col">Reader ID</th><th scope="col">Site</th><th className="ui-col-grow" scope="col">Name on the reader</th><th scope="col" className="ui-num">Punches</th><th scope="col">Last punch</th><th scope="col">Likely match</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
                   <tbody className="ui-rows">
                     {data.unmatched.filter((u) => hit(u.pin, u.nameOnReader, u.areaName, u.suggestion?.name, u.suggestion?.code)).map((u) => (
                       <tr key={`${u.areaId || ''}|${u.pin}`}>
-                        <td className="ui-mono">{u.pin}</td>
+                        <td className="ui-mono" data-phone="name">{u.pin}</td>
                         <td>{u.areaName || <span className="ui-caption">No site</span>}</td>
                         <td>{u.nameOnReader || <span className="ui-caption">—</span>}</td>
-                        <td className="ui-num">{u.punches}</td>
+                        <td className="ui-num" data-phone="key">{u.punches}</td>
                         <td className="ui-col-date whitespace-nowrap">{u.lastAt ? new Date(u.lastAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
-                        <td className="ui-col-entity">{u.suggestion ? <span>{u.suggestion.name}{u.suggestion.code ? <span className="ui-caption"> · {u.suggestion.code}</span> : null}<span className="ui-caption block">{u.suggestion.why}</span></span> : <span className="ui-caption">No likely match</span>}</td>
-                        <td className="ui-col-meta whitespace-nowrap text-end">
+                        <td className="ui-col-entity" data-phone="sub">{u.suggestion ? <span>{u.suggestion.name}{u.suggestion.code ? <span className="ui-caption"> · {u.suggestion.code}</span> : null}<span className="ui-caption block">{u.suggestion.why}</span></span> : <span className="ui-caption">No likely match</span>}</td>
+                        <td className="ui-col-meta whitespace-nowrap text-end" data-phone="act">
                           {u.suggestion ? (
                             <span className="inline-flex gap-1">
                               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => match(u)}><Link2 size={14} aria-hidden="true" /> Match</button>
@@ -142,16 +142,16 @@ export default function IdMapping({ openScreen, menuLabel }) {
             <h2 id="site-h" className="ui-t-sec px-4 pt-4 pb-2">IDs that differ by site</h2>
             {sites.length ? (
               <div className="ui-table-scroll">
-                <table className="ui-table ui-table-sticky w-full">
+                <table className="ui-table ui-table-sticky ui-table-phone w-full">
                   <thead><tr><th className="ui-col-grow" scope="col">Employee</th><th scope="col">Site</th><th scope="col">ID there</th><th scope="col">Company-wide ID</th><th scope="col"><span className="sr-only">Edit</span></th></tr></thead>
                   <tbody className="ui-rows">
                     {sites.filter((x) => hit(x.name, x.pin, x.areaName, x.companyId)).map((x) => (
                       <tr key={x.id}>
-                        <td className="ui-col-entity">{x.name}{x.left ? <span className="ui-caption"> · left</span> : null}</td>
-                        <td>{x.areaName}</td>
-                        <td className="ui-mono">{x.pin}</td>
+                        <td className="ui-col-entity" data-phone="name">{x.name}{x.left ? <span className="ui-caption"> · left</span> : null}</td>
+                        <td data-phone="sub">{x.areaName}</td>
+                        <td className="ui-mono" data-phone="key">{x.pin}</td>
                         <td className="ui-mono ui-caption">{x.companyId || '—'}</td>
-                        <td className="ui-col-meta text-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ employeeId: x.employeeId })}><Pencil size={14} aria-hidden="true" /> Edit</button></td>
+                        <td className="ui-col-meta text-end" data-phone="act"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ employeeId: x.employeeId })}><Pencil size={14} aria-hidden="true" /> Edit</button></td>
                       </tr>
                     ))}
                   </tbody>

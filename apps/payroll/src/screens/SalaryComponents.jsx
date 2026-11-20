@@ -268,7 +268,7 @@ export default function SalaryComponents() {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Component" col="name" state={filters} />
@@ -303,15 +303,15 @@ export default function SalaryComponents() {
                   const wages = wagesOf(c);
                   return (
                     <tr key={c.id} className="ui-row-click" onClick={() => setEditing(c)}>
-                      <td className="ui-col-entity">{c.name}</td>
+                      <td className="ui-col-entity" data-phone="name">{c.name}</td>
                       <td className="ui-col-id">{c.code}</td>
-                      <td className="ui-col-meta whitespace-normal">{describeMethod(c)}</td>
+                      <td className="ui-col-meta whitespace-normal" data-phone="sub">{describeMethod(c)}</td>
                       <td className="ui-col-meta">{describeWho(c)}</td>
                       <td className="ui-col-h-center">{c.isTaxable ? 'Yes' : 'No'}</td>
                       <td className="ui-col-h-center hidden 2xl:table-cell">{c.prorate ? 'Yes' : 'No'}</td>
                       <td className="ui-col-meta hidden 2xl:table-cell">{wages.length ? wages.join(', ') : '—'}</td>
-                      <td className="ui-col-h-center">{c.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
-                      <td className="text-end" onClick={(e) => e.stopPropagation()}>
+                      <td className="ui-col-h-center" data-phone="tag">{c.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
+                      <td className="text-end" data-phone="act" onClick={(e) => e.stopPropagation()}>
                         <button type="button" className="ui-icon-btn" aria-label={`Delete ${c.name}`} onClick={() => remove(c)}>
                           <Trash2 size={16} aria-hidden="true" />
                         </button>

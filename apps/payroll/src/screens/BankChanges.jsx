@@ -128,7 +128,7 @@ export default function BankChanges() {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="employee" state={filters} />
@@ -157,20 +157,20 @@ export default function BankChanges() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id}>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-entity" data-phone="name">
                       {r.employeeName || '—'}
                       {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
                     </td>
                     <td className="ui-mono text-sm">{account(r.oldAccount, r.oldIfsc, r.oldBankName)}</td>
-                    <td className="ui-mono text-sm">{account(r.newAccount, r.newIfsc, r.newBankName)}</td>
-                    <td className="ui-col-date whitespace-nowrap">
+                    <td className="ui-mono text-sm" data-phone="sub">{account(r.newAccount, r.newIfsc, r.newBankName)}</td>
+                    <td className="ui-col-date whitespace-nowrap" data-phone="key">
                       {formatDateIn(String(r.requestedAt).slice(0, 10))}
                       {r.mine ? <span className="ui-caption block">by you</span> : null}
                     </td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status]?.label || r.status} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.pill || 'ui-pill-neutral'} />
                     </td>
-                    <td className="whitespace-nowrap text-end">
+                    <td className="whitespace-nowrap text-end" data-phone="act">
                       {r.status === 'PENDING' ? (
                         <span className="inline-flex gap-1">
                           <button type="button" data-permission="PAYROLL::Payroll Runs::APPROVE" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === r.id} onClick={() => decide(r, true)}>

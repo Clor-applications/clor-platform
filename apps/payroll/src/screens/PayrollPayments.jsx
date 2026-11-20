@@ -204,7 +204,7 @@ export default function PayrollPayments({ menuLabel } = {}) {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <th scope="col">Payment</th>
@@ -242,13 +242,13 @@ export default function PayrollPayments({ menuLabel } = {}) {
               ) : (
                 rows.map((p) => (
                   <tr key={p.id} className="ui-row-click" onClick={() => setOpenId(p.id)}>
-                    <td className="ui-col-id">{p.number}</td>
-                    <td className="ui-col-entity">{p.runNumber || '—'}</td>
+                    <td className="ui-col-id" data-phone="sub">{p.number}</td>
+                    <td className="ui-col-entity" data-phone="name">{p.runNumber || '—'}</td>
                     <td className="ui-col-date ui-col-h-center">{dateWords(p.paymentDate)}</td>
-                    <td className="ui-col-amount">{moneyCell(p.totalAmount)}</td>
+                    <td className="ui-col-amount" data-phone="key">{moneyCell(p.totalAmount)}</td>
                     <td className="ui-col-amount">{moneyCell(p.paidAmount)}</td>
                     <td className="ui-col-amount">{p.failedCount || '—'}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={p.status === 'COMPLETED' ? '' : STATUS[p.status]?.label || p.status} normal={STATUS[p.status]?.label} pill={STATUS[p.status]?.tone || 'ui-pill-neutral'} />
                     </td>
                     <td className="ui-col-h-center">
@@ -631,7 +631,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
         </div>
 
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <th scope="col">Employee</th>
@@ -646,21 +646,21 @@ const PaymentDetail = ({ paymentId, onBack }) => {
             <tbody className="ui-rows">
               {lines.map((l) => (
                 <tr key={l.id}>
-                  <td className="ui-col-entity">
+                  <td className="ui-col-entity" data-phone="name">
                     {l.employeeName}
                     {l.employeeCode ? <span className="ui-caption"> · {l.employeeCode}</span> : null}
                   </td>
                   <td className="ui-col-id">{l.slipNumber || '—'}</td>
-                  <td className="ui-col-meta">
+                  <td className="ui-col-meta" data-phone="sub">
                     {l.bankAccountMasked ? `${l.bankAccountMasked}${l.bankIfsc ? ` · ${l.bankIfsc}` : ''}` : 'No account on file'}
                   </td>
-                  <td className="ui-col-amount">{moneyCell(l.amount)}</td>
-                  <td>
+                  <td className="ui-col-amount" data-phone="key">{moneyCell(l.amount)}</td>
+                  <td data-phone="tag">
                     <ExceptionTag label={l.status === 'PAID' ? '' : LINE_STATUS[l.status]?.label || l.status} normal={LINE_STATUS[l.status]?.label} pill={LINE_STATUS[l.status]?.tone || 'ui-pill-neutral'} />
                   </td>
                   <td className="ui-col-meta">{l.failureReason || l.reference || '—'}</td>
                   {settled ? (
-                    <td>
+                    <td data-phone="act">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"

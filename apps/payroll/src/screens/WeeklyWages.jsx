@@ -187,7 +187,7 @@ function SheetsTable({ sheets, onOpen, onMake }) {
   }
   return (
     <div className="ui-table-scroll">
-      <table className="ui-table ui-table-sticky w-full">
+      <table className="ui-table ui-table-sticky ui-table-phone w-full">
         <thead>
           <tr>
             <th scope="col">Days</th>
@@ -202,15 +202,15 @@ function SheetsTable({ sheets, onOpen, onMake }) {
         <tbody className="ui-rows">
           {sheets.map((s) => (
             <tr key={s.id} className="ui-row-click" onClick={() => onOpen(s.id)}>
-              <td className="ui-col-entity">
+              <td className="ui-col-entity" data-phone="name">
                 <button type="button" className="ui-link" onClick={(e) => { e.stopPropagation(); onOpen(s.id); }}>{span(s)}</button>
               </td>
-              <td className="ui-col-meta">{s.payGroupName}</td>
+              <td className="ui-col-meta" data-phone="sub">{s.payGroupName}</td>
               <td className="ui-col-meta">{monthWords(s.wageMonth)}{s.lastOfMonth ? <span className="ui-caption block">Last of the month</span> : null}</td>
               <td className="ui-col-amount">{s.workers ?? '—'}</td>
               <td className="ui-col-amount">{moneyCell(s.gross)}</td>
-              <td className="ui-col-amount">{moneyCell(s.net)}</td>
-              <td className="ui-col-h-center"><StatusPill status={s.status} /></td>
+              <td className="ui-col-amount" data-phone="key">{moneyCell(s.net)}</td>
+              <td className="ui-col-h-center" data-phone="tag"><StatusPill status={s.status} /></td>
             </tr>
           ))}
         </tbody>
@@ -225,7 +225,7 @@ function RatesTable({ rates, onEdit }) {
   }
   return (
     <div className="ui-table-scroll">
-      <table className="ui-table ui-table-sticky w-full">
+      <table className="ui-table ui-table-sticky ui-table-phone w-full">
         <thead>
           <tr>
             <th scope="col">Worker</th>
@@ -240,16 +240,16 @@ function RatesTable({ rates, onEdit }) {
         <tbody className="ui-rows">
           {rates.map((r) => (
             <tr key={r.id} className="ui-row-click" onClick={() => onEdit(r)}>
-              <td className="ui-col-entity">
+              <td className="ui-col-entity" data-phone="name">
                 <button type="button" className="ui-link" onClick={(e) => { e.stopPropagation(); onEdit(r); }}>{r.name}</button>
                 {r.code ? <span className="ui-caption ml-2 ui-mono">{r.code}</span> : null}
               </td>
-              <td className="ui-col-meta">{r.payGroupName}</td>
-              <td className="ui-col-amount">{moneyCell(r.dailyRate)}</td>
+              <td className="ui-col-meta" data-phone="sub">{r.payGroupName}</td>
+              <td className="ui-col-amount" data-phone="key">{moneyCell(r.dailyRate)}</td>
               <td className="ui-col-amount">{r.canteenPerDay ? money(r.canteenPerDay) : '—'}</td>
               <td className="ui-col-amount">{r.advanceBalance ? money(r.advanceBalance) : '—'}</td>
               <td className="ui-col-amount">{r.advancePerSheet ? money(r.advancePerSheet) : '—'}</td>
-              <td className="ui-col-h-center">{r.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Not paid now</span>}</td>
+              <td className="ui-col-h-center" data-phone="tag">{r.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Not paid now</span>}</td>
             </tr>
           ))}
         </tbody>

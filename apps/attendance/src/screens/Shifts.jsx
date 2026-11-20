@@ -162,7 +162,7 @@ export default function Shifts({ openScreen }) {
         loadError ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Shift" col="name" state={filters}  className="ui-col-grow" />
@@ -194,20 +194,20 @@ export default function Shifts({ openScreen }) {
               ) : (
                 rows.map((s) => (
                   <tr key={s.id} className="ui-row-click" onClick={() => setEditing({ ...s, overtimeAfterMinutes: s.overtimeAfterMinutes ?? '', code: s.code || '', color: s.color || '', minStaff: s.minStaff ?? '', offSaturdays: s.offSaturdays || '' })}>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-entity" data-phone="name">
                       {s.code ? <span className="mr-1.5 inline-block rounded-full px-1.5 text-xs font-semibold text-white" style={{ backgroundColor: s.color || 'rgb(var(--fg-subtle))' }}>{s.code}</span> : null}
                       {s.name}
                     </td>
-                    <td className="ui-col-h-center whitespace-nowrap">
+                    <td className="ui-col-h-center whitespace-nowrap" data-phone="key">
                       {splitShiftLabel(s) || `${s.startTime}–${s.endTime}`}
                       {s.endTime <= s.startTime ? <span className="ui-caption"> (night)</span> : null}
                     </td>
                     <td className="ui-num">{s.breakMinutes}m{s.breakMode === 'PUNCHED' ? <span className="ui-caption block">or as punched</span> : null}</td>
                     <td className="ui-num">{s.graceMinutes}m</td>
                     <td className="ui-num">{hm(s.fullDayMinutes)}</td>
-                    <td>{offs(s.weeklyOffDays, s.offSaturdays)}</td>
+                    <td data-phone="sub">{offs(s.weeklyOffDays, s.offSaturdays)}</td>
                     <td className="ui-num">{s.assignments}</td>
-                    <td className="ui-col-h-center">{s.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
+                    <td className="ui-col-h-center" data-phone="tag">{s.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
                   </tr>
                 ))
               )}

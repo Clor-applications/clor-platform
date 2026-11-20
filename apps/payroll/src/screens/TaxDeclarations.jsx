@@ -151,7 +151,7 @@ export default function TaxDeclarations() {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="name" state={filters} />
@@ -179,14 +179,14 @@ export default function TaxDeclarations() {
               ) : (
                 rows.map((p) => (
                   <tr key={p.employeeId} className="ui-row-click" onClick={() => setOpen(p.employeeId)}>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-entity" data-phone="name">
                       {p.name}
                       {p.code ? <span className="ui-caption"> · {p.code}</span> : null}
                     </td>
-                    <td className="ui-col-meta">{regimeOf(p)}</td>
-                    <td className="ui-col-amount">{p.regime === 'OLD' && p.declared ? money(p.declared) : '—'}</td>
+                    <td className="ui-col-meta" data-phone="sub">{regimeOf(p)}</td>
+                    <td className="ui-col-amount" data-phone="key">{p.regime === 'OLD' && p.declared ? money(p.declared) : '—'}</td>
                     <td className="ui-col-amount">{p.verified != null && p.regime === 'OLD' ? money(p.verified) : '—'}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={p.status === 'VERIFIED' ? '' : STATUS[p.status]?.label || p.status} normal={STATUS[p.status]?.label} pill={STATUS[p.status]?.pill || 'ui-pill-neutral'} />
                     </td>
                   </tr>

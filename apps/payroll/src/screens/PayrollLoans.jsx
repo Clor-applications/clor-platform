@@ -211,7 +211,7 @@ export default function PayrollLoans() {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <th scope="col">Loan</th>
@@ -248,16 +248,16 @@ export default function PayrollLoans() {
               ) : (
                 rows.map((l) => (
                   <tr key={l.id} className="ui-row-click" onClick={() => setOpenId(l.id)}>
-                    <td className="ui-col-id">{l.number}</td>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-id" data-phone="sub">{l.number}</td>
+                    <td className="ui-col-entity" data-phone="name">
                       {l.employeeName}
                       {l.employeeCode ? <span className="ui-caption"> · {l.employeeCode}</span> : null}
                     </td>
                     <td className="ui-col-meta">{TYPES.find((t) => t.id === l.type)?.label || l.type}</td>
                     <td className="ui-num">{moneyCell(l.principal)}</td>
                     <td className="ui-num">{l.installmentAmount ? money(l.installmentAmount) : '—'}</td>
-                    <td className="ui-num">{moneyCell(l.outstandingBalance, { zero: true })}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-num" data-phone="key">{moneyCell(l.outstandingBalance, { zero: true })}</td>
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={l.status === 'DRAFT' ? STATUS.DRAFT.label : ''} normal={STATUS[l.status]?.label || l.status} tone="warn" />
                       {/* The employee asked in the employee app to skip the next instalment (picks round 54). */}
                       {l.skipAsk ? <span className={l.status === 'DRAFT' ? 'ml-1' : ''}><ExceptionTag label="Asked to skip" tone="warn" /></span> : null}
@@ -578,7 +578,7 @@ const LoanDetail = ({ loanId, onBack }) => {
             The schedule
           </div>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <th scope="col" className="ui-num">#</th>
@@ -598,16 +598,16 @@ const LoanDetail = ({ loanId, onBack }) => {
                 {loan.installments.map((i) => (
                   <tr key={i.id}>
                     <td className="ui-num">{i.sequence}</td>
-                    <td className="ui-col-meta">{i.carriedFromId ? `Next payroll, carried from ${i.carriedFromPeriodName || 'an earlier month'}` : i.periodDone ? `Next payroll: ${i.periodName || 'its month'}'s payroll is done, so the next one takes it` : i.periodName || 'A month not on the calendar yet'}</td>
-                    <td className="ui-num">{moneyCell(i.dueAmount)}</td>
+                    <td className="ui-col-meta" data-phone="name">{i.carriedFromId ? `Next payroll, carried from ${i.carriedFromPeriodName || 'an earlier month'}` : i.periodDone ? `Next payroll: ${i.periodName || 'its month'}'s payroll is done, so the next one takes it` : i.periodName || 'A month not on the calendar yet'}</td>
+                    <td className="ui-num" data-phone="key">{moneyCell(i.dueAmount)}</td>
                     <td className="ui-num">{i.interestAmount ? money(i.interestAmount) : '—'}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={i.status === 'RECOVERED' ? '' : INSTALLMENT[i.status]?.label || i.status} normal={INSTALLMENT[i.status]?.label} pill={INSTALLMENT[i.status]?.tone || 'ui-pill-neutral'} />
                       {i.skipAsk ? <span className="ui-caption block">Asked to skip: “{i.skipAsk.reason}”</span> : null}
                     </td>
-                    <td className="ui-col-id">{i.slipNumber || '—'}</td>
+                    <td className="ui-col-id" data-phone="sub">{i.slipNumber || '—'}</td>
                     {running ? (
-                      <td>
+                      <td data-phone="act">
                         <div className="flex items-center justify-center gap-1">
                           {i.status === 'PENDING' && i.skipAsk ? (
                             <>

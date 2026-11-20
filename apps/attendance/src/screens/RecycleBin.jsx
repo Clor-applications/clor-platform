@@ -92,7 +92,7 @@ export default function RecycleBin() {
         error ? null : <SkeletonCard lines={5} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Item" col="label" state={filters} className="ui-col-grow" />
@@ -117,12 +117,12 @@ export default function RecycleBin() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id}>
-                    <td className="ui-col-entity ui-col-grow">{r.label}</td>
-                    <td>{r.type}</td>
+                    <td className="ui-col-entity ui-col-grow" data-phone="name">{r.label}</td>
+                    <td data-phone="sub">{r.type}</td>
                     <td>{r.deletedBy || '—'}</td>
                     <td className="ui-col-date whitespace-nowrap">{when(r.deletedAt)}</td>
-                    <td className="ui-num tabular-nums" title={`Gone for good on ${when(r.purgeAfter)}`}>{daysLeft(r.purgeAfter)}</td>
-                    <td className="whitespace-nowrap text-right">
+                    <td className="ui-num tabular-nums" data-phone="key" title={`Gone for good on ${when(r.purgeAfter)}`}>{daysLeft(r.purgeAfter)}</td>
+                    <td className="whitespace-nowrap text-right" data-phone="act">
                       <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === r.id} onClick={() => restore(r)} aria-label={`Restore ${r.label}`}>
                         <ArchiveRestore size={14} aria-hidden="true" /> Restore
                       </button>{' '}

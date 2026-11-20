@@ -237,7 +237,7 @@ export default function PortalAccess() {
       ) : (
         <>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <th scope="col" className="w-8">
@@ -277,15 +277,15 @@ export default function PortalAccess() {
                     const st = STATE[stateOf(p)];
                     return (
                       <tr key={p.id}>
-                        <td><input type="checkbox" className="ui-checkbox" aria-label={`Pick ${p.name}`} checked={picked.has(p.id)} onChange={() => toggle(p.id)} /></td>
-                        <td className="ui-col-entity">{p.name}<span className="ui-caption block">{p.department || ''}</span></td>
-                        <td className="ui-mono">{p.code || <span className="ui-caption">none</span>}</td>
-                        <td><ExceptionTag label={st === STATE.active ? '' : st.label} normal={st.label} pill={st.pill} /></td>
+                        <td data-phone="act"><input type="checkbox" className="ui-checkbox" aria-label={`Pick ${p.name}`} checked={picked.has(p.id)} onChange={() => toggle(p.id)} /></td>
+                        <td className="ui-col-entity" data-phone="name">{p.name}<span className="ui-caption block">{p.department || ''}</span></td>
+                        <td className="ui-mono" data-phone="sub">{p.code || <span className="ui-caption">none</span>}</td>
+                        <td data-phone="tag"><ExceptionTag label={st === STATE.active ? '' : st.label} normal={st.label} pill={st.pill} /></td>
                         <td className="ui-col-h-center">{p.mobilePunch ? 'On' : <span className="ui-caption">Off</span>}</td>
                         <td>{siteOf(p)}</td>
                         <td className="ui-col-meta hidden 2xl:table-cell">{p.email || <span className="ui-caption">—</span>}</td>
                         <td className="ui-col-date hidden 2xl:table-cell">{p.portalPasswordSetAt ? new Date(p.portalPasswordSetAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : <span className="ui-caption">—</span>}</td>
-                        <td className="ui-col-meta text-end">
+                        <td className="ui-col-meta text-end" data-phone="more">
                           {p.activated ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => signOutEverywhere(p)}>Sign out everywhere</button> : null}
                           {p.activated ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => reset(p)}>Forget password</button> : null}
                         </td>
@@ -326,7 +326,7 @@ function IssuedCodes({ issued, portalUrl, onClose }) {
         <p className="text-sm">
           Company code <span className="ui-mono font-semibold">{issued.company.code}</span> · portal <span className="ui-mono">{portalUrl}</span>
         </p>
-        <table className="ui-table w-full">
+        <table className="ui-table ui-table-phone w-full">
           <thead>
             <tr>
               <th scope="col" className="ui-col-grow ui-th">Employee</th>
@@ -338,9 +338,9 @@ function IssuedCodes({ issued, portalUrl, onClose }) {
           <tbody>
             {issued.codes.map((c) => (
               <tr key={c.employeeId}>
-                <td className="ui-col-entity">{c.name}</td>
-                <td className="ui-mono">{c.employeeCode}</td>
-                <td className="ui-mono text-base font-semibold tracking-wider">{c.activationCode}</td>
+                <td className="ui-col-entity" data-phone="name">{c.name}</td>
+                <td className="ui-mono" data-phone="sub">{c.employeeCode}</td>
+                <td className="ui-mono text-base font-semibold tracking-wider" data-phone="key">{c.activationCode}</td>
                 <td className="ui-col-meta">{c.emailedTo || '—'}</td>
               </tr>
             ))}

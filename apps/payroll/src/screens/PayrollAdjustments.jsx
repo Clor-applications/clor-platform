@@ -230,7 +230,7 @@ export default function PayrollAdjustments() {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="employee" state={filters} />
@@ -267,25 +267,25 @@ export default function PayrollAdjustments() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id}>
-                    <td className="ui-col-entity">
+                    <td className="ui-col-entity" data-phone="name">
                       {r.employeeName}
                       {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
                     </td>
-                    <td className="ui-col-meta">
+                    <td className="ui-col-meta" data-phone="sub">
                       {r.componentName}
                       {countWords(r) ? <span className="ui-caption block tabular-nums">{countWords(r)}</span> : null}
                     </td>
                     <td className="ui-col-meta">{r.periodName || '—'}</td>
-                    <td className="ui-num">
+                    <td className="ui-num" data-phone="key">
                       {/* A deduction reads as one: the sign is the point. */}
                       {r.type === 'DEDUCTION' ? `−${money(r.amount)}` : money(r.amount)}
                     </td>
                     <td className="ui-col-meta ui-col-grow whitespace-normal">{r.reason || '—'}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={r.status === 'CONSUMED' ? '' : STATUS[r.status]?.label || r.status} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} />
                       {r.consumedByRunNumber ? <span className="ui-caption"> on {r.consumedByRunNumber}</span> : null}
                     </td>
-                    <td>
+                    <td data-phone="act">
                       <div className="flex items-center justify-end gap-1">
                         {r.status === 'DRAFT' ? (
                           <button

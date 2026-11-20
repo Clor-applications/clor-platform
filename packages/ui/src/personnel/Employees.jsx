@@ -449,7 +449,7 @@ export default function Employees({ description = '' } = {}) {
                 <button type="button" className="ui-link" onClick={() => setSelected(new Set())}>Clear</button>
               </div>
             ) : null}
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   {canEdit ? <th scope="col" className="w-8"><input type="checkbox" className="ui-checkbox" aria-label="Choose everyone shown" checked={allChosen} onChange={chooseAll} /></th> : null}
@@ -466,7 +466,7 @@ export default function Employees({ description = '' } = {}) {
                 {rows.map((p) => (
                   <tr key={p.id} className="ui-row-click" onClick={() => setOpenId(p.id)}>
                     {canEdit ? <td className="w-8" onClick={(e) => e.stopPropagation()}><input type="checkbox" className="ui-checkbox" aria-label={`Choose ${p.name}`} checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td> : null}
-                    <td className="ui-col-entity">
+                    <td className="ui-col-entity" data-phone="name">
                       <span className="flex items-center gap-2">
                         <Avatar person={p} size={28} />
                         <span className="truncate">{p.name}</span>
@@ -474,10 +474,10 @@ export default function Employees({ description = '' } = {}) {
                     </td>
                     <td className="ui-col-meta">{p.code || '—'}</td>
                     <td className="ui-col-meta">{p.department || '—'}</td>
-                    <td className="ui-col-meta">{p.designation || '—'}</td>
+                    <td className="ui-col-meta" data-phone="sub">{p.designation || '—'}</td>
                     <td className="ui-col-meta">{p.reportingManagerName || '—'}</td>
                     <td className="ui-col-h-center">{p.dateOfJoining ? formatDateShort(p.dateOfJoining) : '—'}</td>
-                    <td className="ui-col-h-center"><span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span></td>
+                    <td className="ui-col-h-center" data-phone="tag"><span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span></td>
                   </tr>
                 ))}
               </tbody>

@@ -227,7 +227,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
       ) : (
         <>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <th scope="col" className="w-8">
@@ -274,15 +274,15 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                 ) : (
                   pageRows.map((r) => (
                     <tr key={r.id} className="ui-row-click" onClick={() => setEditing({ ...r, checkIn: r.checkInTime || '', checkOut: r.checkOutTime || '', status: r.checkIn ? '' : r.status })}>
-                      <td onClick={(e) => e.stopPropagation()}>
+                      <td onClick={(e) => e.stopPropagation()} data-phone="act">
                         <input type="checkbox" className="ui-checkbox" aria-label={`Select ${r.employeeName}, ${dayLabel(r.date)}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
                       </td>
-                      <td className="ui-col-date whitespace-nowrap">{dayLabel(r.date, { weekday: true, year: false })}{r.shiftLabel ? <span className="ui-caption block">{r.shiftLabel}</span> : null}</td>
-                      <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
+                      <td className="ui-col-date whitespace-nowrap" data-phone="sub">{dayLabel(r.date, { weekday: true, year: false })}{r.shiftLabel ? <span className="ui-caption block">{r.shiftLabel}</span> : null}</td>
+                      <td className="ui-col-entity" data-phone="name">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
                       <td className="hidden min-[1800px]:table-cell">{r.department || <span className="ui-caption">—</span>}</td>
                       <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
                       <td className="ui-col-h-center">{r.checkOutTime || (r.checkIn && r.date < todayIst() ? <ExceptionTag label="No out punch" tone="warn" /> : '—')}</td>
-                      <td className="ui-num hidden md:table-cell">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
+                      <td className="ui-num hidden md:table-cell" data-phone="key">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
                       <td className="ui-num hidden md:table-cell">{r.lateMinutes ? <span className="ui-late-tag">Late {r.lateMinutes}m</span> : '—'}</td>
                       <td className="ui-num hidden 2xl:table-cell">{r.earlyOutMinutes ? <EarlyGoTag minutes={r.earlyOutMinutes} /> : '—'}</td>
                       <td className="ui-num hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
@@ -310,7 +310,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                       </td>
                       {/* The day register keeps its day tag (owner, 20 Nov 2026). Everything else tags only exceptions (DESIGN.md
                           "Status tags"): no out punch on a past day and a reader day to check; validated and trusted are plain. */}
-                      <td className="ui-col-h-center"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span></td>
+                      <td className="ui-col-h-center" data-phone="tag"><span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || enumWords(r.status)}</span></td>
                       <td className="ui-col-meta hidden 2xl:table-cell">{SOURCE[r.source] || enumWords(r.source) || '—'}</td>
                       <td className="ui-col-h-center hidden 2xl:table-cell">{r.validated ? 'Yes' : <span className="ui-caption">—</span>}</td>
                       {readerTrust ? (

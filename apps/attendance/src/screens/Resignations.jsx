@@ -129,7 +129,7 @@ export default function Resignations() {
       ) : (
         <>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <ColumnHeader label="Employee" col="employee" state={filters} />
@@ -160,13 +160,13 @@ export default function Resignations() {
                 ) : (
                   pageRows.map((p) => (
                     <tr key={p.id}>
-                      <td className="ui-col-entity">{p.name}{p.code ? <span className="ui-caption"> · {p.code}</span> : null}</td>
-                      <td>{p.department || '—'}</td>
+                      <td className="ui-col-entity" data-phone="name">{p.name}{p.code ? <span className="ui-caption"> · {p.code}</span> : null}</td>
+                      <td data-phone="sub">{p.department || '—'}</td>
                       <td className="ui-col-date whitespace-nowrap">{p.dateOfJoining || '—'}</td>
-                      <td className="ui-col-date whitespace-nowrap">{p.dateOfLeaving || '—'}</td>
-                      <td>{LEAVING_TYPES[p.leavingType] || '—'}</td>
+                      <td className="ui-col-date whitespace-nowrap" data-phone="key">{p.dateOfLeaving || '—'}</td>
+                      <td data-phone="tag">{LEAVING_TYPES[p.leavingType] || '—'}</td>
                       <td className="ui-col-grow whitespace-normal min-w-[10rem]">{p.leavingReason || '—'}</td>
-                      <td className="ui-col-meta text-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Rehire ${p.name}`} onClick={() => rehire(p)}><UserCheck size={14} aria-hidden="true" /> Rehire</button></td>
+                      <td className="ui-col-meta text-end" data-phone="act"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Rehire ${p.name}`} onClick={() => rehire(p)}><UserCheck size={14} aria-hidden="true" /> Rehire</button></td>
                     </tr>
                   ))
                 )}

@@ -281,7 +281,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
         loadError ? null : <SkeletonCard lines={4} />
       ) : (
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <ColumnHeader label="Reader" col="name" state={columns}  className="ui-col-grow" />
@@ -316,17 +316,17 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
                   </tr>
                 ) : rows.map((d) => (
                   <tr key={d.id} className={VIRTUAL[d.vendor] ? undefined : 'ui-row-click'} onClick={VIRTUAL[d.vendor] ? undefined : () => setOpen(d)} title={VIRTUAL[d.vendor]?.title}>
-                    <td className="ui-col-entity">{d.name}{!VIRTUAL[d.vendor] && d.support ? <span className="block text-xs font-normal">{SUPPORT_EXCEPTION.includes(d.support.support) ? <SupportPill support={d.support} /> : <span className="ui-caption" title={d.support.note || ''}>{d.support.label}</span>}</span> : null}</td>
-                    <td className="ui-col-meta hidden md:table-cell">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : URL_PUSH[d.vendor] ? d.model || `${d.driverLabel} · not connected yet` : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
+                    <td className="ui-col-entity" data-phone="name">{d.name}{!VIRTUAL[d.vendor] && d.support ? <span className="block text-xs font-normal">{SUPPORT_EXCEPTION.includes(d.support.support) ? <SupportPill support={d.support} /> : <span className="ui-caption" title={d.support.note || ''}>{d.support.label}</span>}</span> : null}</td>
+                    <td className="ui-col-meta hidden md:table-cell" data-phone="sub">{d.vendor === 'ETIMEOFFICE' ? 'e-Time Office' : URL_PUSH[d.vendor] ? d.model || `${d.driverLabel} · not connected yet` : MAPPED[d.vendor] || PULL[d.vendor] ? d.driverLabel : VIRTUAL[d.vendor]?.label || d.serialNumber}</td>
                     <td className="hidden 2xl:table-cell">{siteNames.get(d.areaId) || <span className="ui-caption">All sites</span>}</td>
                     <td className="ui-col-meta hidden 2xl:table-cell">{d.driverLabel || '—'}{d.ip ? <span className="ui-caption block">{d.ip}</span> : null}</td>
                     <td>{directionWord(d)}</td>
-                    <td className="ui-col-h-center whitespace-nowrap">
+                    <td className="ui-col-h-center whitespace-nowrap" data-phone="tag">
                       <ReaderStatus d={d} />
                     </td>
                     <td className="ui-col-meta hidden md:table-cell">{[d.model, d.firmware && `v${d.firmware}`].filter(Boolean).join(' · ') || '—'}</td>
                     <td className="ui-num hidden 2xl:table-cell">{d.userCount === null || d.userCount === undefined ? '—' : `${d.userCount.toLocaleString('en-IN')}${d.fingerCount ? ` · ${d.fingerCount.toLocaleString('en-IN')} fp` : ''}`}</td>
-                    <td className="ui-num">{d.punchesToday}</td>
+                    <td className="ui-num" data-phone="key">{d.punchesToday}</td>
                     <td className="ui-num hidden md:table-cell">{d.commandsWaiting || '—'}</td>
                   </tr>
                 ))}

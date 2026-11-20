@@ -245,7 +245,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
             ) : null}
           </div>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <th scope="col">Payroll</th>
@@ -260,12 +260,12 @@ export default function PayrollOverview({ onOpen = () => {} }) {
               <tbody className="ui-rows">
                 {[...trend].reverse().map((t) => (
                   <tr key={t.runId}>
-                    <td className="ui-col-id">{t.number}</td>
-                    <td className="ui-col-entity">{t.periodName || '—'}</td>
+                    <td className="ui-col-id" data-phone="sub">{t.number}</td>
+                    <td className="ui-col-entity" data-phone="name">{t.periodName || '—'}</td>
                     <td className="ui-col-date ui-col-h-center">{dateWords(t.payrollDate)}</td>
                     <td className="ui-col-amount">{t.employeeCount}</td>
                     <td className="ui-col-amount">{moneyCell(t.gross)}</td>
-                    <td className="ui-col-amount">{moneyCell(t.net)}</td>
+                    <td className="ui-col-amount" data-phone="key">{moneyCell(t.net)}</td>
                     <td className="ui-col-amount">{moneyCell(t.employerCost)}</td>
                   </tr>
                 ))}

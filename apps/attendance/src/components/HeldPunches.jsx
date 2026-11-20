@@ -211,7 +211,7 @@ export default function HeldPunches({ canDecide = true, onChanged, month = null 
         </ul>
       ) : null}
       <div className="ui-table-scroll">
-        <table className="ui-table w-full">
+        <table className="ui-table ui-table-phone w-full">
           <thead>
             <tr>
               <th scope="col">Reader</th>
@@ -225,12 +225,12 @@ export default function HeldPunches({ canDecide = true, onChanged, month = null 
           <tbody className="ui-rows">
             {held.map((p) => (
               <tr key={p.id}>
-                <td>{p.reader}</td>
+                <td data-phone="sub">{p.reader}</td>
                 <td className="ui-mono">{p.pin}</td>
-                <td className="ui-col-entity">{p.employeeName || <span className="ui-caption">Not matched</span>}</td>
-                <td className="ui-col-date whitespace-nowrap tabular-nums">{p.time}</td>
-                <td><span className="ui-pill ui-pill-warn">{p.due ? 'Was ahead' : 'Ahead of today'}</span></td>
-                <td className="ui-col-meta">
+                <td className="ui-col-entity" data-phone="name">{p.employeeName || <span className="ui-caption">Not matched</span>}</td>
+                <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">{p.time}</td>
+                <td data-phone="tag"><span className="ui-pill ui-pill-warn">{p.due ? 'Was ahead' : 'Ahead of today'}</span></td>
+                <td className="ui-col-meta" data-phone="act">
                   {canDecide ? (
                     <span className="flex gap-1">
                       <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!p.due || busy === p.id || busy.startsWith('all:')} title={p.due ? undefined : 'Its time has not come yet'} onClick={() => decide(p, 'release')}><Check size={14} aria-hidden="true" /> Count</button>
@@ -242,11 +242,11 @@ export default function HeldPunches({ canDecide = true, onChanged, month = null 
             ))}
             {impossible.map((x) => (
               <tr key={x.id}>
-                <td>{x.reader}</td>
-                <td className="ui-mono">{x.pin || '—'}</td>
+                <td data-phone="name">{x.reader}</td>
+                <td className="ui-mono" data-phone="sub">{x.pin || '—'}</td>
                 <td className="ui-col-entity"><span className="ui-caption">—</span></td>
-                <td className="ui-col-date whitespace-nowrap tabular-nums">{x.time || '—'}</td>
-                <td><span className="ui-pill ui-pill-neg">No such date</span></td>
+                <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">{x.time || '—'}</td>
+                <td data-phone="tag"><span className="ui-pill ui-pill-neg">No such date</span></td>
                 <td />
               </tr>
             ))}

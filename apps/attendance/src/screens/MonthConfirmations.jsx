@@ -120,7 +120,7 @@ export default function MonthConfirmations() {
         error ? null : <SkeletonCard lines={5} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="name" state={filters} />
@@ -144,9 +144,9 @@ export default function MonthConfirmations() {
               ) : (
                 rows.map((d) => (
                   <tr key={d.employeeId}>
-                    <td className="ui-col-entity">{d.name}</td>
-                    <td className="ui-col-grow whitespace-normal">{d.note}</td>
-                    <td className="ui-col-date whitespace-nowrap tabular-nums">{when(d.at)}</td>
+                    <td className="ui-col-entity" data-phone="name">{d.name}</td>
+                    <td className="ui-col-grow whitespace-normal" data-phone="sub">{d.note}</td>
+                    <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">{when(d.at)}</td>
                     <td className="ui-col-grow whitespace-normal">
                       {d.resolved ? (
                         <>
@@ -158,7 +158,7 @@ export default function MonthConfirmations() {
                       )}
                     </td>
                     {canAnswer ? (
-                      <td className="text-right whitespace-nowrap">
+                      <td className="text-right whitespace-nowrap" data-phone="act">
                         {!d.resolved ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => startAnswer(d)} aria-label={`Resolve ${d.name}’s dispute`}>Resolve</button> : null}
                       </td>
                     ) : null}

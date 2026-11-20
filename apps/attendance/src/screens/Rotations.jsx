@@ -98,7 +98,7 @@ export default function Rotations() {
         loadError ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Rotation" col="name" state={filters}  className="ui-col-grow" />
@@ -129,13 +129,13 @@ export default function Rotations() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id}>
-                    <td className="ui-col-entity"><button type="button" className="ui-link" onClick={() => setEditing({ ...r })}>{r.name}</button></td>
-                    <td>{r.sequence.map(name).join(' → ')}</td>
+                    <td className="ui-col-entity" data-phone="name"><button type="button" className="ui-link" onClick={() => setEditing({ ...r })}>{r.name}</button></td>
+                    <td data-phone="sub">{r.sequence.map(name).join(' → ')}</td>
                     <td>{PERIODS[r.periodDays] || `${r.periodDays} days`}</td>
                     <td className="ui-col-date whitespace-nowrap">{r.anchorDate}</td>
-                    <td className="ui-num">{r.people}</td>
-                    <td className="ui-col-h-center">{r.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
-                    <td className="ui-col-meta">
+                    <td className="ui-num" data-phone="key">{r.people}</td>
+                    <td className="ui-col-h-center" data-phone="tag">{r.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
+                    <td className="ui-col-meta" data-phone="act">
                       <span className="flex justify-end">
                         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`People on ${r.name}`} onClick={() => setCrew(r)}>
                           <Users size={14} aria-hidden="true" /> People
@@ -282,7 +282,7 @@ function RotationCrew({ rotation, name, onClose }) {
           <p className="ui-muted text-sm">Nobody on this rotation yet.</p>
         ) : (
           <div className="overflow-x-auto ui-table-scroll ui-table-fit">
-          <table className="ui-table w-full text-sm">
+          <table className="ui-table ui-table-phone w-full text-sm">
             <thead>
               <tr>
                 <th scope="col" className="ui-col-grow ui-th">Employee</th>
@@ -295,11 +295,11 @@ function RotationCrew({ rotation, name, onClose }) {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
-                  <td className="ui-col-entity">{r.employeeName}</td>
-                  <td>{r.slotOffset + 1} — {name(rotation.sequence[r.slotOffset] || '')}</td>
-                  <td>{r.startsOn}</td>
+                  <td className="ui-col-entity" data-phone="name">{r.employeeName}</td>
+                  <td data-phone="sub">{r.slotOffset + 1} — {name(rotation.sequence[r.slotOffset] || '')}</td>
+                  <td data-phone="key">{r.startsOn}</td>
                   <td>{r.endsOn || '—'}</td>
-                  <td className="text-end">
+                  <td className="text-end" data-phone="act">
                     <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Take ${r.employeeName} off the rotation`} onClick={async () => { try { await removeRotationAssignment(r.id); load(); } catch (err) { notify.error(errorWords(err, 'remove it')); } }}>
                       <Trash2 size={14} aria-hidden="true" />
                     </button>

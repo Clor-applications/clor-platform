@@ -171,7 +171,7 @@ export default function Transactions({ title = 'Punches' }) {
         <>
           {data.truncated ? <p className="ui-caption px-4 pt-3">Showing the latest {data.transactions.length} of {data.total}. Narrow the dates or export to see the rest.</p> : null}
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <ColumnHeader label="Time" col="time" state={columns} type="date" />
@@ -203,11 +203,11 @@ export default function Transactions({ title = 'Punches' }) {
                 ) : (
                   pageRows.map((t) => (
                     <tr key={t.id} className={repeats.has(t.id) ? 'ui-punch-repeat' : undefined}>
-                      <td className="ui-col-date whitespace-nowrap tabular-nums">
+                      <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">
                         {t.localTime}
                         {repeats.has(t.id) ? <span className="ui-caption block">Repeat · the day counts the first</span> : null}
                       </td>
-                      <td className="ui-col-entity">
+                      <td className="ui-col-entity" data-phone="name">
                         {t.employeeName || (
                           <span className="flex flex-col gap-1">
                             <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -222,7 +222,7 @@ export default function Transactions({ title = 'Punches' }) {
                         )}
                       </td>
                       <td className="ui-mono">{t.pin}</td>
-                      <td className="ui-col-h-center">
+                      <td className="ui-col-h-center" data-phone="tag">
                         {t.kind ? (
                           t.kind === 'IN' ? 'In' : t.kind === 'OUT' ? 'Out' : t.kind
                         ) : (
@@ -231,7 +231,7 @@ export default function Transactions({ title = 'Punches' }) {
                       </td>
                       <td>{t.verify}</td>
                       {anyWorkCode ? <td className="ui-mono hidden md:table-cell">{t.workCode || ''}</td> : null}
-                      <td>{t.deviceName}</td>
+                      <td data-phone="sub">{t.deviceName}</td>
                       <td className="ui-col-date whitespace-nowrap">{t.shiftDate || (t.employeeId ? '—' : 'once matched')}</td>
                       <td className="ui-col-meta whitespace-nowrap">
                         {t.latitude != null ? (

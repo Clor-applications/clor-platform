@@ -108,7 +108,7 @@ export default function DeviceLogs() {
       ) : (
         <>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
+            <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <ColumnHeader label="Time" col="time" state={filters} type="date" />
@@ -136,9 +136,9 @@ export default function DeviceLogs() {
                 ) : (
                   pageRows.map((r) => (
                     <tr key={r.id}>
-                      <td className="ui-col-date whitespace-nowrap tabular-nums">{r.localTime}</td>
-                      <td className="ui-col-entity">{r.deviceName}</td>
-                      <td className="ui-mono">{r.code}</td>
+                      <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">{r.localTime}</td>
+                      <td className="ui-col-entity" data-phone="name">{r.deviceName}</td>
+                      <td className="ui-mono" data-phone="sub">{r.code}</td>
                       <td className="ui-mono">{r.operator || '—'}</td>
                       <td className="ui-col-meta ui-col-grow whitespace-normal">{r.details || '—'}</td>
                     </tr>

@@ -59,7 +59,7 @@ export function SalaryRevisionsReadOnly() {
       ) : (
         <>
         <div className="ui-table-scroll">
-          <table className="ui-table w-full" aria-label="Salary revisions">
+          <table className="ui-table ui-table-phone w-full" aria-label="Salary revisions">
             <thead>
               <tr>
                 <th scope="col">Employee</th>
@@ -73,12 +73,12 @@ export function SalaryRevisionsReadOnly() {
             <tbody className="ui-rows">
               {rows.map((r) => (
                 <tr key={r.id}>
-                  <td className="ui-col-entity"><span className="pc-who"><Avatar person={{ name: r.employeeName }} size={32} /><span className="pc-who-text"><span className="pc-who-name">{r.employeeName}</span>{r.employeeCode || r.designation ? <span className="pc-who-sub">{r.designation || r.employeeCode}</span> : null}</span></span></td>
+                  <td className="ui-col-entity" data-phone="name"><span className="pc-who"><Avatar person={{ name: r.employeeName }} size={32} /><span className="pc-who-text"><span className="pc-who-name">{r.employeeName}</span>{r.employeeCode || r.designation ? <span className="pc-who-sub">{r.designation || r.employeeCode}</span> : null}</span></span></td>
                   <td className="ui-col-amount tabular-nums text-right">{money(r.currentAnnualCtc)}</td>
-                  <td className="ui-col-amount tabular-nums text-right font-semibold">{money(r.proposedAnnualCtc)}</td>
+                  <td className="ui-col-amount tabular-nums text-right font-semibold" data-phone="key">{money(r.proposedAnnualCtc)}</td>
                   <td className="ui-col-amount tabular-nums text-right">{r.incrementPercent ? <span className={Number(r.incrementPercent) > 0 ? 'pc-up' : ''}>{Number(r.incrementPercent) > 0 ? '+' : ''}{Number(r.incrementPercent).toFixed(1)}%</span> : '—'}</td>
-                  <td className="ui-col-date tabular-nums text-right whitespace-nowrap">{r.effectiveFrom ? formatDate(String(r.effectiveFrom).slice(0, 10)) : '—'}</td>
-                  <td><ExceptionTag label={r.status === 'APPLIED' ? '' : STATUS[r.status]?.label || enumWords(r.status)} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} /></td>
+                  <td className="ui-col-date tabular-nums text-right whitespace-nowrap" data-phone="sub">{r.effectiveFrom ? formatDate(String(r.effectiveFrom).slice(0, 10)) : '—'}</td>
+                  <td data-phone="tag"><ExceptionTag label={r.status === 'APPLIED' ? '' : STATUS[r.status]?.label || enumWords(r.status)} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} /></td>
                 </tr>
               ))}
             </tbody>

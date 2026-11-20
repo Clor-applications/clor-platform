@@ -195,7 +195,7 @@ export default function SalaryStructures() {
         error ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Structure" col="name" state={filters} />
@@ -232,15 +232,15 @@ export default function SalaryStructures() {
               ) : (
                 rows.map((x) => (
                   <tr key={x.id} className="ui-row-click" onClick={() => open(x.id)}>
-                    <td className="ui-col-entity">{x.name}</td>
-                    <td className="ui-col-meta">{cycleOf(x)}</td>
+                    <td className="ui-col-entity" data-phone="name">{x.name}</td>
+                    <td className="ui-col-meta" data-phone="sub">{cycleOf(x)}</td>
                     <td className="ui-col-date ui-col-h-center">{dateWords(x.effectiveFrom)}</td>
                     <td className="ui-col-amount">{x.components.length}</td>
-                    <td className="ui-col-amount">{x.assignedCount}</td>
-                    <td className="ui-col-h-center">
+                    <td className="ui-col-amount" data-phone="key">{x.assignedCount}</td>
+                    <td className="ui-col-h-center" data-phone="tag">
                       <ExceptionTag label={x.status === 'ACTIVE' ? '' : STATUSES.find((y) => y.id === x.status)?.label || x.status} tone="neutral" normal="Active" />
                     </td>
-                    <td className="text-end" onClick={(e) => e.stopPropagation()}>
+                    <td className="text-end" data-phone="act" onClick={(e) => e.stopPropagation()}>
                       {x.assignedCount === 0 ? (
                         <button type="button" className="ui-icon-btn" aria-label={`Delete ${x.name}`} onClick={() => remove(x)}>
                           <Trash2 size={16} aria-hidden="true" />

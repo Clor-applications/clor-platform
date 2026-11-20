@@ -95,7 +95,7 @@ export default function SiteCheck() {
             ) : null}
             <div className="ui-card overflow-hidden">
               <div className="ui-table-scroll">
-                <table className="ui-table ui-table-sticky w-full">
+                <table className="ui-table ui-table-sticky ui-table-phone w-full">
                   <thead>
                     <tr>
                       <th className="ui-col-grow" scope="col">Punch area</th>
@@ -113,10 +113,10 @@ export default function SiteCheck() {
                       </tr>
                     ) : (position ? rows : sites.map((site) => ({ site }))).map((r) => (
                       <tr key={r.site.id}>
-                        <td className="ui-col-entity">{r.site.name}</td>
-                        <td className="ui-num">{metres(r.site.radiusMeters)}</td>
-                        <td className="ui-num">{r.distance != null ? metres(r.distance) : '—'}</td>
-                        <td className="ui-col-h-center">
+                        <td className="ui-col-entity" data-phone="name">{r.site.name}</td>
+                        <td className="ui-num" data-phone="sub">{metres(r.site.radiusMeters)}</td>
+                        <td className="ui-num" data-phone="key">{r.distance != null ? metres(r.distance) : '—'}</td>
+                        <td className="ui-col-h-center" data-phone="tag">
                           {r.distance == null ? <span className="ui-caption">Use my location</span> : r.inside
                             ? <span className="ui-pill ui-pill-pos">Accepted</span>
                             : <span className="ui-pill ui-pill-neg">Outside by {metres(r.distance - r.site.radiusMeters)}</span>}
