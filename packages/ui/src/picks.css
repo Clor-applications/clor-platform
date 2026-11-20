@@ -440,11 +440,9 @@
 /* ---- Money owed back: a red figure ---- */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-amount-neg.ui-amount-neg { color: rgb(var(--neg)); }
 
-/* ---- After ticking rows: the bar turns the app's colour, white words ---- */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulkbar { position: sticky; top: 0; z-index: var(--z-sticky, 2); background: rgb(var(--act, var(--fg))); border-color: transparent; color: rgb(255 255 255); }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulkbar :is(.ui-link, .ui-muted, .ui-caption) { color: rgb(255 255 255); }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulkbar .ui-btn:not(.ui-btn-primary) { background: transparent; color: rgb(255 255 255); border-color: rgb(255 255 255 / 0.7); }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulkbar .ui-btn:not(.ui-btn-primary):hover { background: rgb(255 255 255 / 0.15); }
+/* ---- After ticking rows: a white bar under a hairline that stays on top while the list
+   scrolls. The app colour keeps its four jobs (DESIGN.md), so the bar is not filled with it. ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulkbar { position: sticky; top: 0; z-index: var(--z-sticky, 2); background: rgb(var(--surface)); border: 1px solid rgb(var(--border-field)); color: rgb(var(--fg)); }
 
 /* ---- Steps in a long form: dots, the current one long and named ---- */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .pc-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; }

@@ -149,19 +149,19 @@
  */
 :root:not(#rnd)[data-app='admin']:not([data-palette='indigo']) {
   --act: 32 35 41; --act-hover: 16 18 22; --act-ink: 32 35 41;      /* Graphite #202329, 15.6:1 */
-  --marker: 255 107 0; --tint: 242 242 242; --act-2: 201 80 0;      /* Blaze mark, orange second */
+  --marker: 255 107 0; --tint: 247 247 247; --act-2: 201 80 0;      /* Blaze mark, orange second */
 }
 :root:not(#rnd)[data-app='people']:not([data-palette='indigo']) {
   --act: 162 28 175; --act-hover: 138 24 150; --act-ink: 162 28 175; /* Magenta #A21CAF, 5.9:1 */
-  --marker: 162 28 175; --tint: 249 241 250; --act-2: 15 118 110;   /* teal second */
+  --marker: 162 28 175; --tint: 247 247 247; --act-2: 15 118 110;   /* teal second */
 }
 :root:not(#rnd)[data-app='payroll']:not([data-palette='indigo']) {
   --act: 0 106 158; --act-hover: 0 90 134; --act-ink: 0 106 158;     /* Deeper blue #006A9E, 5.6:1 */
-  --marker: 0 106 158; --tint: 240 246 249; --act-2: 180 83 9;      /* saffron second */
+  --marker: 0 106 158; --tint: 247 247 247; --act-2: 180 83 9;      /* saffron second */
 }
 :root:not(#rnd)[data-app='attendance']:not([data-palette='indigo']) {
   --act: 168 90 0; --act-hover: 143 77 0; --act-ink: 168 90 0;       /* Amber #A85A00, 5.1:1 */
-  --marker: 168 90 0; --tint: 250 245 240; --act-2: 91 71 196;      /* violet second */
+  --marker: 168 90 0; --tint: 247 247 247; --act-2: 91 71 196;      /* violet second */
 }
 
 /* Light only (owner, 15 Nov 2026): there is no dark theme. */
