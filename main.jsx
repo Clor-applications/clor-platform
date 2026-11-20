@@ -10,6 +10,8 @@ import './packages/ui/src/rnd.css';
 import './packages/ui/src/picks.css';
 /* Legibility (19 Nov 2026): shell and Workspace text sizes and weights, after the picks so it wins. */
 import './packages/ui/src/legibility.css';
+/* UI polish (21 Nov 2026): icon strokes, optical button padding, photo edges, overlay scroll; never in Books. */
+import './packages/ui/src/polish.css';
 import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
 import TipLayer from './packages/ui/src/components/ui/TipLayer';

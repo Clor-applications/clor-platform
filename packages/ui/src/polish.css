@@ -1,0 +1,53 @@
+/*
+ * UI polish (owner, 21 Nov 2026: "upgrade complete platform exclude books").
+ *
+ * Small exact fixes from the better-ui pass: icon strokes that match the text beside them,
+ * the icon side of a button set optically, photos with a faint edge, overlays that keep their
+ * scroll to themselves, no grey flash on tap, and an edge for shadow-drawn outlines in
+ * Windows high-contrast mode. Every rule is scoped away from Books ([data-palette='indigo']),
+ * like picks.css. Hover-on-pointer lives in postcss.config.js and tailwind.config.js.
+ */
+
+/* Icon stroke follows the text weight. Lucide draws on a 24px grid, so its stroke-width 2 paints
+   about 1.33px at 16px: thinner than the 500-weight button labels beside it. The stroke is fixed
+   in screen pixels: 1.5px beside regular text, 2px beside medium and semibold. Icons that set
+   their own width (anything but the default 2) keep it. */
+:root:not([data-palette='indigo']) svg.lucide[stroke-width='2'] :is(path, line, polyline, polygon, circle, ellipse, rect) {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.5px;
+}
+:root:not([data-palette='indigo']) :is(.ui-btn, .ws-btn, .ui-page-btn, .ui-btn-choice[aria-pressed='true'], [aria-current='page'], [aria-selected='true'], .font-medium, .font-semibold, .font-bold) svg.lucide[stroke-width='2'] :is(path, line, polyline, polygon, circle, ellipse, rect) {
+  stroke-width: 2px;
+}
+
+/* Optical alignment: an icon and a word in a button look off-centre with even padding, because the
+   icon's box carries empty space the word does not. The icon side gets 2px less. */
+/* Sizes come from rnd.css (1rem, small 0.75rem); the id steps out-rank its :not(#rnd). */
+:root:not(#po):not(#po2):not([data-palette='indigo']) .ui-btn:not(.ui-icon-btn):has(> svg:first-child) { padding-inline-start: calc(1rem - 2px); }
+:root:not(#po):not(#po2):not([data-palette='indigo']) .ui-btn-sm:not(.ui-icon-btn):has(> svg:first-child) { padding-inline-start: calc(0.75rem - 2px); }
+
+/* Photos get a 1px edge in pure black at 10%, inset, so a white or pale photo does not melt into
+   the white page. Only photographs: emoji icons, logos and illustrations stay as drawn. */
+:root:not([data-palette='indigo']) :is(.ui-avatar-photo, .people-face, .oc-avatar, .ui-doc-preview, .ui-photo, .ui-topbar img.rounded-full) {
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
+
+/* Scrolling to the end of a dialog, drawer, menu or list stops there instead of moving the page behind. */
+:root:not([data-palette='indigo']) :is([role='dialog'], [role='menu'], [role='listbox'], .ui-in-pop) :is(.overflow-y-auto, .overflow-auto),
+:root:not([data-palette='indigo']) :is([role='dialog'], [role='menu'], [role='listbox']) {
+  overscroll-behavior: contain;
+}
+
+/* Our controls draw their own pressed state; the browser's grey tap flash doubled it on phones. */
+:root:not([data-palette='indigo']) :is(button, a, summary, label, [role='button'], [role='tab'], [role='menuitem'], [role='option'], [role='switch']) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* High-contrast mode removes every box-shadow, and these draw their outline with one. */
+@media (forced-colors: active) {
+  :root:not([data-palette='indigo']) :is(.ws-tile, .people-tag-swatch, .oc-frame, .oc-count, .oc-zoom, .oc-card, .oc-legend-float, .ops-kpi[aria-pressed='true'], .ops-nav-item[aria-current='page'], .ui-pill-outline, .ui-split-mod[aria-pressed='true']) {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+}
