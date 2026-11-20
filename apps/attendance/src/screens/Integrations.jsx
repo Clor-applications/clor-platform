@@ -32,6 +32,7 @@ import {
   updateWebhook,
 } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { FormPart } from '@ui/components/ui/FormPart';
 import { requestOpenApp } from '@platform/context';
 import { errorWords } from '@ui/utils/errorWords';
 
@@ -420,7 +421,7 @@ function Connectors({ onShown }) {
       ) : null}
 
       {form ? (
-        <form onSubmit={save} className="ui-card grid gap-4 p-4" aria-label={form.id ? 'Edit connector' : 'New connector'}>
+        <form onSubmit={save} className="grid gap-4" aria-label={form.id ? 'Edit connector' : 'New connector'}>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder="e.g. Head office server" /></label>
             <label className="block"><span className="ui-label">Checks in every (seconds)</span><input type="number" min={30} max={900} className="ui-input w-full" value={form.pollSeconds} onChange={set('pollSeconds')} /></label>
@@ -594,12 +595,13 @@ function HrTools() {
       ) : <p className="ui-caption">Nothing connected yet.</p>}
 
       {form ? (
-        <form onSubmit={save} className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'rgb(var(--surface-sunken))' }} aria-label={form.id ? 'Edit connection' : 'New connection'}>
-          <div className="flex items-baseline justify-between gap-2">
-            <h3 className="ui-t-sec">{adapter(form.adapter)?.label || form.adapter}</h3>
-            {adapter(form.adapter)?.docsUrl ? <a className="ui-link text-sm" href={adapter(form.adapter).docsUrl} target="_blank" rel="noreferrer">How to get the keys</a> : null}
-          </div>
-          <p className="ui-caption">{adapter(form.adapter)?.blurb}</p>
+        <form onSubmit={save} aria-label={form.id ? 'Edit connection' : 'New connection'}>
+          <FormPart
+            title={adapter(form.adapter)?.label || form.adapter}
+            description={adapter(form.adapter)?.blurb || ''}
+            action={adapter(form.adapter)?.docsUrl ? <a className="ui-link text-sm" href={adapter(form.adapter).docsUrl} target="_blank" rel="noreferrer">How to get the keys</a> : null}
+          >
+          <div className="space-y-3">
           {adapter(form.adapter)?.prerequisites?.length ? (
             <div className="rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgb(var(--surface))' }}>
               <p className="font-semibold">Before you start</p>
@@ -634,6 +636,8 @@ function HrTools() {
             <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy === 'save'}>{busy === 'save' ? 'Saving…' : form.id ? 'Save' : 'Connect'}</button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setForm(null)}>Cancel</button>
           </div>
+          </div>
+          </FormPart>
         </form>
       ) : null}
 

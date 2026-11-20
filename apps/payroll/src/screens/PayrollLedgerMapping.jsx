@@ -151,7 +151,7 @@ export default function PayrollLedgerMapping() {
             </div>
           )}
 
-          <div className="ui-card overflow-hidden">
+          <div className="ui-list-surface overflow-hidden">
             <div className="ui-table-scroll">
               <table className="ui-table ui-table-sticky w-full">
                 <thead>

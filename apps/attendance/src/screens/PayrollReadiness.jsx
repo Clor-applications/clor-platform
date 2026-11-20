@@ -128,7 +128,7 @@ export default function PayrollReadiness({ openScreen, menuLabel }) {
             )}
 
             {data.blockers.length ? (
-              <section className="ui-card overflow-hidden" aria-labelledby="blockers-h">
+              <section className="ui-list-surface overflow-hidden" aria-labelledby="blockers-h">
                 <div className="px-4 pt-4 pb-2">
                   <h2 id="blockers-h" className="ui-t-sec">People in the way</h2>
                   <p className="ui-caption">Worst first. Open a name to see their days.</p>

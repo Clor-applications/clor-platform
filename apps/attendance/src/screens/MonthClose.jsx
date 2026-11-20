@@ -248,7 +248,7 @@ export default function MonthClose({ openScreen, params }) {
             </div>
           </section>
 
-          <section className="ui-card overflow-hidden" aria-labelledby="checks-h">
+          <section className="ui-list-surface overflow-hidden" aria-labelledby="checks-h">
             <h2 id="checks-h" className="ui-t-sec px-4 pt-4 pb-2">Checklist</h2>
             <ul className="divide-y">
               {data.checks.map((c) => (
@@ -292,7 +292,7 @@ export default function MonthClose({ openScreen, params }) {
           {/* Closed: its days are final, so they can go to a payroll outside CLOR. The whole company's, like the reports. */}
           {data.closed && !teamOnly ? <PayrollExport month={month} monthLabel={monthName(month)} /> : null}
 
-          <section className="ui-card overflow-hidden" aria-labelledby="people-h">
+          <section className="ui-list-surface overflow-hidden" aria-labelledby="people-h">
             <div className="px-4 pt-4 pb-2 space-y-2">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <h2 id="people-h" className="ui-t-sec">By person</h2>
@@ -366,7 +366,7 @@ export default function MonthClose({ openScreen, params }) {
           </section>
 
           {data.snapshots?.length ? (
-            <section className="ui-card overflow-hidden" aria-labelledby="snap-h">
+            <section className="ui-list-surface overflow-hidden" aria-labelledby="snap-h">
               <h2 id="snap-h" className="ui-t-sec px-4 pt-4 pb-2">What Payroll took</h2>
               <ul className="divide-y">
                 {data.snapshots.map((s) => (

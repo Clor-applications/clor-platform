@@ -398,7 +398,7 @@ function RuleHistory({ shifts, attempt }) {
   const fromWords = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   if (!versions?.length) return null;
   return (
-    <section className="ui-card overflow-hidden" aria-labelledby="history-h">
+    <section className="ui-list-surface overflow-hidden" aria-labelledby="history-h">
       <div className="flex items-center justify-between px-4 pt-4 pb-2"><h2 id="history-h" className="ui-t-sec">Changes to the rules</h2><button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={load}>Refresh</button></div>
       <ol className="divide-y">
         {versions.slice(0, 30).map((v) => {

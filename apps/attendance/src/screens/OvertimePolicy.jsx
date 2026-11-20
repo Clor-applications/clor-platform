@@ -96,7 +96,7 @@ export default function OvertimePolicy({ openScreen }) {
           </section>
         ) : null}
 
-        <section className="ui-card overflow-hidden" aria-labelledby="ot-shifts-h">
+        <section className="ui-list-surface overflow-hidden" aria-labelledby="ot-shifts-h">
           <div className="px-4 pt-4 pb-3">
             <h2 id="ot-shifts-h" className="ui-t-sec">When overtime starts</h2>
             <p className="ui-caption">Minutes worked on a day before the rest counts as overtime. Blank means after the shift’s full day.</p>

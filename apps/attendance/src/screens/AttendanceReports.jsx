@@ -293,7 +293,7 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
         ) : null}
 
         {result ? (
-          <section className="ui-card overflow-hidden" aria-label={result.title} aria-busy={running || undefined}>
+          <section className="ui-list-surface overflow-hidden" aria-label={result.title} aria-busy={running || undefined}>
             <div className="flex flex-wrap items-start justify-between gap-2 px-4 pt-3">
               <div className="min-w-0">
                 {/* The page title names the report; the printed copy keeps the register's own title (result.title). */}

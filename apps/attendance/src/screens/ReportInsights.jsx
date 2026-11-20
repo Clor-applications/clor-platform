@@ -125,7 +125,7 @@ export default function ReportInsights({ openScreen }) {
               <Trend title="Approved overtime" caption="Hours, as payroll pays them." points={data.trend.map((t) => ({ month: t.month, value: t.overtimeHours }))} unit=" h" tone="neutral" />
             </div>
 
-            <section className="ui-card overflow-hidden" aria-labelledby="dept-h">
+            <section className="ui-list-surface overflow-hidden" aria-labelledby="dept-h">
               <div className="px-4 pt-4 pb-2">
                 <h2 id="dept-h" className="ui-t-sec">This month by department</h2>
                 <p className="ui-caption">Highest absenteeism first.</p>

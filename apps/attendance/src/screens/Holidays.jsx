@@ -167,7 +167,7 @@ export default function Holidays({ openScreen } = {}) {
       above={
         <>
         <StateMinimum rows={minimum} year={year} />
-        <form onSubmit={add} className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Add a holiday">
+        <form onSubmit={add} className="flex flex-wrap items-end gap-3" aria-label="Add a holiday">
           <label className="block"><span className="ui-label">Date</span><input ref={dateRef} type="date" className="ui-input" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
           <label className="block min-w-[14rem] flex-1"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Diwali" /></label>
           {areas.length || branches.length > 1 ? (

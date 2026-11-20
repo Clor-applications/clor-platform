@@ -306,8 +306,8 @@ export default function PayrollCompliance({ params } = {}) {
       ) : null}
 
       {checks.length ? (
-        <section className="ui-card overflow-hidden" aria-labelledby="check-before-use">
-          <div className="flex items-start gap-2 px-4 py-3" style={{ background: 'rgb(var(--warn-soft))', borderBottom: '1px solid rgb(var(--border))' }}>
+        <section className="ui-list-surface overflow-hidden" aria-labelledby="check-before-use">
+          <div className="flex items-start gap-2 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
             <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
             <div className="min-w-0">
               <h3 id="check-before-use" className="ui-t-sec">Check before use</h3>
@@ -344,7 +344,7 @@ export default function PayrollCompliance({ params } = {}) {
       ) : null}
 
       {offers.length ? (
-        <section className="ui-card overflow-hidden" aria-labelledby="clor-newer">
+        <section className="ui-list-surface overflow-hidden" aria-labelledby="clor-newer">
           <div className="px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
             <h3 id="clor-newer" className="ui-t-sec">CLOR has newer figures</h3>
             <p className="ui-caption">
@@ -398,7 +398,7 @@ export default function PayrollCompliance({ params } = {}) {
                   .sort((a, b) => String(a.jurisdiction).localeCompare(String(b.jurisdiction)) || (a.effectiveFrom < b.effectiveFrom ? 1 : -1))
               : scheme.rules;
             return (
-              <section key={scheme.id} id={`scheme-section-${scheme.code}`} className="ui-card overflow-hidden">
+              <section key={scheme.id} id={`scheme-section-${scheme.code}`} className="ui-list-surface overflow-hidden">
                 <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">

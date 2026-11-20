@@ -256,7 +256,7 @@ function ReaderList({ readers, onTimeline }) {
   const sorted = [...readers].sort((a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || a.name.localeCompare(b.name));
   const [openId, setOpenId] = useState(null);
   return (
-    <div className="ui-card overflow-hidden">
+    <div className="ui-list-surface overflow-hidden">
       <div className="ui-table-scroll">
         <table className="ui-table w-full">
           <thead>

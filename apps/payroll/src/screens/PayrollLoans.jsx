@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FormPart } from '@ui/components/ui/FormPart';
 import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { ArrowLeft, Ban, Check, HandCoins, Plus, RotateCcw, SkipForward, X } from '@ui/components/ui/lineIcons';
 
@@ -343,114 +344,116 @@ const LoanForm = ({ people, components, periods, onCancel, onCreated }) => {
   };
 
   return (
-    <form className="ui-card p-4 space-y-3" onSubmit={save}>
-      <div className="ui-sec-head">New loan</div>
+    <form className="space-y-4" onSubmit={save}>
+      <FormPart title="New loan" id="new-loan">
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="ui-label" htmlFor="loan-employee">Employee</label>
+              <select id="loan-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.code ? ` · ${p.code}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="loan-type">Type</label>
+              <select id="loan-type" className="ui-select w-full" value={form.type} onChange={(e) => set({ type: e.target.value })}>
+                {TYPES.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="loan-principal">Amount lent</label>
+              <input
+                id="loan-principal"
+                type="number"
+                min="0"
+                step="0.01"
+                className="ui-input ui-num w-full"
+                value={form.principal}
+                onChange={(e) => set({ principal: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="loan-date">Lent on</label>
+              <input id="loan-date" type="date" className="ui-input w-full" value={form.startDate} onChange={(e) => set({ startDate: e.target.value })} required />
+            </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div>
-          <label className="ui-label" htmlFor="loan-employee">Employee</label>
-          <select id="loan-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
-            {people.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}{p.code ? ` · ${p.code}` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="loan-type">Type</label>
-          <select id="loan-type" className="ui-select w-full" value={form.type} onChange={(e) => set({ type: e.target.value })}>
-            {TYPES.map((t) => (
-              <option key={t.id} value={t.id}>{t.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="loan-principal">Amount lent</label>
-          <input
-            id="loan-principal"
-            type="number"
-            min="0"
-            step="0.01"
-            className="ui-input ui-num w-full"
-            value={form.principal}
-            onChange={(e) => set({ principal: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="loan-date">Lent on</label>
-          <input id="loan-date" type="date" className="ui-input w-full" value={form.startDate} onChange={(e) => set({ startDate: e.target.value })} required />
-        </div>
+            <div>
+              <label className="ui-label" htmlFor="loan-count">Instalments</label>
+              <input
+                id="loan-count"
+                type="number"
+                min="1"
+                max="600"
+                className="ui-input ui-num w-full"
+                value={form.installmentCount}
+                onChange={(e) => set({ installmentCount: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="loan-rate">Interest (% a year)</label>
+              <input
+                id="loan-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                className="ui-input ui-num w-full"
+                value={form.interestRate}
+                onChange={(e) => set({ interestRate: e.target.value })}
+              />
+              <span className="ui-caption">Flat, on the whole amount, over the term.</span>
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="loan-start-period">Recovery starts</label>
+              <select
+                id="loan-start-period"
+                className="ui-select w-full"
+                value={form.recoveryStartPeriodId}
+                onChange={(e) => set({ recoveryStartPeriodId: e.target.value })}
+                required
+              >
+                {periods.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="loan-component">Shows on the payslip as</label>
+              <select
+                id="loan-component"
+                className="ui-select w-full"
+                value={form.recoveryComponentId}
+                onChange={(e) => set({ recoveryComponentId: e.target.value })}
+                required
+              >
+                {components.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-        <div>
-          <label className="ui-label" htmlFor="loan-count">Instalments</label>
-          <input
-            id="loan-count"
-            type="number"
-            min="1"
-            max="600"
-            className="ui-input ui-num w-full"
-            value={form.installmentCount}
-            onChange={(e) => set({ installmentCount: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="loan-rate">Interest (% a year)</label>
-          <input
-            id="loan-rate"
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            className="ui-input ui-num w-full"
-            value={form.interestRate}
-            onChange={(e) => set({ interestRate: e.target.value })}
-          />
-          <span className="ui-caption">Flat, on the whole amount, over the term.</span>
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="loan-start-period">Recovery starts</label>
-          <select
-            id="loan-start-period"
-            className="ui-select w-full"
-            value={form.recoveryStartPeriodId}
-            onChange={(e) => set({ recoveryStartPeriodId: e.target.value })}
-            required
-          >
-            {periods.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="loan-component">Shows on the payslip as</label>
-          <select
-            id="loan-component"
-            className="ui-select w-full"
-            value={form.recoveryComponentId}
-            onChange={(e) => set({ recoveryComponentId: e.target.value })}
-            required
-          >
-            {components.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+          <div>
+            <label className="ui-label" htmlFor="loan-notes">Notes</label>
+            <input id="loan-notes" className="ui-input w-full" value={form.notes} onChange={(e) => set({ notes: e.target.value })} />
+          </div>
 
-      <div>
-        <label className="ui-label" htmlFor="loan-notes">Notes</label>
-        <input id="loan-notes" className="ui-input w-full" value={form.notes} onChange={(e) => set({ notes: e.target.value })} />
-      </div>
-
-      {schedule ? (
-        <p className="ui-caption">
-          {count} {count === 1 ? 'instalment' : 'instalments'} of about {money(schedule.schedule[0]?.dueAmount)}, {money(schedule.total)} in all
-          {schedule.interest > 0 ? `, ${money(schedule.interest)} of it interest` : ''}. Nothing comes out of anybody's pay until this is approved.
-        </p>
-      ) : null}
+          {schedule ? (
+            <p className="ui-caption">
+              {count} {count === 1 ? 'instalment' : 'instalments'} of about {money(schedule.schedule[0]?.dueAmount)}, {money(schedule.total)} in all
+              {schedule.interest > 0 ? `, ${money(schedule.interest)} of it interest` : ''}. Nothing comes out of anybody's pay until this is approved.
+            </p>
+          ) : null}
+        </div>
+      </FormPart>
 
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
@@ -573,7 +576,7 @@ const LoanDetail = ({ loanId, onBack }) => {
       ) : null}
 
       {loan.installments?.length ? (
-        <div className="ui-card overflow-hidden">
+        <div className="ui-list-surface overflow-hidden">
           <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
             The schedule
           </div>

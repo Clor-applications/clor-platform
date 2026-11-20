@@ -318,7 +318,7 @@ function Register({ data }) {
   if (full) return <FullRegister data={data} switcher={switcher} />;
   const parts = (r, type) => data.columns.filter((c) => c.type === type && r.amounts[c.code]);
   return (
-    <div className="ui-card overflow-hidden">
+    <div className="ui-list-surface overflow-hidden">
       {switcher}
       <div className="ui-table-scroll">
         <table className="ui-table w-full">
@@ -389,7 +389,7 @@ function Register({ data }) {
 }
 
 const FullRegister = ({ data, switcher }) => (
-  <div className="ui-card overflow-hidden">
+  <div className="ui-list-surface overflow-hidden">
     {switcher}
     <div className="ui-table-scroll">
       <table className="ui-table ui-table-sticky w-full">
@@ -439,7 +439,7 @@ const FullRegister = ({ data, switcher }) => (
 const Statutory = ({ data }) => (
   <div className="space-y-4">
     {data.schemes.map((s) => (
-      <section key={s.scheme} className="ui-card overflow-hidden">
+      <section key={s.scheme} className="ui-list-surface overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
           <div className="ui-sec-head">{SCHEME_NAMES[s.scheme] || s.scheme}</div>
           <div className="ui-caption">
@@ -486,7 +486,7 @@ const Statutory = ({ data }) => (
 );
 
 const Variance = ({ data }) => (
-  <div className="ui-card overflow-hidden">
+  <div className="ui-list-surface overflow-hidden">
     <div className="px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
       <div className="ui-sec-head">
         {data.count} of {data.totalSlips} {data.totalSlips === 1 ? 'payslip' : 'payslips'} worth a second look
@@ -528,7 +528,7 @@ const Variance = ({ data }) => (
 );
 
 const Cost = ({ data }) => (
-  <div className="ui-card overflow-hidden">
+  <div className="ui-list-surface overflow-hidden">
     <div className="ui-table-scroll">
       <table className="ui-table ui-table-sticky w-full">
         <thead>
@@ -614,7 +614,7 @@ const Problems = ({ rows, fixable = false }) =>
 
 function FilingCard({ title, summary, note, problems, checklist, onDownload, disabled, label, children }) {
   return (
-    <section className="ui-card overflow-hidden">
+    <section className="ui-list-surface overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
           <div className="ui-sec-head">{title}</div>

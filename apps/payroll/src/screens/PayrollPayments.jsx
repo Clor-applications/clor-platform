@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FormPart } from '@ui/components/ui/FormPart';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlertTriangle, ArrowLeft, Ban, Check, Download, Plus, Wallet, X } from '@ui/components/ui/lineIcons';
 
@@ -328,74 +329,76 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
   };
 
   return (
-    <form className="ui-card p-4 space-y-3" onSubmit={save}>
-      <div className="ui-sec-head">New payment</div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div>
-          <label className="ui-label" htmlFor="pay-run">Payroll</label>
-          <select id="pay-run" className="ui-select w-full" value={form.runId} onChange={(e) => set({ runId: e.target.value })} required>
-            {runs.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.number} · {r.period?.name || dateWords(r.payrollDate)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="pay-date">Payment date</label>
-          <input id="pay-date" type="date" className="ui-input w-full" value={form.paymentDate} onChange={(e) => set({ paymentDate: e.target.value })} required />
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="pay-method">Payment method</label>
-          <select id="pay-method" className="ui-select w-full" value={form.method} onChange={(e) => set({ method: e.target.value })}>
-            {METHODS.map((m) => (
-              <option key={m.id} value={m.id}>{m.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="ui-label" htmlFor="pay-bank">Paid from</label>
-          <select id="pay-bank" className="ui-select w-full" value={form.ledgerAccountId} onChange={(e) => set({ ledgerAccountId: e.target.value })}>
-            <option value="">Decide later</option>
-            {banks.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-          <span className="ui-caption">The account the money leaves. Needed before this payment is posted to accounts.</span>
-        </div>
-      </div>
-
-      <div>
-        <label className="ui-label" htmlFor="pay-ref">Reference</label>
-        <input
-          id="pay-ref"
-          className="ui-input w-full"
-          value={form.reference}
-          onChange={(e) => set({ reference: e.target.value })}
-          placeholder="The batch number your bank gave it, if you have one"
-        />
-      </div>
-
-      {previewing ? (
-        <p className="ui-caption">Working out who is owed…</p>
-      ) : preview ? (
+    <form className="space-y-4" onSubmit={save}>
+      <FormPart title="New payment" id="new-payment">
         <div className="space-y-3">
-          <p className="ui-caption">
-            {preview.payable.length} {preview.payable.length === 1 ? 'person' : 'people'} owed {money(preview.totalAmount)}
-            {preview.blocked.length ? ` · ${preview.blocked.length} already in another payment` : ''}
-          </p>
-          {preview.missingBankDetails ? (
-            <div className="flex items-start gap-2">
-              <AlertTriangle size={15} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="ui-label" htmlFor="pay-run">Payroll</label>
+              <select id="pay-run" className="ui-select w-full" value={form.runId} onChange={(e) => set({ runId: e.target.value })} required>
+                {runs.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.number} · {r.period?.name || dateWords(r.payrollDate)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="pay-date">Payment date</label>
+              <input id="pay-date" type="date" className="ui-input w-full" value={form.paymentDate} onChange={(e) => set({ paymentDate: e.target.value })} required />
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="pay-method">Payment method</label>
+              <select id="pay-method" className="ui-select w-full" value={form.method} onChange={(e) => set({ method: e.target.value })}>
+                {METHODS.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="pay-bank">Paid from</label>
+              <select id="pay-bank" className="ui-select w-full" value={form.ledgerAccountId} onChange={(e) => set({ ledgerAccountId: e.target.value })}>
+                <option value="">Decide later</option>
+                {banks.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              <span className="ui-caption">The account the money leaves. Needed before this payment is posted to accounts.</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="ui-label" htmlFor="pay-ref">Reference</label>
+            <input
+              id="pay-ref"
+              className="ui-input w-full"
+              value={form.reference}
+              onChange={(e) => set({ reference: e.target.value })}
+              placeholder="The batch number your bank gave it, if you have one"
+            />
+          </div>
+
+          {previewing ? (
+            <p className="ui-caption">Working out who is owed…</p>
+          ) : preview ? (
+            <div className="space-y-3">
               <p className="ui-caption">
-                {preview.missingBankDetails} {preview.missingBankDetails === 1 ? 'person has' : 'people have'} no bank account on file. They can
-                still be in the batch and marked paid by hand, but they will not be in the file for the bank.
+                {preview.payable.length} {preview.payable.length === 1 ? 'person' : 'people'} owed {money(preview.totalAmount)}
+                {preview.blocked.length ? ` · ${preview.blocked.length} already in another payment` : ''}
               </p>
+              {preview.missingBankDetails ? (
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={15} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
+                  <p className="ui-caption">
+                    {preview.missingBankDetails} {preview.missingBankDetails === 1 ? 'person has' : 'people have'} no bank account on file. They can
+                    still be in the batch and marked paid by hand, but they will not be in the file for the bank.
+                  </p>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
-      ) : null}
+      </FormPart>
 
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
@@ -565,7 +568,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
           </div>
         </div>
       ) : posting?.lines?.length ? (
-        <div className="ui-card overflow-hidden">
+        <div className="ui-list-surface overflow-hidden">
           <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
             What this posts to accounts
           </div>
@@ -592,7 +595,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
         </div>
       ) : null}
 
-      <div className="ui-card overflow-hidden">
+      <div className="ui-list-surface overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
           <div className="ui-sec-head">Who is being paid</div>
           <div className="flex items-center gap-2">

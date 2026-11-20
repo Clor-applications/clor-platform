@@ -81,7 +81,7 @@ export default function WeeklyOffPolicy({ openScreen }) {
             action={openScreen ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('shifts')}>Open Shifts</button> : null}
           />
         ) : (
-          <div className="ui-card overflow-hidden">
+          <div className="ui-list-surface overflow-hidden">
             <div className="ui-table-scroll">
               <table className="ui-table w-full">
                 <thead>
