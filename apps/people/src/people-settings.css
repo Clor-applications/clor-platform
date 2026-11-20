@@ -17,7 +17,7 @@
 :root[data-palette='sky'] #main-content .ui-settings-row-icon {
   width: 2.5rem;
   height: 2.5rem;
-  border-radius: 0.625rem;
+  border-radius: 0.5rem;
 }
 :root[data-palette='sky'] #main-content [data-tone] .ui-settings-row-icon {
   background: color-mix(in srgb, rgb(var(--set-tone)) 12%, rgb(var(--surface)));
@@ -85,7 +85,7 @@
   width: 2.5rem;
   height: 2.5rem;
   margin-bottom: 0.75rem;
-  border-radius: 0.625rem;
+  border-radius: 0.5rem;
   background: color-mix(in srgb, rgb(var(--set-tone, var(--cat-1))) 12%, rgb(var(--surface)));
 }
 :root[data-palette='sky'] #main-content .people-module-switch { grid-area: switch; margin: -0.5rem -0.25rem 0 0; }
@@ -109,7 +109,7 @@
   place-items: center;
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   color: rgb(255 255 255);
   font-size: 0.8125rem;
   font-weight: 700;
