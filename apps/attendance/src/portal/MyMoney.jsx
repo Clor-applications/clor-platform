@@ -232,7 +232,7 @@ function BillForm({ data, guard, onDone, onCancel }) {
       </div>
       {file ? (
         <div className="flex items-center gap-3 text-sm">
-          {preview ? <img src={preview} alt="The bill" className="h-16 w-16 rounded-lg object-cover" /> : <FileText size={18} aria-hidden="true" />}
+          {preview ? <img src={preview} alt="The bill" className="ui-photo h-16 w-16 rounded-lg object-cover" /> : <FileText size={18} aria-hidden="true" />}
           <span className="min-w-0 flex-1 truncate">{file.name}</span>
           <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { setFile(null); setPreview(''); }}>Remove</button>
         </div>

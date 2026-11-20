@@ -297,7 +297,7 @@ export default function PhonePunches({ menuLabel } = {}) {
         </div>
       )}
       <Drawer open={Boolean(photo)} onClose={() => setPhoto(null)} title="Selfie" description={photo?.caption || ''} widthClass="w-[min(28rem,96vw)]">
-        {photo ? <img src={photo.src} alt={photo.caption} className="w-full rounded-lg" /> : null}
+        {photo ? <img src={photo.src} alt={photo.caption} className="ui-photo w-full rounded-lg" /> : null}
       </Drawer>
     </DocumentListShell>
   );

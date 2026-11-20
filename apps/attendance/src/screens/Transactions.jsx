@@ -261,7 +261,7 @@ export default function Transactions({ title = 'Punches' }) {
       {photo ? (
         <Modal onClose={() => setPhoto(null)} title="Punch selfie" maxWidthClass="max-w-md">
           <figure className="space-y-2">
-            <img src={photo.src} alt={`Selfie: ${photo.caption}`} className="mx-auto max-h-[60vh] rounded-lg-md" />
+            <img src={photo.src} alt={`Selfie: ${photo.caption}`} className="ui-photo mx-auto max-h-[60vh] rounded-lg-md" />
             <figcaption className="ui-caption text-center">{photo.caption}</figcaption>
           </figure>
         </Modal>

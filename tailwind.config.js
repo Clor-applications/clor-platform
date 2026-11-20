@@ -1,5 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  /* hover: styles only on a real pointer. On a phone a tapped row or button kept its
+     hover look until the next tap, which read as a stuck selection (UI polish, 21 Nov 2026). */
+  future: { hoverOnlyWhenSupported: true },
   content: [
     './index.html',
     './main.jsx',

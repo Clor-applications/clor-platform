@@ -492,7 +492,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
                 {Object.entries(open.payload.fields).map(([k, v]) => (
                   k === 'photoUrl' && open.payload.data?.photoUrl
                     /* A new photo is shown, not described: HR sees what they are approving. */
-                    ? <li key={k} className="flex items-center gap-3"><span className="ui-muted">Photo:</span><img src={open.payload.data.photoUrl} alt="New photo asked for" className="h-16 w-16 rounded-xl object-cover" /></li>
+                    ? <li key={k} className="flex items-center gap-3"><span className="ui-muted">Photo:</span><img src={open.payload.data.photoUrl} alt="New photo asked for" className="ui-photo h-16 w-16 rounded-xl object-cover" /></li>
                     : <li key={k}><span className="ui-muted">{FIELD_WORDS[k] || SCHEDULED_LABELS[k] || 'Other detail'}</span>: <span className="ui-muted">{String(v.before ?? 'None')}</span> → <strong>{String(v.after ?? 'None')}</strong></li>
                 ))}
               </ul>

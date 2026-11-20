@@ -142,7 +142,7 @@ export default function Enrolments({ menuLabel } = {}) {
         <div className="ui-nav-sheet" role="dialog" aria-modal="true" aria-label="Photo from the reader" onClick={() => setPhoto(null)}>
           <div className="ui-nav-sheet-backdrop" aria-hidden="true" />
           <div className="ui-card p-3 space-y-2" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', maxWidth: '20rem' }} onClick={(e) => e.stopPropagation()}>
-            <img src={photo.src} alt={photo.caption} className="w-full rounded-lg" />
+            <img src={photo.src} alt={photo.caption} className="ui-photo w-full rounded-lg" />
             <div className="flex items-center justify-between gap-2">
               <span className="ui-caption">{photo.caption}</span>
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setPhoto(null)}>Close</button>
