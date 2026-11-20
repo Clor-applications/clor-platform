@@ -11,7 +11,7 @@ import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
 import { hasApp, platformContext } from '@platform/context';
 import { exceptionsFirst } from '@ui/components/ui/ExceptionTag';
-import { Empty, FilterSelect, Loading, PageHead, WsDrawer } from './wsKit';
+import { Empty, FilterSelect, LoadError, Loading, PageHead, WsDrawer, askDiscard } from './wsKit';
 import './workspace.css';
 import './ws-home.css';
 import './ws-security.css';
@@ -25,8 +25,8 @@ const PAGE_ICON = emoji('convenience-store');
  *
  * A company's places of business and GST locations: a directory with search
  * and sorting, the record in a drawer, and adding or editing one there. The
- * head office (code HO) is kept in step with the company's own address and
- * GSTIN when its fields are empty. A branch is deleted only while it has no
+ * head office (code HO) can take the company's own address and GSTIN into
+ * its empty fields, when somebody here says so (it was written on every load). A branch is deleted only while it has no
  * transactions — the server refuses otherwise and says so.
  *
  * Where the company keeps books, a branch also says what it does: Service,
@@ -63,6 +63,15 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
   const [drawer, setDrawer] = useState(null);
   const [menuFor, setMenuFor] = useState(null);
   const menuAnchorRef = useRef(null);
+  /* A failed list: said with a retry, never as "no branches". Kept apart from an action's error. */
+  const [loadError, setLoadError] = useState('');
+  /* The row whose status change or delete is out: its menu waits, so nothing is sent twice. */
+  const [rowBusy, setRowBusy] = useState(null);
+  /* The open form holds edits: closing the drawer asks first. */
+  const [formDirty, setFormDirty] = useState(false);
+  /* What the head office lacks that the company profile has, offered as one click (not written on load). */
+  const [headFill, setHeadFill] = useState(null);
+  const [filling, setFilling] = useState(false);
 
   const companyDefaults = useMemo(() => {
     const profile = company?.profile?.companySettings || {};
@@ -84,10 +93,10 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
 
   const load = useCallback(async () => {
     if (!orgId) return;
-    setError('');
+    setLoadError('');
     try {
       const res = await listBranches(orgId);
-      let rows = Array.isArray(res.branches) ? res.branches : [];
+      const rows = Array.isArray(res.branches) ? res.branches : [];
       const headOffice = rows.find((b) => String(b.branchCode || '').trim().toUpperCase() === 'HO');
       if (headOffice) {
         /* A company GSTIN that fails its own check is not copied down, and a head office already carrying a bad one keeps its state and registration until that is corrected. */
@@ -101,15 +110,14 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
               !(badGstinHere && ['state', 'gstRegistrationType'].includes(key))
           )
         );
-        if (Object.keys(fill).length) {
-          const synced = await updateBranch(orgId, headOffice.id, fill);
-          if (synced?.branch) rows = rows.map((b) => (String(b.id) === String(headOffice.id) ? synced.branch : b));
-        }
+        /* Reading the list never writes: the fill waits for a click (audit, 21 Nov 2026: every visit sent a PATCH). */
+        setHeadFill(Object.keys(fill).length ? { id: headOffice.id, fill } : null);
+      } else {
+        setHeadFill(null);
       }
       setBranches(rows);
     } catch (err) {
-      setBranches((prev) => prev || []);
-      setError(errorWords(err, 'load the branches'));
+      setLoadError(errorWords(err, 'load the branches'));
     }
   }, [orgId, companyDefaults]);
   useEffect(() => {
@@ -129,21 +137,46 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
 
   const replace = (updated) => setBranches((prev) => (prev || []).map((b) => (String(b.id) === String(updated.id) ? updated : b)));
 
+  const fillHeadOffice = async () => {
+    if (!headFill || filling) return;
+    setFilling(true);
+    setError('');
+    try {
+      const synced = await updateBranch(orgId, headFill.id, headFill.fill);
+      if (synced?.branch) replace(synced.branch);
+      setHeadFill(null);
+      notify.success('Head office filled in from the company profile.');
+    } catch (err) {
+      setError(errorWords(err, 'fill in the head office'));
+    } finally {
+      setFilling(false);
+    }
+  };
+
+  /* An action's failure is said once, on the page; a toast as well said it twice. */
   const toggleStatus = async (branch) => {
     setMenuFor(null);
+    if (rowBusy) return;
+    setRowBusy(branch.id);
+    setError('');
     try {
       const res = await updateBranch(orgId, branch.id, { isActive: branch.isActive === false });
       if (res?.branch) replace(res.branch);
       notify.success(`Branch marked ${res?.branch?.isActive === false ? 'inactive' : 'active'}.`);
       onBranchesChanged?.();
     } catch (err) {
-      notify.error(errorWords(err, 'change the branch status'));
+      setError(errorWords(err, 'change the branch status'));
+    } finally {
+      setRowBusy(null);
     }
   };
 
   const remove = async (branch) => {
     setMenuFor(null);
-    if (!(await confirmDialog({ title: 'Delete branch?', message: 'Only a branch with no transactions can be deleted.', confirmLabel: 'Delete branch' }))) return;
+    if (rowBusy) return;
+    if (!(await confirmDialog({ title: `Delete ${branch.branchName || branch.branchCode || 'this branch'}?`, message: 'Only a branch with no transactions can be deleted. This cannot be undone.', confirmLabel: 'Delete branch', tone: 'danger' }))) return;
+    setRowBusy(branch.id);
+    setError('');
     try {
       await deleteBranch(orgId, branch.id);
       setBranches((prev) => (prev || []).filter((b) => b.id !== branch.id));
@@ -151,7 +184,9 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       notify.success('Branch deleted.');
       onBranchesChanged?.();
     } catch (err) {
-      notify.error(errorWords(err, 'delete the branch'));
+      setError(errorWords(err, 'delete the branch'));
+    } finally {
+      setRowBusy(null);
     }
   };
 
@@ -226,8 +261,18 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         />
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+        {headFill ? (
+          <p className="ws-notice">
+            The head office is missing details the company profile has.{' '}
+            <button type="button" className="ws-row-link" disabled={filling} aria-busy={filling || undefined} onClick={fillHeadOffice}>
+              {filling ? 'Filling in…' : 'Fill in from the company profile'}
+            </button>
+          </p>
+        ) : null}
 
-        {branches === null ? (
+        {branches === null && loadError ? (
+          <LoadError onRetry={load}>{loadError}</LoadError>
+        ) : branches === null ? (
           <Loading shape="rows" rows={3} label="Loading branches…" />
         ) : rows.length === 0 ? (
           <Empty icon={PAGE_ICON} compact actionNode={all.length ? null : <PermissionButton permission="MASTERS::Company/Branch setup::CREATE" type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setDrawer({ mode: 'create' })}>Add branch</PermissionButton>}>{all.length ? 'No branch matches this search.' : 'Each office, shop or warehouse of this company will be listed here.'}</Empty>
@@ -268,7 +313,9 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
                     <td>{b.state || '—'}</td>
                     <td className="ws-mono">{b.gstin || <span className="ws-missing">{gstEnabled ? 'Not added' : '—'}</span>}</td>
                     <td className="ws-mid">
-                      {b.isActive === false ? (
+                      {rowBusy === b.id ? (
+                        <span className="ws-cell-sub" role="status">Saving…</span>
+                      ) : b.isActive === false ? (
                         <span className="ws-state" data-tone="off">Inactive</span>
                       ) : !b.gstin && gstEnabled ? (
                         <span className="ws-state" data-tone="warn">Needs GSTIN</span>
@@ -283,6 +330,10 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
                         className="ws-rowmenu"
                         ref={menuFor === b.id ? menuAnchorRef : null}
                         aria-label={`Actions for ${b.branchName || b.branchCode}`}
+                        /* The actions open in a popover panel (role="dialog"), not a role="menu" list. */
+                        aria-haspopup="dialog"
+                        disabled={Boolean(rowBusy)}
+                        aria-busy={rowBusy === b.id || undefined}
                         aria-expanded={menuFor === b.id}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -353,7 +404,8 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
 
       <WsDrawer
         open={Boolean(drawer)}
-        onClose={() => setDrawer(null)}
+        onClose={() => { setDrawer(null); setFormDirty(false); }}
+        dirty={formDirty && (drawer?.mode === 'create' || drawer?.mode === 'edit')}
         title={drawer?.mode === 'create' ? 'Add a branch' : drawer?.mode === 'edit' ? 'Edit branch' : selected?.branchName || 'Branch'}
         description={drawer?.mode === 'create' ? '' : selected?.branchCode || ''}
         actions={
@@ -370,7 +422,8 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
             initial={{ ...EMPTY_NEW, gstRegistrationType: gstEnabled ? 'REGULAR' : 'UNREGISTERED' }}
             gstEnabled={gstEnabled}
             showType={showType}
-            onCancel={() => setDrawer(null)}
+            onDirty={setFormDirty}
+            onCancel={async () => { if (await askDiscard(formDirty)) { setFormDirty(false); setDrawer(null); } }}
             submitLabel="Add branch"
             onSubmit={async (f, w) => {
               const t = (v) => String(v || '').trim();
@@ -426,7 +479,8 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
             showType={showType}
             savedGstin={String(selected.gstin || '')}
             submitLabel="Save changes"
-            onCancel={() => setDrawer({ mode: 'view', id: String(selected.id) })}
+            onDirty={setFormDirty}
+            onCancel={async () => { if (await askDiscard(formDirty)) { setFormDirty(false); setDrawer({ mode: 'view', id: String(selected.id) }); } }}
             onSubmit={async (f) => {
               const t = (v) => String(v || '').trim();
               const payload = {
@@ -502,10 +556,17 @@ function BranchDetail({ branch: b, showType = false }) {
 }
 
 /** Adding or editing a branch. `onSubmit` throws with a sentence to show. */
-function BranchForm({ initial, editing = false, gstEnabled, showType = false, savedGstin = '', submitLabel, onSubmit, onCancel }) {
+function BranchForm({ initial, editing = false, gstEnabled, showType = false, savedGstin = '', submitLabel, onSubmit, onCancel, onDirty }) {
   const [f, setF] = useState(initial);
   /* The first warehouse of a new branch that holds stock. */
   const [w, setW] = useState(EMPTY_WAREHOUSE);
+  /* Edits not yet saved, told to the drawer so closing it asks first. */
+  const [startF] = useState(() => JSON.stringify(initial));
+  const dirty = JSON.stringify(f) !== startF || JSON.stringify(w) !== JSON.stringify(EMPTY_WAREHOUSE);
+  useEffect(() => {
+    onDirty?.(dirty);
+  }, [dirty, onDirty]);
+  useEffect(() => () => onDirty?.(false), [onDirty]);
   const setWarehouse = (k) => (e) => {
     const next = e.target.value;
     setError('');
@@ -565,11 +626,13 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
         setBusy(true);
         setError('');
         try {
+          /* Being saved: the drawer may close or move on without asking. */
+          onDirty?.(false);
           await onSubmit(f, w);
         } catch (err) {
-          const message = errorWords(err, 'save the branch');
-          setError(message);
-          notify.error(message);
+          onDirty?.(dirty);
+          /* Said once, in the form beside the fields: a toast as well said it twice. */
+          setError(errorWords(err, 'save the branch'));
         } finally {
           setBusy(false);
         }

@@ -64,6 +64,18 @@ describe('sign-in and sessions', () => {
     fireEvent.click(screen.getByRole('button', { name: /Change password/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The new passwords do not match');
     expect(api.changePassword).not.toHaveBeenCalled();
+    /* Tied to the confirm field, which takes the focus. */
+    const confirm = screen.getByLabelText('Confirm new password');
+    expect(confirm).toHaveAttribute('aria-invalid', 'true');
+    expect(confirm).toHaveAccessibleDescription('The new passwords do not match.');
+    expect(confirm).toHaveFocus();
+  });
+
+  it('a failed read of the rules offers a retry', async () => {
+    api.getPolicy.mockRejectedValueOnce(new Error('down'));
+    render(<SecuritySettings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('button', { name: /Save rules/ })).toBeInTheDocument();
   });
 });
 

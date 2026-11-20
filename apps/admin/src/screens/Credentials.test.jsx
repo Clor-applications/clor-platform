@@ -93,4 +93,26 @@ describe('what may be done', () => {
     const r = screen.getByText('Tally bridge').closest('tr');
     expect(within(r).queryAllByRole('button')).toHaveLength(0);
   });
+
+  /* Audit 21 Nov 2026: Make the key went grey with no reason given, and Resume could be sent twice. */
+  it('says why Make the key is off with no scope ticked', async () => {
+    api.listCredentials.mockResolvedValue({ credentials: [], links: null, mayCreateApiKey: true, scopes: ['attendance:read'] });
+    render(<Credentials />);
+    await waitFor(() => expect(screen.getByRole('button', { name: /New API key/ }).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: /New API key/ }));
+    fireEvent.click(screen.getByRole('checkbox'));
+    const make = screen.getByRole('button', { name: 'Make the key' });
+    expect(make).toBeDisabled();
+    expect(make).toHaveAccessibleDescription('Tick at least one thing the key may do to make it.');
+  });
+
+  it('holds a row while its resume is out', async () => {
+    api.listCredentials.mockResolvedValue({ credentials: [row({ status: 'SUSPENDED', effective: 'SUSPENDED' })], links: null, mayCreateApiKey: true });
+    api.resumeCredential.mockImplementation(() => new Promise(() => {}));
+    render(<Credentials />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Resume Tally bridge' }));
+    expect(await screen.findByRole('button', { name: 'Resuming… Tally bridge' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Revoke Tally bridge' })).toBeDisabled();
+  });
 });
+
