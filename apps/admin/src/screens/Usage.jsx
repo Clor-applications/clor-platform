@@ -29,9 +29,6 @@ export default function Usage({ tenant, catalog = [], navItems = [], openScreen 
 
   useEffect(() => {
     let live = true;
-    setMe(undefined);
-    setOverview(undefined);
-    setDirectory(undefined);
     getAccountMe()
       .then((r) => {
         if (!live) return;
@@ -54,7 +51,13 @@ export default function Usage({ tenant, catalog = [], navItems = [], openScreen 
   const role = me?.role;
   const allowed = role === 'OWNER' || role === 'ADMIN' || role === 'BILLING_ADMIN';
   const loading = me === undefined || (allowed && (overview === undefined || directory === undefined));
-  const retry = () => setTries((n) => n + 1);
+  /* Back to "loading" before reading again, so the old error does not sit beside the new attempt. */
+  const retry = () => {
+    setMe(undefined);
+    setOverview(undefined);
+    setDirectory(undefined);
+    setTries((n) => n + 1);
+  };
 
   const built = catalog.filter((a) => !a.platform && a.available).map((a) => a.id);
   const metered = (overview?.seats || []).filter((s) => s.bought != null).map((s) => s.app);
