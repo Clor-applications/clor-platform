@@ -81,8 +81,10 @@ html[data-portal='ops'] .ops-staffbar {
   gap: 10px;
   height: 32px;
   padding: 0 16px;
-  background: rgb(var(--act));
-  color: rgb(var(--on-brand));
+  /* White like every ground; the pill says "staff" in the warning colour (S6, design audit). */
+  background: rgb(var(--surface));
+  border-bottom: 1px solid rgb(var(--border-field));
+  color: rgb(var(--fg));
   font-size: 0.8125rem;
   font-weight: 600;
   white-space: nowrap;
@@ -99,8 +101,8 @@ html[data-portal='ops'] .ops-staffbar > span:last-child {
   height: 20px;
   padding: 0 8px;
   border-radius: 999px;
-  background: rgb(var(--on-brand));
-  color: rgb(var(--act));
+  background: rgb(var(--warn));
+  color: rgb(255 255 255);
   font-size: 0.75rem;
   font-weight: 700;
 }
