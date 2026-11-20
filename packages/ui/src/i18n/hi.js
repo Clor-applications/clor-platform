@@ -9,6 +9,8 @@
  * `node scripts/i18n-strings.mjs --missing hi` lists any line not here yet.
  */
 const words = {
+  /* The count line under a page title (design audit G6, 20 Nov 2026). */
+  Figures: 'आंकड़े',
   /* Error, subscription and confirm words from the shared kit (UX copy audit, 20 Nov 2026). */
   "CLOR could not finish that, so nothing was saved. Try again in a moment.": "CLOR यह पूरा नहीं कर सका, इसलिए कुछ भी सेव नहीं हुआ। थोड़ी देर में फिर कोशिश करें।",
   "CLOR could not be reached. Check your connection and try again. Anything you typed is still here.": "CLOR तक नहीं पहुँच सके। अपना कनेक्शन देखें और फिर कोशिश करें। आपने जो लिखा था वह यहीं है।",
