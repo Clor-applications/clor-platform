@@ -10,6 +10,7 @@ import GatePage from './GatePage';
 import { APPS } from './registry';
 import { appIntent, clearAppIntent, landingAfterSetup } from './appIntent';
 import { useSession } from './session';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * The company, and what it runs. Two questions, and only two.
@@ -180,7 +181,7 @@ export default function CompanySetup({ onLanding } = {}) {
 
               <div>
                 <label className="ui-label" htmlFor="setup-state">State</label>
-                <select
+                <SelectField
                   id="setup-state"
                   className="ui-select h-11 w-full"
                   value={form.state}
@@ -191,7 +192,7 @@ export default function CompanySetup({ onLanding } = {}) {
                   {GST_STATES.map((name) => (
                     <option key={name} value={name}>{name}</option>
                   ))}
-                </select>
+                </SelectField>
                 <FieldError error={v.error('state')} id={v.errorId('state')} />
                 <p className="ui-caption mt-1">
                   {form.state && getGstStateFromGstin(form.gstin) === form.state

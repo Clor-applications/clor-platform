@@ -13,6 +13,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import HeldPunches from '../components/HeldPunches';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Punches from reader user IDs that match no employee (by Reader ID or
@@ -142,7 +143,7 @@ export default function UnmatchedPunches({ menuLabel } = {}) {
                     <td className="ui-col-date whitespace-nowrap">{r.last}</td>
                     <td className="ui-col-meta">
                       <span className="flex flex-wrap items-center gap-2">
-                        <select
+                        <SelectField
                           className="ui-select ui-ctl-compact !w-auto"
                           aria-label={`Employee for reader ID ${r.pin}`}
                           value={choice[keyOf(r)] || ''}
@@ -150,7 +151,7 @@ export default function UnmatchedPunches({ menuLabel } = {}) {
                         >
                           <option value="">Choose…</option>
                           {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` · ${p.code}` : ''}</option>)}
-                        </select>
+                        </SelectField>
                         {r.areaId ? (
                           <select className="ui-select ui-ctl-compact !w-auto" aria-label={`Where reader ID ${r.pin} is theirs`} value={siteOnly[keyOf(r)] ? 'site' : 'all'} onChange={(e) => setSiteOnly({ ...siteOnly, [keyOf(r)]: e.target.value === 'site' })}>
                             <option value="all">Their ID everywhere</option>

@@ -11,6 +11,7 @@ import { legalHref } from './legal/useLegalRoute';
 import { readStartLinkOnce } from './startLink';
 import { FieldError, FieldErrorAnnounce, Button } from '@ui/components/ui/Primitives';
 import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Start a free trial from clor.in's pricing page (roadmap item 7), at
@@ -380,12 +381,12 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
           {askState ? (
             <div>
               <label className="ui-label" htmlFor="start-state">State of your head office</label>
-              <select id="start-state" className="ui-select h-11 w-full" value={form.state} onChange={(e) => set({ state: e.target.value })} {...v.props('state')} aria-describedby={[v.error('state') ? v.errorId('state') : '', 'start-state-hint'].filter(Boolean).join(' ')}>
+              <SelectField id="start-state" className="ui-select h-11 w-full" value={form.state} onChange={(e) => set({ state: e.target.value })} {...v.props('state')} aria-describedby={[v.error('state') ? v.errorId('state') : '', 'start-state-hint'].filter(Boolean).join(' ')}>
                 <option value="">Choose a state</option>
                 {GST_STATES.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
-              </select>
+              </SelectField>
               <FieldError error={v.error('state')} id={v.errorId('state')} />
               <p id="start-state-hint" className="ui-caption mt-1">
                 {fromGstin && form.state === fromGstin ? 'Taken from the GSTIN.' : 'For GST: it decides CGST and SGST or IGST on every invoice.'}

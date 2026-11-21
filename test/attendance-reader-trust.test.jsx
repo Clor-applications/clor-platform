@@ -19,6 +19,7 @@ vi.mock('../apps/attendance/src/api/attendance', async (orig) => ({ ...(await or
 vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true), notify: { error: vi.fn(), success: vi.fn() } }));
 
 import AttendanceRecords from '../apps/attendance/src/screens/AttendanceRecords';
+import { pickOption } from '@ui/components/ui/pickOption';
 
 const day = (over) => ({
   id: 'd1', employeeId: 'e1', employeeName: 'Rekha Nair', employeeCode: 'MF-020', date: '2026-10-20', status: 'PRESENT', source: 'DEVICE',
@@ -71,7 +72,7 @@ describe('Attendance records with reader trust', () => {
     const drawer = await screen.findByRole('dialog', { name: 'Attendance evidence' });
     const csv = within(drawer).getByRole('button', { name: /Download CSV/ });
     expect(csv).toBeDisabled();
-    await user.selectOptions(within(drawer).getByLabelText('Person'), 'e1');
+    await pickOption(within(drawer).getByLabelText('Person'), /Rekha Nair/);
     URL.createObjectURL = vi.fn(() => 'blob:x');
     URL.revokeObjectURL = vi.fn();
     await user.click(csv);

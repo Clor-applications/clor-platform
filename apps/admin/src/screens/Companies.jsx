@@ -14,6 +14,7 @@ import './ws-home.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
 import { Button } from '@ui/components/ui/Primitives';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('classical-building');
@@ -317,12 +318,12 @@ export function AddCompanyForm({ onAdd, onCancel }) {
       {gstinState ? null : (
         <div className="grid gap-1">
           <label htmlFor="co-state" className="text-sm font-semibold">State <span className="ui-required" aria-hidden="true">*</span></label>
-          <select id="co-state" className="ui-select" value={state} onChange={(e) => setState(e.target.value)} required>
+          <SelectField id="co-state" className="ui-select" value={state} onChange={(e) => setState(e.target.value)} required>
             <option value="">Choose…</option>
             {STATES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
-          </select>
+          </SelectField>
         </div>
       )}
       <div className="flex gap-2">

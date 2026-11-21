@@ -33,6 +33,7 @@ import {
 } from '../api/payrollWeeklyWages';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Weekly wages (round 66): workers paid by the day, every week or fortnight.
@@ -387,12 +388,12 @@ function RateForm({ initial, groups, onClose, onSaved }) {
       {initial.id ? null : (
         <div>
           <label className="ui-label" htmlFor="ww-person">Worker</label>
-          <select id="ww-person" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
+          <SelectField id="ww-person" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
             <option value="">Choose a person</option>
             {people.map((p) => (
               <option key={p.id} value={p.id}>{p.name}{p.code ? ` (${p.code})` : ''}</option>
             ))}
-          </select>
+          </SelectField>
         </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -6,6 +6,7 @@ import { notify } from '@ui/components/ui/notify';
 import { getPunchEvidence, getPunchEvidenceCsv, todayIst } from '../api/attendance';
 import { printEvidence } from './readerTrust';
 import { errorWords } from '@ui/utils/errorWords';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Attendance evidence (reader trust, O-11): every punch of one person in a
@@ -82,10 +83,10 @@ export default function PunchEvidence({ open, onClose, people = [], initial = {}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block sm:col-span-2">
           <span className="ui-label">Person *</span>
-          <select className="ui-select w-full" value={form.employeeId} onChange={set('employeeId')} aria-label="Person">
+          <SelectField className="ui-select w-full" value={form.employeeId} onChange={set('employeeId')} aria-label="Person">
             <option value="">Choose…</option>
             {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` · ${p.code}` : ''}</option>)}
-          </select>
+          </SelectField>
         </label>
         <label className="block"><span className="ui-label">From *</span><input type="date" className="ui-input w-full" value={form.from} max={form.to} onChange={set('from')} /></label>
         <label className="block"><span className="ui-label">To *</span><input type="date" className="ui-input w-full" value={form.to} max={todayIst()} onChange={set('to')} /></label>

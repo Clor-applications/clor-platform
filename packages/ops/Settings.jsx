@@ -6,6 +6,7 @@ import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsSaveTax, opsTax } from './api';
 import { Button } from '@ui/components/ui/Primitives';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Settings, Tax (server: routes/pricing.ts, PUT /ops/settings/tax): CLOR's
@@ -141,14 +142,14 @@ export function Settings({ role }) {
             <label htmlFor="ops-tax-state" className="text-sm font-semibold">
               State
             </label>
-            <select id="ops-tax-state" className="ui-select" value={f.state} disabled={!mayChange} onChange={set('state')}>
+            <SelectField id="ops-tax-state" className="ui-select" value={f.state} disabled={!mayChange} onChange={set('state')}>
               <option value="">Choose</option>
               {STATES.map(([code, name]) => (
                 <option key={code} value={code}>
                   {name}
                 </option>
               ))}
-            </select>
+            </SelectField>
             <span className="ws-card-blurb">Filled in from the GSTIN’s first two digits. It decides CGST and SGST or IGST.</span>
           </div>
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>

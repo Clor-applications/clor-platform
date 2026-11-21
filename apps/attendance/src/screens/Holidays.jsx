@@ -15,6 +15,7 @@ import { freshFirst, useFreshRow } from '@ui/picks/round57';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
 import useSaving from '../components/useSaving';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const weekday = (iso) => WEEKDAY[new Date(`${iso}T00:00:00Z`).getUTCDay()];
@@ -177,11 +178,11 @@ export default function Holidays({ openScreen } = {}) {
           {areas.length || branches.length > 1 ? (
             <label className="block">
               <span className="ui-label">For</span>
-              <select className="ui-select" value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value })}>
+              <SelectField className="ui-select" value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value })}>
                 <option value="">Everyone</option>
                 {branches.length > 1 ? <optgroup label="Branch">{branches.map((b) => <option key={b.id} value={`b:${b.id}`}>{b.name} only{b.state ? ` (${b.state})` : ''}</option>)}</optgroup> : null}
                 {areas.length ? <optgroup label="Area">{areas.map((a) => <option key={a.id} value={`a:${a.id}`}>{a.name} only</option>)}</optgroup> : null}
-              </select>
+              </SelectField>
             </label>
           ) : null}
           <label className="flex items-center gap-1.5 pb-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.isOptional} onChange={(e) => setForm({ ...form, isOptional: e.target.checked })} /> Optional</label>

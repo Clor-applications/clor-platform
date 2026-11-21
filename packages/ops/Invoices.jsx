@@ -25,6 +25,7 @@ import {
 import { Empty, Err, ErrorSummary, FieldMsg, HoldOpen, Loading, ReasonDrawer, Tabs, day, fieldErr, may, when, errorWords } from './kit';
 import { inr, rupeesText, toPaise } from './money';
 import { Button } from '@ui/components/ui/Primitives';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Invoices (server: routes/opsInvoices.ts, billing/invoices.ts): CLOR's
@@ -494,14 +495,14 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
                   <input id="inv-b-gstin" className="ui-input ui-mono" spellCheck={false} value={buyer.gstin} onChange={setB('gstin')} />
                 </Field>
                 <Field id="inv-b-state" label="State" hint="Decides CGST and SGST, or IGST.">
-                  <select id="inv-b-state" className="ui-input" value={buyer.state} onChange={setB('state')}>
+                  <SelectField id="inv-b-state" className="ui-input" value={buyer.state} onChange={setB('state')}>
                     <option value="">Choose</option>
                     {STATES.map(([c, n]) => (
                       <option key={c} value={c}>
                         {n}
                       </option>
                     ))}
-                  </select>
+                  </SelectField>
                 </Field>
                 <Field id="inv-b-email" label="Email">
                   <input id="inv-b-email" className="ui-input" type="email" value={buyer.email} onChange={setB('email')} />

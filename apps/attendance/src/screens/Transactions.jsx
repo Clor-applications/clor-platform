@@ -15,6 +15,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { repeatPunchIds } from '../components/repeatPunches';
 import { errorWords, dayText } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 const TABS = [
   { value: '', label: 'All', tone: 'all' },
@@ -150,10 +151,10 @@ export default function Transactions({ title = 'Punches' }) {
         <>
           <input type="date" className="ui-input ui-ctl-compact !w-auto" value={filters.from} max={filters.to} onChange={set('from')} aria-label="From" />
           <input type="date" className="ui-input ui-ctl-compact !w-auto" value={filters.to} max={todayIst()} onChange={set('to')} aria-label="To" />
-          <select className="ui-select ui-ctl-compact !w-auto" value={filters.employeeId} onChange={set('employeeId')} aria-label="Employee" disabled={filters.unmatched === 'true'}>
+          <SelectField className="ui-select ui-ctl-compact !w-auto" value={filters.employeeId} onChange={set('employeeId')} aria-label="Employee" disabled={filters.unmatched === 'true'}>
             <option value="">Everyone</option>
             {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          </SelectField>
           <select className="ui-select ui-ctl-compact !w-auto" value={filters.deviceId} onChange={set('deviceId')} aria-label="Reader">
             <option value="">All readers</option>
             {devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -214,10 +215,10 @@ export default function Transactions({ title = 'Punches' }) {
                               <ExceptionTag label="Not matched" />
                               {t.nameOnReader ? <span className="ui-caption">“{t.nameOnReader}” on the reader</span> : null}
                             </span>
-                            <select className="ui-select ui-ctl-compact !w-auto" value="" onChange={(e) => matchId(t.pin, e.target.value)} aria-label={`Who is reader ID ${t.pin}?`}>
+                            <SelectField className="ui-select ui-ctl-compact !w-auto" value="" onChange={(e) => matchId(t.pin, e.target.value)} aria-label={`Who is reader ID ${t.pin}?`}>
                               <option value="">Who is ID {t.pin}?</option>
                               {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` (${p.code})` : ''}</option>)}
-                            </select>
+                            </SelectField>
                           </span>
                         )}
                       </td>

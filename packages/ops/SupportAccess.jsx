@@ -4,6 +4,7 @@ import { Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsAskSupportGrant, opsEndSupportGrant, opsSupportGrants } from './api';
 import { Empty, Err, Loading, countsChanged, may, useRowBusy, when, errorWords } from './kit';
 import { Button } from '@ui/components/ui/Primitives';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Customer page → Support access (docs/workspace/SUPPORT_GRANTS.md).
@@ -93,11 +94,11 @@ export function SupportAccess({ id, companies, role }) {
             {companies.length > 1 ? (
               <label className="block">
                 <span className="ui-label">Company</span>
-                <select className="ui-input" value={orgId} onChange={(e) => setOrgId(e.target.value)}>
+                <SelectField className="ui-input" value={orgId} onChange={(e) => setOrgId(e.target.value)}>
                   {companies.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
-                </select>
+                </SelectField>
               </label>
             ) : null}
             <div>

@@ -8,6 +8,7 @@ import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { PageHead, Panel, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
 import { opsCreateDemoAccount, opsDemoRequest, opsDemoRequests, opsDemoTeam, opsEndExplore, opsResendExplore, opsSetDemoStatus } from './api';
 import { Button } from '@ui/components/ui/Primitives';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Demo requests from clor.in/demo (server: routes/demoRequests.ts). The team
@@ -312,13 +313,13 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
                 </label>
                 <label className="grid gap-1">
                   <span className="text-sm font-semibold">Looked after by</span>
-                  <select className="ui-select" value={owner} onChange={(e) => setOwner(e.target.value)}>
+                  <SelectField className="ui-select" value={owner} onChange={(e) => setOwner(e.target.value)}>
                     <option value="">Nobody yet</option>
                     {team.map((t) => (
                       <option key={t.userId} value={t.userId}>{t.name}</option>
                     ))}
                     {owner && !team.some((t) => t.userId === owner) ? <option value={owner}>{r.assignedToName || 'Someone who left the team'}</option> : null}
-                  </select>
+                  </SelectField>
                 </label>
                 <label className="grid gap-1">
                   <span className="text-sm font-semibold">Follow up on</span>
@@ -484,10 +485,10 @@ function CreateAccount({ open, request, onClose, onDone }) {
         <Err>{error}</Err>
         <div className="grid gap-1">
           <label htmlFor="ops-demo-state" className="text-sm font-semibold">State of the head office</label>
-          <select id="ops-demo-state" className="ui-select" value={state} onChange={(e) => setState(e.target.value)} required aria-describedby="ops-demo-state-hint">
+          <SelectField id="ops-demo-state" className="ui-select" value={state} onChange={(e) => setState(e.target.value)} required aria-describedby="ops-demo-state-hint">
             <option value="">Choose</option>
             {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          </SelectField>
           <span id="ops-demo-state-hint" className="ws-card-blurb">They said {request.city}. The state decides CGST and SGST or IGST on every invoice.</span>
         </div>
         <fieldset className="grid gap-2">

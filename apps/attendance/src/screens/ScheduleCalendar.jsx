@@ -14,6 +14,7 @@ import { copyRosterWeek, dayLabel, discardRosterDraft, getRoster, publishRoster,
 import RosterGrid from '../components/RosterGrid';
 import { cellLabel } from '../components/rosterCells';
 import { errorWords } from '@ui/utils/errorWords';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const utc = (d) => new Date(`${d}T00:00:00Z`);
@@ -201,15 +202,15 @@ export default function ScheduleCalendar({ menuLabel } = {}) {
               <input type="month" className="ui-input ui-ctl-compact !w-auto" value={day.slice(0, 7)} onChange={(e) => { if (e.target.value) { setDay(`${e.target.value}-01`); setPage(1); } }} aria-label="Month" />
             )}
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm !ps-3" aria-label={view === 'week' ? 'Next week' : 'Next month'} onClick={() => step(1)}><ChevronRight size={16} aria-hidden="true" /></button>
-            <select className="ui-select ui-ctl-compact !w-auto" value={filters.departmentId} onChange={setFilter('departmentId')} aria-label="Department">
+            <SelectField className="ui-select ui-ctl-compact !w-auto" value={filters.departmentId} onChange={setFilter('departmentId')} aria-label="Department">
               <option value="">All departments</option>
               {lists.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            </SelectField>
             {lists.branches.length > 1 ? (
-              <select className="ui-select ui-ctl-compact !w-auto" value={filters.branchId} onChange={setFilter('branchId')} aria-label="Branch">
+              <SelectField className="ui-select ui-ctl-compact !w-auto" value={filters.branchId} onChange={setFilter('branchId')} aria-label="Branch">
                 <option value="">All branches</option>
                 {lists.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
+              </SelectField>
             ) : null}
             {lists.areas.length ? (
               <select className="ui-select ui-ctl-compact !w-auto" value={filters.areaId} onChange={setFilter('areaId')} aria-label="Area">

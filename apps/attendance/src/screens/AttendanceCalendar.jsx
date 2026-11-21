@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { getCalendar, listReports, runReport, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * The month as a calendar: each day carries how many were in, out, on leave,
@@ -108,10 +109,10 @@ export default function AttendanceCalendar() {
               <span className="ui-t-sec min-w-[9rem] text-center">{title}</span>
               <button type="button" className="ui-icon-btn" aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
             </span>
-            <select className="ui-select ui-ctl-compact !w-auto" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} aria-label="Department">
+            <SelectField className="ui-select ui-ctl-compact !w-auto" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} aria-label="Department">
               <option value="">All departments</option>
               {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            </SelectField>
           </>
         }
       />

@@ -12,6 +12,7 @@ import './workspace.css';
 import './ws-access.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('busts-in-silhouette');
@@ -338,11 +339,11 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
             {detail.companies.length > 1 ? (
               <div className="grid gap-2">
                 <label htmlFor="ws-member-company" className="ws-kicker">Company</label>
-                <select id="ws-member-company" className="ui-select" value={shown?.orgId || ''} onChange={(e) => setDetailCompany(e.target.value)}>
+                <SelectField id="ws-member-company" className="ui-select" value={shown?.orgId || ''} onChange={(e) => setDetailCompany(e.target.value)}>
                   {detail.companies.map((c) => (
                     <option key={c.orgId} value={c.orgId}>{c.name}</option>
                   ))}
-                </select>
+                </SelectField>
               </div>
             ) : null}
             </div>

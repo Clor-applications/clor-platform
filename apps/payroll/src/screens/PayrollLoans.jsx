@@ -27,6 +27,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { rupees as money, moneyCell } from '@ui/utils/money';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Money lent to somebody, and taken back out of their pay.
@@ -352,13 +353,13 @@ const LoanForm = ({ people, components, periods, onCancel, onCreated }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="ui-label" htmlFor="loan-employee">Employee</label>
-              <select id="loan-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
+              <SelectField id="loan-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
                 {people.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}{p.code ? ` · ${p.code}` : ''}
                   </option>
                 ))}
-              </select>
+              </SelectField>
             </div>
             <div>
               <label className="ui-label" htmlFor="loan-type">Type</label>

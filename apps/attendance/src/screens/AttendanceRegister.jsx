@@ -10,6 +10,7 @@ import { listReports, runReport, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords, monthText } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * The muster roll as a screen: one row per person, one mark per day, read
@@ -67,10 +68,10 @@ export default function AttendanceRegister() {
       headerExtras={
         <>
           <input type="month" className="ui-input ui-ctl-compact !w-auto" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
-          <select className="ui-select ui-ctl-compact !w-auto" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} aria-label="Department">
+          <SelectField className="ui-select ui-ctl-compact !w-auto" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} aria-label="Department">
             <option value="">All departments</option>
             {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          </SelectField>
         </>
       }
       moreItems={[exportMenuItem('Export register')]}

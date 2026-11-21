@@ -15,6 +15,7 @@ import { countItems } from '../components/countItems';
 import useSaving from '../components/useSaving';
 import { confirmRemoveSchedule } from '../components/removeSchedule';
 import { dateWords } from '@ui/utils/dates';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 const COLUMNS = {
   department: (r) => r.departmentName,
@@ -103,10 +104,10 @@ export default function DepartmentSchedule() {
         <form onSubmit={add} className="flex flex-wrap items-end gap-3" aria-label="Give a department its shift" aria-busy={saving || undefined}>
           <label className="block">
             <span className="ui-label">Department *</span>
-            <select className="ui-select" required value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
+            <SelectField className="ui-select" required value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
               <option value="">Choose…</option>
               {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            </SelectField>
           </label>
           <label className="block">
             <span className="ui-label">Shift *</span>

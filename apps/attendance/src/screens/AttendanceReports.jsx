@@ -12,6 +12,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { escapeHtml } from '@ui/utils/html';
 import { errorWords } from '@ui/utils/errorWords';
 
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /** The report as a real spreadsheet: a column is numeric only if every value in it is a number. */
 function exportXlsx(result) {
@@ -248,10 +249,10 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
           ) : null}
           {covers(active) && catalogue.departments.length ? (
             <label className="block"><span className="ui-label">Department</span>
-              <select className="ui-select" value={form.departmentId} onChange={set('departmentId')}>
+              <SelectField className="ui-select" value={form.departmentId} onChange={set('departmentId')}>
                 <option value="">All</option>
                 {catalogue.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              </SelectField>
             </label>
           ) : null}
           {covers(active) && (catalogue.areas || []).length ? (
@@ -264,18 +265,18 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
           ) : null}
           {covers(active) && (catalogue.contractors || []).length ? (
             <label className="block"><span className="ui-label">Contractor</span>
-              <select className="ui-select" value={form.contractorId} onChange={set('contractorId')}>
+              <SelectField className="ui-select" value={form.contractorId} onChange={set('contractorId')}>
                 <option value="">All</option>
                 {catalogue.contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              </SelectField>
             </label>
           ) : null}
           {(covers(active) || active.params.includes('employee')) && (catalogue.employees || []).length ? (
             <label className="block"><span className="ui-label">Person</span>
-              <select className="ui-select" value={form.employeeId} onChange={set('employeeId')}>
+              <SelectField className="ui-select" value={form.employeeId} onChange={set('employeeId')}>
                 <option value="">Everyone</option>
                 {catalogue.employees.map((e) => <option key={e.id} value={e.id}>{e.name}{e.code ? ` · ${e.code}` : ''}</option>)}
-              </select>
+              </SelectField>
             </label>
           ) : null}
           <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setRuns((n) => n + 1)} disabled={running} title="Run again for the latest data">
