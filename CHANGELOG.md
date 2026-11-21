@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-2c1ac84 - 2026-11-21
+
+API revision `clor-api-00158-smj`. Previous release `rel-86f69a7` (roll back there).
+
+- #420 One look: logo #FF5400, Ops forest, clor.in on Figtree, shared Home accents
+- #418 Attendance: fix the 21 Nov audit findings
+- #421 Fix shared UI audit findings: layers, focus, forms, motion, type and colour
+- #417 Ops console: confirms that state the consequence, unsaved guards, retry on failed loads
+- #416 Payroll: guard money actions, show failed loads, calm the screens
+- #415 Fix the People audit findings (calm register)
+- #414 clor.in: hash links, form safety, pricing settle, calmer motion (audit batch 6)
+- #413 Admin center: audit fixes for busy states, failed loads, lost edits and motion
+- #410 Admin center Home: light accents, text-link actions; GSTIN on sign-up company form
+- #412 Polish pages across Admin center, Ops, Console, People, Attendance, Payroll and clor.in
+- #411 UI polish across the platform, Books left as it is
+- #409 Release record: rel-86f69a7
+- #402 Ops Home queue: filter by whose work it is (All, Mine, Customers, Money, Support, Platform)
+
 ## rel-86f69a7 - 2026-11-20
 
 API revision `clor-api-00157-8xt`. Previous release `rel-81c14c0` (roll back there).
