@@ -14,6 +14,7 @@ import './workspace.css';
 import './ws-plan.css';
 import { planWord } from './planWords';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* The colour icons the empty lists show. */
 const SYNC_ICON = emoji('link');
@@ -298,9 +299,9 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
           }
           actions={
             data ? (
-              <button type="submit" form="ws-settings-form" className="ws-btn ws-btn--primary" disabled={!dirty || saving} aria-busy={saving || undefined}>
-                {saving ? 'Saving…' : 'Save changes'}
-              </button>
+              <Button plain className="ws-btn ws-btn--primary" loading={saving} disabled={!dirty} type="submit" form="ws-settings-form">
+                Save changes
+              </Button>
             ) : null
           }
         />

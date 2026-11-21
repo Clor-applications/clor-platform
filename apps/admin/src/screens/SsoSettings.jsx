@@ -13,6 +13,7 @@ import './ws-security.css';
 import './workspace.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Workspace → Security → Single sign-on (redesign W-R7; R&D WS-11).
@@ -275,9 +276,9 @@ export default function SsoSettings() {
                     ) : null}
                     <div className="ws-sso-actions">
                       {unverified ? (
-                        <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(rowBusy)} aria-busy={rowBusy === `${p.id}:verify` || undefined} onClick={() => verify(p)}>
-                          {rowBusy === `${p.id}:verify` ? 'Verifying…' : 'Verify domains'}
-                        </button>
+                        <Button plain className="ws-btn ws-btn--quiet" loading={rowBusy === `${p.id}:verify`} disabled={Boolean(rowBusy)} onClick={() => verify(p)}>
+                          Verify domains
+                        </Button>
                       ) : null}
                       <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(rowBusy)} aria-busy={rowBusy === `${p.id}:switch` || undefined} onClick={() => toggle(p)}>
                         {rowBusy === `${p.id}:switch` ? (p.enabled ? 'Switching off…' : 'Switching on…') : p.enabled ? 'Switch off' : 'Switch on'}
@@ -361,7 +362,7 @@ export default function SsoSettings() {
                   options={[['', 'No role until assigned'], ...roles.map((r) => [r.id, r.name])]}
                   onChange={setScimRole}
                 />
-                <button type="button" className="ws-btn ws-btn--quiet" disabled={tokenBusy} aria-busy={tokenBusy || undefined} onClick={makeToken}>{tokenBusy ? 'Making…' : 'Make a token'}</button>
+                <Button plain className="ws-btn ws-btn--quiet" loading={tokenBusy} onClick={makeToken}>Make a token</Button>
               </div>
             </Section>
 
@@ -440,7 +441,7 @@ export default function SsoSettings() {
               )}
               <div className="flex gap-2">
                 <button type="button" className="ws-btn ws-btn--quiet" onClick={async () => { if (await askDiscard(formDirty)) setForm(null); }}>Cancel</button>
-                <button type="submit" className="ws-btn ws-btn--primary" disabled={busy}>{busy ? 'Saving…' : form.id ? 'Save' : 'Add provider'}</button>
+                <Button plain className="ws-btn ws-btn--primary" loading={busy} type="submit">{form.id ? 'Save' : 'Add provider'}</Button>
               </div>
             </form>
           </div>

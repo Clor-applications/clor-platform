@@ -477,7 +477,7 @@ export const Spinner = () => <span className="ui-spinner" aria-hidden="true" />;
  */
 export const Button = ({
   variant = 'secondary', size, icon: Icon = null, loading: busy = false, done, doneLabel = 'Saved',
-  className = '', type = 'button', onClick, children, ...rest
+  className = '', type = 'button', onClick, children, plain = false, ...rest
 }) => {
   // A busy flag is often the id of the row being saved, so it is read as yes or no.
   const loading = Boolean(busy);
@@ -490,7 +490,8 @@ export const Button = ({
     }
     onClick?.(e);
   };
-  const cls = ['ui-btn', `ui-btn-${variant}`, size === 'sm' ? 'ui-btn-sm' : '', className].filter(Boolean).join(' ');
+  // plain: the caller's own button classes (the Admin center and Ops ws-btn), with the same states.
+  const cls = plain ? className : ['ui-btn', `ui-btn-${variant}`, size === 'sm' ? 'ui-btn-sm' : '', className].filter(Boolean).join(' ');
   return (
     <>
       <button type={type} className={cls} aria-busy={loading || undefined} aria-disabled={loading || undefined} data-state={state} onClick={guard} {...rest}>

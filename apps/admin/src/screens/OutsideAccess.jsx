@@ -17,6 +17,7 @@ import './workspace.css';
 import './ws-security.css';
 import './ws-access.css';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Workspace → Outside access (GAP-006).
@@ -91,7 +92,7 @@ function Change({ action, row, apps, onDone, onClose }) {
           <label className="block"><span className="ui-label">Why <span className="ui-caption">(optional)</span></span><input className="ui-input w-full" maxLength={150} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Kept in the history" /></label>
         )}
         <div className="flex gap-2">
-          <button type="submit" className={`ws-btn ${action === 'end' ? 'ws-btn--danger' : 'ws-btn--primary'}`} disabled={busy || (action === 'change' && !chosen.length)}>{busy ? 'Working…' : ACTION_LABEL[action]}</button>
+          <Button plain className={`ws-btn ${action === 'end' ? 'ws-btn--danger' : 'ws-btn--primary'}`} loading={busy} disabled={(action === 'change' && !chosen.length)} type="submit">{ACTION_LABEL[action]}</Button>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
         </div>
       </form>

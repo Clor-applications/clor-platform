@@ -19,6 +19,7 @@ import './workspace.css';
 import './ws-access.css';
 import './ws-security.css';
 import { enumWords, errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('key');
@@ -491,9 +492,9 @@ export function SettingsRoles({ orgId }) {
         actions={(
           <>
             <button type="button" onClick={async () => { if (await askDiscard(formDirty)) setShowForm(false); }} className="ws-btn ws-btn--quiet">Cancel</button>
-            <button type="submit" form="role-settings-form" disabled={saving} className="ws-btn ws-btn--primary">
-              {saving ? 'Saving…' : editRole ? 'Save role' : 'Create role'}
-            </button>
+            <Button plain className="ws-btn ws-btn--primary" loading={saving} type="submit" form="role-settings-form">
+              {editRole ? 'Save role' : 'Create role'}
+            </Button>
           </>
         )}
       >

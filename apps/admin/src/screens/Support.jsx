@@ -10,6 +10,7 @@ import { Avatar, ICON, LoadError, Loading, PageHead, WsDrawer, ago, askDiscard }
 import './workspace.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('red-question-mark');
@@ -366,9 +367,9 @@ function TicketView({ id, onBack }) {
             ) : null}
           </div>
           {t && (t.status === 'OPEN' || t.status === 'WAITING') ? (
-            <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(busy)} aria-busy={busy === 'solved' || undefined} onClick={() => act('solved', () => ticketSolved(t.id), 'mark the ticket solved')}>
-              {busy === 'solved' ? 'Marking solved…' : 'It is solved'}
-            </button>
+            <Button plain className="ws-btn ws-btn--quiet" loading={busy === 'solved'} disabled={Boolean(busy)} onClick={() => act('solved', () => ticketSolved(t.id), 'mark the ticket solved')}>
+              It is solved
+            </Button>
           ) : null}
         </header>
 

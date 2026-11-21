@@ -7,6 +7,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { PageHead, Panel, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
 import { opsCreateDemoAccount, opsDemoRequest, opsDemoRequests, opsDemoTeam, opsEndExplore, opsResendExplore, opsSetDemoStatus } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Demo requests from clor.in/demo (server: routes/demoRequests.ts). The team
@@ -329,7 +330,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
                 </label>
                 <Err>{saveError}</Err>
                 <div>
-                  <button type="submit" className="ws-btn ws-btn--quiet" disabled={saving || !changed}>{saving ? 'Saving…' : 'Save status and note'}</button>
+                  <Button plain className="ws-btn ws-btn--quiet" loading={saving} disabled={!changed} type="submit">Save status and note</Button>
                 </div>
               </form>
             )}
@@ -419,13 +420,13 @@ function ExplorePanel({ id, pass, mayAct, onChange }) {
       <Err>{error}</Err>
       {mayAct ? (
         <div className="flex flex-wrap gap-2 mt-3">
-          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={Boolean(busy)} onClick={() => act('resend')}>
-            {busy === 'resend' ? 'Sending…' : pass ? 'Resend' : 'Send a link'}
-          </button>
+          <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={busy === 'resend'} disabled={Boolean(busy)} onClick={() => act('resend')}>
+            {pass ? 'Resend' : 'Send a link'}
+          </Button>
           {pass && pass.state === 'active' ? (
-            <button type="button" className="ws-btn ws-btn--danger ws-btn--small" disabled={Boolean(busy)} onClick={() => act('end')}>
-              {busy === 'end' ? 'Ending…' : 'End access'}
-            </button>
+            <Button plain className="ws-btn ws-btn--danger ws-btn--small" loading={busy === 'end'} disabled={Boolean(busy)} onClick={() => act('end')}>
+              End access
+            </Button>
           ) : null}
         </div>
       ) : null}
@@ -473,9 +474,9 @@ function CreateAccount({ open, request, onClose, onDone }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>Cancel</button>
-          <button type="submit" form="ops-demo-create" className="ws-btn ws-btn--primary" disabled={busy || !state || !apps.size || !daysOk}>
-            {busy ? 'Creating…' : 'Create account'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={!state || !apps.size || !daysOk} type="submit" form="ops-demo-create">
+            Create account
+          </Button>
         </>
       }
     >

@@ -6,6 +6,7 @@ import { printElement } from '@ui/utils/printElement';
 import { WsDrawer } from './wsKit';
 import { InvoiceDocument, inr } from './InvoiceDocument';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * CLOR's invoices to this account (roadmap item 8, server: routes/billing.ts),
@@ -126,9 +127,9 @@ export function InvoiceDrawer({ viewer }) {
             </button>
           ) : null}
           {open.inv?.payOnline ? (
-            <button type="button" className="ws-btn ws-btn--primary" disabled={paying} onClick={() => payNow(open.inv)}>
-              {paying ? 'Opening the payment page…' : `Pay ${inr(open.inv.total)} online`}
-            </button>
+            <Button plain className="ws-btn ws-btn--primary" loading={paying} onClick={() => payNow(open.inv)}>
+              {`Pay ${inr(open.inv.total)} online`}
+            </Button>
           ) : null}
         </>
       }

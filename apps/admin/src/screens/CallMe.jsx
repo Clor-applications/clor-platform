@@ -3,6 +3,7 @@ import { Phone } from 'lucide-react';
 
 import { openTicket } from '@platform/admin/account';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Round 35 pick kickoff B (owner, 18 Nov 2026): setting up is helped by a
@@ -69,9 +70,9 @@ export function CallMe() {
         <span className="ui-caption">Mobile number to call</span>
         <input className="ui-input" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98450 12345" />
       </label>
-      <button type="submit" className="ws-btn ws-btn--quiet ws-btn--small" disabled={!phoneOk(phone) || busy}>
-        {busy ? 'Sending…' : 'Ask for a call'}
-      </button>
+      <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={busy} disabled={!phoneOk(phone)} type="submit">
+        Ask for a call
+      </Button>
       <button type="button" className="ws-link" onClick={() => setOpen(false)}>
         Cancel
       </button>

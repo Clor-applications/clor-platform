@@ -5,6 +5,7 @@ import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsBooksChoices, opsInvoicing, opsRenewals, opsRunRenewals, opsSaveBooksLink, opsSaveInvoicing, opsSaveSelfServe, opsTestBooks } from './api';
 import { Err, ErrorSummary, FieldMsg, Loading, day, fieldErr, may, errorWords } from './kit';
 import { inr } from './money';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Invoice settings (server: routes/opsInvoices.ts, billing/invoicing.ts).
@@ -142,9 +143,9 @@ function Numbering({ s, mayChange, onSaved }) {
         <Problems list={problems} />
         {mayChange ? (
           <div>
-            <button type="submit" className="ws-btn ws-btn--primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save numbering'}
-            </button>
+            <Button plain className="ws-btn ws-btn--primary" loading={busy} type="submit">
+              Save numbering
+            </Button>
             <span className="ws-card-blurb" style={{ marginLeft: 12 }}>
               Asks for a code from your authenticator app.
             </span>
@@ -265,13 +266,13 @@ function Renewals({ s: settings, mayChange, onSaved }) {
         <Problems list={problems} />
         {mayChange ? (
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="ws-btn" disabled={Boolean(busy) || !changed || (on && !/^\d{1,2}$/.test(days))}>
-              {busy === 'save' ? 'Saving…' : 'Save renewals'}
-            </button>
+            <Button plain className="ws-btn" loading={busy === 'save'} disabled={Boolean(busy) || !changed || (on && !/^\d{1,2}$/.test(days))} type="submit">
+              Save renewals
+            </Button>
             {s.renewals.on ? (
-              <button type="button" className="ws-btn ws-btn--quiet" onClick={runNow} disabled={Boolean(busy) || !due}>
-                {busy === 'run' ? 'Issuing…' : due ? `Issue the ${due} due now` : 'Nothing due now'}
-              </button>
+              <Button plain className="ws-btn ws-btn--quiet" loading={busy === 'run'} disabled={Boolean(busy) || !due} onClick={runNow}>
+                {due ? `Issue the ${due} due now` : 'Nothing due now'}
+              </Button>
             ) : null}
             <span className="ws-card-blurb">Asks for a code from your authenticator app. It also runs on its own every six hours.</span>
           </div>
@@ -383,9 +384,9 @@ function Reminders({ s: settings, mayChange, onSaved, openTemplates }) {
         <Problems list={problems} />
         {mayChange ? (
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="ws-btn" disabled={busy || !changed}>
-              {busy ? 'Saving…' : 'Save reminders'}
-            </button>
+            <Button plain className="ws-btn" loading={busy} disabled={!changed} type="submit">
+              Save reminders
+            </Button>
             <span className="ws-card-blurb">Asks for a code from your authenticator app. It runs on its own through the day.</span>
           </div>
         ) : null}
@@ -452,9 +453,9 @@ function SelfServeSeats({ s: settings, mayChange, onSaved }) {
         <Problems list={problems} />
         {mayChange ? (
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="ws-btn" disabled={busy || !changed}>
-              {busy ? 'Saving…' : 'Save seat settings'}
-            </button>
+            <Button plain className="ws-btn" loading={busy} disabled={!changed} type="submit">
+              Save seat settings
+            </Button>
             <span className="ws-card-blurb">Asks for a code from your authenticator app.</span>
           </div>
         ) : null}
@@ -609,9 +610,9 @@ function BooksConnector({ s, mayChange, onSaved }) {
             ) : null}
             {mayChange ? (
               <div className="flex flex-wrap gap-2">
-                <button type="button" className="ws-btn ws-btn--quiet" disabled={busy === 'test'} onClick={runTest}>
-                  {busy === 'test' ? 'Testing…' : 'Test connection'}
-                </button>
+                <Button plain className="ws-btn ws-btn--quiet" loading={busy === 'test'} onClick={runTest}>
+                  Test connection
+                </Button>
                 <button type="button" className="ws-btn ws-btn--quiet" disabled={busy === 'save'} onClick={() => save({ enabled: !b.enabled }, b.enabled ? 'The connector is off. Nothing more goes to Books.' : 'The connector is on.')}>
                   {b.enabled ? 'Switch off' : 'Switch on'}
                 </button>

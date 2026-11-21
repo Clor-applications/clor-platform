@@ -4,6 +4,7 @@ import { notify } from '@ui/components/ui/notify';
 import { apiFetch } from '@platform/http';
 import { LoadError, Panel, WsDrawer } from './wsKit';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Workspace → Plan → Billing: changing the plan (platform audit, 11 Nov 2026).
@@ -318,9 +319,9 @@ function AddSeatsDrawer({ seats, onClose, onDone }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="submit" form="ws-add-seats" className="ws-btn ws-btn--primary" disabled={!ready || busy}>
-            {busy ? 'Adding…' : ready ? `Add ${heads(seats.unit, n)} · pay ${inr(quote.total)}` : valid ? `Add ${heads(seats.unit, n)}` : `Add ${word}`}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={!ready} type="submit" form="ws-add-seats">
+            {ready ? `Add ${heads(seats.unit, n)} · pay ${inr(quote.total)}` : valid ? `Add ${heads(seats.unit, n)}` : `Add ${word}`}
+          </Button>
         </>
       }
     >
@@ -448,9 +449,9 @@ function AddAppDrawer({ apps, onClose, onDone }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="submit" form="ws-add-app" className="ws-btn ws-btn--primary" disabled={!ready || busy}>
-            {busy ? 'Adding…' : ready ? `Add ${option.appName} · pay ${inr(quote.total)}` : `Add ${option.appName}`}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={!ready} type="submit" form="ws-add-app">
+            {ready ? `Add ${option.appName} · pay ${inr(quote.total)}` : `Add ${option.appName}`}
+          </Button>
         </>
       }
     >
@@ -558,9 +559,9 @@ function AskDrawer({ first, owned, onClose }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="submit" form="ws-plan-change" className="ws-btn ws-btn--primary" disabled={!valid || busy}>
-            {busy ? 'Sending…' : 'Send to CLOR'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={!valid} type="submit" form="ws-plan-change">
+            Send to CLOR
+          </Button>
         </>
       }
     >
@@ -623,9 +624,9 @@ function StopDrawer({ endsOn, trial, onClose, onDone }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Keep the plan</button>
-          <button type="button" className="ws-btn ws-btn--danger" disabled={busy} onClick={stop}>
-            {busy ? 'Stopping…' : trial ? 'Stop after the trial' : 'Stop renewing'}
-          </button>
+          <Button plain className="ws-btn ws-btn--danger" loading={busy} onClick={stop}>
+            {trial ? 'Stop after the trial' : 'Stop renewing'}
+          </Button>
         </>
       }
     >

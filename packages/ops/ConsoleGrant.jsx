@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 import { opsConsoleGrant } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /*
  * The Engineering Console's "Sign in with CLOR" lands here
@@ -41,7 +42,7 @@ export function ConsoleGrant({ state, me, onCancel }) {
       <p className="ws-lede">You are signed in as {me.user?.email}. The Console will ask for its own authenticator code next.</p>
       {error ? <p className="ui-alert ui-alert-neg" role="alert">{error}</p> : null}
       <div className="ws-actions" style={{ marginTop: 16 }}>
-        <button type="button" className="ws-btn ws-btn--primary" onClick={go} disabled={busy}>{busy ? 'Opening…' : 'Continue to the Console'}</button>
+        <Button plain className="ws-btn ws-btn--primary" loading={busy} onClick={go}>Continue to the Console</Button>
         <button type="button" className="ws-btn ws-btn--quiet" onClick={onCancel} disabled={busy}>Stay in Ops</button>
       </div>
     </main>

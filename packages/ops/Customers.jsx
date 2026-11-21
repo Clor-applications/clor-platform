@@ -42,6 +42,7 @@ import {
   opsTakeBackSeats,
   opsEndAddOn,
 } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Customers (operator console; roadmap item 13): every customer account, and
@@ -949,9 +950,9 @@ function Money({ id, inv, setInv, reloadInvoices, openInvoice }) {
             </div>
             {inv.hasMore ? (
               <div>
-                <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={busy} onClick={older}>
-                  {busy ? 'Loading…' : 'Show older invoices'}
-                </button>
+                <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={busy} onClick={older}>
+                  Show older invoices
+                </Button>
               </div>
             ) : null}
           </>
@@ -1429,9 +1430,9 @@ function Timeline({ id, openLink }) {
       )}
       {d.older ? (
         <div>
-          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={busy} onClick={older}>
-            {busy ? 'Loading…' : 'Show older events'}
-          </button>
+          <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={busy} onClick={older}>
+            Show older events
+          </Button>
         </div>
       ) : null}
     </>

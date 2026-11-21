@@ -3,6 +3,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import Modal from '@ui/components/ui/Modal';
 import { enumWords, errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 export { errorWords };
 
@@ -245,9 +246,9 @@ export function ReasonDrawer({ open, title, what, confirmLabel, cancelLabel = 'C
   const actions = (
     <>
       <button type="button" className="ws-btn ws-btn--quiet" onClick={close} disabled={busy}>{cancelLabel}</button>
-      <button type="submit" form="ops-reason" className={tone === 'danger' ? 'ws-btn ws-btn--danger' : 'ws-btn ws-btn--primary'} disabled={busy || !okReason || !ready} aria-busy={busy || undefined}>
-        {busy ? 'Working…' : confirmLabel}
-      </button>
+      <Button plain className={tone === 'danger' ? 'ws-btn ws-btn--danger' : 'ws-btn ws-btn--primary'} loading={busy} disabled={!okReason || !ready} type="submit" form="ops-reason">
+        {confirmLabel}
+      </Button>
     </>
   );
   const hintBad = tried && !okReason;

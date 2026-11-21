@@ -86,7 +86,7 @@ describe('button state styles', () => {
   const people = readFileSync('packages/ui/src/people.css', 'utf8');
 
   it('blocks clicks without the disabled look', () => {
-    expect(css).toMatch(/\.ui-btn\[aria-busy='true'\],\s*\.ui-btn\[data-state='loading'\] \{\s*pointer-events: none;\s*\}/);
+    expect(css).toMatch(/:is\(\.ui-btn, \.ws-btn\)\[aria-busy='true'\],\s*:is\(\.ui-btn, \.ws-btn\)\[data-state='loading'\] \{\s*pointer-events: none;\s*\}/);
   });
 
   it('breathes instead of spinning under reduced motion, past the global freeze', () => {

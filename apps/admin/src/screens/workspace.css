@@ -148,6 +148,11 @@
   cursor: not-allowed;
   box-shadow: none;
 }
+/* Loading is not disabled: nothing is wrong, the request is on its way, so the button keeps its look. */
+.ws-btn[aria-busy='true'] {
+  opacity: 1;
+  cursor: progress;
+}
 .ws-btn:active {
   transform: translateY(1px);
 }

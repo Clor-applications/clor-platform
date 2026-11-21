@@ -4,6 +4,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsAccounts, opsBreaches, opsNotifyBreach, opsRecordBreach } from './api';
 import { Empty, Err, ErrorSummary, FieldMsg, HoldOpen, Loading, day, fieldErr, may, when, errorWords } from './kit';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Data breaches (round 67 "breachops"; server: routes/opsBreaches.ts): a
@@ -196,9 +197,9 @@ function RecordBreach({ onClose, onSaved }) {
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>
-            {busy ? 'Saving…' : 'Record breach'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} onClick={save}>
+            Record breach
+          </Button>
         </>
       }
     >

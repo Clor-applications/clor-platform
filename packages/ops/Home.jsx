@@ -8,6 +8,7 @@ import { workerName } from './Health';
 import { daysLeft } from './Trials';
 import { inr } from './money';
 import { opsAudit, opsHandover, opsHealth, opsHome, opsMarkQueue, opsOverview, opsUnmarkQueue, opsWriteHandover } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Overview (operator console; R&D CLOR-05): four numbers about the customer
@@ -666,9 +667,9 @@ function Handover({ canWrite }) {
           </label>
           <Err>{saveError}</Err>
           <div className="flex gap-2">
-            <button type="button" className="ws-btn ws-btn--primary" disabled={busy || draft.trim().length < 3} onClick={save}>
-              {busy ? 'Saving…' : 'Save note'}
-            </button>
+            <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={draft.trim().length < 3} onClick={save}>
+              Save note
+            </Button>
             <button type="button" className="ws-btn ws-btn--quiet" onClick={() => (setDraft(null), setSaveError(''))}>Cancel</button>
           </div>
         </div>

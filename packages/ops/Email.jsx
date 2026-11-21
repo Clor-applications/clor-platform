@@ -16,6 +16,7 @@ import {
   opsTestSender,
   opsTestTemplate,
 } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Email on the operator console (server: routes/opsEmail.ts): the addresses
@@ -108,9 +109,9 @@ export function EmailAddresses({ role }) {
                     <div className="flex flex-wrap justify-end gap-1">
                       {owner ? <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => open(s)}>Edit</button> : null}
                       {canTest ? (
-                        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={testing === s.purpose} onClick={() => test(s)}>
-                          {testing === s.purpose ? 'Sending…' : 'Send test'}
-                        </button>
+                        <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={testing === s.purpose} onClick={() => test(s)}>
+                          Send test
+                        </Button>
                       ) : null}
                     </div>
                   </td>
@@ -258,9 +259,9 @@ function TemplateEditor({ template: t, role, onClose, onSaved }) {
             {owner && t?.changed ? <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setConfirm('reset')}>Reset to default</button> : null}
             <button type="button" className="ws-btn ws-btn--quiet" onClick={showPreview}>Preview</button>
             {may(role, 'SALES', 'SUPPORT', 'BILLING') ? (
-              <button type="button" className="ws-btn ws-btn--quiet" disabled={testing || dirty} title={dirty ? 'Save first: a test sends the saved wording' : undefined} onClick={test}>
-                {testing ? 'Sending…' : 'Send test'}
-              </button>
+              <Button plain className="ws-btn ws-btn--quiet" loading={testing} disabled={dirty} title={dirty ? 'Save first: a test sends the saved wording' : undefined} onClick={test}>
+                Send test
+              </Button>
             ) : null}
             {owner ? <button type="button" className="ws-btn ws-btn--primary" disabled={!dirty || !subject.trim() || !body.trim()} onClick={() => setConfirm('save')}>Save wording</button> : null}
           </>

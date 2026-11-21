@@ -6,6 +6,7 @@ import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
 import { APP_NAMES, Empty, Err, Loading, Pager, REASON, reasonShort, when, errorWords } from './kit';
 import { opsDenials, opsFeatureSwitches, opsOrganisations, opsUsers } from './api';
 import './lists.css';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * The console's lists across every account (R&D OPS-05, 06, 08, 09; server:
@@ -250,9 +251,9 @@ export function Users({ openAccount }) {
         description="People who can sign in, across all accounts. One person can belong to many accounts, for example a CA firm."
         counts={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'person' : 'people'}` : null}
         actions={
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={exportCsv} disabled={exporting || !data?.total}>
-            {exporting ? 'Exporting…' : 'Export'}
-          </button>
+          <Button plain className="ws-btn ws-btn--quiet" loading={exporting} disabled={!data?.total} onClick={exportCsv}>
+            Export
+          </Button>
         }
       />
       <div className="ops-filters" role="search">

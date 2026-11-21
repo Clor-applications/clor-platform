@@ -10,6 +10,7 @@ import { DateFilter, shortWhen, spanFrom } from './AccountActivity';
 import './workspace.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('counterclockwise-arrows-button');
@@ -465,9 +466,9 @@ export default function AuditTrail({ tenant, menuLabel } = {}) {
             <nav className="flex items-center gap-3" aria-label="Pages">
               <span className="ws-head-meta">{entries.length} {entries.length === 1 ? 'entry' : 'entries'} shown</span>
               {cursor ? (
-                <button type="button" onClick={() => load({ cursor })} className="ws-btn ws-btn--quiet ws-btn--small" disabled={loading}>
-                  {loading ? 'Loading…' : 'Load older entries'}
-                </button>
+                <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={loading} onClick={() => load({ cursor })}>
+                  Load older entries
+                </Button>
               ) : (
                 <span className="ws-head-meta sr-only">The start of the trail</span>
               )}

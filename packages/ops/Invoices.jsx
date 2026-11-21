@@ -24,6 +24,7 @@ import {
 } from './api';
 import { Empty, Err, ErrorSummary, FieldMsg, HoldOpen, Loading, ReasonDrawer, Tabs, day, fieldErr, may, when, errorWords } from './kit';
 import { inr, rupeesText, toPaise } from './money';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Invoices (server: routes/opsInvoices.ts, billing/invoices.ts): CLOR's
@@ -401,9 +402,9 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy || !account} onClick={save}>
-            {busy ? 'Saving…' : 'Save draft'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={!account} onClick={save}>
+            Save draft
+          </Button>
         </>
       }
     >
@@ -687,9 +688,9 @@ export function InvoicePage({ id, role, back, openCustomer }) {
               </button>
             ) : null}
             {inv.status === 'ISSUED' || inv.status === 'PAID' ? (
-              <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={doing === 'books'} onClick={toBooks}>
-                {doing === 'books' ? 'Sending…' : inv.booksStatus === 'SENT' ? 'Send to Books again' : inv.booksStatus === 'FAILED' ? 'Retry sending to Books' : 'Send to Books'}
-              </button>
+              <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={doing === 'books'} onClick={toBooks}>
+                {inv.booksStatus === 'SENT' ? 'Send to Books again' : inv.booksStatus === 'FAILED' ? 'Retry sending to Books' : 'Send to Books'}
+              </Button>
             ) : null}
           </div>
         ) : null}
@@ -897,9 +898,9 @@ function MarkPaid({ inv, onClose, onDone }) {
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>
-            {busy ? 'Saving…' : 'Mark paid'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} onClick={save}>
+            Mark paid
+          </Button>
         </>
       }
     >

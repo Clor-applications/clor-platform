@@ -6,6 +6,7 @@ import { getArchiveReasons } from '@platform/admin/admin';
 import { formatMoney } from '@ui/utils/money';
 import { ICON, Loading, WsDrawer, productIcon, tabKeys } from './wsKit';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * A company at a glance (redesign W-R5): opened from its name in Companies.
@@ -164,7 +165,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
                         Archived {day(company.archived.at)}{company.archived.reasonLabel ? ` · ${company.archived.reasonLabel}` : ''}{company.archived.note ? ` — ${company.archived.note}` : ''}. Its records can be read and exported; nothing new can be added.
                       </p>
                       {onReactivate ? (
-                        <div><button type="button" className="ws-btn ws-btn--quiet" disabled={archiveBusy} onClick={() => runArchive(() => onReactivate(company.orgId))}>{archiveBusy ? 'Reactivating…' : 'Reactivate company'}</button></div>
+                        <div><Button plain className="ws-btn ws-btn--quiet" loading={archiveBusy} onClick={() => runArchive(() => onReactivate(company.orgId))}>Reactivate company</Button></div>
                       ) : null}
                     </>
                   ) : archiving ? (
@@ -189,7 +190,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
                       </label>
                       <div className="flex gap-2">
                         <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setArchiving(null)} disabled={archiveBusy}>Cancel</button>
-                        <button type="submit" className="ws-btn ws-btn--primary" disabled={archiveBusy || !archiving.reason}>{archiveBusy ? 'Archiving…' : 'Archive company'}</button>
+                        <Button plain className="ws-btn ws-btn--primary" loading={archiveBusy} disabled={!archiving.reason} type="submit">Archive company</Button>
                       </div>
                     </form>
                   ) : onArchive ? (
