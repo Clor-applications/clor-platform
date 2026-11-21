@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-c49f0ba - 2026-11-21
+
+API revision `clor-api-00159-6j6`. Previous release `rel-2c1ac84` (roll back there).
+
+- #424 Ops: a short payment closes an invoice only when CLOR agreed to take less
+- #423 Same light accents on every app's Home
+- #422 Release record: rel-2c1ac84
+
 ## rel-2c1ac84 - 2026-11-21
 
 API revision `clor-api-00158-smj`. Previous release `rel-86f69a7` (roll back there).
