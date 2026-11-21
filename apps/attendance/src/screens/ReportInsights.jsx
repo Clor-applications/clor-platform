@@ -5,6 +5,7 @@ import { CountLine } from '@ui/components/ui/CountLine';
 import { getReportInsights, listReports } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 const monthName = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' });
 const fmt = (v, unit = '') => (v == null ? '—' : `${v}${unit}`);
@@ -81,10 +82,10 @@ export default function ReportInsights({ openScreen }) {
           </div>
           {lists?.departments?.length ? (
             <label className="block"><span className="ui-label">Department</span>
-              <select className="ui-select" value={filters.departmentId} onChange={set('departmentId')}>
+              <SelectField className="ui-select" value={filters.departmentId} onChange={set('departmentId')}>
                 <option value="">All</option>
                 {lists.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              </SelectField>
             </label>
           ) : null}
           {lists?.areas?.length ? (
@@ -97,10 +98,10 @@ export default function ReportInsights({ openScreen }) {
           ) : null}
           {lists?.contractors?.length ? (
             <label className="block"><span className="ui-label">Contractor</span>
-              <select className="ui-select" value={filters.contractorId} onChange={set('contractorId')}>
+              <SelectField className="ui-select" value={filters.contractorId} onChange={set('contractorId')}>
                 <option value="">All</option>
                 {lists.contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              </SelectField>
             </label>
           ) : null}
         </section>

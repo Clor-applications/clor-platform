@@ -28,6 +28,7 @@ import { rupees as money, moneyCell } from '@ui/utils/money';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
 import { dateWords } from '@ui/utils/dates';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Increments, and what they really cost.
@@ -325,13 +326,13 @@ const RevisionForm = ({ people, structures, onCancel, onCreated, initialEmployee
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="ui-label" htmlFor="rev-employee">Employee</label>
-              <select id="rev-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
+              <SelectField id="rev-employee" className="ui-select w-full" value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} required>
                 {people.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}{p.code ? ` · ${p.code}` : ''}
                   </option>
                 ))}
-              </select>
+              </SelectField>
               {current ? <span className="ui-caption">On {money(current.annualCtc)} a year now.</span> : null}
             </div>
             <div>

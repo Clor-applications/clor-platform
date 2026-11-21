@@ -42,6 +42,7 @@ import './ws-security.css';
 import './ws-access.css';
 import { errorWords } from '@ui/utils/errorWords';
 import { Button } from '@ui/components/ui/Primitives';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /* The colour icons the empty lists show: each the one its menu item wears. */
 const EMPTY_ICON = emoji('bust-in-silhouette');
@@ -704,10 +705,10 @@ export function SettingsUsers({ orgId, params }) {
           </label>
           <label className="grid gap-1">
             <span className="text-sm font-semibold">Hand over their work to</span>
-            <select className="ui-select w-full" value={leave.handoverUserId} onChange={(e) => setLeave((l) => ({ ...l, handoverUserId: e.target.value }))}>
+            <SelectField className="ui-select w-full" value={leave.handoverUserId} onChange={(e) => setLeave((l) => ({ ...l, handoverUserId: e.target.value }))}>
               <option value="">Nobody</option>
               {successors.map((x) => <option key={x.id} value={x.id}>{nameOf(x)}</option>)}
-            </select>
+            </SelectField>
             <span className="ui-caption">
               {p == null ? 'Checking what is waiting on them…' : waiting ? `Waiting on them: ${p.approvals} approvals, ${p.deskRequests} HR requests, ${p.exceptions} attendance exceptions.` : 'Nothing is waiting on them.'}
             </span>

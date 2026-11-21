@@ -7,6 +7,7 @@ import MinimumWagesSection, { MinimumWageReminder } from './MinimumWagesSection'
 import { inForceIds } from './minimumWageText';
 import { addMinimumWage, getMinimumWages, importMinimumWages } from '../api/payrollMinimumWages';
 import { requestOpenScreen } from '@platform/context';
+import { pickOption } from '@ui/components/ui/pickOption';
 
 vi.mock('../api/payrollMinimumWages', () => ({ getMinimumWages: vi.fn(), addMinimumWage: vi.fn(), importMinimumWages: vi.fn(), removeMinimumWage: vi.fn() }));
 vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: vi.fn(() => Promise.resolve(true)) }));
@@ -29,7 +30,7 @@ it('ships empty, saying where the rates come from, and adds one', async () => {
   expect(await screen.findByText(/CLOR does not supply minimum wage rates/)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Chief Labour Commissioner' })).toHaveAttribute('href', 'https://clc.gov.in/');
   await userEvent.click(screen.getByRole('button', { name: 'Add a rate' }));
-  await userEvent.selectOptions(screen.getByLabelText('State'), 'Karnataka');
+  await pickOption(screen.getByLabelText('State'), 'Karnataka');
   await userEvent.selectOptions(screen.getByLabelText('Skill level'), 'SEMI_SKILLED');
   await userEvent.type(screen.getByLabelText('Applies from'), '2026-10-01');
   await userEvent.type(screen.getByLabelText('Monthly rate'), '15,500');

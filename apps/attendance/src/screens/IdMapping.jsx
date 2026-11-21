@@ -8,6 +8,7 @@ import { listStructure } from '@ui/personnel/api';
 import { getEmployeeReaderIds, getMappingAudit, listEmployees, listSiteReaderIds, matchPunches, removeReaderExtras, saveEmployeeReaderIds } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Reader IDs and employees, checked against each other: punches from IDs that
@@ -237,10 +238,10 @@ function SiteIdsEditor({ initial, onClose, onSaved }) {
     >
       <div className="space-y-4">
         <label className="block"><span className="ui-label">Employee</span>
-          <select className="ui-select w-full" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+          <SelectField className="ui-select w-full" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
             <option value="">Choose…</option>
             {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` · ${p.code}` : ''}</option>)}
-          </select>
+          </SelectField>
         </label>
         {current ? (
           <>

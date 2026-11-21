@@ -10,6 +10,7 @@ import { inForceIds, SKILL_LEVELS } from './minimumWageText';
 import { addMinimumWage, getMinimumWages, importMinimumWages, removeMinimumWage } from '../api/payrollMinimumWages';
 import { errorWords } from '@ui/utils/errorWords';
 import { Button } from '@ui/components/ui/Primitives';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 const STATES = [...new Set(Object.values(GST_STATE_BY_CODE).filter((s) => !/\(Old\)/.test(s)))].sort((a, b) => a.localeCompare(b));
 const TEMPLATE = 'state,zone,skill,effective_from,monthly_rate,note\n';
@@ -195,10 +196,10 @@ export default function MinimumWagesSection() {
         <form className="ui-minwage-form px-4 py-3" style={{ borderTop: '1px solid rgb(var(--border))' }} onSubmit={save} aria-label="Add a minimum wage rate">
           <div>
             <label className="ui-label" htmlFor="mw-state">State</label>
-            <select id="mw-state" className="ui-select w-full" value={form.state} onChange={set('state')} required>
+            <SelectField id="mw-state" className="ui-select w-full" value={form.state} onChange={set('state')} required>
               <option value="">Choose a state</option>
               {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            </SelectField>
           </div>
           <div>
             <label className="ui-label" htmlFor="mw-zone">Zone</label>

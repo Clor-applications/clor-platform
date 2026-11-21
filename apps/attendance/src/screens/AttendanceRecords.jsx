@@ -22,6 +22,7 @@ import EarlyGoTag from '@ui/timeOff/EarlyGoTag';
 import { errorWords, enumWords, dayText } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
 import { useDirty } from '../components/useSaving';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Everyone's days: filter, correct, validate, approve overtime. After
@@ -538,10 +539,10 @@ function MarkDay({ initial, people, onClose, onSaved }) {
         {form.id ? null : (
           <label className="block sm:col-span-2">
             <span className="ui-label">Employee *</span>
-            <select className="ui-select w-full" required value={form.employeeId || ''} onChange={set('employeeId')}>
+            <SelectField className="ui-select w-full" required value={form.employeeId || ''} onChange={set('employeeId')}>
               <option value="">Choose…</option>
               {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` · ${p.code}` : ''}</option>)}
-            </select>
+            </SelectField>
           </label>
         )}
         <label className="block"><span className="ui-label">Day *</span><input type="date" className="ui-input w-full" required max={todayIst()} value={form.date} onChange={set('date')} disabled={Boolean(form.id)} /></label>

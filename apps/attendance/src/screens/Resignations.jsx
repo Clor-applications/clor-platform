@@ -16,6 +16,7 @@ import { errorWords } from '@ui/utils/errorWords';
 import { useDirty } from '../components/useSaving';
 import { countItems } from '../components/countItems';
 
+import { SelectField } from '@ui/components/ui/SelectField';
 
 const TONE = { RESIGNED: 'sent', TERMINATED: 'overdue', RETIRED: 'paid', ABSCONDED: 'outstanding', CONTRACT_ENDED: 'cancelled', DECEASED: 'cancelled' };
 const TABS = [{ value: '', label: 'All', tone: 'all' }, ...Object.entries(LEAVING_TYPES).map(([value, label]) => ({ value, label, tone: TONE[value] || 'cancelled' }))];
@@ -218,10 +219,10 @@ function RecordLeaving({ people, onClose, onSaved }) {
       <form id="leaving-form" onSubmit={save} className="grid gap-4">
         <label className="block">
           <span className="ui-label">Employee *</span>
-          <select className="ui-select w-full" required value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}>
+          <SelectField className="ui-select w-full" required value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}>
             <option value="">Choose…</option>
             {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` · ${p.code}` : ''}</option>)}
-          </select>
+          </SelectField>
         </label>
         <label className="block"><span className="ui-label">Last working day *</span><input type="date" className="ui-input w-full" required value={form.lastDay} onChange={(e) => setForm({ ...form, lastDay: e.target.value })} /></label>
         <label className="block">

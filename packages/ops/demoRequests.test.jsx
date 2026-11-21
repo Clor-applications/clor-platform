@@ -14,6 +14,7 @@ vi.mock('./api', () => ({
 vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: vi.fn(() => Promise.resolve(true)) }));
 
 import { DemoRequestDetail, DemoRequests } from './DemoRequests';
+import { pickOption } from '@ui/components/ui/pickOption';
 
 const asha = {
   id: 'd1', name: 'Asha Rao', company: 'Rao Textiles', email: 'asha@rao.in', phone: '+919845012345', city: 'Mysuru',
@@ -52,7 +53,7 @@ describe('Demo requests in the operator console', () => {
     await waitFor(() => expect(api.set).toHaveBeenCalledWith('d1', { status: 'CONTACTED', note: 'Demo Thursday' }));
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Create account' })[0]);
-    fireEvent.change(await screen.findByLabelText('State of the head office'), { target: { value: 'Karnataka' } });
+    await pickOption(await screen.findByLabelText('State of the head office'), 'Karnataka');
     const buttons = screen.getAllByRole('button', { name: 'Create account' });
     fireEvent.click(buttons[buttons.length - 1]);
     await waitFor(() => expect(api.create).toHaveBeenCalledWith('d1', { state: 'Karnataka', apps: ['accounting', 'people'], trialDays: 30 }));
@@ -117,8 +118,8 @@ describe('Demo requests as a pipeline', () => {
     render(<DemoRequestDetail id="d1" role="SALES" back={vi.fn()} openAccount={vi.fn()} />);
     expect(await screen.findByText('linkedin.com')).toBeInTheDocument();
     expect(screen.getByText('First page: clor.in/people')).toBeInTheDocument();
-    await screen.findByRole('option', { name: 'Ravi Sales' });
-    fireEvent.change(screen.getByLabelText('Looked after by'), { target: { value: 'u-ravi' } });
+    await waitFor(() => expect(screen.getByLabelText('Looked after by')).toBeInTheDocument());
+    await pickOption(screen.getByLabelText('Looked after by'), 'Ravi Sales');
     fireEvent.change(screen.getByLabelText('Follow up on'), { target: { value: '2026-11-20' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save status and note' }));
     await waitFor(() => expect(api.set).toHaveBeenCalledWith('d1', { status: 'NEW', note: null, assignedToUserId: 'u-ravi', followUpAt: '2026-11-20T00:00:00+05:30' }));

@@ -17,6 +17,7 @@ import './ws-home.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
 import { Button } from '@ui/components/ui/Primitives';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('convenience-store');
@@ -666,13 +667,13 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
         {field('city', 'City')}
         <label className="grid gap-1">
           <span className="text-sm font-semibold">State <span className="ui-required" aria-hidden="true">*</span></span>
-          <select className="ui-select" value={f.state} onChange={set('state')} required>
+          <SelectField className="ui-select" value={f.state} onChange={set('state')} required>
             <option value="">Choose…</option>
             {f.state && !STATES.includes(f.state) ? <option value={f.state}>{f.state}</option> : null}
             {STATES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
-          </select>
+          </SelectField>
         </label>
         {field('country', 'Country')}
       </fieldset>
@@ -719,13 +720,13 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
           {warehouseField('city', 'City')}
           <label className="grid gap-1">
             <span className="text-sm font-semibold">State <span className="ui-required" aria-hidden="true">*</span></span>
-            <select className="ui-select" value={w.state} onChange={setWarehouse('state')} required>
+            <SelectField className="ui-select" value={w.state} onChange={setWarehouse('state')} required>
               <option value="">Choose…</option>
               {w.state && !STATES.includes(w.state) ? <option value={w.state}>{w.state}</option> : null}
               {STATES.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
-            </select>
+            </SelectField>
           </label>
           {warehouseField('country', 'Country')}
         </fieldset>

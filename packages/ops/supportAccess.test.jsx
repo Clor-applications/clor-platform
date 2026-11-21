@@ -11,6 +11,7 @@ vi.mock('./api', () => ({
 }));
 
 import { SupportAccess } from './SupportAccess';
+import { pickOption } from '@ui/components/ui/pickOption';
 
 const companies = [{ id: 'o1', name: 'Rao Textiles', code: '4831920657' }, { id: 'o2', name: 'Rao Exports', code: '4831920658' }];
 beforeEach(() => Object.values(api).forEach((f) => f.mockReset()));
@@ -23,7 +24,7 @@ describe('operator console: support access', () => {
     expect(await screen.findByText(/Nobody from CLOR has asked/)).toBeInTheDocument();
     const ask = screen.getByRole('button', { name: 'Ask the customer' });
     expect(ask).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('Company'), { target: { value: 'o2' } });
+    await pickOption(screen.getByLabelText('Company'), 'Rao Exports');
     fireEvent.change(screen.getByLabelText('Why you need to look'), { target: { value: 'Series settings look wrong' } });
     fireEvent.click(ask);
     await waitFor(() => expect(api.opsAskSupportGrant).toHaveBeenCalledWith('a1', { orgId: 'o2', reason: 'Series settings look wrong', ticketRef: undefined, scope: 'READ_ONLY' }));

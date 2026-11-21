@@ -40,6 +40,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
 import useSaving, { useDirty } from '../components/useSaving';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 const DIRECTIONS = {
   both: 'In and out (the reader’s keys decide)',
@@ -1628,10 +1629,10 @@ function ReaderMessage({ device, onSent }) {
         </label>
         <label className="block">
           <span className="ui-t-label block mb-1">To</span>
-          <select className="ui-select" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+          <SelectField className="ui-select" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
             <option value="">Everyone</option>
             {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` · ${p.code}` : ''}</option>)}
-          </select>
+          </SelectField>
         </label>
         <Button variant="secondary" size="sm" loading={busy} disabled={!text.trim()} type="submit">Show it</Button>
       </form>

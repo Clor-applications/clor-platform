@@ -198,7 +198,7 @@ describe('Settings, Tax', () => {
     render(<Settings role="BILLING" />);
     fireEvent.click(await screen.findByLabelText(/CLOR is GST registered/));
     fireEvent.change(screen.getByLabelText('GSTIN'), { target: { value: '29aabcu9603r1zj' } });
-    expect(screen.getByLabelText('State')).toHaveValue('29');
+    expect(screen.getByLabelText('State')).toHaveTextContent('Karnataka');
     fireEvent.change(screen.getByLabelText('Legal name'), { target: { value: 'Clor Applications Pvt Ltd' } });
     fireEvent.change(screen.getByLabelText('SAC code'), { target: { value: '998314' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save tax settings' }));

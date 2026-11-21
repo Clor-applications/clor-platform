@@ -11,6 +11,7 @@ vi.mock('@platform/auth', () => ({
 
 import Start from './Start';
 import { appOf, forgetStartLink, isStartPath } from './startLink';
+import { pickOption } from '@ui/components/ui/pickOption';
 
 const OFFER = {
   apps: [
@@ -110,7 +111,7 @@ describe('Start a free trial', () => {
       fireEvent.click(screen.getByRole('button', { name: /Open CLOR/ }));
       expect(await screen.findByRole('alert')).toHaveTextContent('Choose the state of your head office');
       expect(api.confirm).not.toHaveBeenCalled();
-      fireEvent.change(screen.getByLabelText('State of your head office'), { target: { value: 'Karnataka' } });
+      await pickOption(screen.getByLabelText('State of your head office'), 'Karnataka');
       fireEvent.click(screen.getByRole('button', { name: /Open CLOR/ }));
       await waitFor(() =>
         expect(api.confirm).toHaveBeenCalledWith({ token: 'mail-token-0123456789abcdef', ownerName: 'Asha Rao', companyName: 'Rao Textiles', apps: ['accounting', 'people', 'attendance'], state: 'Karnataka', password: 'rao-textiles-2026' }),
@@ -148,7 +149,7 @@ describe('Start a free trial', () => {
       expect(api.confirm).not.toHaveBeenCalled();
 
       fireEvent.change(screen.getByLabelText(/GSTIN/), { target: { value: '29abcde1234f1z5' } });
-      expect(screen.getByLabelText('State of your head office')).toHaveValue('Karnataka');
+      expect(screen.getByLabelText('State of your head office')).toHaveTextContent('Karnataka');
       expect(screen.getByText('Taken from the GSTIN.')).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: /Open CLOR/ }));
       await waitFor(() =>

@@ -56,3 +56,22 @@
 @media (max-width: 767px) {
   .ui-chip { height: 44px; }
 }
+
+/* SelectField: a field that opens a searchable list. It wears the field's own class (.ui-input),
+   so its height, border and focus ring are the field's; this only lays out the value and the caret. */
+.ui-select-field {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.ui-select-field:disabled { cursor: not-allowed; }
+.ui-select-field-v { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-select-field-caret { flex: none; color: rgb(var(--fg-muted)); }
+.ui-select-field-check { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+/* On a .ui-select the field already draws its arrow (index.css), so the icon steps aside. */
+.ui-select.ui-select-field .ui-select-field-caret { display: none; }
+/* A long list scrolls under its search box, which stays put. */
+.ui-select-field-find { position: sticky; top: -4px; z-index: 1; background: rgb(var(--surface)); }

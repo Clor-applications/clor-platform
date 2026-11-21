@@ -30,6 +30,7 @@ import { RELIEF_89_NOTE, mentionsArrears } from '@ui/picks/round54';
 import { COUNT_UNITS, countAmount, countWords } from '@ui/picks/payLines';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /**
  * Bonuses, arrears, fines — what happened to one person in one month.
@@ -459,7 +460,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="ui-label" htmlFor="adj-employee">Employee</label>
-          <select id="adj-employee" className="ui-select w-full" disabled={carried} value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value, leaveEncashmentId: '' })} required>
+          <SelectField id="adj-employee" className="ui-select w-full" disabled={carried} value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value, leaveEncashmentId: '' })} required>
             {/* A row's own person stays choosable after they leave: a leaver's recovery is still corrected here. */}
             {row.employeeId && !people.some((p) => p.id === row.employeeId) ? (
               <option value={row.employeeId}>{row.employeeName || 'This person'}{row.employeeCode ? ` · ${row.employeeCode}` : ''}</option>
@@ -469,7 +470,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
                 {p.name}{p.code ? ` · ${p.code}` : ''}
               </option>
             ))}
-          </select>
+          </SelectField>
         </div>
 
         <div>

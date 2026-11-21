@@ -1,5 +1,6 @@
 import React from 'react';
 import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
+import { SelectField } from '@ui/components/ui/SelectField';
 
 /*
  * Where one person works, and as what.
@@ -125,12 +126,12 @@ export default function UserLocationAccessTable({ branches = [], warehouses = []
                   <td>{row.type}</td>
                   <td>
                     {row.type === 'Branch' ? (
-                      <select aria-label={`Branch for row ${index + 1}`} className="ui-select w-full" value={row.branchId} onChange={(e) => changeBranch(row.branchId, e.target.value)}>
+                      <SelectField aria-label={`Branch for row ${index + 1}`} className="ui-select w-full" value={row.branchId} onChange={(e) => changeBranch(row.branchId, e.target.value)}>
                         <option value={row.branchId}>{label(branch)}</option>
                         {availableBranches.map((item) => (
                           <option key={item.id} value={item.id}>{label(item)}</option>
                         ))}
-                      </select>
+                      </SelectField>
                     ) : (
                       label(branch)
                     )}
