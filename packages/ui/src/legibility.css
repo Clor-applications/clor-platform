@@ -86,8 +86,12 @@
 /* ---- Focus rings after a pointer (owner, 19 Nov 2026) ---- */
 /* main.jsx marks the last input on <html>. After a click or tap, a ring handed back by a menu or a page
    change is noise; after a key it stays, for keyboard users. */
-:root[data-input='pointer']:not(#lg1):not(#lg2) :focus-visible { outline: none !important; }
-:root[data-input='pointer']:not(#lg1):not(#lg2) :is(.ui-input, .ui-select, textarea, select, input):focus-visible { box-shadow: none; }
+/* Only on what is clicked and left: buttons, links, tabs, menu rows. A field keeps its ring after a
+   click, because the ring is what says where the typing will go (interaction audit 21 Nov 2026).
+   Books keeps its own rule unchanged. */
+:root[data-input='pointer'][data-palette='indigo']:not(#lg1):not(#lg2) :focus-visible { outline: none !important; }
+:root[data-input='pointer'][data-palette='indigo']:not(#lg1):not(#lg2) :is(.ui-input, .ui-select, textarea, select, input):focus-visible { box-shadow: none; }
+:root[data-input='pointer']:not([data-palette='indigo']):not(#lg1):not(#lg2) :is(a, button, summary, [role='button'], [role='tab'], [role='menuitem'], [role='option'], [role='link'], [tabindex]:not(input):not(textarea):not(select)):focus-visible { outline: none !important; }
 /* The open side-panel item: its word in the app colour on the hover grey says "here" (DESIGN.md). */
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-split-panel .ui-split-item[aria-current='page'] { box-shadow: none; color: rgb(var(--act-ink, var(--fg))); }
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-split-rail :is(.ui-split-mod[data-current], .ui-split-mod[aria-pressed='true']) > span { color: rgb(var(--act-ink, var(--fg))); }
@@ -196,11 +200,23 @@
 }
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-empty-state .ui-empty-head { font-size: 0.875rem !important; line-height: 1.25rem !important; }
 
-/* S9. Focus is a 3px ring of the app colour at 28%, on every control (DESIGN.md "Buttons"). */
-:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgb(var(--act) / 0.28);
+/* S9. Focus is a 3px ring of the app colour at 28%, on every control (DESIGN.md "Buttons").
+   The one focus treatment: drawn as an outline, so it never wipes a control's own inset shadow
+   (a selected row's bar, a tab's underline). The 2px and 18% rings that competed with it are gone. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid rgb(var(--act, var(--fg)) / 0.28);
+  outline-offset: 0;
 }
+/* The halos fields drew on focus (1px at 20%, 3px at 16% on the sign-in pages) gave a field two rings. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-input, .ui-select, textarea, select, input:not([type='checkbox']):not([type='radio'])):focus { box-shadow: none; }
+/* A field drawn by its wrapper (the filter menu's search line, the centred amount): the wrapper takes the ring. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-chip-search-input, .ui-money-centred > .ui-input):focus-visible { outline: none; }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-chip-search, .ui-money-centred):focus-within {
+  outline: 3px solid rgb(var(--act, var(--fg)) / 0.28);
+  outline-offset: 0;
+  box-shadow: none;
+}
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-money-centred:focus-within { border-color: rgb(var(--act, var(--fg))); }
 
 /* S10. Dialogs: 420px, 12px corners, and a plain scrim with no blur (DESIGN.md "Dialogs", "Elevation"). */
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-dialog, .ui-confirm) { border-radius: 0.75rem !important; }
@@ -267,3 +283,113 @@
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-ctl-compact { min-height: 2rem; height: 2rem; }
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-table tbody .ui-icon-btn { width: 2rem; height: 2rem; min-height: 2rem; }
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-activity-filter { height: 2rem; border-radius: 0.5rem; font-weight: 600; }
+
+/* ---- Type on the six-step scale, the rest of it (interaction audit 21 Nov 2026; DESIGN.md "typography").
+   Body and fields are 14/20 (they rendered at 13), labels 12/16 at 600, one title rule at 24/32 700 with
+   no tracking, no uppercase or tracking in shared chrome, and no 800 weight outside the wordmark.
+   Books keeps its own 13px scale and its own rules (data-palette='indigo'). ---- */
+:root:not([data-palette='indigo']) {
+  --type-body: 0.875rem;
+  --type-section: 1.0625rem;
+  --type-label: 0.75rem;
+  --type-page: 1.5rem;
+}
+:where(:root:not([data-palette='indigo'])) :is(body, .ui-content, .ui-nav-item, .ui-input, .ui-select, input, select, textarea, .ui-table tbody, .ui-table tbody td, .ui-t-body, .ui-t-cell) {
+  line-height: 1.25rem;
+}
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-label, label.ui-label) {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+}
+/* One title: the bare h1, the gate page's h1 (was 28/36) and the Admin center title (was 600 with tracking). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(h1, h1[class], .ui-t-page, .ui-gate .ui-gate-head h1, .ws-title, .ws .ws-head .ws-title, .ui-page-heading h1, .ops-title, .con-title) {
+  font-size: 1.5rem !important;
+  line-height: 2rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+}
+/* Column heads and the small labels of shared chrome: sentence case, no tracking. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(
+  .ui-table thead th, .ui-th, .ui-doc-section .ui-label, .ui-label-eyebrow, .ui-auth-eyebrow, .ui-impact .ui-impact-heading,
+  .ui-side-date > span, .app-nav-section-heading, .app-nav-section-title
+) {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-table thead th, .ui-th) { font-weight: 600; }
+/* ---- Hover grey is one token (interaction audit 21 Nov 2026). --surface-sunken and --panel are white now,
+   so every hover and highlight that painted with them gave no feedback at all. They take --hover (#F7F7F7).
+   Books keeps its own. ---- */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(
+  .ui-btn-secondary:hover:not(:disabled), .ui-btn-ghost:hover:not(:disabled), .ui-nav-item:hover, .ui-nav-collapse:hover,
+  .ui-table tbody tr:hover, .ui-icon-btn:hover, .ui-rail-icon:hover, .ui-split-item:hover, .ui-calendar-day:hover,
+  .ui-hover-sunken:hover, .ui-feature-row:hover, .legal-tabs a:hover, .ui-today-action:hover:not(:disabled),
+  .ui-report-card:hover, .ui-row-click:hover > td, .ui-chip-x:hover, .ui-app-switch:hover, .ui-help-topic:hover,
+  .ui-settings-row:hover, .ui-activity-filter:hover, .ui-datepicker-day:hover:not(:disabled), .ui-page-btn:hover,
+  .ui-menu-item:hover:not(:disabled), .ui-menu-item:focus-visible, button.ui-metric:hover, .ui-choice-row:hover,
+  .ui-topbar .ui-icon-btn:hover, .ui-sched-view-btn:hover, .ui-more-details:hover, .ui-name-case:hover,
+  .ui-setting-help:hover, .ui-settings-hit:hover
+) {
+  background-color: rgb(var(--hover, 247 247 247));
+}
+/* The segmented track draws on the hover grey too (it painted white on white). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-segmented { background-color: rgb(var(--hover, 247 247 247)); }
+
+/* ---- Motion on the house numbers (interaction audit 21 Nov 2026; DESIGN.md "Motion"): hover 120ms, menus
+   150ms, dialogs and drawers 180ms; drawers ease in and out, everything else eases out; numbers and data
+   never animate; nothing decorative loops forever. Books keeps its own motion. ---- */
+:root:not([data-palette='indigo']) {
+  --dur-hover: 120ms;
+  --dur-menu: 150ms;
+  --dur-dialog: 180ms;
+  --dur-state: 120ms;
+  --dur-surface: 180ms;
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+/* Dialogs, the confirm and page content arrive in 180ms, easing out. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-dialog, .ui-in-pop, .ui-in) {
+  animation-duration: var(--dur-dialog) !important;
+  animation-timing-function: var(--ease-out) !important;
+}
+/* Drawers move across the screen, so they ease in and out, both ways. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-in-right { animation-duration: var(--dur-dialog) !important; }
+/* The exit keeps --dur-exit (140ms), the length of the close timer in Drawer and Modal. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-in-right, .ui-out-edge) { animation-timing-function: var(--ease-in-out) !important; }
+/* A leaving dialog or panel eases out too; ease-in made it seem to stall before going. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-out { animation-timing-function: var(--ease-out) !important; }
+/* Menus and popovers open in 150ms. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-popover, .ui-menu, .ui-datepicker-pop) {
+  animation-duration: var(--dur-menu) !important;
+  animation-timing-function: var(--ease-out) !important;
+}
+/* List rows arrive together, not one after another (the stagger ran on every load, 93 call sites). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-rows > tr, .ui-stagger > *) { animation: none !important; }
+/* Data draws at its final size: bars, the hero meter, the week bars, the waking border. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(
+  .ui-bar-fill, .ui-today-hero-meter > span, .ui-week-bar > span, .ui-wake, .ui-wake-group > *
+) { animation: none !important; }
+/* Decorative loops stop: orbs, floating tiles, the hero drift and breathing bar, the sign-in backdrop.
+   The new-row highlight plays once, briefly, instead of fading for six seconds. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(
+  .ui-ambient::before, .ui-ambient::after, .ui-float, .ui-float-late, .ui-hero-ground::before, .ui-hero-ground::after,
+  .ui-hero-bar, .ui-auth-scene-fill
+) { animation: none !important; }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(tr.is-new > td, li.is-new) { animation-duration: 1.2s !important; }
+/* No layout properties animate: the tab line slides by transform (RecordTabs), and a leaving row just goes. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-tab-indicator { transition: transform var(--dur-menu) var(--ease-out) !important; }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-row-slot, tr[data-leaving='true'] > td, .ui-auth-fact-dots button) { transition: none !important; }
+/* In-page anchors jump for anyone who asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-palette='indigo']) { scroll-behavior: auto !important; }
+}
+
+/* Code is set in the identifier face, as identifiers are (it fell to the system monospace). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(code, pre, samp) { font-family: var(--font-ident, 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace); }
+/* 800 is the wordmark's alone; chrome headings that used it are 700. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(
+  .ui-feature-category-heading .ui-t-label, .company-profile-section-head h3, .ui-auth-today-title, .ui-auth .ui-auth-title,
+  .ui-auth-scene-title strong, .app-nav-section-title
+) {
+  font-weight: 700 !important;
+}

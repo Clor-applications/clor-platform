@@ -30,6 +30,34 @@ describe('which writes are guarded', () => {
     expect(isGuardedWrite('POST', '/api/orgs/o1/invoices/i1/ewaybill')).toBe(false);
     expect(isGuardedWrite('POST', '/api/orgs/o1/attendance/clock')).toBe(false);
   });
+
+  /* Audit, 21 Nov 2026: the operator console's money writes could be sent twice by a double click. */
+  it('covers the operator console money writes', () => {
+    for (const p of ['payments/manual', 'invoices', 'invoices/inv1/issue', 'invoices/inv1/mark-paid', 'invoices/inv1/void', 'invoicing/renewals/run']) {
+      expect(isGuardedWrite('POST', `/api/ops/${p}`)).toBe(true);
+    }
+    expect(isGuardedWrite('GET', '/api/ops/invoices')).toBe(false);
+    expect(isGuardedWrite('POST', '/api/ops/invoices/inv1/remind')).toBe(false);
+    expect(isGuardedWrite('POST', '/api/ops/step-up')).toBe(false);
+  });
+});
+
+describe('an operator money write', () => {
+  /* The middleware sits ahead of the operator routes: a key on a refused request is forgotten, so the retry runs for real. */
+  it('is seen by the guard before the operator check refuses it, and the refusal is not replayed', async () => {
+    const rnd = () => Math.random().toString(36).slice(2, 8);
+    const signup = await request(app).post('/api/auth/signup').send({ email: `idem.ops.${Date.now()}.${rnd()}@example.com`, password: 'Passw0rd!23', name: 'Not staff' }).expect(200);
+    const h = { Authorization: `Bearer ${signup.body.token}` };
+    const key = `ops-${rnd()}`;
+    const first = await request(app).post('/api/ops/invoicing/renewals/run').set(h).set('Idempotency-Key', key).send({});
+    expect(first.status).toBe(403);
+    const second = await request(app).post('/api/ops/invoicing/renewals/run').set(h).set('Idempotency-Key', key).send({});
+    expect(second.status).toBe(403);
+    expect(second.headers['idempotency-replayed']).toBeUndefined();
+    /* An over-long key is refused by the guard itself, which proves it runs on this route. */
+    const long = await request(app).post('/api/ops/payments/manual').set(h).set('Idempotency-Key', 'x'.repeat(200)).send({});
+    expect(long.status).toBe(400);
+  });
 });
 
 describe('a repeated write', () => {

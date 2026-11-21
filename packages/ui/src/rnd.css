@@ -105,8 +105,8 @@
   --sky-soft: var(--tint); --sky-ink: var(--act-ink);
 
   /* Type: one face for everything, a mono face for identifiers only (§5.1) */
-  --font-sans: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-brand: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
+  --font-brand: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
   --font-ident: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
 
@@ -282,11 +282,7 @@
 :root:not(#rnd):not([data-palette='indigo']) .ui-link { color: rgb(var(--act-ink)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-link:hover { color: rgb(var(--act-hover)); }
 
-/* Focus: the portal colour, 2px. */
-:root:not(#rnd):not([data-palette='indigo']) :is(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid rgb(var(--act));
-  outline-offset: 2px;
-}
+/* Focus: one ring for every control, in legibility.css (S9). */
 
 /* ---------------------------------------------------------------- the shell
    Rail 80 white · second panel 200 on --panel · top bar 64 · content 32px
@@ -572,7 +568,6 @@
   cursor: pointer;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot:hover { background: rgb(var(--hover, 247 247 247)); }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: 2px; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div + .ui-split-panel-foot { margin-top: auto; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-text { display: grid; min-width: 0; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-title {
@@ -655,7 +650,7 @@
  */
 .ui-gate {
   /* One face whichever app was open last (Books' palette sets no --font-sans). */
-  font-family: var(--font-sans, 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans, 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif);
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -707,7 +702,7 @@
   color: rgb(var(--fg-muted));
 }
 .ui-gate .ui-gate-head h1 {
-  font-family: var(--font-brand, 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-brand, 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 1.75rem !important;
   line-height: 2.25rem !important;
   font-weight: 700 !important;

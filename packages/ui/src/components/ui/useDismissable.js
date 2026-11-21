@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+import { useLayer } from './layerStack';
+
 /**
  * A menu that closes when you are done with it.
  *
@@ -52,6 +54,20 @@ export function useDismissable(open, onClose, providedRef) {
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  /* Escape, through the shared layer stack: one Escape closes one thing, so a
+     menu inside a dialog does not take the dialog down with it. The keyboard
+     goes back to the control that opened the menu, not to the top of the
+     document. Every trigger here carries aria-expanded, which is exactly what
+     makes it findable. */
+  useLayer(open, {
+    kind: 'popup',
+    onEscape: () => {
+      const trigger = ref.current?.querySelector('[aria-expanded]');
+      onCloseRef.current?.();
+      if (trigger && typeof trigger.focus === 'function') trigger.focus({ preventScroll: true });
+    },
+  });
+
   useEffect(() => {
     if (!open) return undefined;
 
@@ -64,24 +80,9 @@ export function useDismissable(open, onClose, providedRef) {
       onCloseRef.current?.();
     };
 
-    const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      /* Stopped, so one Escape closes one thing. Without this, a menu inside a
-         dialog takes the dialog down with it. */
-      e.stopPropagation();
-      onCloseRef.current?.();
-      /* The keyboard goes back to the control that opened the menu, not to
-         the top of the document. Every trigger here carries aria-expanded,
-         which is exactly what makes it findable. */
-      const trigger = ref.current?.querySelector('[aria-expanded]');
-      if (trigger && typeof trigger.focus === 'function') trigger.focus({ preventScroll: true });
-    };
-
     document.addEventListener('pointerdown', onDown, true);
-    document.addEventListener('keydown', onKey, true);
     return () => {
       document.removeEventListener('pointerdown', onDown, true);
-      document.removeEventListener('keydown', onKey, true);
     };
   }, [open, ref]);
 

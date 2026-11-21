@@ -5,6 +5,8 @@ import { Copy, Download, ShieldCheck } from '@ui/components/ui/lineIcons';
 import { enableSmsTwoFactor, enableTwoFactor, getTwoFactor, startSmsTwoFactor, startTwoFactor } from '@ui/profile/twoFactorApi';
 import GatePage, { GateStep } from './GatePage';
 import { useSession } from './session';
+import { FieldError, FieldErrorAnnounce } from '@ui/components/ui/Primitives';
+import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
 
 /**
  * The one screen an owner or admin sees when their company requires two-factor
@@ -60,16 +62,36 @@ export default function TwoFactorGate() {
       .catch(() => {});
   }, []);
 
-  const act = async (fn) => {
+  /* A refusal about a field (the password, the number, the code) goes under that field and
+     the cursor goes back into it; anything else is the one line under the steps. */
+  const v = useFieldErrors('gate2fa');
+  const fieldNode = useRef({});
+  const act = async (fn, field = null) => {
     setBusy(true);
     setNote('');
+    v.reset();
     try {
       await fn();
     } catch (e) {
-      setNote(String(e?.message || 'That did not work. Try again.'));
+      const message = String(e?.message || 'That did not work. Try again.');
+      const where = typeof field === 'function' ? field(message) : field;
+      if (where) {
+        v.setField(where, message);
+        setTimeout(() => fieldNode.current[where]?.focus(), 0);
+      } else setNote(message);
     } finally {
       setBusy(false);
     }
+  };
+  const fieldProps = (field) => {
+    const p = v.props(field);
+    return {
+      ...p,
+      ref: (el) => {
+        p.ref(el);
+        fieldNode.current[field] = el;
+      },
+    };
   };
 
   const textCode = async (pw) => {
@@ -93,7 +115,7 @@ export default function TwoFactorGate() {
       setSetup(r);
       setQr(await QRCode.toDataURL(r.uri, { margin: 1, width: 176 }));
       setStep(1);
-    });
+    }, (message) => (method === 'SMS' && /mobile|number|phone/i.test(message) ? 'phone' : 'password'));
   };
   const turnOn = (e) => {
     e.preventDefault();
@@ -103,7 +125,7 @@ export default function TwoFactorGate() {
       setCodes(r.recoveryCodes || []);
       setCode('');
       setStep(2);
-    });
+    }, 'code');
   };
   const carryOn = () =>
     act(async () => {
@@ -166,12 +188,14 @@ export default function TwoFactorGate() {
             {method === 'SMS' ? (
               <label className="grid gap-1.5">
                 <span className="ui-label">Mobile number</span>
-                <input className="ui-input tabular-nums h-10 w-full" inputMode="tel" autoComplete="tel-national" maxLength={16} placeholder="98765 43210" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                <input className="ui-input tabular-nums h-10 w-full" inputMode="tel" autoComplete="tel-national" maxLength={16} placeholder="98765 43210" value={phone} onChange={(e) => setPhone(e.target.value)} required {...fieldProps('phone')} />
+                <FieldError error={v.error('phone')} id={v.errorId('phone')} />
               </label>
             ) : null}
             <label className="grid gap-1.5">
               <span className="ui-label">Password for {user?.email || 'this account'}</span>
-              <input type="password" className="ui-input h-10 w-full" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus required />
+              <input type="password" className="ui-input h-10 w-full" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus required {...fieldProps('password')} />
+              <FieldError error={v.error('password')} id={v.errorId('password')} />
             </label>
             <div>
               <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || !password || (method === 'SMS' && phone.replace(/\D/g, '').length < 10)}>{busy ? 'Checking…' : method === 'SMS' ? 'Text me a code' : 'Continue'}</button>
@@ -185,7 +209,8 @@ export default function TwoFactorGate() {
               <p className="text-sm">We texted a 6-digit code to <span className="ui-mono">{sentTo}</span>. It works for 5 minutes.</p>
               <label className="grid gap-1.5">
                 <span className="ui-label">Code from the text message</span>
-                <input className="ui-input ui-num h-10 w-40 text-center tracking-[0.3em]" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus required />
+                <input className="ui-input ui-num h-10 w-40 text-center tracking-[0.3em]" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus required {...fieldProps('code')} />
+                <FieldError error={v.error('code')} id={v.errorId('code')} />
               </label>
               <div className="flex flex-wrap items-center gap-2">
                 <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.trim().length !== 6}>{busy ? 'Checking…' : 'Turn on text codes'}</button>
@@ -209,7 +234,8 @@ export default function TwoFactorGate() {
               ) : null}
               <label className="grid gap-1.5">
                 <span className="ui-label">Code from the app</span>
-                <input className="ui-input ui-num h-10 w-40 text-center tracking-[0.3em]" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus required />
+                <input className="ui-input ui-num h-10 w-40 text-center tracking-[0.3em]" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus required {...fieldProps('code')} />
+                <FieldError error={v.error('code')} id={v.errorId('code')} />
               </label>
               <div>
                 <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.trim().length !== 6}>{busy ? 'Checking…' : 'Turn on authenticator'}</button>
@@ -251,6 +277,7 @@ export default function TwoFactorGate() {
           </div>
         </GateStep>
       </ol>
+      <FieldErrorAnnounce errors={v.errors} />
       {note ? <p role="alert" className="mt-6 text-sm" style={{ color: 'rgb(var(--neg))' }}>{note}</p> : null}
     </GatePage>
   );

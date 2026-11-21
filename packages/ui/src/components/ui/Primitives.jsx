@@ -49,7 +49,9 @@ export const EntityMark = ({ entity, size = 18 }) => {
          "this is CLOR"; which area you are in is what the title beside it
          and the rail's own coloured icon already say. */
       className="ui-entity-mark grid h-8 w-8 shrink-0 place-items-center rounded-lg"
-      style={{ backgroundColor: 'rgb(var(--brand) / 0.12)', color: 'rgb(var(--brand-ink))' }}
+      /* Outside Books the mark is neutral, a hairline tile in ink: the app colour has four jobs and a
+         page mark is not one of them (DESIGN.md "Colour has one job"). Books keeps its tinted mark. */
+      style={loadsWithSpinner() ? { border: '1px solid rgb(var(--border))', color: 'rgb(var(--fg))' } : { backgroundColor: 'rgb(var(--brand) / 0.12)', color: 'rgb(var(--brand-ink))' }}
       aria-hidden="true"
     >
       {/* createElement, not <Icon />: the linter reads a capitalised local as
@@ -389,7 +391,8 @@ export const LoadingSpinner = ({ label = 'Loading…' }) => (
 
 /** Skeleton row for tables — reserves height so loading does not shift layout. */
 export const SkeletonRows = ({ rows = 5, cols = 4 }) => (loadsWithSpinner() ? (
-  <tr aria-hidden="true"><td colSpan={cols} className="ui-loading-cell"><LoadingSpinner /></td></tr>
+  /* The spinner sits in the height the rows will take (44px each), so the page does not jump when they land. */
+  <tr aria-hidden="true"><td colSpan={cols} className="ui-loading-cell" style={{ height: `${rows * 2.75}rem` }}><LoadingSpinner /></td></tr>
 ) : (
   <>
     {Array.from({ length: rows }).map((_, r) => (
@@ -420,7 +423,7 @@ export const TableSkeleton = ({ rows = 6, cols = 4 }) => (
 );
 
 /** Placeholder for a metric tile, matching StatTile's height exactly. */
-export const SkeletonStats = ({ count = 4 }) => (loadsWithSpinner() ? <div className="ui-loading-block" aria-hidden="true"><LoadingSpinner /></div> : (
+export const SkeletonStats = ({ count = 4 }) => (loadsWithSpinner() ? <div className="ui-loading-block" aria-hidden="true" style={{ minHeight: '6.5rem' }}><LoadingSpinner /></div> : (
   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-hidden="true">
     {Array.from({ length: count }).map((_, i) => (
       <div key={i} className="ui-card p-4">
@@ -433,7 +436,7 @@ export const SkeletonStats = ({ count = 4 }) => (loadsWithSpinner() ? <div class
 ));
 
 /** Placeholder for a card of prose or form fields. */
-export const SkeletonCard = ({ lines = 3 }) => (loadsWithSpinner() ? <div className="ui-loading-block" aria-hidden="true"><LoadingSpinner /></div> : (
+export const SkeletonCard = ({ lines = 3 }) => (loadsWithSpinner() ? <div className="ui-loading-block" aria-hidden="true" style={{ minHeight: `${lines * 1.25 + 4}rem`, alignItems: 'center' }}><LoadingSpinner /></div> : (
   <div className="ui-card p-4" aria-hidden="true">
     <div className="ui-skel ui-skel-title" />
     <div className="mt-4 space-y-2.5">
@@ -571,13 +574,34 @@ export const TableTotals = () => null;
  *
  * Renders nothing when there is no error, so it can sit in the markup
  * permanently without reserving space or needing a conditional around it.
+ *
+ * Not a live region of its own: five fields failing at once read as five
+ * interruptions. The summary (or the form's one error line) announces; the
+ * field carries the words through aria-describedby, and the cursor lands on
+ * the first wrong field, which reads them out.
  */
 export const FieldError = ({ error, id }) =>
   error ? (
-    <p id={id} className="ui-field-error" role="alert">
+    <p id={id} className="ui-field-error">
       {error}
     </p>
   ) : null;
+
+/**
+ * The one announcement for a form whose fields failed, for a screen reader.
+ *
+ * The words are already under each field; this reads them out once, together,
+ * instead of every FieldError interrupting on its own. Nothing is drawn.
+ */
+export const FieldErrorAnnounce = ({ errors = {} }) => {
+  const messages = Object.values(errors).filter(Boolean);
+  if (!messages.length) return null;
+  return (
+    <p role="alert" className="sr-only">
+      {`${messages.length} field${messages.length === 1 ? '' : 's'} need${messages.length === 1 ? 's' : ''} attention: ${messages.join(' ')}`}
+    </p>
+  );
+};
 
 /**
  * A count of what is wrong, next to the button that is refusing to proceed.

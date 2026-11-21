@@ -9,6 +9,8 @@ import GatePage from './GatePage';
 import { Clock } from '@ui/components/ui/lineIcons';
 import { legalHref } from './legal/useLegalRoute';
 import { readStartLinkOnce } from './startLink';
+import { FieldError, FieldErrorAnnounce } from '@ui/components/ui/Primitives';
+import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
 
 /**
  * Start a free trial from clor.in's pricing page (roadmap item 7), at
@@ -173,10 +175,13 @@ function EmailStep({ email, setEmail, firstApp, appName, plan, days, onHome, onS
   const [website, setWebsite] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const v = useFieldErrors('start', { email: () => (email.trim() ? '' : 'Enter your email.') });
   const submit = async (e) => {
     e.preventDefault();
     const to = email.trim().toLowerCase();
-    if (!to) return setError('Enter your email.');
+    v.reset();
+    v.require('email', to, 'Enter your email.');
+    if (v.failed()) return setError('');
     setBusy(true);
     setError('');
     try {
@@ -217,13 +222,16 @@ function EmailStep({ email, setEmail, firstApp, appName, plan, days, onHome, onS
             }}
             autoComplete="email"
             autoFocus
+            {...v.props('email')}
           />
+          <FieldError error={v.error('email')} id={v.errorId('email')} />
         </div>
         {/* A field people never see; a bot fills it and the server thanks it and keeps nothing. */}
         <div className="sr-only" aria-hidden="true">
           <label htmlFor="start-website">Website</label>
           <input id="start-website" className="ui-input" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
         </div>
+        <FieldErrorAnnounce errors={v.errors} />
         <Err>{error}</Err>
         <p className="ui-caption">
           By starting a trial you agree to the <a className="ui-link" href={legalHref('terms')} target="_blank" rel="noopener">terms of service</a> and confirm you have read the{' '}
@@ -294,16 +302,29 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
   const askState = withBooks || Boolean(gstin);
   const picked = apps.map((a) => a.code).filter(has);
 
+  /* Each rule's words go under its own field; the line above the button is for the server's answer. */
+  const rules = {
+    ownerName: () => (form.ownerName.trim().length >= 2 ? '' : 'Tell us your name.'),
+    companyName: () => (form.companyName.trim().length >= 2 ? '' : 'Give your company a name.'),
+    password: () => (form.password.length >= 8 ? '' : 'Choose a password of at least 8 characters.'),
+    apps: () => (picked.length ? '' : 'Tick at least one product.'),
+    gstin: () => (!gstin || isValidGstin(gstin) ? '' : 'Check the GSTIN: it has 15 characters, like 29ABCDE1234F1ZW. Leave it blank if you are not registered yet.'),
+    state: () => {
+      if (withBooks && !form.state) return 'Choose the state of your head office. It decides CGST and SGST or IGST on every invoice.';
+      if (gstin && !form.state) return 'Choose the state the GSTIN is registered in.';
+      if (gstin && fromGstin && form.state !== fromGstin) return `This GSTIN is registered in ${fromGstin}, not ${form.state}. Check the GSTIN or the state.`;
+      return '';
+    },
+  };
+  const v = useFieldErrors('start-setup', rules);
   const submit = async (e) => {
     e.preventDefault();
-    if (form.ownerName.trim().length < 2) return setError('Tell us your name.');
-    if (form.companyName.trim().length < 2) return setError('Give your company a name.');
-    if (form.password.length < 8) return setError('Choose a password of at least 8 characters.');
-    if (!picked.length) return setError('Tick at least one product.');
-    if (gstin && !isValidGstin(gstin)) return setError('Check the GSTIN: it has 15 characters, like 29ABCDE1234F1ZW. Leave it blank if you are not registered yet.');
-    if (withBooks && !form.state) return setError('Choose the state of your head office. It decides CGST and SGST or IGST on every invoice.');
-    if (gstin && !form.state) return setError('Choose the state the GSTIN is registered in.');
-    if (gstin && fromGstin && form.state !== fromGstin) return setError(`This GSTIN is registered in ${fromGstin}, not ${form.state}. Check the GSTIN or the state.`);
+    v.reset();
+    for (const [field, rule] of Object.entries(rules)) {
+      const message = rule();
+      v.check(field, !message, message);
+    }
+    if (v.failed()) return setError('');
     setBusy(true);
     setError('');
     try {
@@ -337,11 +358,13 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <label className="ui-label" htmlFor="start-name">Your name</label>
-            <input id="start-name" className="ui-input h-11 w-full" value={form.ownerName} onChange={(e) => set({ ownerName: e.target.value })} autoComplete="name" autoFocus />
+            <input id="start-name" className="ui-input h-11 w-full" value={form.ownerName} onChange={(e) => set({ ownerName: e.target.value })} autoComplete="name" autoFocus {...v.props('ownerName')} />
+            <FieldError error={v.error('ownerName')} id={v.errorId('ownerName')} />
           </div>
           <div>
             <label className="ui-label" htmlFor="start-company">Company name</label>
-            <input id="start-company" className="ui-input h-11 w-full" value={form.companyName} onChange={(e) => set({ companyName: e.target.value })} autoComplete="organization" />
+            <input id="start-company" className="ui-input h-11 w-full" value={form.companyName} onChange={(e) => set({ companyName: e.target.value })} autoComplete="organization" {...v.props('companyName')} />
+            <FieldError error={v.error('companyName')} id={v.errorId('companyName')} />
           </div>
         </div>
 
@@ -350,18 +373,20 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
             <label className="ui-label" htmlFor="start-gstin">
               GSTIN <span className="ui-caption">· optional</span>
             </label>
-            <input id="start-gstin" className="ui-input h-11 w-full ui-mono" value={form.gstin} onChange={(e) => set({ gstin: e.target.value.toUpperCase() })} autoComplete="off" spellCheck={false} maxLength={15} placeholder="29ABCDE1234F1ZW" aria-describedby="start-gstin-hint" />
+            <input id="start-gstin" className="ui-input h-11 w-full ui-mono" value={form.gstin} onChange={(e) => set({ gstin: e.target.value.toUpperCase() })} autoComplete="off" spellCheck={false} maxLength={15} placeholder="29ABCDE1234F1ZW" {...v.props('gstin')} aria-describedby={[v.error('gstin') ? v.errorId('gstin') : '', 'start-gstin-hint'].filter(Boolean).join(' ')} />
+            <FieldError error={v.error('gstin')} id={v.errorId('gstin')} />
             <p id="start-gstin-hint" className="ui-caption mt-1">Leave it blank if you are not registered yet. You can add it later.</p>
           </div>
           {askState ? (
             <div>
               <label className="ui-label" htmlFor="start-state">State of your head office</label>
-              <select id="start-state" className="ui-select h-11 w-full" value={form.state} onChange={(e) => set({ state: e.target.value })} aria-describedby="start-state-hint">
+              <select id="start-state" className="ui-select h-11 w-full" value={form.state} onChange={(e) => set({ state: e.target.value })} {...v.props('state')} aria-describedby={[v.error('state') ? v.errorId('state') : '', 'start-state-hint'].filter(Boolean).join(' ')}>
                 <option value="">Choose a state</option>
                 {GST_STATES.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
+              <FieldError error={v.error('state')} id={v.errorId('state')} />
               <p id="start-state-hint" className="ui-caption mt-1">
                 {fromGstin && form.state === fromGstin ? 'Taken from the GSTIN.' : 'For GST: it decides CGST and SGST or IGST on every invoice.'}
               </p>
@@ -375,11 +400,12 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
             <input type="email" className="ui-input" tabIndex={-1} autoComplete="username" value={pending.email} readOnly />
           </div>
           <label className="ui-label" htmlFor="start-password">Choose a password</label>
-          <input id="start-password" type="password" className="ui-input h-11 w-full" value={form.password} onChange={(e) => set({ password: e.target.value })} autoComplete="new-password" aria-describedby="start-password-hint" />
+          <input id="start-password" type="password" className="ui-input h-11 w-full" value={form.password} onChange={(e) => set({ password: e.target.value })} autoComplete="new-password" {...v.props('password')} aria-describedby={[v.error('password') ? v.errorId('password') : '', 'start-password-hint'].filter(Boolean).join(' ')} />
+          <FieldError error={v.error('password')} id={v.errorId('password')} />
           <p id="start-password-hint" className="ui-caption mt-1">At least 8 characters. You sign in with {pending.email} and this password.</p>
         </div>
 
-        <fieldset>
+        <fieldset ref={(el) => v.register('apps', el)} aria-invalid={v.error('apps') ? true : undefined} aria-describedby={v.error('apps') ? v.errorId('apps') : undefined}>
           <legend className="ui-label">Which apps first</legend>
           <div className="grid gap-2 mt-1">
             {apps.map((a) => {
@@ -398,9 +424,11 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
             })}
           </div>
           {chosen.has('people') ? <p className="ui-caption mt-2">People includes Attendance, so both are on.</p> : null}
+          <FieldError error={v.error('apps')} id={v.errorId('apps')} />
         </fieldset>
 
 
+        <FieldErrorAnnounce errors={v.errors} />
         <Err>{error}</Err>
         <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg w-full" disabled={busy}>
           {busy ? 'Opening…' : `Open CLOR${picked.length ? ` with ${picked.map(appName).join(', ')}` : ''}`} <ArrowRight size={16} aria-hidden="true" />

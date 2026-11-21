@@ -7,6 +7,10 @@ import Popover from '../ui/Popover';
 import { rankedSearch } from '../../utils/rankedSearch';
 import { useListboxKeys, openOnKey } from './useListboxKeys';
 
+const inBooks = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
+const BOOKS_CURSOR = { backgroundColor: 'rgb(var(--brand) / 0.12)', color: 'rgb(var(--brand-ink))', boxShadow: 'inset 3px 0 0 rgb(var(--brand))' };
+const CURSOR = { backgroundColor: 'rgb(var(--hover, 247 247 247))', color: 'rgb(var(--fg))', boxShadow: 'inset 3px 0 0 rgb(var(--fg))' };
+
 const normalizeText = (v) => String(v || '').trim().toLowerCase();
 
 /** Below this many options there is nothing to search — the list is the search. */
@@ -354,15 +358,8 @@ const PopupSelect = ({
                      screen and turned a list into a row of warning labels; the
                      tint alone was what earlier read as a dead key, so the edge
                      carries the state instead. */
-                  style={
-                    i === activeIndex
-                      ? {
-                          backgroundColor: 'rgb(var(--brand) / 0.12)',
-                          color: 'rgb(var(--brand-ink))',
-                          boxShadow: 'inset 3px 0 0 rgb(var(--brand))',
-                        }
-                      : undefined
-                  }
+                  /* Outside Books the cursor row is the hover grey with an ink edge: the app colour has four jobs, and a list's cursor is not one of them. */
+                  style={i === activeIndex ? (inBooks() ? BOOKS_CURSOR : CURSOR) : undefined}
                 >
                   {String(o.code || '').trim() ? (
                     <div className="grid grid-cols-[72px_1fr] gap-2 items-center">

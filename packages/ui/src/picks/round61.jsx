@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp } from '@ui/components/ui/lineIcons';
+import { smoothOrInstant } from '@ui/utils/motion';
 
 /**
  * Round 61 picks (18 Nov 2026): getting around the apps. Never in Books: every
@@ -167,7 +168,7 @@ export function ScrollTop() {
   }, []);
   if (!shown || inBooks()) return null;
   return (
-    <button type="button" className="ui-scroll-top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+    <button type="button" className="ui-scroll-top" onClick={() => window.scrollTo({ top: 0, behavior: smoothOrInstant() })}>
       Top <ArrowUp size={14} aria-hidden="true" />
     </button>
   );
@@ -210,7 +211,7 @@ export function SectionJump({ children, label = 'On this page', min = 4 }) {
   const jump = (id) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.scrollIntoView({ behavior: smoothOrInstant(), block: 'start' });
     setCurrent(id);
   };
   return (

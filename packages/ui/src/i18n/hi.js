@@ -1501,6 +1501,7 @@ const words = {
   "{} day{} comp-off": "{} दिन{} का कॉम्प-ऑफ़",
   "{} documents": "{} दस्तावेज़",
   "{} field{} need{} attention": "{} जगह{} पर ध्यान चाहिए{}",
+  "{} field{} need{} attention: {}": "{1} जगह{2} पर ध्यान चाहिए{3}: {4}",
   "{} for more than {} {} asks for a document, such as a medical certificate. PDF or picture, up to 5 MB.{}{}": "{2} {3} से ज़्यादा {1} के लिए दस्तावेज़ चाहिए, जैसे मेडिकल सर्टिफ़िकेट। PDF या फ़ोटो, 5 MB तक।{4}{5}",
   "{} in {}. Move them to another {} first, or retire it to keep it in the history.": "{2} में {1}। पहले उन्हें दूसरे {3} में डालें, या रिकॉर्ड में रखने के लिए इसे बंद करें।",
   "{} is attached.": "{} जुड़ा है।",

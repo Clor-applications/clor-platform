@@ -151,15 +151,23 @@ const stepUpHeader = (path) => {
   return s && s.expiresAt > Date.now() + 5000 ? { 'x-step-up': s.token } : {};
 };
 
-/** Asks for a code through the app's dialog (Toaster listens), or the browser's prompt. */
+/**
+ * Asks for a code through the app's dialog (Toaster listens), or the browser's prompt.
+ * Resolves `{ code, settle }`: the dialog stays open, showing that the code is
+ * being checked, until `settle('ok' | 'again' | 'failed')` says how the server
+ * answered. 'again' keeps it open for the next try.
+ */
 function askForCode(message) {
   return new Promise((resolve) => {
-    if (typeof window === 'undefined') return resolve(null);
+    const none = () => {};
+    if (typeof window === 'undefined') return resolve({ code: null, settle: none });
     if (window.__clorStepUpHost) {
-      window.dispatchEvent(new CustomEvent('clor:step-up', { detail: { message, resolve } }));
+      const detail = { message, settle: none };
+      detail.resolve = (code) => resolve({ code, settle: (outcome) => detail.settle(outcome) });
+      window.dispatchEvent(new CustomEvent('clor:step-up', { detail }));
     } else {
       const v = window.prompt(`${message}\n\nCode from your authenticator app:`);
-      resolve(v ? v.trim() : null);
+      resolve({ code: v ? v.trim() : null, settle: none });
     }
   });
 }
@@ -167,23 +175,30 @@ function askForCode(message) {
 async function stepUpAndRetry(path, opts, data) {
   let message = data?.error || 'Enter the code from your authenticator app to continue.';
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const code = await askForCode(message);
+    const { code, settle } = await askForCode(message);
     if (!code) {
       const err = new Error('Not done: no authenticator code was given.');
       err.status = 403;
       err.code = 'STEP_UP_REQUIRED';
       throw err;
     }
+    let r;
     try {
       /* The operator console has no company to ask through: it has its own step-up. */
       const where = operatorPath(path) ? '/ops/step-up' : `/orgs/${encodeURIComponent(getOrgId())}/security/step-up`;
-      const r = await apiFetch(where, { method: 'POST', body: { code }, stepUpRetried: true });
-      stepUps[operatorPath(path) ? 'operator' : 'company'] = { token: r.token, expiresAt: new Date(r.expiresAt).getTime() };
-      return apiFetch(path, { ...opts, stepUpRetried: true });
+      r = await apiFetch(where, { method: 'POST', body: { code }, stepUpRetried: true });
     } catch (e) {
-      if (e?.code !== 'BAD_CODE') throw e;
+      if (e?.code !== 'BAD_CODE') {
+        settle('failed');
+        throw e;
+      }
       message = e.message;
+      settle(attempt < 2 ? 'again' : 'failed');
+      continue;
     }
+    settle('ok');
+    stepUps[operatorPath(path) ? 'operator' : 'company'] = { token: r.token, expiresAt: new Date(r.expiresAt).getTime() };
+    return apiFetch(path, { ...opts, stepUpRetried: true });
   }
   const err = new Error('Not done: the authenticator code was not accepted.');
   err.status = 403;
@@ -198,11 +213,14 @@ async function stepUpAndRetry(path, opts, data) {
  * second invoice, receipt or payment. A different body is a new key.
  */
 const GUARDED_WRITE = /^\/orgs\/[^/]+\/(people\/employees|people\/employees\/bulk|people\/employees\/import|invoices|bills|expenses|credit-notes|debit-notes|estimates|sales-orders|purchase-orders|delivery-challans|attendance\/holidays|attendance\/me\/leave|attendance\/leave\/requests|payments|payments\/[^/]+\/reverse|ledger\/entries|bank-book|adjustments|transfers|fixed-assets|recurring\/run|pay-requests|payroll\/payments|payroll\/payments\/[^/]+\/(settle|post|cancel)|payroll\/runs|payroll\/settlements)\/?$/;
+/* The operator console's money writes (server: GUARDED_OPS): a manual payment, an invoice made, issued, marked paid or cancelled, the renewal run. */
+const GUARDED_OPS_WRITE = /^\/ops\/(payments\/manual|invoices|invoices\/[^/]+\/(issue|mark-paid|void)|invoicing\/renewals\/run)\/?$/;
 const recentWrites = new Map();
 const REUSE_MS = 15_000;
 const newKey = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
 export function idempotencyKeyFor(method, path, body) {
-  if (method !== 'POST' || !GUARDED_WRITE.test(String(path).split('?')[0])) return null;
+  const bare = String(path).split('?')[0];
+  if (method !== 'POST' || !(GUARDED_WRITE.test(bare) || GUARDED_OPS_WRITE.test(bare))) return null;
   const now = Date.now();
   for (const [k, v] of recentWrites) if (now - v.at > REUSE_MS) recentWrites.delete(k);
   const sig = `${path}|${body ? JSON.stringify(body) : ''}`;

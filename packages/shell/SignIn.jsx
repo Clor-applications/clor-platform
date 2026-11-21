@@ -8,6 +8,8 @@ import { useSession } from './session';
 import { API_BASE, apiFetch } from '@platform/http';
 import { resendVerificationForSignIn } from '@platform/auth';
 import PasswordInput from '@ui/components/ui/PasswordInput';
+import { FieldError, FieldErrorAnnounce } from '@ui/components/ui/Primitives';
+import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
 
 /**
  * One sign-in for the platform, not for an application.
@@ -64,10 +66,21 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtit
     window.location.assign(`${API_BASE}/auth/sso/${encodeURIComponent(p.id)}/start?return=${encodeURIComponent(returnPath())}&hint=${encodeURIComponent(email.trim())}`);
   };
 
+  /* Errors about a field sit under it (useFieldErrors); the server's answer, which is
+     deliberately vague about which half was wrong, stays the one line above the button. */
+  const v = useFieldErrors('signin', {
+    email: () => (email.trim() ? '' : 'Enter your email or username.'),
+    password: () => (password ? '' : 'Enter your password.'),
+  });
   const submit = async (e) => {
     e.preventDefault();
-    if (!email.trim()) return setError('Enter your email or username.');
-    if (!password) return setError('Enter your password.');
+    v.reset();
+    v.require('email', email, 'Enter your email or username.');
+    v.require('password', password, 'Enter your password.');
+    if (v.failed()) {
+      setError('');
+      return;
+    }
 
     setBusy(true);
     setError('');
@@ -158,7 +171,9 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtit
             }}
             autoComplete="username"
             autoFocus
+            {...v.props('email')}
           />
+          <FieldError error={v.error('email')} id={v.errorId('email')} />
         </div>
 
         {providers.length ? (
@@ -180,7 +195,9 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtit
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
+            {...v.props('password')}
           />
+          <FieldError error={v.error('password')} id={v.errorId('password')} />
           {/* Under the field, where the eye lands after a wrong password (owner, 10 Nov 2026). */}
           {onForgot ? (
             <div className="mt-2 flex justify-end">
@@ -191,6 +208,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtit
           ) : null}
         </div>
 
+        <FieldErrorAnnounce errors={v.errors} />
         {error ? (
           <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p>
         ) : null}

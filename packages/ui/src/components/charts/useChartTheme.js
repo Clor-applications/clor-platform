@@ -17,7 +17,17 @@ const readVar = (name, fallback) => {
   return /^\d+\s+\d+\s+\d+$/.test(raw) ? `rgb(${raw.split(/\s+/).join(',')})` : raw;
 };
 
+const inBooks = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
+
+/*
+ * Outside Books (interaction audit 21 Nov 2026; DESIGN.md "Colour has one job", "numbers never animate"):
+ * a series is drawn in ink unless a chart asks for a colour, chart text is the product face, and data
+ * draws at its final size. Books keeps its brand-coloured series, its face and its entrance.
+ */
 const build = () => ({
+  books: inBooks(),
+  series: inBooks() ? readVar('--brand', '#FF5400') : readVar('--fg', '#111827'),
+  font: inBooks() ? "'Inter Variable', Inter, sans-serif" : readVar('--font-sans', "'Figtree Variable', Figtree, sans-serif"),
   brand: readVar('--brand', '#FF5400'),
   accent: readVar('--accent', '#C2410C'),
   brandDeep: readVar('--brand-deep', '#C2410C'),

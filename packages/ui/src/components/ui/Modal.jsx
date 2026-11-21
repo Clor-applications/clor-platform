@@ -5,6 +5,7 @@ import { OverlayLayerContext } from './overlayLayer';
 import { X } from '@ui/components/ui/lineIcons';
 import { confirmDialog } from './notify';
 import { openingFocus } from '@ui/picks/round61';
+import { useLayer } from './layerStack';
 
 /**
  * The one dialog in the product.
@@ -19,7 +20,7 @@ import { openingFocus } from '@ui/picks/round61';
 const EXIT_MS = 140;
 
 /* `footer`: fixed actions under the scrolling body. `dirty`: unsaved edits — the backdrop then does not close it, and Escape or × asks first (spec v1 §5.1). */
-const Modal = ({ children, onClose, title = '', maxWidthClass = 'max-w-4xl', headerActions = null, showCloseIcon = true, footer = null, dirty = false }) => {
+const Modal = ({ children, onClose, title = '', maxWidthClass = 'max-w-4xl', headerActions = null, showCloseIcon = true, footer = null, dirty = false, busy = false }) => {
   /*
    * Closing is a state, not an event.
    *
@@ -40,7 +41,24 @@ const Modal = ({ children, onClose, title = '', maxWidthClass = 'max-w-4xl', hea
    */
   const dirtyRef = useRef(dirty);
   useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
+  /* `busy`: a request the dialog sent is still running. Escape, × and the backdrop wait for it. */
+  const busyRef = useRef(busy);
+  useEffect(() => { busyRef.current = busy; }, [busy]);
+  /* onClose through a ref, so the handlers never have to re-subscribe. */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  /* The exit timer and `animationend` both arrive; the caller hears one close. */
+  const closedRef = useRef(false);
+  const finishClose = useCallback(() => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    onCloseRef.current?.();
+  }, []);
   const beginClose = useCallback(async () => {
+    if (busyRef.current) return;
     if (dirtyRef.current && !(await confirmDialog({ title: 'Discard your changes?', message: 'What you entered here has not been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', stayFirst: true }))) return;
     setClosing(true);
   }, []);
@@ -55,22 +73,14 @@ const Modal = ({ children, onClose, title = '', maxWidthClass = 'max-w-4xl', hea
    */
   useEffect(() => {
     if (!closing) return undefined;
-    const t = setTimeout(() => onCloseRef.current?.(), EXIT_MS);
+    const t = setTimeout(finishClose, EXIT_MS);
     return () => clearTimeout(t);
-  }, [closing]);
+  }, [closing, finishClose]);
   const panelRef = useRef(null);
   const returnFocusRef = useRef(null);
   const titleId = useId();
   if (!title && import.meta.env?.DEV) console.warn('modal-untitled'); // give it a title that says what the dialog is for
 
-  /**
-   * onClose through a ref, so the key handler below never has to re-subscribe.
-   */
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability
-    onCloseRef.current = onClose;
-  }, [onClose]);
 
   /**
    * Claim focus once, on open — never again.
@@ -100,38 +110,9 @@ const Modal = ({ children, onClose, title = '', maxWidthClass = 'max-w-4xl', hea
     };
   }, []);
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        /* Through the same exit as the button and the backdrop; the ref is
-           still what the close itself goes through. */
-        beginClose();
-        return;
-      }
-      if (e.key !== 'Tab') return;
-
-      // Keep Tab inside the dialog. Without this the focus ring walks off into
-      // the page underneath, which is still there and still focusable.
-      const panel = panelRef.current;
-      if (!panel) return;
-      const focusables = panel.querySelectorAll(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (!focusables.length) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [beginClose]);
+  /* Escape and the Tab trap come from the shared layer stack: only the layer
+     on top hears them, so a confirm opened from this dialog closes alone. */
+  useLayer(true, { kind: 'dialog', onEscape: () => beginClose(), trap: () => panelRef.current });
 
   return createPortal(
     /* Anything opened from inside this dialog is told so, and rises above it.
@@ -162,7 +143,7 @@ const Modal = ({ children, onClose, title = '', maxWidthClass = 'max-w-4xl', hea
         className={`ui-surface ui-dialog w-full max-h-[90vh] flex flex-col ${maxWidthClass} ${closing ? 'ui-out' : ''}`}
         onAnimationEnd={(e) => {
           /* Only the panel's own exit, never a child's animation bubbling up. */
-          if (closing && e.target === e.currentTarget) onClose?.();
+          if (closing && e.target === e.currentTarget) finishClose();
         }}
       >
         <div className="shrink-0 ui-surface border-b px-6 py-4 flex items-center justify-between gap-3">
@@ -172,7 +153,7 @@ const Modal = ({ children, onClose, title = '', maxWidthClass = 'max-w-4xl', hea
           <div className="flex items-center gap-2">
             {headerActions}
             {showCloseIcon ? (
-              <button type="button" onClick={beginClose} className="ui-icon-btn" aria-label="Close">
+              <button type="button" onClick={beginClose} className="ui-icon-btn" aria-label="Close" disabled={busy}>
                 <X size={18} />
               </button>
             ) : null}

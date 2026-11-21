@@ -2,6 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Building2, Check } from '@ui/components/ui/lineIcons';
 
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
+import { gstinError } from '@ui/utils/gstinValidation';
+import { FieldError, FieldErrorAnnounce } from '@ui/components/ui/Primitives';
+import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
 
 import GatePage from './GatePage';
 import { APPS } from './registry';
@@ -67,10 +70,22 @@ export default function CompanySetup({ onLanding } = {}) {
   const toggle = (id) =>
     setChosen((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
 
+  /* Each rule's words sit under its own field; the GSTIN is checked here, before the second step,
+     so its error lands under the GSTIN and not under the app tiles. */
+  const rules = {
+    name: () => (form.name.trim() ? '' : 'Enter the company name.'),
+    gstin: () => gstinError(form.gstin),
+    state: () => (form.state.trim() ? '' : 'The state decides how GST splits, so it is not optional.'),
+  };
+  const v = useFieldErrors('setup', rules);
   const toModules = (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return setError('Enter the company name.');
-    if (!form.state.trim()) return setError('The state decides how GST splits, so it is not optional.');
+    v.reset();
+    for (const [field, rule] of Object.entries(rules)) {
+      const message = rule();
+      v.check(field, !message, message);
+    }
+    if (v.failed()) return setError('');
     setStep(1);
   };
 
@@ -93,8 +108,17 @@ export default function CompanySetup({ onLanding } = {}) {
       });
       clearAppIntent();
     } catch (err) {
-      setError(String(err?.message || 'Could not create that company. Try again.'));
+      const message = String(err?.message || 'Could not create that company. Try again.');
       setBusy(false);
+      /* A GSTIN the server refused: back to the step that has the field, with the words under it. */
+      if (/GSTIN/i.test(message)) {
+        setError('');
+        setStep(0);
+        v.setField('gstin', message);
+        setTimeout(() => document.getElementById('setup-gstin')?.focus(), 0);
+        return;
+      }
+      setError(message);
     }
   };
 
@@ -126,7 +150,9 @@ export default function CompanySetup({ onLanding } = {}) {
                 onChange={(e) => set({ name: e.target.value })}
                 autoComplete="organization"
                 autoFocus
+                {...v.props('name')}
               />
+              <FieldError error={v.error('name')} id={v.errorId('name')} />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -142,7 +168,9 @@ export default function CompanySetup({ onLanding } = {}) {
                   autoComplete="off"
                   maxLength={15}
                   placeholder="27AAAAA0000A1Z5"
+                  {...v.props('gstin')}
                 />
+                <FieldError error={v.error('gstin')} id={v.errorId('gstin')} />
                 <p className="ui-caption mt-1">
                   {gstinLooksTyped
                     ? 'Checked when the company is created. The digits have to add up.'
@@ -157,12 +185,14 @@ export default function CompanySetup({ onLanding } = {}) {
                   className="ui-select h-11 w-full"
                   value={form.state}
                   onChange={(e) => set({ state: e.target.value })}
+                  {...v.props('state')}
                 >
                   <option value="">Choose a state</option>
                   {GST_STATES.map((name) => (
                     <option key={name} value={name}>{name}</option>
                   ))}
                 </select>
+                <FieldError error={v.error('state')} id={v.errorId('state')} />
                 <p className="ui-caption mt-1">
                   {form.state && getGstStateFromGstin(form.gstin) === form.state
                     ? 'Taken from the GSTIN.'
@@ -171,7 +201,8 @@ export default function CompanySetup({ onLanding } = {}) {
               </div>
             </div>
 
-            {error ? <p className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+            <FieldErrorAnnounce errors={v.errors} />
+            {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
             <div className="flex justify-end">
               <button type="submit" className="ui-btn ui-btn-primary">
@@ -235,7 +266,7 @@ export default function CompanySetup({ onLanding } = {}) {
               ))}
             </div>
 
-            {error ? <p className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
+            {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
             <div className="flex items-center justify-between gap-3">
               <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setStep(0)} disabled={busy}>

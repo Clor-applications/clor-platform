@@ -166,8 +166,11 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
     }
   };
 
+  /* A second tap before React re-renders would punch twice: the ref closes the gap the state leaves. */
+  const punching = useRef(false);
   const doPunch = async () => {
-    if (!position) return;
+    if (!position || punching.current) return;
+    punching.current = true;
     setMessage(null);
     setBusy(true);
     try {
@@ -184,6 +187,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
         else setMessage({ ok: false, text: errorWords(err, 'record the punch') });
       }
     } finally {
+      punching.current = false;
       setBusy(false);
     }
   };
@@ -285,7 +289,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
       )}
       {note ? <p className="ui-caption" style={{ color: 'rgb(var(--warn))' }}>{note}</p> : null}
 
-      <button type="button" className="ui-btn ui-btn-primary ui-punch-btn w-full !h-14 text-base" disabled={!position || busy || !sites.length} onClick={doPunch}>
+      <button type="button" className="ui-btn ui-btn-primary ui-punch-btn w-full" disabled={!position || busy || !sites.length} aria-busy={busy || undefined} onClick={doPunch}>
         {phone?.next === 'IN' ? <LogIn size={20} aria-hidden="true" /> : <LogOut size={20} aria-hidden="true" />}
         {busy ? 'Saving…' : `${next} now`}
       </button>

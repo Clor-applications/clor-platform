@@ -1,6 +1,8 @@
 /* One face for the whole platform, Books included: Figtree (owner, 15 Nov
-   2026). JetBrains Mono for identifiers only; Inter stays loaded as the
-   fallback.
+   2026). JetBrains Mono for identifiers only. Inter is no longer in any
+   font stack; its @font-face stays only because Books' receipt and journal
+   voucher papers still name it first, and a face that nothing outside Books
+   names is never downloaded there.
    All self-hosted (Fontsource, SIL OFL 1.1), never Google — no IP leakage
    before sign-in. */
 @import '@fontsource-variable/figtree';
@@ -722,7 +724,7 @@
   svg.lucide { stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
   html {
     /* Figtree, one face for the whole platform, Books included (owner, 15 Nov 2026). */
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     /* Tabular figures everywhere: money columns must not jitter between rows. */
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
@@ -1978,7 +1980,7 @@
      Inter at display sizes for headline moments — one face, ranked by size
      and weight rather than by switching family. */
   .ui-display {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'ss01', 'cv11';
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -2372,7 +2374,7 @@
     font-size: 0.8125rem;
   }
   .ui-table-totals .fig {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 500, per DESIGN.md. At 600 every figure in every table read as
        emphasised, which means none of them did — a column where each cell
@@ -2455,7 +2457,7 @@
     box-shadow: 0 -2px 10px rgb(28 25 23 / 0.06);
   }
   .ui-entry-summary .fig {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
   }
@@ -2796,14 +2798,22 @@
     border: 1px solid rgb(var(--border)); background: rgb(var(--surface)); text-align: left;
     transition: background-color var(--dur-surface) ease;
   }
-  .ui-calendar-day:hover { background: rgb(var(--surface-sunken)); }
-  .ui-calendar-day[data-off] { background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
+  /* Hover and off days take the hover grey: --surface-sunken is white now, so they read as nothing. */
+  .ui-calendar-day:hover { background: rgb(var(--hover, 247 247 247)); }
+  .ui-calendar-day[data-off] { background: rgb(var(--hover, 247 247 247)); color: rgb(var(--fg-muted)); }
   .ui-calendar-day[data-today] .ui-calendar-date { color: rgb(var(--brand)); font-weight: 700; }
   .ui-calendar-day[aria-pressed='true'] { box-shadow: inset 0 0 0 2px rgb(var(--brand)); }
   .ui-calendar-date { font-size: 13px; font-weight: 600; }
   .ui-calendar-tag { font-size: 12px; color: rgb(var(--fg-muted)); line-height: 1rem; }
   .ui-calendar-counts { display: flex; gap: 0.5rem; margin-top: auto; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  @media (max-width: 639px) { .ui-calendar-day { min-height: 3.6rem; padding: 0.3rem; } .ui-calendar-tag { display: none; } }
+  /* On a phone the day keeps a short label (a weekly off or a holiday must still say so), clipped to the
+     cell. A tag that carries data-short ("Off", "Hol") shows that word instead of the long name. */
+  @media (max-width: 639px) {
+    .ui-calendar-day { min-height: 3.6rem; padding: 0.3rem; }
+    .ui-calendar-tag { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; line-height: 0.875rem; }
+    .ui-calendar-tag[data-short] { font-size: 0; }
+    .ui-calendar-tag[data-short]::before { content: attr(data-short); font-size: 11px; }
+  }
 
   /* A page heading's actions drop under the title on a phone instead of squeezing beside it. */
   @media (max-width: 639px) {
@@ -2985,7 +2995,7 @@
      doing 200 vouchers a day and an owner reading outstandings.
   --------------------------------------------------------------------------- */
   .ui-t-page {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.75rem;       /* 28px — Graphite's title size */
     line-height: 2.25rem;     /* 36px */
     font-weight: 700;
@@ -3110,7 +3120,7 @@
 
   .ui-money,
   .ui-amount {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-size: 0.8125rem;     /* 13px */
     line-height: 1.125rem;
     font-weight: 400;
@@ -3124,7 +3134,7 @@
      size the scale does not have. One role instead: monospace, tabular, and
      the same 20px everywhere a figure leads a card. */
   .ui-money-lg {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;     /* 28px */
     /* A headline figure earns its emphasis from size, not from weight on top
@@ -3151,7 +3161,7 @@
     font-weight: 500;
   }
   .ui-total-row > :last-child {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;
     font-weight: 400;
@@ -3228,7 +3238,7 @@
   /* The scan anchor. Mono so digits align down the column and the eye can run
      it like a list of codes rather than prose. */
   .ui-col-id.ui-col-id {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'calt' 0;
     font-size: 0.8125rem;
     font-weight: 500;
@@ -3293,7 +3303,7 @@
        tabular-nums, weight and alignment but never the family, so every rupee
        figure in every table rendered in the sans face — the one place the rule
        matters most, and the only place it was not applied. */
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 400. Monospace and right alignment already say "this is money"; a
        weight on top of them made every figure in every table shout, and a
@@ -3312,7 +3322,7 @@
      or a glyph.
   ------------------------------------------------------------------------- */
   .ui-cell-ref {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--doc-link));
     font-weight: 600;
@@ -3369,7 +3379,7 @@
     overflow-wrap: anywhere;
   }
   .ui-detail-value.ui-detail-mono {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
   }
 
@@ -4263,7 +4273,7 @@
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.10);
   }
   .ui-segment-count {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
     line-height: 1rem;
@@ -4589,7 +4599,7 @@
      left-aligned, which is why a column of rates did not line up on the
      decimal and had to be read one cell at a time. */
   .ui-grid-dense input[type='number'] {
-    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 500;
     text-align: right;
@@ -5068,12 +5078,12 @@ label {
    authoritative here so the same heading means the same thing on every page. */
 body, button, input, select, textarea, table,
 .font-sans, .font-serif {
-  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
 }
 /* Numbers outside Accounting: the words' face with tabular figures, so digits line up. */
 .font-mono, .ui-metric,
 .tabular-nums, [class*='ui-amount'] {
-  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
 }
 /* Identifiers — GSTIN, PAN, IFSC, account and document numbers, HSN/SAC, device
@@ -5094,13 +5104,13 @@ code, pre { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monosp
 [data-palette='indigo'] table,
 [data-palette='indigo'],
 [data-palette='indigo'] * {
-  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 [data-palette='indigo'] .font-mono,
 [data-palette='indigo'] .ui-mono,
 [data-palette='indigo'] code,
 [data-palette='indigo'] pre {
-  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
 }
 
 h1, h1[class], .ui-t-page {
@@ -5110,7 +5120,7 @@ h1, h1[class], .ui-t-page {
   letter-spacing: -0.025em;
 }
 h1, .ui-t-page, .ui-wordmark {
-  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
   font-variant-numeric: normal;
 }
 /* The wordmark: always CLOR, ExtraBold, tight, in the theme's logo ink. */
@@ -7524,7 +7534,8 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 .ui-today-hero-main { min-width: 0; display: flex; align-items: flex-start; gap: 1rem; }
 .ui-today-hero-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
 /* The one display line on the page, so it steps outside the forced heading scale. */
-.ui-today-hero .ui-today-hero-greet { font-size: 1.5rem !important; line-height: 2rem !important; font-weight: 700; letter-spacing: -0.025em; color: inherit; }
+/* The greeting is a section line (17/24), not a second page title, and carries no tracking. */
+.ui-today-hero .ui-today-hero-greet { font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; letter-spacing: 0; color: inherit; }
 .ui-today-hero-line { font-size: 0.875rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); max-width: 62ch; }
 .ui-today-hero-meter {
   margin-top: 0.625rem; height: 0.375rem; max-width: 28rem; border-radius: 999px; overflow: hidden;
@@ -7581,8 +7592,9 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 .ui-trend { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.75rem; align-items: end; }
 .ui-trend li { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; min-width: 0; }
 .ui-trend-bar { width: 100%; max-width: 2.75rem; height: 7rem; display: flex; flex-direction: column-reverse; border-radius: 6px 6px 2px 2px; overflow: hidden; background: rgb(var(--fg) / 0.045); }
-.ui-trend-bar > span { display: block; width: 100%; background: rgb(var(--brand)); }
-.ui-trend-bar[data-tone='warn'] > span { background: rgb(var(--warn)); }
+/* Trend bars are data, not state: ink in every tone (colour is kept for status). */
+.ui-trend-bar > span { display: block; width: 100%; background: rgb(var(--fg)); }
+.ui-trend-bar[data-tone='warn'] > span { background: rgb(var(--fg)); }
 .ui-trend-bar[data-tone='neutral'] > span { background: rgb(var(--fg-subtle) / 0.7); }
 .ui-trend-value { font-size: 0.8125rem; font-weight: 650; color: rgb(var(--fg)); white-space: nowrap; }
 .ui-trend-label { font-size: 0.75rem; color: rgb(var(--fg-muted)); white-space: nowrap; }
@@ -7845,101 +7857,8 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   }
 }
 
-/*
- * The Blaze palette: Attendance in violet #5B47C4 (R&D hand-off, owner
- * 14 Nov 2026; Solar Amber 5–14 Nov was too close to Workspace orange). The
- * name stays so manifests keep working.
- *
- * `palette: 'blaze'` in a manifest makes the shell set data-palette="blaze"
- * on <html> and on the app's wrapper. The portal tokens themselves (--act,
- * --act-hover, --marker, --tint, --panel, --panel-border) live in rnd.css;
- * this block only points the older token names at them, on the wrapper too,
- * so nothing inside the app keeps an amber value. The rail, panel, buttons,
- * pills and tables are drawn by rnd.css.
- *
- *   primary button, links, focus   --act #5B47C4 with white (6.2:1)
- *   active rail / panel marker     --marker #7563D9
- *   selected fill                  --tint #EEEBFA
- *   second sidebar                 --panel #F7F6FD over --panel-border #E2DDF6
- */
-:root[data-palette='blaze'],
-[data-palette='blaze'] {
-  --app-bg: 255 255 255;
-  --brand: var(--act);
-  --brand-deep: var(--act-hover);
-  --brand-hover: var(--act-hover);
-  --brand-pressed: var(--act-hover);
-  --btn-primary-bg: var(--act);
-  --btn-primary-hover: var(--act-hover);
-  --brand-soft: var(--tint);
-  --brand-subtle: var(--panel);
-  --brand-border: var(--panel-border);
-  --brand-ink: var(--act);
-  --on-brand: 255 255 255;
-  --on-primary: 255 255 255;
-  --accent-soft: var(--tint);
-  --ring: var(--act);
-  --link: var(--act);
-  --link-hover: var(--act-hover);
-  --page-heading-bg: 255 255 255;
-  --rail-graphite: 255 255 255;
-  --rail-graphite-top: 255 255 255;
-  --rail-graphite-hover: 244 245 242;
-  --rail-blaze: var(--marker);
-  --rail-blaze-ink: var(--act);
-  --hero-hi: var(--act);
-}
-
-/* The dashboard ground is the palette's own (white); cards, tables and forms stay white on it. */
-:root[data-palette='blaze'] main.ui-content {
-  background-color: rgb(var(--app-bg));
-}
-
-/* Selected segments and the active tab: graphite choice (rnd.css), the tab line in the marker. */
-:root[data-palette='blaze'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
-  color: rgb(var(--fg));
-}
-:root[data-palette='blaze'] .ui-tab.is-active::after {
-  background-color: rgb(var(--marker));
-}
-
-/*
- * The Payroll palette: Electric Cyan (neon brand, owner 5–6 Nov 2026).
- * `palette: 'payroll'` in apps/payroll/manifest.jsx. Colour only, like Blaze;
- * everything it does not set keeps the neon platform values (white grounds,
- * #E5E7EB hairlines, slate headings). Its primary-button rule sits with the
- * neon default's.
- *
- *   action, bars, focus  #0079BF (owner's pick), white on it 4.7:1
- *   hover / pressed      #006AA8 (5.8:1) / #005A8F (7.3:1)
- *   cyan as words        #005A8F, 7.3:1 on white, 6.6:1 on the tint #E6F6FD
- */
-:root[data-palette='payroll'],
-[data-palette='payroll'] {
-  --brand: 0 121 191;
-  --brand-deep: 0 90 143;
-  --brand-hover: 0 106 168;
-  --brand-pressed: 0 90 143;
-  --btn-primary-bg: 0 121 191;
-  --btn-primary-hover: 0 106 168;
-  --brand-soft: 230 246 253;
-  --brand-subtle: 243 250 254;
-  --brand-border: 179 229 252;
-  --brand-ink: 0 90 143;
-  --on-brand: 255 255 255;
-  --accent-soft: 230 246 253;
-  --ring: 0 121 191;
-  --link: 0 90 143;
-  --link-hover: 0 74 117;
-  --doc-link: 0 90 143;
-  --doc-link-wash: 230 246 253;
-  --st-all-soft: 243 250 254; --st-all-strong: 230 246 253; --st-all-key: 0 121 191; --st-all-ink: 0 90 143;
-  --rail-active: 230 246 253;
-  --ov-orange: 0 90 143; --ov-orange-soft: 230 246 253; --ov-orange-wash: 243 250 254;
-  --kpi-invoices-bg: 243 250 254; --kpi-invoices-ink: 0 90 143;
-  --kpi-credit-bg: 243 250 254; --kpi-credit-ink: 0 90 143;
-  --hero-hi: 0 90 143;
-}
+/* The Blaze (Attendance) and Payroll palette blocks are gone (interaction audit 21 Nov 2026): no manifest
+   sets data-palette="blaze" or "payroll" any more; each app's colours live in rnd.css, per data-app. */
 
 /*
  * The bar: which app you are in and which company, before anything else.
@@ -8365,7 +8284,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 }
 .ui-auth-today-title {
   margin-bottom: 12px;
-  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
   font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -9395,6 +9314,7 @@ button.ui-side-alert { cursor: pointer; }
 }
 
 .ui-auth-facts {
+  position: relative;
   width: min(460px, 100%);
   max-width: none;
   padding: 20px 22px 14px;
@@ -9437,6 +9357,20 @@ button.ui-side-alert { cursor: pointer; }
   transform-origin: left;
   animation: ui-auth-fact-run linear both;
 }
+/* Pause and Play for the turning quotes: small, in the card's corner, on the card's own light ink. */
+.ui-auth-fact-pause {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: rgb(255 255 255 / 0.75);
+  background: transparent;
+}
+.ui-auth-fact-pause:hover { color: rgb(255 255 255); background: rgb(255 255 255 / 0.12); }
 .ui-auth-facts.is-held .ui-auth-fact-bar > span {
   animation-play-state: paused;
 }
@@ -9552,7 +9486,7 @@ button.ui-side-alert { cursor: pointer; }
   gap: 0.5rem;
   padding: 0 0.125rem 0.5rem 0.625rem;
   margin-bottom: 0.25rem;
-  font-family: var(--font-brand, 'Figtree Variable', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-brand, 'Figtree Variable', ui-sans-serif, system-ui, sans-serif);
   font-size: 1rem;
   line-height: 1.5rem;
   font-weight: 800;

@@ -48,7 +48,6 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' stroke='white' stroke-width='2'%3E%3Cpath d='M2.5 6h7'/%3E%3C/svg%3E");
 }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) input[type='checkbox']:not([role='switch']):not(.sr-only):disabled { opacity: 0.4; cursor: not-allowed; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) input[type='checkbox']:not([role='switch']):not(.sr-only):focus-visible { outline: 2px solid rgb(var(--act, var(--fg))); outline-offset: 2px; }
 @media (max-width: 767px) {
   :root:not(#pk):not(#pk2):not([data-palette='indigo']) input[type='checkbox']:not([role='switch']):not(.sr-only) { width: 1.5rem; height: 1.5rem; }
 }
@@ -472,9 +471,7 @@
    Round 6 (17 Nov 2026). Same rule: everywhere except Books.
    ====================================================================== */
 
-/* ---- Keyboard focus: a thick ring in the app colour on buttons and links; fields show their own border instead ---- */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(a, button, [role='button'], [role='tab'], [tabindex]):focus-visible { outline: 3px solid rgb(var(--act, var(--fg))); outline-offset: 2px; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-input, .ui-select, .con-input, textarea, select, input:not([type='checkbox']):not([type='radio'])):focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(var(--act, var(--fg)) / 0.18); }
+/* ---- Keyboard focus: one treatment, the 3px ring at 28% in legibility.css (S9) ---- */
 
 /* ---- Pointing at a row: the hover grey (DESIGN.md "Tables") ---- */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) tbody tr:hover > td,
@@ -504,7 +501,9 @@
    ====================================================================== */
 
 /* ---- Punch in: a big round button on the phone ---- */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-btn { width: 9.5rem !important; height: 9.5rem !important; margin-inline: auto; border-radius: 9999px; flex-direction: column; gap: 0.375rem; font-size: 1.0625rem; box-shadow: 0 10px 28px rgb(var(--act, var(--fg)) / 0.28); }
+/* Calm register: the punch is a normal primary button, 36px (44px on a phone), 14px label. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-btn { width: 100%; height: 2.25rem; font-size: 0.875rem; }
+@media (max-width: 639px) { :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-btn { height: 2.75rem; } }
 
 /* ---- Late marks: an amber tag with the minutes ---- */
 .ui-late-tag { display: inline-flex; align-items: center; padding: 0.0625rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
@@ -537,7 +536,8 @@
    ====================================================================== */
 
 /* ---- Roster: each shift a solid block in its colour ---- */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ros-shift { background-color: rgb(var(--tone)) !important; color: #fff; border-radius: 4px; }
+/* Calm register: ink on a soft tint of the shift colour, with a solid edge in that colour. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ros-shift { background-color: rgb(var(--tone) / 0.12) !important; color: rgb(var(--fg)); box-shadow: inset 3px 0 0 rgb(var(--tone)); border-radius: 4px; }
 
 /* ---- Overtime: a tag on the day ---- */
 .ui-ot-tag { display: inline-flex; padding: 0.0625rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
@@ -677,7 +677,7 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-sheet-back { margin-left: -0.5rem; }
 /* Today's attendance as a ring of present out of headcount (Attendance home) */
 .ui-today-ring { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.75rem; }
-.ui-today-ring-inner { position: relative; display: grid; place-content: center; flex: none; width: 4rem; height: 4rem; border-radius: 999px; font-size: 0.875rem; font-weight: 700; color: rgb(var(--fg)); background: conic-gradient(rgb(var(--act, var(--fg))) 0 var(--pct), rgb(var(--act, var(--fg)) / 0.12) var(--pct) 100%); }
+.ui-today-ring-inner { position: relative; display: grid; place-content: center; flex: none; width: 4rem; height: 4rem; border-radius: 999px; font-size: 0.875rem; font-weight: 700; color: rgb(var(--fg)); background: conic-gradient(rgb(var(--fg)) 0 var(--pct), rgb(var(--fg) / 0.12) var(--pct) 100%); }
 .ui-today-ring-inner::before { content: ''; position: absolute; inset: 0.4rem; border-radius: 999px; background: #fff; z-index: 0; }
 .ui-today-ring-inner { isolation: isolate; }
 .ui-today-ring-inner::before { z-index: -1; }
@@ -1090,7 +1090,7 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-next { color: rgb(var(--fg)); font-weight: 600; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-mark { display: inline-grid; place-items: center; width: 18px; height: 18px; flex: none; border: 1.5px solid rgb(var(--border-strong)); border-radius: 9999px; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-done .ui-month-todo-mark { border-color: rgb(var(--pos)); color: rgb(var(--pos)); }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-next .ui-month-todo-mark { border-color: rgb(var(--act, var(--fg))); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-next .ui-month-todo-mark { border-color: rgb(var(--fg)); } /* ink: the next step is a state, not one of the app colour's four jobs */
 /* ctcsplit A: the parts one yearly CTC makes, under the CTC field. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split { border-top: 1px solid rgb(var(--border)); padding-top: 8px; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dl { margin: 4px 0 0; display: grid; gap: 2px; }
@@ -1118,7 +1118,6 @@
 /* abbrexplain A: a short form (PF, ESI, PT, TDS) underlined with dots; a tap shows the full name and one line. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr-wrap { position: relative; display: inline-block; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr { text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 3px; cursor: help; border-radius: 4px; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr:focus-visible { outline: 2px solid rgb(var(--act, var(--fg))); outline-offset: 2px; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr-tip { position: absolute; z-index: 30; left: 0; top: calc(100% + 6px); width: max-content; max-width: min(18rem, 80vw); padding: 8px 12px; border: 1px solid rgb(var(--border)); border-radius: 8px; background: #fff; color: rgb(var(--fg)); font-size: 0.8125rem; line-height: 1.25rem; font-weight: 400; white-space: normal; box-shadow: 0 4px 16px rgb(0 0 0 / 0.08); }
 /* slowload A: a slow report says it is still working, after 5 seconds. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-slow-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
@@ -1135,7 +1134,7 @@
 /* Round 52 */
 /* fnfsheet B: the settlement drawer says the net first, above the one list of lines. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-net { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 0 0 12px; border-bottom: 1px solid rgb(var(--border)); }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-net-figure { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-net-figure { font-size: 1.375rem; line-height: 1.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 /* fnfclock A: the countdown sits under the due date in the settlements list. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-clock { margin-top: 2px; white-space: nowrap; }
 
@@ -1217,7 +1216,6 @@
 /* Round 63 */
 /* columnhelp A: a column name that explains itself on hover or tap (focus), one line under it. */
 :root:not([data-palette='indigo']) .ui-colhelp { position: relative; cursor: help; text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 3px; outline: none; }
-:root:not([data-palette='indigo']) .ui-colhelp:focus-visible { box-shadow: 0 0 0 2px rgb(var(--accent) / 0.45); border-radius: 4px; }
 :root:not([data-palette='indigo']) .ui-colhelp:hover::after,
 :root:not([data-palette='indigo']) .ui-colhelp:focus::after {
   content: attr(data-help); position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
