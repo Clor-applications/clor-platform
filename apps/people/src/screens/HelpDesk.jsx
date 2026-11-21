@@ -2,7 +2,7 @@ import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -150,7 +150,7 @@ function RaiseForm({ categories, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="New request for someone" dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={saving} onClick={save}>{saving ? 'Raising…' : 'Raise request'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={saving} onClick={save}>Raise request</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Employee *" value={form.employeeId} onChange={(v) => setForm({ ...form, employeeId: v || '' })} placeholder={people.data ? 'Choose…' : 'Loading…'} alwaysSearch options={(people.data || []).map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name }))} /></div>
@@ -276,7 +276,7 @@ function ResolveDrawer({ onClose, onResolve, busy }) {
   const [missing, setMissing] = useState(false);
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="Resolve" dirty={Boolean(text.trim())}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={() => (text.trim() ? onResolve(text.trim()) : setMissing(true))}>{busy ? 'Resolving…' : 'Resolve'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} onClick={() => (text.trim() ? onResolve(text.trim()) : setMissing(true))}>Resolve</Button></>}>
       <label className="block"><span className="ui-label">How it was resolved *</span>
         <textarea className="ui-input w-full" rows={4} maxLength={2000} value={text} autoFocus aria-invalid={missing || undefined} aria-describedby="resolve-help" onChange={(e) => { setText(e.target.value); setMissing(false); }} />
         <span id="resolve-help" className={missing ? 'ui-field-error' : 'ui-caption'}>{missing ? 'Say how it was resolved.' : 'The employee reads this.'}</span>

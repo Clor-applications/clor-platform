@@ -9,7 +9,7 @@ import GatePage from './GatePage';
 import { Clock } from '@ui/components/ui/lineIcons';
 import { legalHref } from './legal/useLegalRoute';
 import { readStartLinkOnce } from './startLink';
-import { FieldError, FieldErrorAnnounce } from '@ui/components/ui/Primitives';
+import { FieldError, FieldErrorAnnounce, Button } from '@ui/components/ui/Primitives';
 import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
 
 /**
@@ -259,9 +259,9 @@ function ResendLine({ email, app, plan }) {
   return (
     <div className="space-y-3">
       <p className="text-sm ui-muted">Nothing after a few minutes? Look in spam, or we can send it again.</p>
-      <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={again} disabled={state === 'busy' || state === 'sent'}>
-        {state === 'busy' ? 'Sending…' : state === 'sent' ? 'Sent again' : 'Send it again'}
-      </button>
+      <Button variant="secondary" className="w-full" loading={state === 'busy'} disabled={state === 'sent'} onClick={again}>
+        {state === 'sent' ? 'Sent again' : 'Send it again'}
+      </Button>
       {state && state !== 'busy' && state !== 'sent' ? <Err>{state}</Err> : null}
     </div>
   );

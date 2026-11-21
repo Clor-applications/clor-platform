@@ -8,7 +8,7 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listSalaryComponents } from '../api/payrollComponents';
 import {
@@ -371,9 +371,9 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
             <button type="button" className="ui-btn ui-btn-secondary" onClick={onBack}>
               <ArrowLeft size={16} aria-hidden="true" /> Back
             </button>
-            <button type="submit" className="ui-btn ui-btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Save structure'}
-            </button>
+            <Button variant="primary" loading={saving} type="submit">
+              Save structure
+            </Button>
           </>
         }
       />

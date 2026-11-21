@@ -5,7 +5,7 @@ import { CheckCircle2, Plus, Repeat, Trash2, Users, X } from '@ui/components/ui/
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, StatusPill, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
@@ -195,7 +195,7 @@ function RotationForm({ initial, shifts, onClose, onSaved }) {
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="rotation-form" className="ui-btn ui-btn-primary" disabled={saving || !form.name.trim() || form.sequence.some((x) => !x)} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} disabled={!form.name.trim() || form.sequence.some((x) => !x)} type="submit" form="rotation-form">Save</Button>
         </>
       }
     >
@@ -299,7 +299,7 @@ function RotationCrew({ rotation, name, onClose }) {
           </label>
           <label className="block"><span className="ui-label">From *</span><input type="date" className="ui-input w-full" required value={form.startsOn} onChange={(e) => setForm({ ...form, startsOn: e.target.value })} /></label>
           <label className="block"><span className="ui-label">Until</span><input type="date" className="ui-input w-full" min={form.startsOn} value={form.endsOn} onChange={(e) => setForm({ ...form, endsOn: e.target.value })} /></label>
-          <div className="self-end"><button type="submit" className="ui-btn ui-btn-primary" disabled={saving || !form.employeeIds.length} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Put on rotation'}</button></div>
+          <div className="self-end"><Button variant="primary" loading={saving} disabled={!form.employeeIds.length} type="submit">Put on rotation</Button></div>
         </form>
         {!rows ? (
           <SkeletonCard lines={3} />

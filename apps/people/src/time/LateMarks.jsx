@@ -2,7 +2,7 @@ import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -96,7 +96,7 @@ export default function LateMarks({ params = {}, updateParams }) {
       <PageHeader
         breadcrumb={[{ label: 'People' }, { label: 'Time' }]}
         title="Late marks"
-        actions={d?.canApply && d?.ended && due ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy === 'apply'} onClick={apply}>{busy === 'apply' ? 'Applying…' : `Apply ${monthTitle(month).split(' ')[0]} penalties`}</button> : null}
+        actions={d?.canApply && d?.ended && due ? <Button variant="primary" loading={busy === 'apply'} onClick={apply}>{`Apply ${monthTitle(month).split(' ')[0]} penalties`}</Button> : null}
       />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
@@ -184,7 +184,7 @@ function WaiveDrawer({ row, month, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} dirty={Boolean(reason)} title={`Waive ${dayAmount(row.days)} for ${row.name}`} widthClass="w-[min(32rem,96vw)]"
-      footer={<div className="flex justify-end gap-2"><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="waive-form" className="ui-btn ui-btn-primary" disabled={busy || reason.trim().length < 3}>{busy ? 'Waiving…' : 'Waive'}</button></div>}
+      footer={<div className="flex justify-end gap-2"><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={reason.trim().length < 3} type="submit" form="waive-form">Waive</Button></div>}
     >
       <form id="waive-form" onSubmit={save} className="space-y-3">
         <label className="block">

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Lock, Plus, X } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
@@ -534,7 +534,7 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
         <>
           {form.id && canDelete && form.requests === 0 ? <button type="button" className="ui-btn ui-btn-secondary mr-auto" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="leave-policy" className="ui-btn ui-btn-primary" disabled={saving || !body.name || !dirty || Boolean(ruleProblem)}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} disabled={!body.name || !dirty || Boolean(ruleProblem)} type="submit" form="leave-policy">Save</Button>
         </>
       ) : null}
     >
@@ -838,7 +838,7 @@ function PeriodForm({ initial, onClose, onSaved }) {
       footer={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="leave-period" className="ui-btn ui-btn-primary" disabled={saving || !dirty}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} disabled={!dirty} type="submit" form="leave-period">Save</Button>
         </>
       }
     >

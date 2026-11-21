@@ -27,8 +27,9 @@ it('adds a tag from the drawer: busy while it saves, refuses a second press, the
   fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Remote' } });
   const save = screen.getAllByRole('button', { name: 'Add tag' }).find((b) => b.getAttribute('type') === 'submit');
   fireEvent.click(save);
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Adding…' })).toBeDisabled());
-  fireEvent.click(screen.getByRole('button', { name: 'Adding…' }));
+  await waitFor(() => expect(save).toHaveAttribute('aria-busy', 'true'));
+  expect(save).toHaveTextContent('Add tag');
+  fireEvent.click(save);
   expect(api.createTag).toHaveBeenCalledTimes(1);
   expect(api.createTag).toHaveBeenCalledWith({ name: 'Remote', color: '#2A78D6' });
   api.listTags.mockResolvedValue([{ id: 't1', name: 'Remote', color: '#2A78D6', createdAt: '2026-11-14T10:00:00Z' }]);

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, ShieldCheck } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import Popover from '@ui/components/ui/Popover';
@@ -279,7 +279,7 @@ function PaidDrawer({ person, onClose, onDone }) {
   const n = person.settle.length;
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(32rem,96vw)] ui-drawer-sheet" title={`Paid the difference to ${person.name}?`} dirty={Boolean(note)}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : `Mark ${n} day${n === 1 ? '' : 's'} paid`}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} onClick={save}>{`Mark ${n} day${n === 1 ? '' : 's'} paid`}</Button></>}>
       <div className="grid gap-4">
         <p className="text-sm">{person.detail}</p>
         <p className="ui-caption">Only once the difference has gone out, as a Payroll adjustment or otherwise. The days leave this list; you can undo it straight after.</p>
@@ -311,7 +311,7 @@ function SnoozeDrawer({ check, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(32rem,96vw)] ui-drawer-sheet" title={`Snooze: ${check.title}`} dirty={Boolean(reason)}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !until} onClick={save}>{busy ? 'Saving…' : 'Snooze'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!until} onClick={save}>Snooze</Button></>}>
       <div className="grid gap-4">
         <label className="block"><span className="ui-label">Why it can wait *</span><textarea className="ui-input w-full" rows={2} maxLength={300} value={reason} aria-invalid={error ? true : undefined} onChange={(e) => { setReason(e.target.value); setError(''); }} /></label>
         {error ? <p className="ui-field-error" role="alert">{error}</p> : null}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { CheckCircle2, FileUp, MessageSquare, Pencil, Plus, Upload, Download, Archive, XCircle, Eye, Zap } from '@ui/components/ui/lineIcons';
+import { Button } from './Primitives';
 
 /**
  * ActivityTimeline (People design spec v1 §5, §7): ERPNext-style history of
@@ -91,7 +92,7 @@ export default function ActivityTimeline({ events, onLoadMore = null, loadingMor
           </ol>
         </section>
       ))}
-      {onLoadMore ? <button type="button" className="ui-btn ui-btn-secondary mt-4" disabled={loadingMore} onClick={onLoadMore}>{loadingMore ? 'Loading…' : 'Show older'}</button> : null}
+      {onLoadMore ? <Button variant="secondary" className="mt-4" loading={loadingMore} onClick={onLoadMore}>Show older</Button> : null}
     </div>
   );
 }

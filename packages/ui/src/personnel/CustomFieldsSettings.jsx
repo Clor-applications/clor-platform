@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, X } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -100,7 +100,7 @@ function FieldDrawer({ value, taken, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={isNew ? 'New field' : `Edit ${value.label}`} dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : isNew ? 'Add field' : 'Save as new version'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!dirty} onClick={save}>{isNew ? 'Add field' : 'Save as new version'}</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <label className="block"><span className="ui-label">Label *</span><input className="ui-input w-full" maxLength={80} value={form.label} autoFocus onChange={(e) => set({ label: e.target.value, ...(keyTouched ? {} : { key: keyFrom(e.target.value) }) })} placeholder="Blood group" /></label>

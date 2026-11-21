@@ -242,7 +242,7 @@ export default function AttendanceRules({ openScreen }) {
                 {openScreen ? <button type="button" className="ui-link" onClick={() => openScreen('requestRules')}>Change in Attendance request types</button> : null}
               </p>
               <div className="space-y-3">
-                <button type="button" className="ui-btn ui-btn-secondary" disabled={previewing || (!form.lateOn && !form.earlyOn)} onClick={runPreview}>{previewing ? 'Working it out…' : `Who this hits in ${monthTitle(month)}`}</button>
+                <Button variant="secondary" loading={previewing} disabled={(!form.lateOn && !form.earlyOn)} onClick={runPreview}>{`Who this hits in ${monthTitle(month)}`}</Button>
                 {preview ? <PreviewTable preview={preview} /> : null}
               </div>
             </Block>

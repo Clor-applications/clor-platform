@@ -9,6 +9,7 @@ import { requestOpenScreen } from '@platform/context';
 import { inForceIds, SKILL_LEVELS } from './minimumWageText';
 import { addMinimumWage, getMinimumWages, importMinimumWages, removeMinimumWage } from '../api/payrollMinimumWages';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 const STATES = [...new Set(Object.values(GST_STATE_BY_CODE).filter((s) => !/\(Old\)/.test(s)))].sort((a, b) => a.localeCompare(b));
 const TEMPLATE = 'state,zone,skill,effective_from,monthly_rate,note\n';
@@ -222,7 +223,7 @@ export default function MinimumWagesSection() {
             <input id="mw-note" className="ui-input w-full" value={form.note} onChange={set('note')} placeholder="Notification number or link" maxLength={300} />
           </div>
           <div className="ui-minwage-actions flex items-center gap-2">
-            <button type="submit" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === 'add'}>{busy === 'add' ? 'Saving…' : 'Save rate'}</button>
+            <Button variant="secondary" size="sm" loading={busy === 'add'} type="submit">Save rate</Button>
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { setAdding(false); setForm(BLANK); }}>Cancel</button>
           </div>
         </form>

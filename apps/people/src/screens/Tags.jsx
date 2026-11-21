@@ -2,7 +2,7 @@ import { errorWords } from '@ui/utils/errorWords';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
-import { SkeletonCard } from '@ui/components/ui/Primitives';
+import { SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import SearchField from '@ui/components/ui/SearchField';
@@ -135,7 +135,7 @@ export default function Tags() {
           dirty={Boolean(name.trim())}
           footer={<>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAdding(false)}>Cancel</button>
-            <button type="submit" form="tag-form" className="ui-btn ui-btn-primary" disabled={saving || !name.trim()}>{saving ? 'Adding…' : 'Add tag'}</button>
+            <Button variant="primary" loading={saving} disabled={!name.trim()} type="submit" form="tag-form">Add tag</Button>
           </>}
         >
           <form id="tag-form" onSubmit={add} className="grid gap-4">

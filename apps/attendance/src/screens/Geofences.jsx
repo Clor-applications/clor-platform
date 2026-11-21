@@ -4,7 +4,7 @@ import { Globe, LocateFixed, MapPin, Plus, Search, Users } from '@ui/components/
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
@@ -318,7 +318,7 @@ function SiteForm({ initial, areas, onClose, onSaved }) {
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="site-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} type="submit" form="site-form">Save</Button>
         </>
       }
     >

@@ -15,6 +15,7 @@ import { SKIP_ASK_HINT } from '@ui/picks/payLines';
 import { RUPEE_HINT, billTooOld, oldestBillDay, tooOldText } from './round51';
 import { errorWords } from '@ui/utils/errorWords';
 import { RowState, kindOfPill } from './portalUi';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Money in the employee app's Me tab (WORKFLOW-GAP-RESEARCH 4.1, 4.2):
@@ -139,7 +140,7 @@ function SpentForWork({ data, guard, reload }) {
               </select>
             </label>
           ) : null}
-          <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={send}>{busy ? 'Sending…' : `Send ${draft.lines.length} bill${draft.lines.length === 1 ? '' : 's'} for approval`}</button>
+          <Button variant="primary" className="w-full" loading={busy} onClick={send}>{`Send ${draft.lines.length} bill${draft.lines.length === 1 ? '' : 's'} for approval`}</Button>
         </div>
       ) : !adding ? <p className="ui-caption">Take a photo of each bill as you spend. Send them together when you are ready.</p> : null}
 
@@ -280,7 +281,7 @@ function BillForm({ data, guard, onDone, onCancel }) {
         <SuggestInput value={form.note} onChange={(v) => set({ note: v })} maxLength={300} placeholder="Anything your approver should know" suggestions={[]} />
       </label>
       <div className="flex gap-2">
-        <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy}>{busy ? 'Adding…' : 'Add bill'}</button>
+        <Button variant="primary" className="flex-1" loading={busy} type="submit">Add bill</Button>
         <button type="button" className="ui-btn" onClick={onCancel}>Cancel</button>
       </div>
     </form>
@@ -419,7 +420,7 @@ function Advances({ data, guard, reload }) {
           </div>
           <p className="ui-caption">Bring back the bills within 30 days. What you do not spend is given back or taken from your salary.</p>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy}>{busy ? 'Sending…' : 'Ask'}</button>
+            <Button variant="primary" className="flex-1" loading={busy} type="submit">Ask</Button>
             <button type="button" className="ui-btn" onClick={() => setAsking(false)}>Cancel</button>
           </div>
         </form>
@@ -526,7 +527,7 @@ function SalaryAdvance({ info, guard, reload }) {
             <SuggestInput value={form.reason} onChange={(v) => setForm({ ...form, reason: v })} maxLength={300} required placeholder="Only HR and your approver read this" suggestions={[]} />
           </label>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy || (check && !check.fits)}>{busy ? 'Sending…' : 'Ask'}</button>
+            <Button variant="primary" className="flex-1" loading={busy} disabled={(check && !check.fits)} type="submit">Ask</Button>
             <button type="button" className="ui-btn" onClick={() => setAsking(false)}>Cancel</button>
           </div>
         </form>
@@ -594,7 +595,7 @@ function SkipNext({ loan, guard, reload }) {
           </label>
           <p className="ui-caption">{SKIP_ASK_HINT}</p>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy || reason.trim().length < 3}>{busy ? 'Sending…' : 'Ask to skip'}</button>
+            <Button variant="primary" className="flex-1" loading={busy} disabled={reason.trim().length < 3} type="submit">Ask to skip</Button>
             <button type="button" className="ui-btn" onClick={() => setOpen(false)}>Cancel</button>
           </div>
         </form>

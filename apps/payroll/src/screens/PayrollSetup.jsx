@@ -140,8 +140,8 @@ export default function PayrollSetup({ onOpen = openScreen, params }) {
             Nothing is paid and nothing reaches the books until you say so. Switching it on just makes it available to set up.
           </p>
           <div>
-            <Button variant="primary" icon={Wallet} onClick={start} loading={starting}>
-              {starting ? 'Switching on…' : 'Start using Payroll'}
+            <Button loading={starting} variant="primary" icon={Wallet} onClick={start} loading={starting}>
+              Start using Payroll
             </Button>
           </div>
           </div>

@@ -13,6 +13,7 @@ import { hasApp } from '@platform/context';
 import { istDay } from '../timeOff/shared';
 import { addClearanceLine, decideExitInterview, enterExitInterview, orgUsers, removeClearanceLine, updateClearanceLine, withOwner } from './api';
 import { errorWords } from '@ui/utils/errorWords.js';
+import { Button } from '../components/ui/Primitives';
 
 /**
  * The leaving plan's money and goodbye (WORKFLOW-GAP-RESEARCH-2026-10-30 4.3, 4.9): the final-pay clock,
@@ -144,9 +145,9 @@ function LineDrawer({ line, canEdit, onClose, onSaved }) {
     <Drawer open onClose={onClose} dirty={dirty && !busy} widthClass="w-[min(34rem,96vw)]" title={`${line.deptWord}: ${line.label}`}
       footer={<div className="contents" {...mayAct}>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>{open ? 'Cancel' : 'Close'}</button>
-        {signed && canEdit ? <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => run('reopen')}>{busy === 'reopen' ? 'Opening…' : 'Open again'}</button> : null}
-        {open && dirty ? <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => run('save')}>{busy === 'save' ? 'Saving…' : 'Save'}</button> : null}
-        {open ? <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => run('sign')}>{busy === 'sign' ? 'Signing…' : 'Sign off'}</button> : null}
+        {signed && canEdit ? <Button variant="secondary" loading={busy === 'reopen'} disabled={Boolean(busy)} onClick={() => run('reopen')}>Open again</Button> : null}
+        {open && dirty ? <Button variant="secondary" loading={busy === 'save'} disabled={Boolean(busy)} onClick={() => run('save')}>Save</Button> : null}
+        {open ? <Button variant="primary" loading={busy === 'sign'} disabled={Boolean(busy)} onClick={() => run('sign')}>Sign off</Button> : null}
       </div>}>
       <div className="grid gap-5" {...mayAct}>
         <dl className="grid gap-3 sm:grid-cols-2 text-sm">
@@ -227,7 +228,7 @@ function AddLine({ employeeId, existing, onAdded }) {
         <SuggestInput maxLength={80} value={label} onChange={(v) => { setLabel(v); setError(''); }} suggestions={hints} placeholder="Uniform, petty cash…" aria-invalid={Boolean(error) || undefined} />
         {error ? <span className="ui-field-error" role="alert">{error}</span> : null}
       </label>
-      <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
+      <Button variant="secondary" loading={busy} type="submit">Add</Button>
     </form>
   );
 }
@@ -315,7 +316,7 @@ function EnterDrawer({ interview, employeeId, name, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} dirty={Object.keys(answers).length > 0 && !busy} widthClass="w-[min(36rem,96vw)]" title={`Exit interview: ${name}`}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="exit-enter" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save answers'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} type="submit" form="exit-enter">Save answers</Button></>}>
       <form id="exit-enter" onSubmit={send} className="space-y-4">
         <p className="ui-caption">From your conversation with them. They will not be asked in the app once this is saved.</p>
         <ExitQuestionsForm questions={interview.questions} answers={answers} onChange={(a) => { setAnswers(a); setError(''); }} idPrefix="hr-exit" />
@@ -376,8 +377,8 @@ function ExitInterview({ interview: iv, employeeId, name, onChanged }) {
           <div className="max-w-xs"><PopupSelect label="Could we have kept them?" placeholder="Not decided" showValueSubtext={false} value={iv.couldKeep || ''} onChange={(v) => decide({ couldKeep: v || null }, 'keep')} options={COULD_KEEP} /></div>
           {iv.outcome ? <p className="text-sm">Outcome: {OUTCOME_WORD[iv.outcome]}{iv.outcomeAt ? `, ${formatDate(istDay(iv.outcomeAt))}` : ''}.</p> : (
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => decide({ outcome: 'EXIT_CONFIRMED' }, 'exit')}>{busy === 'exit' ? 'Saving…' : 'Exit confirmed'}</button>
-              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => decide({ outcome: 'RETAINED' }, 'stay')}>{busy === 'stay' ? 'Saving…' : 'They stay'}</button>
+              <Button variant="secondary" size="sm" loading={busy === 'exit'} disabled={Boolean(busy)} onClick={() => decide({ outcome: 'EXIT_CONFIRMED' }, 'exit')}>Exit confirmed</Button>
+              <Button variant="secondary" size="sm" loading={busy === 'stay'} disabled={Boolean(busy)} onClick={() => decide({ outcome: 'RETAINED' }, 'stay')}>They stay</Button>
             </div>
           )}
         </div>

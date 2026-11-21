@@ -3,7 +3,7 @@ import { Download, TriangleAlert, Undo2 } from '@ui/components/ui/lineIcons';
 
 import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
-import { PageHeader, SkeletonCard } from '../components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '../components/ui/Primitives';
 import { notify } from '../components/ui/notify';
 import { errorWords } from '@ui/utils/errorWords.js';
 
@@ -142,15 +142,9 @@ export default function CloseCompany({ companyName = '' }) {
                 <span className="ui-label">Type {name} to confirm</span>
                 <input className="ui-input w-full" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" aria-label={`Type ${name} to confirm`} />
               </label>
-              <button
-                type="button"
-                className="ui-btn ui-btn-danger"
-                data-write
-                onClick={ask}
-                disabled={busy === 'close' || !exportFresh || !name || typed.trim().toLowerCase() !== name.trim().toLowerCase()}
-              >
-                {busy === 'close' ? 'Scheduling…' : `Close company after ${state.noticeDays} days`}
-              </button>
+              <Button variant="danger" loading={busy === 'close'} disabled={!exportFresh || !name || typed.trim().toLowerCase() !== name.trim().toLowerCase()} data-write onClick={ask}>
+                {`Close company after ${state.noticeDays} days`}
+              </Button>
               {!exportFresh ? <p className="ui-caption">Download the export first.</p> : null}
             </section>
           </>

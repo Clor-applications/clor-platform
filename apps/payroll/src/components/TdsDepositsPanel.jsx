@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { fyLabel } from '@ui/picks/round34';
 import { Plus, Receipt, Trash2 } from '@ui/components/ui/lineIcons';
 import Drawer from './EditDrawer';
-import { SkeletonCard } from '@ui/components/ui/Primitives';
+import { SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { dateWords } from '@ui/utils/dates';
 import { rupees as money, moneyCell } from '@ui/utils/money';
@@ -188,7 +188,7 @@ function ChallanForm({ fy, month, amount, onCancel, onSaved }) {
       </div>
       <div className="col-span-2 sm:col-span-4 flex justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={onCancel} disabled={busy}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy}>{busy ? 'Saving…' : 'Add challan'}</button>
+        <Button variant="primary" size="sm" loading={busy} type="submit">Add challan</Button>
       </div>
     </form>
   );

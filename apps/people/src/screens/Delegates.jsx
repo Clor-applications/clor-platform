@@ -2,7 +2,7 @@ import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import Alert from '@ui/components/ui/Alert';
@@ -181,7 +181,7 @@ function AddDelegate({ wholeCompany, namesLeave, namesApprovals, selfEmployeeId,
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" dirty={dirty} title="Add delegate"
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" form="add-delegate" className="ui-btn ui-btn-primary" disabled={!ready || saving}>{saving ? 'Saving…' : 'Save'}</button>
+        <Button variant="primary" loading={saving} disabled={!ready} type="submit" form="add-delegate">Save</Button>
       </>}>
       <form id="add-delegate" onSubmit={save} className="space-y-4">
         {picksManager ? <PopupSelect showValueSubtext={false} label="In place of *" value={form.managerEmployeeId} onChange={(v) => set('managerEmployeeId', v || '')} placeholder="Choose…" alwaysSearch options={options} /> : null}

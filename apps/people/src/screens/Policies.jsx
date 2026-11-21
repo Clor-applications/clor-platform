@@ -2,7 +2,7 @@ import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -141,7 +141,7 @@ function PolicyForm({ policy, taken = [], categories, purposes = [], onClose, on
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={policy ? `Edit ${policy.title}` : 'New policy'} dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={saving || !dirty} onClick={save}>{saving ? 'Saving…' : 'Save'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={saving} disabled={!dirty} onClick={save}>Save</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <label className="block sm:col-span-2"><span className="ui-label">Title *</span><SuggestInput maxLength={160} value={form.title} onChange={(v) => setForm({ ...form, title: v })} suggestions={policy ? [] : COMMON_POLICIES.filter((t) => !taken.some((x) => String(x).trim().toLowerCase() === t.toLowerCase()))} autoFocus /></label>
@@ -263,7 +263,7 @@ function VersionForm({ policyId, privacy = false, languages = [], version, onClo
   };
   return (
     <Drawer open onClose={onClose} title={version ? `Edit draft version ${version.version}` : 'New version'} widthClass="w-[min(40rem,96vw)] ui-drawer-sheet" dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={saving || !dirty} onClick={save}>{saving ? 'Saving…' : 'Save draft'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={saving} disabled={!dirty} onClick={save}>Save draft</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <label className="block sm:col-span-2"><span className="ui-label">The policy *</span><textarea className="ui-input w-full" rows={10} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></label>

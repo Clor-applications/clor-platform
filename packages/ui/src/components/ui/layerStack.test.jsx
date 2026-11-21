@@ -110,7 +110,7 @@ describe('one stack of open layers', () => {
     fireEvent.change(input, { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm code' }));
     expect(got).toBe('123456');
-    expect(await screen.findByRole('button', { name: 'Checking…' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm code' })).toHaveAttribute('aria-busy', 'true'));
     escape(input);
     expect(screen.getByText('This needs your code.')).toBeInTheDocument();
     act(() => detail.settle('ok'));

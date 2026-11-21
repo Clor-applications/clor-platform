@@ -6,7 +6,7 @@ import CopyWord from '@ui/components/ui/CopyWord';
 import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from '@ui/components/ui/lineIcons';
 import { docFolders as groupDocs } from './round46';
 
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import Drawer from '@ui/components/ui/Drawer';
@@ -1065,7 +1065,7 @@ function BulkDrawer({ count, lists, people, value, onChange, onClose, onSend }) 
   const options = field[2] ? lists[field[2]] || [] : people.filter((p) => p.status !== 'LEFT');
   return (
     <Drawer open onClose={onClose} title={`Change ${count} ${count === 1 ? 'person' : 'people'}`} description="Each person's history records the change and the reason. Where a job-change approval rule is in force, job details change one person at a time."
-      actions={<button type="button" className="ui-btn ui-btn-primary" disabled={busy || !value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{busy ? 'Changing…' : `Change ${count}`}</button>}>
+      actions={<Button variant="primary" loading={busy} disabled={!value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{`Change ${count}`}</Button>}>
       <div className="space-y-3">
         <label className="block"><span className="ui-label">What</span>
           <select className="ui-select w-full" value={value.field} onChange={(e) => onChange({ ...value, field: e.target.value, value: '' })}>
@@ -1343,7 +1343,7 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
           <div><label className="ui-label" htmlFor="sd-cat-from">Category from</label><DatePicker id="sd-cat-from" value={editing.categoryFrom || ''} onChange={(v) => setEditing({ ...editing, categoryFrom: v || '' })} /></div>
           <div className="sm:col-span-2 flex justify-end gap-2">
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing(null)}>Cancel</button>
-            <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <Button variant="primary" size="sm" loading={saving} type="submit">Save</Button>
           </div>
         </form>
       ) : null}
@@ -1417,7 +1417,7 @@ export function CustomFields({ employeeId, embedded = false }) {
     <section className="space-y-2" aria-label="More details">
       <div className="flex items-center justify-between gap-2">
         {embedded ? <span /> : <h3 className="text-sm font-semibold">More details</h3>}
-        {dirty ? <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button> : null}
+        {dirty ? <Button variant="primary" size="sm" loading={busy} onClick={save}>Save</Button> : null}
       </div>
       <dl className={embedded ? 'ui-field-grid' : 'grid gap-3 sm:grid-cols-2'}>
         {fields.map((f) => (
@@ -1491,7 +1491,7 @@ export function ImportDrawer({ file, onClose, onDone }) {
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
           <button type="button" className="ui-btn ui-btn-secondary" disabled={busy || !mapped} onClick={() => run(true)}>Preview</button>
-          <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !preview || !preview.imported} onClick={() => run(false)}>{busy ? 'Working…' : `Import ${preview ? preview.imported : ''}`}</button>
+          <Button variant="primary" loading={busy} disabled={!preview || !preview.imported} onClick={() => run(false)}>{`Import ${preview ? preview.imported : ''}`}</Button>
         </>
       )}>
       <div className="space-y-4">
@@ -1586,7 +1586,7 @@ export function InviteForm({ person, onClose, onDone }) {
         ) : (
           <>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" form="invite-form" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Sending…' : form.channel === 'EMAIL' ? 'Send invite' : 'Make the link'}</button>
+            <Button variant="primary" loading={saving} type="submit" form="invite-form">{form.channel === 'EMAIL' ? 'Send invite' : 'Make the link'}</Button>
           </>
         )
       }
@@ -1665,7 +1665,7 @@ export function JoiningDetails({ person, onChecked }) {
             </tbody>
           </table>
           {allowed('PEOPLE::Lifecycle::EDIT') ? (
-            <div className="flex justify-end"><button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={check}>{busy ? 'Saving…' : 'Check and save to the record'}</button></div>
+            <div className="flex justify-end"><Button variant="primary" size="sm" loading={busy} onClick={check}>Check and save to the record</Button></div>
           ) : null}
         </>
       ) : null}
@@ -1728,7 +1728,7 @@ export function ResignForm({ person, onClose, onDone }) {
       footer={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="resign-form" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Record leaving'}</button>
+          <Button variant="primary" loading={saving} type="submit" form="resign-form">Record leaving</Button>
         </>
       }
     >
@@ -1893,9 +1893,9 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="employee-form" className="ui-btn ui-btn-primary" disabled={saving || !(form.name || form.firstName)}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+          <Button variant="primary" loading={saving} disabled={!(form.name || form.firstName)} type="submit" form="employee-form">
+            Save
+          </Button>
         </>
       }
     >
@@ -2334,7 +2334,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
 
       {uploading ? (
         <Drawer open onClose={closeUpload} widthClass="w-[min(36rem,96vw)]" title="Upload a document" dirty={Boolean(file || form.title)}
-          footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={closeUpload}>Cancel</button><button type="submit" form="doc-upload" className="ui-btn ui-btn-primary" disabled={!file || busy || (permit && !form.expiresOn)}>{busy ? 'Uploading…' : 'Upload'}</button></>}>
+          footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={closeUpload}>Cancel</button><Button variant="primary" loading={busy} disabled={!file || (permit && !form.expiresOn)} type="submit" form="doc-upload">Upload</Button></>}>
           <form id="doc-upload" className="grid gap-4" onSubmit={async (e) => { if (await upload(e)) setUploading(false); }}>
             <label className="ui-dropzone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}>
               <Upload size={18} aria-hidden="true" />
@@ -2411,7 +2411,7 @@ export function IssueLetter({ employeeId, onClose, onIssued }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Issue a letter"
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="issue-letter" className="ui-btn ui-btn-primary" disabled={busy || !t}>{busy ? 'Issuing…' : 'Issue as PDF'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!t} type="submit" form="issue-letter">Issue as PDF</Button></>}>
       <form id="issue-letter" onSubmit={issue} className="grid gap-4">
         <div><PopupSelect showValueSubtext={false} label="Letter" value={kind} onChange={(v) => { setKind(v || 'APPOINTMENT'); setExtra(templates?.signatory ? { signatory: templates.signatory } : {}); }} options={(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => ({ value: k.kind, label: k.label }))} /></div>
         {due ? <p className="text-sm">{due.note}{due.dueOn ? ` Due ${formatDateShort(due.dueOn)} if asked today.` : ''} <button type="button" className="ui-link" onClick={asked}>Record the request</button></p> : null}

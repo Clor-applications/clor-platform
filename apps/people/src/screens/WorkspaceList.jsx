@@ -23,6 +23,7 @@ import { AnnouncementFeed, AnnouncementSide, AssetPill, EventList, PlanCards, Re
 import { assetColumns, enrolmentColumns } from './registerColumns';
 import { SymbolPicker, symbolOf } from './symbols';
 import AudiencePicker, { audienceWords, useAudienceLists } from './AudiencePicker';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * One register (assets, benefits, announcements, events, HR cases): the header with the one primary action, the
@@ -226,7 +227,7 @@ function RecordDrawer({ kind, cfg, rows, value, employees, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} title={`${value.id ? 'Edit' : 'New'} ${cfg.singular}`} dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!dirty} onClick={save}>Save</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <label className="block sm:col-span-2"><span className="ui-label">Name *</span><input className="ui-input w-full" maxLength={200} value={form.title} autoFocus onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>

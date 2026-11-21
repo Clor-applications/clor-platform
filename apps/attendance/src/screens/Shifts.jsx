@@ -4,7 +4,7 @@ import { CheckCircle2, Clock3, Moon, Plus, Users } from '@ui/components/ui/lineI
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, StatusPill, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createShift, deleteShift, hm, listShifts, updateShift } from '../api/attendance';
@@ -354,7 +354,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="shift-form" className="ui-btn ui-btn-primary" disabled={saving || !form.name.trim()}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} disabled={!form.name.trim()} type="submit" form="shift-form">Save</Button>
         </>
       }
     >

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Button } from './ui/Primitives';
 
 /**
  * Transport details for an e-Way Bill — the fields Part A/B need:
@@ -67,7 +68,7 @@ export default function EwbTransportForm({ onSubmit, onCancel, submitLabel = 'Ge
       </p>
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="ui-btn ui-btn-secondary">Cancel</button>
-        <button type="submit" disabled={busy} className="ui-btn ui-btn-primary">{busy ? 'Generating…' : submitLabel}</button>
+        <Button variant="primary" loading={busy} type="submit">{submitLabel}</Button>
       </div>
     </form>
   );

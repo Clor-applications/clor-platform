@@ -16,6 +16,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import * as api from '../api/compliance';
 import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
 import { todayIst } from '@ui/utils/dates';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Compliance, the one place for it (People audit 30 Oct 2026, gaps 10 and
@@ -358,7 +359,7 @@ function AddDrawer({ owners, sites, known, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(32rem,96vw)] ui-drawer-sheet" title="Add a deadline" dirty={Boolean(form.title || form.dueOn || form.owner || form.note)}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={add}>{busy ? 'Adding…' : 'Add deadline'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} onClick={add}>Add deadline</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); add(); }}>
         {error ? <p role="alert" className="ui-text-neg text-sm sm:col-span-2">{error}</p> : null}
         <label className="block sm:col-span-2"><span className="ui-label">What *</span><SuggestInput autoFocus maxLength={200} placeholder="Trade licence renewal" value={form.title} onChange={(v) => setF('title', v)} suggestions={titles} /></label>
@@ -499,7 +500,7 @@ function RuleDrawer({ value, rules, sites, onClose, onDone }) {
   const monthPick = (k, label) => <div><PopupSelect showValueSubtext={false} label={label} value={form[k]} onChange={(v) => setF(k, v || '1')} options={MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))} /></div>;
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={isNew ? 'Add a rule' : `New version of ${value.title}`}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} onClick={save}>Save</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {!isNew ? <p className="ui-caption sm:col-span-2">Version {value.version + 1} replaces version {value.version} from the date below and needs checking again.</p> : null}
         {error ? <p role="alert" className="ui-text-neg text-sm sm:col-span-2">{error}</p> : null}

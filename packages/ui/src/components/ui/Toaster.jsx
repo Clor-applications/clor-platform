@@ -3,6 +3,7 @@ import { Toaster as SonnerToaster, toast as sonnerToast } from 'sonner';
 
 import { EXPLORE_READ_ONLY_TEXT, subscribeConfirms, subscribeToasts } from './notify';
 import { useLayer } from './layerStack';
+import { Button } from './Primitives';
 
 /**
  * The one place notifications become pixels: a toast stack bottom-right and
@@ -287,9 +288,9 @@ export default function Toaster() {
             <p className="ui-caption mt-2">Lost your phone? A recovery code works once instead.</p>
             <div className="ui-confirm-actions mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => answer(null)} className="ui-btn ui-btn-secondary" disabled={checking}>Cancel</button>
-              <button type="submit" className="ui-btn ui-btn-primary" disabled={checking || !code.trim()} aria-busy={checking || undefined}>
-                {checking ? 'Checking…' : 'Confirm code'}
-              </button>
+              <Button variant="primary" loading={checking} disabled={!code.trim()} type="submit">
+                Confirm code
+              </Button>
             </div>
           </form>
         </div>

@@ -2,7 +2,7 @@ import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import useRequest from '@ui/components/ui/useRequest';
 
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { formatDate } from '@ui/components/ui/DatePicker';
@@ -81,7 +81,7 @@ function ChangeList({ kind, item, firstPage, firstNext }) {
           </li>
         ))}
       </ol>
-      {next ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={loadMore}>{busy ? 'Loading…' : 'Show earlier changes'}</button> : null}
+      {next ? <Button variant="secondary" loading={busy} onClick={loadMore}>Show earlier changes</Button> : null}
     </>
   );
 }

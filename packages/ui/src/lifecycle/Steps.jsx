@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
@@ -63,7 +63,7 @@ function Editor({ kind, template, types, editable, onSaved }) {
         {editable ? (
           <span className="flex gap-2">
             {template.custom ? <button type="button" className="ui-btn ui-btn-ghost" onClick={reset}>Use CLOR’s steps</button> : null}
-            <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !dirty} onClick={save}>{saving ? 'Saving…' : 'Save'}</button>
+            <Button variant="primary" loading={saving} disabled={!dirty} onClick={save}>Save</Button>
           </span>
         ) : null}
       </div>

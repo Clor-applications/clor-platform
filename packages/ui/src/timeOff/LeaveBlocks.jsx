@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Plus, X } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -145,7 +145,7 @@ function BlockDrawer({ block, refs, onClose, onDone }) {
       title={editing ? block.name : 'Add block'}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" form="leave-block" className="ui-btn ui-btn-primary" disabled={!ready || saving || !dirty}>{saving ? 'Saving…' : 'Save'}</button>
+        <Button variant="primary" loading={saving} disabled={!ready || !dirty} type="submit" form="leave-block">Save</Button>
       </>}
     >
       <form id="leave-block" onSubmit={save} className="space-y-4">

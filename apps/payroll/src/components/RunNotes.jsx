@@ -3,6 +3,7 @@ import { notify } from '@ui/components/ui/notify';
 import { NEXT_NOTE_HINT, NEXT_NOTE_LABEL, earlierNoteTitle } from '@ui/picks/payLines';
 import { saveNoteForNext } from '../api/payrollRuns';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /** The note last month's payroll left for this one, at the top of the run (picks round 32). */
 export function EarlierNote({ note }) {
@@ -42,7 +43,7 @@ export function NextMonthNote({ run, onSaved }) {
       </label>
       <div className="flex items-center justify-between gap-3">
         <span className="ui-caption">{NEXT_NOTE_HINT}</span>
-        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || !changed} onClick={save}>{busy ? 'Saving…' : 'Save note'}</button>
+        <Button variant="secondary" size="sm" loading={busy} disabled={!changed} onClick={save}>Save note</Button>
       </div>
     </section>
   );

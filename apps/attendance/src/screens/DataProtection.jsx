@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import TickList from '@ui/components/ui/TickList';
 import { Plus, ShieldCheck, X } from '@ui/components/ui/lineIcons';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import { CountLine } from '@ui/components/ui/CountLine';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -129,7 +129,7 @@ export default function DataProtection({ openScreen }) {
           <label className="block"><span className="ui-label">Phone</span><input className="ui-input w-full" maxLength={40} value={form.privacyContactPhone} onChange={(e) => setForm({ ...form, privacyContactPhone: e.target.value })} /></label>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={Boolean(busy)} aria-busy={busy === 'privacyContactName' || undefined} onClick={() => save({ ...form, publishNotice: true }, () => 'Saved. Employees will be asked to read the updated notice.')}>{busy === 'privacyContactName' ? 'Saving…' : 'Save and publish the notice'}</button>
+          <Button variant="primary" size="sm" loading={busy === 'privacyContactName'} disabled={Boolean(busy)} onClick={() => save({ ...form, publishNotice: true }, () => 'Saved. Employees will be asked to read the updated notice.')}>Save and publish the notice</Button>
           {data.settings.privacyNoticeAt ? <span className="ui-caption self-center">Last published {fmt(data.settings.privacyNoticeAt)}</span> : <span className="ui-caption self-center">Not published yet</span>}
         </div>
         </div>
@@ -303,7 +303,7 @@ function BreachForm({ onClose, onSaved }) {
     });
   };
   return (
-    <Drawer open onClose={onClose} title="Record a breach" widthClass="w-[min(42rem,96vw)]" dirty={dirty} actions={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="breach-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Record'}</button></>}>
+    <Drawer open onClose={onClose} title="Record a breach" widthClass="w-[min(42rem,96vw)]" dirty={dirty} actions={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={saving} type="submit" form="breach-form">Record</Button></>}>
       <form id="breach-form" onSubmit={submit} className="grid gap-3" aria-busy={saving || undefined}>
         <label className="block"><span className="ui-label">What happened, in a line *</span><input className="ui-input w-full" required maxLength={160} value={f.title} onChange={set('title')} /></label>
         <label className="block"><span className="ui-label">Details *</span><textarea className="ui-input w-full" rows={3} required value={f.description} onChange={set('description')} /></label>

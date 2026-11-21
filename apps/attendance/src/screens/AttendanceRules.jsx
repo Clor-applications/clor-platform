@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import { SectionJump } from '@ui/picks/round61';
 import { notify } from '@ui/components/ui/notify';
 import { getFeatures, setFeatures } from '@ui/api/features';
@@ -206,7 +206,7 @@ export default function AttendanceRules({ menuLabel } = {}) {
           </div>
         </section>
 
-        <div><button type="submit" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save rules'}</button></div>
+        <div><Button variant="primary" loading={saving} type="submit">Save rules</Button></div>
       </form>
 
       <NightShifts />
@@ -218,7 +218,7 @@ export default function AttendanceRules({ menuLabel } = {}) {
         <div className="flex flex-wrap items-end gap-3">
           <label className="block"><span className="ui-label">From</span><input type="date" className="ui-input" value={range.from} max={range.to} onChange={(e) => setRange({ ...range, from: e.target.value })} /></label>
           <label className="block"><span className="ui-label">To</span><input type="date" className="ui-input" value={range.to} max={todayIst()} onChange={(e) => setRange({ ...range, to: e.target.value })} /></label>
-          <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={run}>{busy ? 'Recalculating…' : 'Recalculate'}</button>
+          <Button variant="secondary" loading={busy} onClick={run}>Recalculate</Button>
           {rules.readerTrust ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={runTrust}>Work out reader trust</button> : null}
         </div>
         {rules.readerTrust ? <p className="ui-caption">Reader trust for these days changes only the trust, every day included; nothing else on a day moves.</p> : null}
@@ -340,7 +340,7 @@ function RulePreview({ shifts }) {
           ))}
         </div>
       ) : null}
-      <button type="button" className="ui-btn ui-btn-secondary" disabled={!shift || busy || !Object.values(changes).some((v) => v !== '')} onClick={run}>{busy ? 'Working it out…' : 'Preview'}</button>
+      <Button variant="secondary" loading={busy} disabled={!shift || !Object.values(changes).some((v) => v !== '')} onClick={run}>Preview</Button>
       {result ? (
         <div className="space-y-2">
           <p className="text-sm">

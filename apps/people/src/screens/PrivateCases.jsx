@@ -1,7 +1,7 @@
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import { Lock, Plus, X } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -95,7 +95,7 @@ function AskDrawer({ title, label, initial = '', multiline = false, submitLabel 
   const Field = multiline ? 'textarea' : 'input';
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={title} dirty={text.trim() !== initial.trim()}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={submit}>{busy ? 'Saving…' : submitLabel}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} onClick={submit}>{submitLabel}</Button></>}>
       <form onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="block"><span className="ui-label">{label} *</span>
           <Field className="ui-input w-full" rows={multiline ? 4 : undefined} maxLength={2000} value={text} autoFocus aria-invalid={missing || undefined} onChange={(e) => { setText(e.target.value); setMissing(false); }} />
@@ -229,7 +229,7 @@ function IntakeDrawer({ onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title="Take in a case" dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={saving} onClick={save}>{saving ? 'Sending…' : 'Send to the committee'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={saving} onClick={save}>Send to the committee</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Goes to" value={form.kind} onChange={(v) => setForm({ ...form, kind: v || 'POSH' })} options={[{ value: 'POSH', label: 'The Internal Committee (sexual harassment)' }, { value: 'GRIEVANCE', label: 'The grievance committee' }]} /></div>
@@ -278,7 +278,7 @@ function CommitteeDrawer({ onClose }) {
   };
   return (
     <Drawer open onClose={onClose} title="Committees" widthClass="w-[min(48rem,96vw)] ui-drawer-sheet" dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button><Button variant="primary" loading={busy} disabled={!dirty} onClick={save}>Save</Button></>}>
       <div className="space-y-4 text-sm">
         <div ref={tabsRef} role="tablist" aria-label="Committee" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
           {[['POSH_IC', 'Internal Committee (POSH)'], ['GRIEVANCE', 'Grievance committee']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={kind === k} disabled={dirty && kind !== k} className={`ui-tab ${kind === k ? 'is-active' : ''}`} onClick={() => setKind(k)}>{l}</button>)}

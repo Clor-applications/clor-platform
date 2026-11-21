@@ -33,6 +33,7 @@ import AppAccessSend from './AppAccessSend';
 import MyTeamPanel from './MyTeamPanel';
 import DeptTag from '@ui/components/ui/DeptTag';
 import { plusDaysIso, todayIst } from '@ui/utils/dates';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Workforce → Directory (People design spec v1 EMP-01, EMP-11, EMP-12; Workforce
@@ -624,7 +625,7 @@ function BulkDrawer({ count, ids = [], lists, managers, value, onChange, onClose
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`Change ${count} ${count === 1 ? 'employee' : 'employees'}`} dirty={Boolean(value.value || value.reason)}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{busy ? 'Changing…' : `Change ${count}`}</button>
+        <Button variant="primary" loading={busy} disabled={!value.value} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); } }}>{`Change ${count}`}</Button>
       </>}>
       <div className="grid gap-4">
         <div><PopupSelect showValueSubtext={false} label="What" value={f[0]} onChange={(v) => onChange({ ...value, field: v, value: '' })} alwaysSearch={fields.length > 8} options={fields.map(([k, l]) => ({ value: k, label: l }))} /></div>

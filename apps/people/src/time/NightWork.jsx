@@ -1,7 +1,7 @@
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -124,7 +124,7 @@ function ConsentDrawer({ row, canEdit, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} dirty={Boolean(note || file)} title={row.name} widthClass="w-[min(32rem,96vw)]"
-      footer={canEdit ? <div className="flex justify-end gap-2"><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="consent-form" className="ui-btn ui-btn-primary" disabled={busy || !onDate}>{busy ? 'Saving…' : status === 'GIVEN' ? 'Record consent' : 'Record withdrawal'}</button></div> : null}
+      footer={canEdit ? <div className="flex justify-end gap-2"><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!onDate} type="submit" form="consent-form">{status === 'GIVEN' ? 'Record consent' : 'Record withdrawal'}</Button></div> : null}
     >
       <div className="space-y-5 text-sm">
         <div className="flex flex-wrap items-center gap-2">{consentPill(row.consent)}{row.nightDays ? <span className="ui-caption tabular-nums">{row.nightDays} night shifts in the next 30 days</span> : null}</div>

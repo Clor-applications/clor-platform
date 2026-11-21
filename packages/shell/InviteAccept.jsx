@@ -4,6 +4,7 @@ import { acceptInvitationNew, acceptInvitationSignedIn, previewInvitation } from
 import AuthLayout from './AuthLayout';
 import SecondStep from './SecondStep';
 import { useSession } from './session';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * The invited person's door (Workspace W-3): app.clor.in/invite?token=...
@@ -110,9 +111,9 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
   if (signedInAsInvited) {
     return (
       <AuthLayout scene="invite" title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
-        <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={() => run(async () => { await acceptInvitationSignedIn(token); done(); })}>
-          {busy ? 'Joining…' : `Join ${invite.accountName}`}
-        </button>
+        <Button variant="primary" className="w-full" loading={busy} onClick={() => run(async () => { await acceptInvitationSignedIn(token); done(); })}>
+          {`Join ${invite.accountName}`}
+        </Button>
         {error ? <p role="alert" className="mt-3 text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       </AuthLayout>
     );
@@ -163,9 +164,9 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
           />
           {invite.hasLogin ? null : <span id="invite-password-help" className="ui-caption">At least 8 characters, and not a common one.</span>}
         </div>
-        <button type="submit" className="ui-btn ui-btn-primary w-full" disabled={busy}>
-          {busy ? 'Joining…' : invite.hasLogin ? 'Sign in and join' : 'Create my account and join'}
-        </button>
+        <Button variant="primary" className="w-full" loading={busy} type="submit">
+          {invite.hasLogin ? 'Sign in and join' : 'Create my account and join'}
+        </Button>
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       </form>
     </AuthLayout>

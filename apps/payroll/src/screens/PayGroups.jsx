@@ -5,7 +5,7 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { SkeletonCard, EmptyState, StatusPill } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, StatusPill, Button } from '@ui/components/ui/Primitives';
 import Drawer from '../components/EditDrawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayGroups, createPayGroup, updatePayGroup, deletePayGroup } from '../api/payrollCalendar';
@@ -357,9 +357,9 @@ const PayGroupForm = ({ initial, onClose, onSaved }) => {
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={saving}>
           Cancel
         </button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={saving}>
-          {saving ? 'Saving…' : 'Save pay group'}
-        </button>
+        <Button variant="primary" loading={saving} type="submit">
+          Save pay group
+        </Button>
       </div>
     </form>
   );

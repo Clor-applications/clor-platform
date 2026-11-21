@@ -5,7 +5,7 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { getMonthReadiness, resolveMonthDispute, todayIst } from '../api/attendance';
@@ -178,7 +178,7 @@ export default function MonthConfirmations() {
         actions={
           <>
             <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={close}>Cancel</button>
-            <button type="button" className="ui-btn ui-btn-primary" disabled={busy || reply.trim().length < 3} onClick={send}>{busy ? 'Sending…' : 'Send reply'}</button>
+            <Button variant="primary" loading={busy} disabled={reply.trim().length < 3} onClick={send}>Send reply</Button>
           </>
         }
       >

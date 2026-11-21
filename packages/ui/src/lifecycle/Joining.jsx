@@ -21,6 +21,7 @@ import PlanDrawer from './Plan';
 import { LateNotice, StepsMeter } from './StepsMeter';
 import { istDay } from '@ui/utils/dates';
 import { errorWords } from '@ui/utils/errorWords.js';
+import { Button } from '../components/ui/Primitives';
 
 /**
  * Joining & Leaving → Joining: everyone joining or recently joined. Before
@@ -118,7 +119,7 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
       />
       {view === 'forms' ? null : <LateNotice rows={list.data?.rows} />}
       {canSendHeld ? (
-        <Alert tone="info" title={`${held.length === 1 ? 'One joiner’s' : `${held.length} joiners’`} PAN, PF, ESI and bank details are kept in People`} action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={sending} onClick={sendHeld}>{sending ? 'Sending…' : 'Send to Payroll'}</button>}>
+        <Alert tone="info" title={`${held.length === 1 ? 'One joiner’s' : `${held.length} joiners’`} PAN, PF, ESI and bank details are kept in People`} action={<Button variant="secondary" size="sm" loading={sending} onClick={sendHeld}>Send to Payroll</Button>}>
           They were approved before Payroll was switched on.
         </Alert>
       ) : null}

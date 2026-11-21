@@ -2,7 +2,7 @@ import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { ArrowLeft, Plus } from '@ui/components/ui/lineIcons';
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -213,7 +213,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
             <p className="ui-label sm:col-span-2">Your self-review</p>
             <RatingPick label="How did the period go? *" value={form.selfRating} onChange={(v) => set({ selfRating: v })} />
             <label className="block sm:col-span-2"><span className="ui-label">What you did and what you want to work on *</span><textarea className="ui-input w-full" rows={5} maxLength={8000} value={form.selfText} onChange={(e) => set({ selfText: e.target.value })} /></label>
-            <div className="sm:col-span-2 flex justify-end"><button type="submit" className="ui-btn ui-btn-primary" disabled={Boolean(busy)}>{busy === 'self' ? 'Saving…' : 'Save self-review'}</button></div>
+            <div className="sm:col-span-2 flex justify-end"><Button variant="primary" loading={busy === 'self'} disabled={Boolean(busy)} type="submit">Save self-review</Button></div>
           </form>
         ) : block('Self-review', r.selfRating, r.selfText, r.selfAt)}
         {showSideBySide({ canSelf, canManager }) ? null : canManager ? (
@@ -222,7 +222,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
             <RatingPick label="Rating *" value={form.managerRating} onChange={(v) => set({ managerRating: v })} />
             <div className="sm:col-span-2"><GoalScore score={r.goalScore} /></div>
             <label className="block sm:col-span-2"><span className="ui-label">What went well and what to work on *</span><textarea className="ui-input w-full" rows={5} maxLength={8000} value={form.managerText} onChange={(e) => set({ managerText: e.target.value })} /></label>
-            <div className="sm:col-span-2 flex justify-end"><button type="submit" className="ui-btn ui-btn-primary" disabled={Boolean(busy)}>{busy === 'manager' ? 'Saving…' : 'Save manager review'}</button></div>
+            <div className="sm:col-span-2 flex justify-end"><Button variant="primary" loading={busy === 'manager'} disabled={Boolean(busy)} type="submit">Save manager review</Button></div>
           </form>
         ) : block(`Manager review${r.manager ? ` by ${r.manager.name}` : ''}`, r.managerRating, r.managerText, r.managerAt)}
         {canFinal ? (
@@ -233,7 +233,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
             {r.managerRating && form.finalRating && Number(form.finalRating) !== r.managerRating ? (
               <label className="block sm:col-span-2"><span className="ui-label">Why it differs from the manager’s *</span><SuggestInput maxLength={2000} value={form.finalReason} onChange={(v) => set({ finalReason: v })} suggestions={['Brought in line with the department', 'Goals not met in the period', 'Work outside the goals recognised']} /></label>
             ) : null}
-            <div className="sm:col-span-2 flex justify-end"><button type="submit" className="ui-btn ui-btn-primary" disabled={Boolean(busy)}>{busy === 'final' ? 'Saving…' : 'Set final rating'}</button></div>
+            <div className="sm:col-span-2 flex justify-end"><Button variant="primary" loading={busy === 'final'} disabled={Boolean(busy)} type="submit">Set final rating</Button></div>
           </form>
         ) : r.finalRating ? (
           <section className="space-y-1 border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }}><h3 className="ui-label">Final rating</h3><p className="text-sm">{ratingWord(r.finalRating)}</p>{r.finalReason ? <p className="text-sm ui-muted">{r.finalReason}</p> : null}</section>

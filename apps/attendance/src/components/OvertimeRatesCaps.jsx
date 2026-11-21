@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Button } from '@ui/components/ui/Primitives';
 
 /** The kinds of day overtime is paid for, in the order the screen shows them. */
 const DAY_TYPES = [
@@ -111,7 +112,7 @@ export default function OvertimeRatesCaps({ rules, suggestedCaps, save }) {
       {problem && dirty ? <p className="ui-caption" role="alert" style={{ color: 'rgb(var(--neg))' }}>{problem}</p> : null}
       {dirty ? (
         <div className="flex gap-2">
-          <button type="button" className="ui-btn ui-btn-secondary" data-write onClick={submit} disabled={saving || Boolean(problem)}>{saving ? 'Saving…' : 'Save rates and caps'}</button>
+          <Button variant="secondary" loading={saving} disabled={Boolean(problem)} data-write onClick={submit}>Save rates and caps</Button>
           <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setDraft(draftOf(rules))} disabled={saving}>Undo changes</button>
         </div>
       ) : null}

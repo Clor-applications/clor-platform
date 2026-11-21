@@ -5,7 +5,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { AlertTriangle, Check, PenLine, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 import { rupees } from '@ui/utils/money';
 
-import { PageHeader, SkeletonCard, EmptyState, FieldError } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, EmptyState, FieldError, Button } from '@ui/components/ui/Primitives';
 import useFieldErrors from '@ui/components/ui/useFieldErrors';
 import Drawer from '../components/EditDrawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -297,9 +297,9 @@ export default function PayrollCompliance({ params } = {}) {
         title="Compliance"
         description="The rates payroll deducts for provident fund, ESI, professional tax, Labour Welfare Fund and income tax, and when each took effect."
         actions={
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={seed} disabled={busy === 'seed'}>
-            {busy === 'seed' ? 'Adding…' : 'Add the standard rates'}
-          </button>
+          <Button variant="secondary" loading={busy === 'seed'} onClick={seed}>
+            Add the standard rates
+          </Button>
         }
       />
       <div className="px-5 lg:px-7 pb-8 space-y-4">
@@ -635,9 +635,9 @@ const LwfSettings = ({ value, onSaved }) => {
       <p className="ui-caption max-w-xl">
         One designation per line, as written on People records. CLOR cannot tell who is a manager or a supervisor from a title alone, so with none listed, LWF is deducted for everybody.
       </p>
-      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={save} disabled={saving}>
-        {saving ? 'Saving…' : 'Save LWF settings'}
-      </button>
+      <Button variant="secondary" size="sm" loading={saving} onClick={save}>
+        Save LWF settings
+      </Button>
     </div>
   );
 };
@@ -1008,9 +1008,9 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={saving}>
           Cancel
         </button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={saving}>
-          {saving ? 'Saving…' : 'Save rate'}
-        </button>
+        <Button variant="primary" loading={saving} type="submit">
+          Save rate
+        </Button>
       </div>
     </form>
   );

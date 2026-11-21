@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
+import { Button } from '@ui/components/ui/Primitives';
 import { markDay, setExceptionState } from '../api/attendance';
 import { errorWords } from '@ui/utils/errorWords';
 
@@ -40,9 +41,9 @@ export function DayQuickFix({ item, onDone, small = false }) {
   return (
     <span className="ui-quickfix" role="group" aria-label={`Decide ${who}`}>
       {QUICK_FIXES.map((f) => (
-        <button key={f.status} type="button" className={`ui-btn ui-btn-secondary ${small ? 'ui-btn-sm' : 'min-h-[44px]'}`} disabled={Boolean(busy)} aria-label={`${f.label}: ${who}`} onClick={() => decide(f)}>
-          {busy === f.status ? 'Saving…' : f.label}
-        </button>
+        <Button key={f.status} variant="secondary" size={small ? 'sm' : undefined} className={small ? '' : 'min-h-[44px]'} loading={busy === f.status} disabled={Boolean(busy) && busy !== f.status} aria-label={`${f.label}: ${who}`} onClick={() => decide(f)}>
+          {f.label}
+        </Button>
       ))}
     </span>
   );

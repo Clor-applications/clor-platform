@@ -91,7 +91,7 @@ import { LeaveRules } from './LeaveRules';
 import { LANGUAGES, LANGUAGE_CHOICE_ON, isLanguage, rememberLanguage, savedLanguage, usePageLanguage } from '@ui/i18n';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import { dateWords } from '@ui/utils/dates';
-import { PageHeader } from '@ui/components/ui/Primitives';
+import { PageHeader, Button } from '@ui/components/ui/Primitives';
 import ApproveActions from '@ui/components/ui/ApproveActions';
 import ExceptionTag from '@ui/components/ui/ExceptionTag';
 import { PortalLoading, RowState, kindOfPill } from './portalUi';
@@ -737,7 +737,7 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
             {usage ? <p className="ui-caption tabular-nums">{usage.unit === 'hours' ? 'Permission hours' : usage.unit === 'requests' ? 'Missed-punch requests' : `${kind === 'WFH' ? 'Work-from-home' : 'On-duty'} days`} this month: {usageLine(usage)}{usage.quota != null ? `, ${usage.left} left` : ''}.</p> : null}
             {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
             <div className="flex gap-2">
-              <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy === 'send'}>{busy === 'send' ? 'Saving…' : editing ? 'Save' : 'Send'}</button>
+              <Button variant="primary" className="flex-1" loading={busy === 'send'} type="submit">{editing ? 'Save' : 'Send'}</Button>
               {editing ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setEditing(null); setForm({ ...EMPTY_ASK, kind: kinds[0]?.kind || '' }); }}>Cancel</button> : null}
             </div>
           </>
@@ -1186,7 +1186,7 @@ function MyLeave({ guard }) {
                           <span className="ui-label">Your answer</span>
                           <input className="ui-input w-full" maxLength={500} value={answering.id === r.id ? answering.text : ''} onChange={(e) => setAnswering({ id: r.id, text: e.target.value })} />
                         </label>
-                        <button type="submit" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={rowSaving || answering.id !== r.id || !answering.text.trim()} aria-busy={rowSaving || undefined}>{rowSaving ? 'Saving…' : 'Send answer'}</button>
+                        <Button variant="secondary" size="sm" loading={rowSaving} disabled={answering.id !== r.id || !answering.text.trim()} type="submit">Send answer</Button>
                       </form>
                     </span>
                   ) : null}
@@ -1207,7 +1207,7 @@ function MyLeave({ guard }) {
                         <span className="ui-label">Why cancel (optional)</span>
                         <input className="ui-input" maxLength={500} value={asking.reason} onChange={(e) => setAsking({ ...asking, reason: e.target.value })} />
                       </label>
-                      <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={rowSaving} aria-busy={rowSaving || undefined}>{rowSaving ? 'Saving…' : 'Ask to cancel'}</button>
+                      <Button variant="primary" size="sm" loading={rowSaving} type="submit">Ask to cancel</Button>
                       <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking({ id: null, reason: '' })}>Keep leave</button>
                     </form>
                   ) : null}
@@ -1280,7 +1280,7 @@ function Account({ me, guard, onSignOut, language = 'en', onLanguage }) {
         <label className="block"><span className="ui-label">New password again</span><PasswordInput className="ui-input w-full" required autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} /></label>
         {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
         {/* One primary on Me (design audit P3): a password change is rare, so it is a secondary button. */}
-        <button type="submit" className="ui-btn ui-btn-secondary w-full" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Change password'}</button>
+        <Button variant="secondary" className="w-full" loading={saving} type="submit">Change password</Button>
       </form>
       <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={onSignOut}>
         <LogOut size={16} aria-hidden="true" /> Sign out
@@ -1843,7 +1843,7 @@ function MyData({ guard }) {
           <>
           <textarea className="ui-input w-full" rows={3} required maxLength={2000} placeholder={form.type === 'NOMINATE' ? 'Their name, how they are related to you, and how to reach them' : 'What exactly, and why'} value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} aria-label="Details" />
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={sending} aria-busy={sending || undefined}>{sending ? 'Saving…' : 'Send to HR'}</button>
+            <Button variant="primary" className="flex-1" loading={sending} type="submit">Send to HR</Button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
           </div>
           </>

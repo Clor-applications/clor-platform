@@ -5,7 +5,7 @@ import { CalendarRange, ChevronLeft, ChevronRight, Copy, Trash2 } from '@ui/comp
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination } from '@ui/components/list/ListPageParts';
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -185,7 +185,7 @@ export default function ScheduleCalendar({ menuLabel } = {}) {
         const format = exportFormatFromKey(k);
         return format ? exportRoster(format) : undefined;
       }}
-      primary={canEdit ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !draft.days} aria-busy={publishing || undefined} onClick={publish}>{publishing ? 'Publishing…' : 'Publish'}</button> : null}
+      primary={canEdit ? <Button variant="primary" loading={publishing} disabled={busy || !draft.days} onClick={publish}>Publish</Button> : null}
       above={
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">

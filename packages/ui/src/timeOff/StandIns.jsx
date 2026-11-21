@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -127,7 +127,7 @@ function AddStandIn({ wholeCompany, onClose, onDone }) {
       title="Add delegate"
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" form="add-stand-in" className="ui-btn ui-btn-primary" disabled={!ready || saving}>{saving ? 'Saving…' : 'Save'}</button>
+        <Button variant="primary" loading={saving} disabled={!ready} type="submit" form="add-stand-in">Save</Button>
       </>}
     >
       <form id="add-stand-in" onSubmit={save} className="space-y-4">

@@ -12,6 +12,7 @@ import { useBackClose } from '@ui/picks/round58';
 import { PayslipAsk, PayslipBundle } from './round58';
 import { errorWords } from '@ui/utils/errorWords';
 import { PortalLoading, RowState } from './portalUi';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * The Me tab's pay and leaving pieces (EMPLOYEE-VIEW gaps 1, 3, 7, 8):
@@ -456,7 +457,7 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
             <span className="ui-caption block">Optional. Seen by HR.</span>
           </label>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-danger flex-1" disabled={busy || !form.lastDay}>{busy ? 'Sending…' : 'Resign'}</button>
+            <Button variant="danger" className="flex-1" loading={busy} disabled={!form.lastDay} type="submit">Resign</Button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
           </div>
         </form>
@@ -518,7 +519,7 @@ export function MySteps({ guard, refreshKey }) {
         <span className="block ui-caption">{t.done ? 'Done' : t.dueDate ? `By ${longDate(t.dueDate)}` : ''}{!own && !t.done ? ' · HR or IT marks it when they have it' : ''}</span>
         {noteFor === t.id ? <textarea className="ui-input mt-2 w-full" rows={2} maxLength={500} aria-label={`Note for ${t.title}`} value={note} onChange={(e) => setNote(e.target.value)} /> : null}
       </span>
-      {own && !t.done ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === t.id} onClick={() => tick(t)}>{busy === t.id ? 'Saving…' : noteFor === t.id ? 'Save' : 'Done'}</button> : null}
+      {own && !t.done ? <Button variant="secondary" size="sm" loading={busy === t.id} onClick={() => tick(t)}>{noteFor === t.id ? 'Save' : 'Done'}</Button> : null}
     </li>
   );
   return (
@@ -606,7 +607,7 @@ export function PrivateComplaint({ guard }) {
       </label>
       {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       <div className="flex gap-2">
-        <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy}>{busy ? 'Sending…' : 'Send to the committee'}</button>
+        <Button variant="primary" className="flex-1" loading={busy} type="submit">Send to the committee</Button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setOpen(false); setError(''); }}>Cancel</button>
       </div>
     </form>

@@ -9,6 +9,7 @@ import { formatDate } from '@ui/components/ui/DatePicker';
 
 import { moneyRequest, openBill, sanctionClaim } from '../api/money';
 import { MONEY_TYPES, money } from './words';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * The money behind an approval in the one inbox (WORKFLOW-GAP-RESEARCH 4.1,
@@ -129,7 +130,7 @@ function ClaimDetail({ claim: c, advance, monthTotal, canCut, onSaved }) {
       </div>
       {cutting ? (
         <div className="flex gap-2">
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || !Object.keys(cuts).length} onClick={save}>{busy ? 'Saving…' : 'Save allowed amounts'}</button>
+          <Button variant="secondary" size="sm" loading={busy} disabled={!Object.keys(cuts).length} onClick={save}>Save allowed amounts</Button>
           <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { setCutting(false); setCuts({}); }}>Cancel</button>
         </div>
       ) : null}

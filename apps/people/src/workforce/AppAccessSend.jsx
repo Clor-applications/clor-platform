@@ -4,6 +4,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { sendAppAccess } from './api';
 import { escapeHtml as esc } from '@ui/utils/html';
+import { Button } from '@ui/components/ui/Primitives';
 
 /*
  * "Send employee app access" (HR-VIEW gap 3), from the directory's bulk bar
@@ -50,7 +51,7 @@ export default function AppAccessSend({ people, onClose }) {
     <Drawer open onClose={onClose} widthClass="w-[min(40rem,96vw)]" title={title}
       footer={result
         ? <>{handed.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => printSheet(result)}>Print codes</button> : null}<button type="button" className="ui-btn ui-btn-primary" onClick={onClose}>Done</button></>
-        : <><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={send}>{busy ? 'Sending…' : 'Send access'}</button></>}>
+        : <><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} onClick={send}>Send access</Button></>}>
       {!result ? (
         <div className="space-y-3 text-sm">
           <p>Each person gets a one-time activation code for the employee app. It works for a day; with it they choose their own password.</p>

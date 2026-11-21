@@ -26,6 +26,7 @@ import {
   pageRequests, requestUsage, todayIst, updateMyRequest, updateRequest,
 } from './api';
 import { errorWords } from '@ui/utils/errorWords.js';
+import { Button } from '../components/ui/Primitives';
 
 /**
  * Time & Leave → Attendance requests (TIME-LEAVE-DECISIONS.md, advanced build):
@@ -477,7 +478,7 @@ export function EnterRequest({ onClose, onDone, request = null, own = false, rul
       title={title}
       actions={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" form="enter-request" className="ui-btn ui-btn-primary" disabled={!ready || saving || (editing && !dirty)}>{saving ? 'Saving…' : editing ? 'Save' : own ? 'Send' : 'Save'}</button>
+        <Button variant="primary" loading={saving} disabled={!ready || (editing && !dirty)} type="submit" form="enter-request">{editing ? 'Save' : own ? 'Send' : 'Save'}</Button>
       </>}
     >
       <form id="enter-request" onSubmit={save} className="space-y-4">

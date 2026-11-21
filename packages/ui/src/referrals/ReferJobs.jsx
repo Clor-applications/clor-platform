@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import PhoneInput from '@ui/components/ui/PhoneInput';
 import SuggestInput from '../components/ui/SuggestInput';
 import { dayWords, rupees } from './words';
+import { Button } from '../components/ui/Primitives';
 
 /**
  * Jobs and referrals for someone who works here (server: services/people/talent/referrals.ts),
@@ -204,7 +205,7 @@ function ReferForm({ job, api, run, onCancel, onDone }) {
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Send referral'}</button>
+        <Button variant="primary" loading={busy} type="submit">Send referral</Button>
       </div>
     </form>
   );
@@ -234,7 +235,7 @@ function ApplyForm({ job, api, run, onCancel, onDone }) {
       <label className="block"><span className="ui-label">Why you want this job</span><textarea className="ui-input w-full" rows={3} maxLength={2000} autoFocus value={note} onChange={(e) => setNote(e.target.value)} /></label>
       <div className="flex flex-wrap justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Apply'}</button>
+        <Button variant="primary" loading={busy} type="submit">Apply</Button>
       </div>
     </form>
   );
@@ -266,7 +267,7 @@ function ShareLink({ job, api, run }) {
   };
   if (!got) return (
     <>
-      <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={fetchLink}>{busy ? 'Making your link…' : 'Share my link'}</button>
+      <Button variant="secondary" loading={busy} onClick={fetchLink}>Share my link</Button>
       {error ? <span className="w-full text-sm" role="alert">{error}</span> : null}
     </>
   );
