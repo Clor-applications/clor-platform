@@ -23,6 +23,8 @@ import {
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import useSaving, { useDirty } from '../components/useSaving';
+import { dateWords } from '@ui/utils/dates';
 
 const PERIODS = { 7: 'a week', 14: 'two weeks', 1: 'a day' };
 const TABS = [
@@ -132,7 +134,7 @@ export default function Rotations() {
                     <td className="ui-col-entity" data-phone="name"><button type="button" className="ui-link" onClick={() => setEditing({ ...r })}>{r.name}</button></td>
                     <td data-phone="sub">{r.sequence.map(name).join(' → ')}</td>
                     <td>{PERIODS[r.periodDays] || `${r.periodDays} days`}</td>
-                    <td className="ui-col-date whitespace-nowrap">{r.anchorDate}</td>
+                    <td className="ui-col-date whitespace-nowrap">{dateWords(r.anchorDate)}</td>
                     <td className="ui-num" data-phone="key">{r.people}</td>
                     <td className="ui-col-h-center" data-phone="tag">{r.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
                     <td className="ui-col-meta" data-phone="act">
@@ -157,18 +159,22 @@ export default function Rotations() {
 
 function RotationForm({ initial, shifts, onClose, onSaved }) {
   const [form, setForm] = useState(initial);
+  const [saving, runSave] = useSaving();
+  const [dirty] = useDirty(form);
   const setStep = (i, v) => setForm((f) => ({ ...f, sequence: f.sequence.map((x, j) => (j === i ? v : x)) }));
-  const save = async (e) => {
+  const save = (e) => {
     e.preventDefault();
     const body = { name: form.name, sequence: form.sequence, periodDays: Number(form.periodDays), anchorDate: form.anchorDate, isActive: form.isActive !== false };
-    try {
-      if (form.id) await updateRotation(form.id, body);
-      else await createRotation(body);
-      notify.success('Rotation saved.');
-      onSaved();
-    } catch (err) {
-      notify.error(errorWords(err, 'save the changes'));
-    }
+    return runSave(async () => {
+      try {
+        if (form.id) await updateRotation(form.id, body);
+        else await createRotation(body);
+        notify.success('Rotation saved.');
+        onSaved();
+      } catch (err) {
+        notify.error(errorWords(err, 'save the changes'));
+      }
+    });
   };
   const remove = async () => {
     if (!(await confirmDialog({ title: `Delete ${form.name}?`, message: 'Only a rotation nobody is on can be deleted.', confirmLabel: 'Delete' }))) return;
@@ -184,15 +190,16 @@ function RotationForm({ initial, shifts, onClose, onSaved }) {
       open
       onClose={onClose}
       title={form.id ? form.name : 'New rotation'}
+      dirty={dirty}
       actions={
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="rotation-form" className="ui-btn ui-btn-primary" disabled={!form.name.trim() || form.sequence.some((x) => !x)}>Save</button>
+          <button type="submit" form="rotation-form" className="ui-btn ui-btn-primary" disabled={saving || !form.name.trim() || form.sequence.some((x) => !x)} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
-      <form id="rotation-form" onSubmit={save} className="grid gap-4">
+      <form id="rotation-form" onSubmit={save} className="grid gap-4" aria-busy={saving || undefined}>
         <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Days / Nights" /></label>
         <fieldset>
           <legend className="ui-label">Pattern, in order</legend>
@@ -240,6 +247,8 @@ function RotationCrew({ rotation, name, onClose }) {
   const [rows, setRows] = useState(null);
   const [people, setPeople] = useState([]);
   const [form, setForm] = useState({ employeeIds: [], slotOffset: 0, startsOn: todayIst(), endsOn: '' });
+  const [saving, runSave] = useSaving();
+  const [removing, setRemoving] = useState('');
   const load = useCallback(() => {
     listRotationPeople(rotation.id).then(setRows).catch(() => setRows([]));
   }, [rotation.id]);
@@ -247,21 +256,37 @@ function RotationCrew({ rotation, name, onClose }) {
     load();
     listEmployees().then(setPeople).catch(() => setPeople([]));
   }, [load]);
-  const add = async (e) => {
+  const add = (e) => {
     e.preventDefault();
+    return runSave(async () => {
+      try {
+        const r = await assignRotation(rotation.id, { ...form, endsOn: form.endsOn || null });
+        notify.success(`${r.assigned} on the rotation.`);
+        setForm((f) => ({ ...f, employeeIds: [] }));
+        load();
+      } catch (err) {
+        notify.error(errorWords(err, 'save the changes'));
+      }
+    });
+  };
+  const takeOff = async (r) => {
+    if (removing) return;
+    const ok = await confirmDialog({ title: `Take ${r.employeeName} off ${rotation.name}?`, message: `From ${dateWords(r.startsOn)}, their other schedules apply instead.`, confirmLabel: 'Take off the rotation' });
+    if (!ok) return;
+    setRemoving(r.id);
     try {
-      const r = await assignRotation(rotation.id, { ...form, endsOn: form.endsOn || null });
-      notify.success(`${r.assigned} on the rotation.`);
-      setForm((f) => ({ ...f, employeeIds: [] }));
+      await removeRotationAssignment(r.id);
       load();
     } catch (err) {
-      notify.error(errorWords(err, 'save the changes'));
+      notify.error(errorWords(err, 'remove it'));
+    } finally {
+      setRemoving('');
     }
   };
   return (
-    <Drawer open onClose={onClose} title={`${rotation.name} — people`} description={rotation.sequence.map(name).join(' → ')} widthClass="w-[min(40rem,96vw)]">
+    <Drawer open onClose={onClose} title={`${rotation.name} — people`} description={rotation.sequence.map(name).join(' → ')} widthClass="w-[min(40rem,96vw)]" dirty={form.employeeIds.length > 0}>
       <div className="space-y-5">
-        <form onSubmit={add} className="grid gap-3 sm:grid-cols-2">
+        <form onSubmit={add} className="grid gap-3 sm:grid-cols-2" aria-busy={saving || undefined}>
           <div className="sm:col-span-2">
             <TickList label="People *" scroll columns={2} value={form.employeeIds} onChange={(ids) => setForm({ ...form, employeeIds: ids })}
               options={people.map((p) => ({ value: p.id, label: `${p.name}${p.department ? ` · ${p.department}` : ''}` }))} />
@@ -274,7 +299,7 @@ function RotationCrew({ rotation, name, onClose }) {
           </label>
           <label className="block"><span className="ui-label">From *</span><input type="date" className="ui-input w-full" required value={form.startsOn} onChange={(e) => setForm({ ...form, startsOn: e.target.value })} /></label>
           <label className="block"><span className="ui-label">Until</span><input type="date" className="ui-input w-full" min={form.startsOn} value={form.endsOn} onChange={(e) => setForm({ ...form, endsOn: e.target.value })} /></label>
-          <div className="self-end"><button type="submit" className="ui-btn ui-btn-primary" disabled={!form.employeeIds.length}>Put on rotation</button></div>
+          <div className="self-end"><button type="submit" className="ui-btn ui-btn-primary" disabled={saving || !form.employeeIds.length} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Put on rotation'}</button></div>
         </form>
         {!rows ? (
           <SkeletonCard lines={3} />
@@ -297,10 +322,10 @@ function RotationCrew({ rotation, name, onClose }) {
                 <tr key={r.id}>
                   <td className="ui-col-entity" data-phone="name">{r.employeeName}</td>
                   <td data-phone="sub">{r.slotOffset + 1} — {name(rotation.sequence[r.slotOffset] || '')}</td>
-                  <td data-phone="key">{r.startsOn}</td>
-                  <td>{r.endsOn || '—'}</td>
+                  <td data-phone="key">{dateWords(r.startsOn)}</td>
+                  <td>{dateWords(r.endsOn)}</td>
                   <td className="text-end" data-phone="act">
-                    <button type="button" className="ui-icon-btn" aria-label={`Take ${r.employeeName} off the rotation`} onClick={async () => { try { await removeRotationAssignment(r.id); load(); } catch (err) { notify.error(errorWords(err, 'remove it')); } }}>
+                    <button type="button" className="ui-icon-btn" aria-label={`Take ${r.employeeName} off the rotation`} disabled={removing === r.id} aria-busy={removing === r.id || undefined} onClick={() => takeOff(r)}>
                       <Trash2 size={16} aria-hidden="true" />
                     </button>
                   </td>

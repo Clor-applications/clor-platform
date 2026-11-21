@@ -133,7 +133,7 @@ export default function DataRequests() {
       onStatusChange={setFilter}
       tabsLabel="Request status"
     >
-      {error && !data ? <LoadFailed error={error} onRetry={load} /> : null}
+      {error && !data ? <LoadFailed message={errorWords(error, 'load data requests')} onRetry={load} /> : null}
       {!data ? (
         error ? null : <SkeletonCard lines={6} />
       ) : (
@@ -219,6 +219,7 @@ export default function DataRequests() {
           onClose={() => setErasing(null)}
           title={`Anonymise ${erasing.employeeName}`}
           description="Erases their personal data. This cannot be undone."
+          dirty={Boolean(typed.trim()) || busy}
           widthClass="w-[min(36rem,96vw)]"
           actions={
             <>

@@ -96,6 +96,7 @@ import ApproveActions from '@ui/components/ui/ApproveActions';
 import ExceptionTag from '@ui/components/ui/ExceptionTag';
 import { PortalLoading, RowState, kindOfPill } from './portalUi';
 import './portal.css';
+import useSaving from '../components/useSaving';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -320,7 +321,7 @@ export function PortalSignIn({ onDone }) {
     <div className="grid min-h-dvh place-items-center px-4 py-8" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
       <div className="ui-touch-44 w-full max-w-sm space-y-5">
         <div className="space-y-1 text-center">
-          <Fingerprint size={36} aria-hidden="true" className="mx-auto" style={{ color: 'rgb(var(--brand-ink))' }} />
+          <Fingerprint size={36} aria-hidden="true" className="mx-auto" style={{ color: 'rgb(var(--fg))' }} />
           <h1 className="ui-t-page">Employee portal</h1>
           <p className="ui-caption">Your attendance, schedule and leave.</p>
         </div>
@@ -329,7 +330,8 @@ export function PortalSignIn({ onDone }) {
           * order, and the arrow keys, Home and End move between the two. Kept as tabs, not pressed buttons, so the
           * submit button stays the only button called "Sign in".
           */}
-        <div className="grid grid-cols-2 gap-1 rounded-lg p-1" role="tablist" aria-label="Sign in or activate" style={{ backgroundColor: 'rgb(var(--app-bg))' }} onKeyDown={onTabKey}>
+        {/* A segmented choice, not two buttons: the submit below stays the one primary on the page. */}
+        <div className="ui-segmented grid w-full grid-cols-2" role="tablist" aria-label="Sign in or activate" onKeyDown={onTabKey}>
           {SIGN_IN_TABS.map(([k, label]) => (
             <button
               key={k}
@@ -339,7 +341,7 @@ export function PortalSignIn({ onDone }) {
               aria-selected={mode === k}
               aria-controls="portal-signin-panel"
               tabIndex={mode === k ? 0 : -1}
-              className={`ui-btn ui-btn-sm ${mode === k ? 'ui-btn-primary' : 'ui-btn-ghost'}`}
+              className="ui-segment justify-center"
               onClick={() => choose(k)}
             >
               {label}
@@ -358,7 +360,7 @@ export function PortalSignIn({ onDone }) {
           {mode === 'activate' ? (
             <label className="block">
               <span className="ui-label">Activation code from HR</span>
-              <input className="ui-input w-full ui-mono uppercase tracking-widest" required autoComplete="one-time-code" autoCapitalize="characters" value={form.activationCode} onChange={set('activationCode')} placeholder="ABCD-EFGH" />
+              <input className="ui-input w-full ui-mono" required autoComplete="one-time-code" autoCapitalize="characters" spellCheck={false} value={form.activationCode} onChange={set('activationCode')} placeholder="ABCD-EFGH" />
             </label>
           ) : null}
           <label className="block">
@@ -968,6 +970,7 @@ function MyLeave({ guard }) {
   };
   /* Approved leave (round 47): "Cancel" asks whoever approved it, with an optional reason, in a small form on the row. */
   const [asking, setAsking] = useState({ id: null, reason: '' });
+  const [rowSaving, runRow] = useSaving();
   const cancel = async (r) => {
     if (r.status === 'APPROVED') { setAsking({ id: r.id, reason: '' }); setNote(null); return; }
     const span = r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`;
@@ -981,16 +984,18 @@ function MyLeave({ guard }) {
       if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'cancel it') });
     }
   };
-  const askCancel = async (e) => {
+  const askCancel = (e) => {
     e.preventDefault();
-    try {
-      await guard(cancelLeave(asking.id, asking.reason.trim()));
-      setAsking({ id: null, reason: '' });
-      setNote({ ok: true, text: 'Asked to cancel. Your leave stays approved until it is agreed.' });
-      load();
-    } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
-    }
+    return runRow(async () => {
+      try {
+        await guard(cancelLeave(asking.id, asking.reason.trim()));
+        setAsking({ id: null, reason: '' });
+        setNote({ ok: true, text: 'Asked to cancel. Your leave stays approved until it is agreed.' });
+        load();
+      } catch (err) {
+        if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
+      }
+    });
   };
   /* Round 18/47: remind whoever it waits on, once a day. */
   const remind = async (r) => {
@@ -1004,17 +1009,19 @@ function MyLeave({ guard }) {
   };
   /* Round 27: the approver sent it back with a question; the answer sends it back to them. */
   const [answering, setAnswering] = useState({ id: null, text: '' });
-  const answer = async (e) => {
+  const answer = (e) => {
     e.preventDefault();
-    if (!answering.text.trim()) return;
-    try {
-      await guard(answerLeaveQuestion(answering.id, answering.text.trim()));
-      setAnswering({ id: null, text: '' });
-      setNote({ ok: true, text: 'Answer sent.' });
-      load();
-    } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
-    }
+    if (!answering.text.trim()) return undefined;
+    return runRow(async () => {
+      try {
+        await guard(answerLeaveQuestion(answering.id, answering.text.trim()));
+        setAnswering({ id: null, text: '' });
+        setNote({ ok: true, text: 'Answer sent.' });
+        load();
+      } catch (err) {
+        if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
+      }
+    });
   };
   /* Change a waiting request: the ask form, prefilled, saves over it. */
   const [editing, setEditing] = useState(null);
@@ -1174,12 +1181,12 @@ function MyLeave({ guard }) {
                   {r.status === 'PENDING' && r.question ? (
                     <span className="block mt-1">
                       <span className="ui-caption block">Question for you: “{r.question.note}”</span>
-                      <form onSubmit={answer} className="flex flex-wrap items-end gap-2 pt-1" aria-label="Your answer">
+                      <form onSubmit={answer} className="flex flex-wrap items-end gap-2 pt-1" aria-label="Your answer" aria-busy={rowSaving || undefined}>
                         <label className="block flex-1 min-w-[10rem]">
                           <span className="ui-label">Your answer</span>
                           <input className="ui-input w-full" maxLength={500} value={answering.id === r.id ? answering.text : ''} onChange={(e) => setAnswering({ id: r.id, text: e.target.value })} />
                         </label>
-                        <button type="submit" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={answering.id !== r.id || !answering.text.trim()}>Send answer</button>
+                        <button type="submit" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={rowSaving || answering.id !== r.id || !answering.text.trim()} aria-busy={rowSaving || undefined}>{rowSaving ? 'Saving…' : 'Send answer'}</button>
                       </form>
                     </span>
                   ) : null}
@@ -1195,12 +1202,12 @@ function MyLeave({ guard }) {
                     ) : null}
                   </span>
                   {asking.id === r.id ? (
-                    <form onSubmit={askCancel} className="flex flex-wrap items-end justify-end gap-2 pt-1" aria-label="Ask to cancel">
+                    <form onSubmit={askCancel} className="flex flex-wrap items-end justify-end gap-2 pt-1" aria-label="Ask to cancel" aria-busy={rowSaving || undefined}>
                       <label className="block">
                         <span className="ui-label">Why cancel (optional)</span>
                         <input className="ui-input" maxLength={500} value={asking.reason} onChange={(e) => setAsking({ ...asking, reason: e.target.value })} />
                       </label>
-                      <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm">Ask to cancel</button>
+                      <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={rowSaving} aria-busy={rowSaving || undefined}>{rowSaving ? 'Saving…' : 'Ask to cancel'}</button>
                       <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking({ id: null, reason: '' })}>Keep leave</button>
                     </form>
                   ) : null}
@@ -1236,17 +1243,20 @@ function Account({ me, guard, onSignOut, language = 'en', onLanguage }) {
   /* A letter approved at once (no approver but me) reloads My documents. */
   const [docsAt, setDocsAt] = useState(0);
   const [note, setNote] = useState(null);
-  const save = async (e) => {
+  const [saving, runSave] = useSaving();
+  const save = (e) => {
     e.preventDefault();
     setNote(null);
     if (form.next !== form.confirm) return setNote({ ok: false, text: 'The two new passwords are not the same.' });
-    try {
-      await guard(changePassword(form.current, form.next));
-      setForm({ current: '', next: '', confirm: '' });
-      setNote({ ok: true, text: 'Password changed. Other phones signed in as you are signed out.' });
-    } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'make the change') });
-    }
+    return runSave(async () => {
+      try {
+        await guard(changePassword(form.current, form.next));
+        setForm({ current: '', next: '', confirm: '' });
+        setNote({ ok: true, text: 'Password changed. Other phones signed in as you are signed out.' });
+      } catch (err) {
+        if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'make the change') });
+      }
+    });
   };
   return (
     <>
@@ -1263,14 +1273,14 @@ function Account({ me, guard, onSignOut, language = 'en', onLanguage }) {
       <AskLetter guard={guard} onIssued={() => setDocsAt(Date.now())} />
       <MyData guard={guard} />
       <Devices guard={guard} />
-      <form onSubmit={save} className="portal-sec space-y-3" aria-labelledby="pw-h">
+      <form onSubmit={save} className="portal-sec space-y-3" aria-labelledby="pw-h" aria-busy={saving || undefined}>
         <h2 id="pw-h" className="ui-t-sec">Change password</h2>
         <label className="block"><span className="ui-label">Current password</span><PasswordInput className="ui-input w-full" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} /></label>
         <label className="block"><span className="ui-label">New password</span><PasswordInput className="ui-input w-full" required strength autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} /></label>
         <label className="block"><span className="ui-label">New password again</span><PasswordInput className="ui-input w-full" required autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} /></label>
         {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
         {/* One primary on Me (design audit P3): a password change is rare, so it is a secondary button. */}
-        <button type="submit" className="ui-btn ui-btn-secondary w-full">Change password</button>
+        <button type="submit" className="ui-btn ui-btn-secondary w-full" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Change password'}</button>
       </form>
       <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={onSignOut}>
         <LogOut size={16} aria-hidden="true" /> Sign out
@@ -1792,18 +1802,21 @@ function MyData({ guard }) {
       if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'do that') });
     }
   };
-  const send = async (e) => {
+  const [sending, runSend] = useSaving();
+  const send = (e) => {
     e.preventDefault();
     setNote(null);
-    try {
-      await guard(askData(form));
-      setForm({ type: 'ACCESS', details: '' });
-      setOpen(false);
-      setNote({ ok: true, text: 'Sent to HR. The answer appears here.' });
-      load();
-    } catch (err) {
-      if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
-    }
+    return runSend(async () => {
+      try {
+        await guard(askData(form));
+        setForm({ type: 'ACCESS', details: '' });
+        setOpen(false);
+        setNote({ ok: true, text: 'Sent to HR. The answer appears here.' });
+        load();
+      } catch (err) {
+        if (!(err instanceof SignedOut)) setNote({ ok: false, text: errorWords(err, 'send it') });
+      }
+    });
   };
   return (
     <section className="portal-sec space-y-3" aria-labelledby="data-h">
@@ -1817,7 +1830,7 @@ function MyData({ guard }) {
       </div>
       <PrivacyNoticeCard guard={guard} always />
       {open ? (
-        <form onSubmit={send} className="space-y-2">
+        <form onSubmit={send} className="space-y-2" aria-busy={sending || undefined}>
           <select className="ui-select w-full" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} aria-label="What you are asking">
             {DATA_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
@@ -1830,7 +1843,7 @@ function MyData({ guard }) {
           <>
           <textarea className="ui-input w-full" rows={3} required maxLength={2000} placeholder={form.type === 'NOMINATE' ? 'Their name, how they are related to you, and how to reach them' : 'What exactly, and why'} value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} aria-label="Details" />
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary flex-1">Send to HR</button>
+            <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={sending} aria-busy={sending || undefined}>{sending ? 'Saving…' : 'Send to HR'}</button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
           </div>
           </>

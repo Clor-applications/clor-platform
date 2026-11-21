@@ -13,6 +13,8 @@ import { confirmScheduleChange } from '../components/scheduleCheck';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { confirmRemoveSchedule } from '../components/removeSchedule';
+import { dateWords } from '@ui/utils/dates';
 
 const COLUMNS = {
   employee: (r) => r.employeeName,
@@ -44,6 +46,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
   const [until, setUntil] = useState('');
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState('');
 
   const load = useCallback(() => {
     listAssignments().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load assignments')));
@@ -85,6 +88,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
     });
 
   const assign = async () => {
+    if (saving) return;
     if (!(await confirmScheduleChange({ kind: 'EMPLOYEE', employeeIds: [...picked], shiftId, from, to: until || null }))) return;
     setSaving(true);
     try {
@@ -99,12 +103,18 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
     }
   };
 
-  const remove = async (id) => {
+  const remove = async (r) => {
+    if (removing) return;
+    if (!(await confirmRemoveSchedule({ name: r.employeeName, shift: r.shiftName, from: r.effectiveFrom }))) return;
+    setRemoving(r.id);
     try {
-      await removeAssignment(id);
+      await removeAssignment(r.id);
+      notify.success(`${r.employeeName} taken off ${r.shiftName}.`);
       load();
     } catch (e) {
       notify.error(errorWords(e, 'remove it'));
+    } finally {
+      setRemoving('');
     }
   };
 
@@ -129,7 +139,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
         { label: 'With an end date', value: figures.ending, count: true, tone: 'outstanding', Icon: CalendarClock },
       ])}
       above={
-        <section className="ui-card space-y-3 p-4" aria-labelledby="assign-h">
+        <section className="space-y-3" aria-labelledby="assign-h">
           <h2 id="assign-h" className="ui-t-sec">Assign</h2>
           {!shifts.length ? (
             <p className="ui-muted text-sm">Create a shift first (Shifts).</p>
@@ -205,12 +215,12 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
                     <tr key={r.id}>
                       <td className="ui-col-entity" data-phone="name">{r.employeeName}</td>
                       <td data-phone="sub">{r.shiftName}</td>
-                      <td className="ui-col-date whitespace-nowrap" data-phone="key">{r.effectiveFrom}</td>
-                      <td className="ui-col-date whitespace-nowrap" data-phone="tag">{r.effectiveTo || 'until changed'}</td>
+                      <td className="ui-col-date whitespace-nowrap" data-phone="key">{dateWords(r.effectiveFrom)}</td>
+                      <td className="ui-col-date whitespace-nowrap" data-phone="tag">{r.effectiveTo ? dateWords(r.effectiveTo) : 'until changed'}</td>
                       <td className="ui-col-meta" data-phone="act">
                         <span className="flex justify-end">
-                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName} from ${r.shiftName}`} onClick={() => remove(r.id)}>
-                            <Trash2 size={14} aria-hidden="true" /> Remove
+                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName} from ${r.shiftName}`} disabled={removing === r.id} aria-busy={removing === r.id || undefined} onClick={() => remove(r)}>
+                            <Trash2 size={14} aria-hidden="true" /> {removing === r.id ? 'Removing…' : 'Remove'}
                           </button>
                         </span>
                       </td>

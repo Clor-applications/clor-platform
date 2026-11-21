@@ -10,6 +10,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { getReaderPhoto, listBiometrics } from '../api/attendance';
 import { notify } from '@ui/components/ui/notify';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import Modal from '@ui/components/ui/Modal';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
 
@@ -139,16 +140,13 @@ export default function Enrolments({ menuLabel } = {}) {
         </>
       )}
       {photo ? (
-        <div className="ui-nav-sheet" role="dialog" aria-modal="true" aria-label="Photo from the reader" onClick={() => setPhoto(null)}>
-          <div className="ui-nav-sheet-backdrop" aria-hidden="true" />
-          <div className="ui-card p-3 space-y-2" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', maxWidth: '20rem' }} onClick={(e) => e.stopPropagation()}>
+        /* The shared modal: focus moves in, Tab stays inside, Escape and × close it. */
+        <Modal title="Photo from the reader" maxWidthClass="max-w-xs" onClose={() => setPhoto(null)}>
+          <figure className="space-y-2">
             <img src={photo.src} alt={photo.caption} className="ui-photo w-full rounded-lg" />
-            <div className="flex items-center justify-between gap-2">
-              <span className="ui-caption">{photo.caption}</span>
-              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setPhoto(null)}>Close</button>
-            </div>
-          </div>
-        </div>
+            <figcaption className="ui-caption">{photo.caption}</figcaption>
+          </figure>
+        </Modal>
       ) : null}
     </DocumentListShell>
   );

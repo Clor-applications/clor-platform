@@ -14,6 +14,7 @@ import { CalendarImport, RestrictedPicks } from './HolidayDrawers';
 import { freshFirst, useFreshRow } from '@ui/picks/round57';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import useSaving from '../components/useSaving';
 
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const weekday = (iso) => WEEKDAY[new Date(`${iso}T00:00:00Z`).getUTCDay()];
@@ -69,6 +70,7 @@ export default function Holidays({ openScreen } = {}) {
   const [areas, setAreas] = useState([]);
   const [branches, setBranches] = useState([]);
   const [drawer, setDrawer] = useState('');
+  const [saving, runSave] = useSaving();
   useEffect(() => {
     listStructure('areas').then(setAreas).catch(() => setAreas([]));
     listBranches().then((b) => setBranches(b.map((x) => ({ id: x.id, name: x.branchName || x.name, state: x.state || '' })))).catch(() => setBranches([]));
@@ -95,20 +97,22 @@ export default function Holidays({ openScreen } = {}) {
   const rows = freshFirst(filters.applyFilters(search.filtered, COLUMNS), freshId);
   const today = todayIst();
 
-  const add = async (e) => {
+  const add = (e) => {
     e.preventDefault();
-    try {
-      const { scope, ...rest } = form;
-      const made = await createHoliday({ ...rest, branchId: scope.startsWith('b:') ? scope.slice(2) : null, areaId: scope.startsWith('a:') ? scope.slice(2) : null });
-      markFresh(made?.holiday?.id || made?.id || null);
-      notify.success('Holiday added.');
-      /* Round 56 (saveaddnext A): the form clears for the next holiday; where it applies stays, and the cursor goes back to the date. */
-      setForm((f) => ({ date: '', name: '', isOptional: false, scope: f.scope }));
-      dateRef.current?.focus();
-      load();
-    } catch (err) {
-      notify.error(errorWords(err, 'add it'));
-    }
+    return runSave(async () => {
+      try {
+        const { scope, ...rest } = form;
+        const made = await createHoliday({ ...rest, branchId: scope.startsWith('b:') ? scope.slice(2) : null, areaId: scope.startsWith('a:') ? scope.slice(2) : null });
+        markFresh(made?.holiday?.id || made?.id || null);
+        notify.success('Holiday added.');
+        /* Round 56 (saveaddnext A): the form clears for the next holiday; where it applies stays, and the cursor goes back to the date. */
+        setForm((f) => ({ date: '', name: '', isOptional: false, scope: f.scope }));
+        dateRef.current?.focus();
+        load();
+      } catch (err) {
+        notify.error(errorWords(err, 'add it'));
+      }
+    });
   };
 
   const toggleOptional = async (h) => {
@@ -167,7 +171,7 @@ export default function Holidays({ openScreen } = {}) {
       above={
         <>
         <StateMinimum rows={minimum} year={year} />
-        <form onSubmit={add} className="flex flex-wrap items-end gap-3" aria-label="Add a holiday">
+        <form onSubmit={add} className="flex flex-wrap items-end gap-3" aria-label="Add a holiday" aria-busy={saving || undefined}>
           <label className="block"><span className="ui-label">Date</span><input ref={dateRef} type="date" className="ui-input" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
           <label className="block min-w-[14rem] flex-1"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Diwali" /></label>
           {areas.length || branches.length > 1 ? (
@@ -181,7 +185,7 @@ export default function Holidays({ openScreen } = {}) {
             </label>
           ) : null}
           <label className="flex items-center gap-1.5 pb-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={form.isOptional} onChange={(e) => setForm({ ...form, isOptional: e.target.checked })} /> Optional</label>
-          <button type="submit" className="ui-btn ui-btn-primary"><Plus size={16} aria-hidden="true" /> Add holiday</button>
+          <button type="submit" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}><Plus size={16} aria-hidden="true" /> {saving ? 'Saving…' : 'Add holiday'}</button>
         </form>
         </>
       }

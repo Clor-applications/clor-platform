@@ -340,7 +340,7 @@ function IssuedCodes({ issued, portalUrl, onClose }) {
               <tr key={c.employeeId}>
                 <td className="ui-col-entity" data-phone="name">{c.name}</td>
                 <td className="ui-mono" data-phone="sub">{c.employeeCode}</td>
-                <td className="ui-mono text-base font-semibold tracking-wider" data-phone="key">{c.activationCode}</td>
+                <td className="ui-mono text-[0.8125rem] font-semibold" data-phone="key">{c.activationCode}</td>
                 <td className="ui-col-meta">{c.emailedTo || '—'}</td>
               </tr>
             ))}

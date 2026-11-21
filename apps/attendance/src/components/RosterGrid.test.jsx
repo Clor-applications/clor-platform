@@ -99,18 +99,18 @@ describe('choosing a block', () => {
 
   it('drags, Shift+clicks, and takes a whole row or column from its heading', () => {
     draw();
-    fireEvent.mouseDown(cell(0, 1), { button: 0 });
-    fireEvent.mouseEnter(cell(1, 2));
-    fireEvent.mouseEnter(cell(2, 3));
-    fireEvent.mouseUp(window);
+    fireEvent.pointerDown(cell(0, 1), { button: 0 });
+    fireEvent.pointerEnter(cell(1, 2));
+    fireEvent.pointerEnter(cell(2, 3));
+    fireEvent.pointerUp(window);
     expect(screen.getByText('3 people × 3 days chosen')).toBeTruthy();
     /* The drag is over: passing over a cell no longer moves the block. */
-    fireEvent.mouseEnter(cell(0, 6));
+    fireEvent.pointerEnter(cell(0, 6));
     expect(chosen()).toHaveLength(9);
-    fireEvent.mouseDown(cell(0, 0), { button: 0 });
-    fireEvent.mouseUp(window);
-    fireEvent.mouseDown(cell(1, 6), { button: 0, shiftKey: true });
-    fireEvent.mouseUp(window);
+    fireEvent.pointerDown(cell(0, 0), { button: 0 });
+    fireEvent.pointerUp(window);
+    fireEvent.pointerDown(cell(1, 6), { button: 0, shiftKey: true });
+    fireEvent.pointerUp(window);
     expect(screen.getByText('2 people × 7 days chosen')).toBeTruthy();
     fireEvent.click(screen.getByTitle('Choose all of Person 2’s days'));
     expect(chosen()).toEqual(DAYS.map((_, c) => `1:${c}`));

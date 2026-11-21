@@ -309,14 +309,14 @@ export default function DataImport({ params } = {}) {
               <p className="text-sm"><strong>{check.imported.toLocaleString('en-IN')}</strong> {kind.unit} ready{check.skipped ? `, ${check.skipped} already there` : ''}{check.failed ? <>, <strong style={{ color: 'rgb(var(--neg))' }}>{check.failed}</strong> with a problem</> : ''}.</p>
               {check.results?.length ? (
                 <ul className="text-sm space-y-0.5 max-h-56 overflow-y-auto">
-                  {check.results.map((x) => <li key={x.row}><span className="ui-mono text-xs">row {x.row}</span> <span className="ui-caption">{x.error}</span></li>)}
+                  {check.results.map((x) => <li key={x.row}><span className="text-xs font-medium tabular-nums">Row {x.row}</span> <span className="ui-caption">{x.error}</span></li>)}
                 </ul>
               ) : null}
               {check.replacing?.length ? (
                 <details className="text-sm">
                   <summary className="cursor-pointer"><strong>{check.replacing.length.toLocaleString('en-IN')}</strong> {check.replacing.length === 1 ? 'day is' : 'days are'} already recorded and would be replaced</summary>
                   <ul className="mt-1 space-y-0.5 max-h-40 overflow-y-auto">
-                    {check.replacing.map((x) => <li key={x.row}><span className="ui-mono text-xs">row {x.row}</span> <span className="ui-caption">replaces a day {MADE_BY[x.source] || 'already there'}</span></li>)}
+                    {check.replacing.map((x) => <li key={x.row}><span className="text-xs font-medium tabular-nums">Row {x.row}</span> <span className="ui-caption">replaces a day {MADE_BY[x.source] || 'already there'}</span></li>)}
                   </ul>
                 </details>
               ) : null}
@@ -332,7 +332,7 @@ export default function DataImport({ params } = {}) {
               <p className="flex items-center gap-2 text-sm" style={{ color: 'rgb(var(--pos))' }}><CheckCircle2 size={16} aria-hidden="true" /> {result.imported.toLocaleString('en-IN')} imported{result.skipped ? `, ${result.skipped} already there` : ''}{result.failed ? `, ${result.failed} not` : ''}.</p>
               {result.results?.length ? (
                 <ul className="text-sm space-y-0.5 max-h-56 overflow-y-auto">
-                  {result.results.map((x) => <li key={x.row}><span className="ui-mono text-xs">row {x.row}</span> <span className="ui-caption">{x.error}</span></li>)}
+                  {result.results.map((x) => <li key={x.row}><span className="text-xs font-medium tabular-nums">Row {x.row}</span> <span className="ui-caption">{x.error}</span></li>)}
                 </ul>
               ) : null}
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={reset}>Import another file</button>

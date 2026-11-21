@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ShieldCheck } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { CountLine } from '@ui/components/ui/CountLine';
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { getPayrollReadiness, todayIst } from '../api/attendance';
@@ -94,12 +95,17 @@ export default function PayrollReadiness({ openScreen, menuLabel }) {
           error ? null : <SkeletonCard lines={8} />
         ) : (
           <>
-            <section className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Summary">
-              <StatTile label="Ready" value={`${data.score}%`} hint={data.ready ? 'nothing blocks the month' : 'of people with nothing in the way'} tone={data.ready ? 'pos' : 'warn'} />
-              <StatTile label="People blocking" value={data.people.blocking} hint={`of ${data.people.total}`} tone={data.people.blocking ? 'neg' : 'pos'} />
-              <StatTile label="Pay at stake" value={data.payVisible ? money(data.moneyAtRisk) : 'Hidden'} hint={data.payVisible ? 'estimate: open days × a day’s pay' : 'needs permission to see salaries'} tone={data.moneyAtRisk ? 'neg' : 'neutral'} />
-              <StatTile label="Issues" value={data.issues.length} hint={`${data.issues.filter((i) => i.blocks).length} block the month`} tone={data.issues.length ? 'warn' : 'pos'} />
-            </section>
+            {/* The totals as one count line, figures at zero left out (DESIGN.md "Page header": no figure tiles on a list page). */}
+            <CountLine
+              label="Summary"
+              items={[
+                { key: 'ready', label: data.ready ? 'ready: nothing blocks the month' : 'ready', value: `${data.score}%` },
+                { key: 'blocking', label: `of ${data.people.total} people blocking`, value: data.people.blocking, tone: 'neg' },
+                { key: 'pay', label: 'pay at stake (open days × a day’s pay)', value: data.payVisible && data.moneyAtRisk ? money(data.moneyAtRisk) : 0, tone: 'neg' },
+                { key: 'issues', label: `${data.issues.length === 1 ? 'issue' : 'issues'}, ${data.issues.filter((i) => i.blocks).length} block the month`, value: data.issues.length, tone: 'warn' },
+              ]}
+            />
+            {!data.payVisible ? <p className="ui-caption">Pay at stake is hidden: it needs permission to see salaries.</p> : null}
 
             {!data.issues.length ? (
               <EmptyState icon={ShieldCheck} title="Ready for payroll" description="No open days, nothing waiting for approval, and payroll has the details it needs for everyone." />

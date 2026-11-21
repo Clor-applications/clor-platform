@@ -16,6 +16,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import OvertimeRuleFields from '../components/OvertimeRuleFields';
 import { errorWords, dayText } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { dateWords } from '@ui/utils/dates';
 
 /**
  * Overtime and comp-off asked for from the employee app, and the company's
@@ -173,7 +174,7 @@ export default function OvertimeRequests() {
                   pageRows.map((r) => (
                     <tr key={r.id}>
                       <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
-                      <td className="ui-col-date whitespace-nowrap">{r.date}</td>
+                      <td className="ui-col-date whitespace-nowrap">{dateWords(r.date)}</td>
                       <td>
                         <span className="tabular-nums">{r.kind === 'COMP_OFF' ? `Comp-off, ${r.days} day${r.days === 1 ? '' : 's'} (worked ${hours(r.minutes)})` : `Overtime ${hours(r.minutes)}${r.rate ? ` at ${r.rate}× (${DAY_WORDS[r.dayType] || 'working day'})` : ''}`}</span>
                         {/* Hours over the company's cap are kept and said here, for whoever decides (overtimePolicy.ts). */}

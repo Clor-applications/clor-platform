@@ -213,6 +213,7 @@ function SiteIdsEditor({ initial, onClose, onSaved }) {
   }, [employeeId]);
   const current = loaded && loaded.employeeId === employeeId ? loaded : null;
   const save = async () => {
+    if (busy) return;
     setBusy(true);
     try {
       const r = await saveEmployeeReaderIds(employeeId, rows.filter((x) => x.areaId && x.pin.trim()).map((x) => ({ areaId: x.areaId, pin: x.pin.trim() })));
@@ -230,6 +231,7 @@ function SiteIdsEditor({ initial, onClose, onSaved }) {
       onClose={onClose}
       title="Reader ID at a site"
       description="For a site whose readers know this person by a different number."
+      dirty={Boolean(current) && JSON.stringify(rows) !== JSON.stringify(current.sites)}
       widthClass="w-[min(34rem,96vw)]"
       actions={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={!current || busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}
     >

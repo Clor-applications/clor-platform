@@ -216,10 +216,15 @@ export default function MonthClose({ openScreen, params }) {
         error ? null : <SkeletonCard lines={8} />
       ) : (
         <>
-          <section className={`ui-card ui-readiness ${data.closed ? 'is-closed' : blocked ? 'is-blocked' : noRecordDays ? 'is-warn' : 'is-ready'}`} aria-live="polite">
+          {/* The month's state is a tag with a word beside the heading, not a coloured bar down the side (DESIGN.md "Status"). */}
+          <section className="att-month-state" aria-live="polite">
             <div className="flex items-start gap-3">
-              {data.closed ? <Lock size={22} aria-hidden="true" /> : !blocked && !noRecordDays ? <CheckCircle2 size={22} aria-hidden="true" /> : <AlertTriangle size={22} aria-hidden="true" />}
+              {data.closed ? <Lock size={20} aria-hidden="true" /> : !blocked && !noRecordDays ? <CheckCircle2 size={20} aria-hidden="true" /> : <AlertTriangle size={20} aria-hidden="true" />}
               <div className="min-w-0 flex-1">
+                {(() => {
+                  const [word, pill] = data.closed ? ['Closed', 'ui-pill-neutral'] : !data.ended ? ['Open', 'ui-pill-neutral'] : blocked ? ['Blocked', 'ui-pill-neg'] : noRecordDays ? ['Check days', 'ui-pill-warn'] : ['Ready', 'ui-pill-pos'];
+                  return <span className={`ui-pill ${pill} mb-1`}>{word}</span>;
+                })()}
                 <h2 className="ui-t-sec">
                   {data.closed
                     ? `${monthName(month)} is closed`

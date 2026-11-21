@@ -12,6 +12,8 @@ import { confirmScheduleChange } from '../components/scheduleCheck';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import useSaving from '../components/useSaving';
+import { confirmRemoveSchedule } from '../components/removeSchedule';
 
 const COLUMNS = {
   employee: (r) => r.employeeName,
@@ -33,6 +35,8 @@ export default function TemporarySchedule({ menuLabel } = {}) {
   const [picked, setPicked] = useState(() => new Set());
   const [q, setQ] = useState('');
   const [form, setForm] = useState({ shiftId: '', fromDate: todayIst(), toDate: todayIst(), reason: '' });
+  const [saving, runSave] = useSaving();
+  const [removing, setRemoving] = useState('');
   const load = useCallback(() => {
     listTemporarySchedules().then((v) => { setRows(v); setLoadError(''); }).catch((e) => setLoadError(errorWords(e, 'load this')));
   }, []);
@@ -71,7 +75,7 @@ export default function TemporarySchedule({ menuLabel } = {}) {
     };
   }, [rows]);
 
-  const add = async () => {
+  const add = () => runSave(async () => {
     if (!(await confirmScheduleChange({ kind: 'TEMPORARY', employeeIds: [...picked], shiftId: form.shiftId, from: form.fromDate, to: form.toDate || null }))) return;
     try {
       const r = await addTemporarySchedule({ ...form, employeeIds: [...picked], reason: form.reason || null });
@@ -80,6 +84,20 @@ export default function TemporarySchedule({ menuLabel } = {}) {
       load();
     } catch (e) {
       notify.error(errorWords(e, 'save the changes'));
+    }
+  });
+  const remove = async (r) => {
+    if (removing) return;
+    if (!(await confirmRemoveSchedule({ name: r.employeeName, shift: r.shiftName, from: r.fromDate, message: 'Those days go back to their own, rotation or department schedule.' }))) return;
+    setRemoving(r.id);
+    try {
+      await removeTemporarySchedule(r.id);
+      notify.success(`${r.employeeName}’s temporary schedule removed.`);
+      load();
+    } catch (err) {
+      notify.error(errorWords(err, 'remove it'));
+    } finally {
+      setRemoving('');
     }
   };
 
@@ -98,7 +116,7 @@ export default function TemporarySchedule({ menuLabel } = {}) {
         { label: 'Still to come', value: figures.upcoming, count: true, tone: 'partial', Icon: CalendarRange },
       ])}
       above={
-        <section className="ui-card space-y-3 p-4" aria-label="New temporary schedule">
+        <section className="space-y-3" aria-label="New temporary schedule" aria-busy={saving || undefined}>
           <div className="flex flex-wrap items-end gap-3">
             <label className="block">
               <span className="ui-label">Shift *</span>
@@ -110,7 +128,7 @@ export default function TemporarySchedule({ menuLabel } = {}) {
             <label className="block"><span className="ui-label">From *</span><input type="date" className="ui-input" value={form.fromDate} onChange={(e) => setForm({ ...form, fromDate: e.target.value, toDate: form.toDate < e.target.value ? e.target.value : form.toDate })} /></label>
             <label className="block"><span className="ui-label">To *</span><input type="date" className="ui-input" min={form.fromDate} value={form.toDate} onChange={(e) => setForm({ ...form, toDate: e.target.value })} /></label>
             <label className="block min-w-[12rem] flex-1"><span className="ui-label">Why</span><input className="ui-input w-full" maxLength={200} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="e.g. Covering night shift" /></label>
-            <button type="button" className="ui-btn ui-btn-primary" disabled={!form.shiftId || !picked.size} onClick={add}><Plus size={16} aria-hidden="true" /> Schedule {picked.size || ''}</button>
+            <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !form.shiftId || !picked.size} aria-busy={saving || undefined} onClick={add}><Plus size={16} aria-hidden="true" /> {saving ? 'Saving…' : `Schedule ${picked.size || ''}`}</button>
           </div>
           <input type="search" className="ui-input" placeholder="Search people" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
           <ul className="grid max-h-48 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
@@ -168,8 +186,8 @@ export default function TemporarySchedule({ menuLabel } = {}) {
                       <td className="ui-col-grow whitespace-normal min-w-[10rem]">{r.reason || '—'}</td>
                       <td className="ui-col-meta" data-phone="act">
                         <span className="flex justify-end">
-                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName}'s temporary schedule`} onClick={async () => { try { await removeTemporarySchedule(r.id); load(); } catch (err) { notify.error(errorWords(err, 'remove it')); } }}>
-                            <Trash2 size={14} aria-hidden="true" /> Remove
+                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-label={`Remove ${r.employeeName}'s temporary schedule`} disabled={removing === r.id} aria-busy={removing === r.id || undefined} onClick={() => remove(r)}>
+                            <Trash2 size={14} aria-hidden="true" /> {removing === r.id ? 'Removing…' : 'Remove'}
                           </button>
                         </span>
                       </td>

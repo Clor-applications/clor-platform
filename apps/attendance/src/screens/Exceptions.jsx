@@ -388,6 +388,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
         title={settling?.keys ? `${settling.status === 'IGNORED' ? 'Ignore' : 'Mark settled'}: ${settling.keys.length.toLocaleString('en-IN')} ${settling.keys.length === 1 ? 'item' : 'items'}` : settling?.status === 'IGNORED' ? 'Ignore this item' : 'Mark this item settled'}
         description={settling?.x ? `${settling.x.title}${settling.x.employeeName ? `, ${settling.x.employeeName}` : ''}${settling.x.date ? `, ${dayText(settling.x.date)}` : ''}` : settling?.keys ? 'The same note is kept on each.' : ''}
         widthClass="w-[min(30rem,96vw)]"
+        dirty={Boolean(note.trim())}
         actions={
           <>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setSettling(null)}>Cancel</button>

@@ -11,8 +11,9 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { LEAVING_TYPES, listAllEmployees, rehireEmployee, resignEmployee } from '@ui/personnel/api';
 import LoadFailed from '@ui/components/ui/LoadFailed';
-import { todayIst } from '@ui/utils/dates';
+import { dateWords, todayIst } from '@ui/utils/dates';
 import { errorWords } from '@ui/utils/errorWords';
+import { useDirty } from '../components/useSaving';
 import { countItems } from '../components/countItems';
 
 
@@ -162,8 +163,8 @@ export default function Resignations() {
                     <tr key={p.id}>
                       <td className="ui-col-entity" data-phone="name">{p.name}{p.code ? <span className="ui-caption"> · {p.code}</span> : null}</td>
                       <td data-phone="sub">{p.department || '—'}</td>
-                      <td className="ui-col-date whitespace-nowrap">{p.dateOfJoining || '—'}</td>
-                      <td className="ui-col-date whitespace-nowrap" data-phone="key">{p.dateOfLeaving || '—'}</td>
+                      <td className="ui-col-date whitespace-nowrap">{dateWords(p.dateOfJoining)}</td>
+                      <td className="ui-col-date whitespace-nowrap" data-phone="key">{dateWords(p.dateOfLeaving)}</td>
                       <td data-phone="tag">{LEAVING_TYPES[p.leavingType] || '—'}</td>
                       <td className="ui-col-grow whitespace-normal min-w-[10rem]">{p.leavingReason || '—'}</td>
                       <td className="ui-col-meta text-end" data-phone="act"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={`Rehire ${p.name}`} onClick={() => rehire(p)}><UserCheck size={14} aria-hidden="true" /> Rehire</button></td>
@@ -184,8 +185,10 @@ export default function Resignations() {
 function RecordLeaving({ people, onClose, onSaved }) {
   const [form, setForm] = useState({ employeeId: '', lastDay: todayIst(), leavingType: 'RESIGNED', reason: '' });
   const [saving, setSaving] = useState(false);
+  const [dirty] = useDirty(form);
   const save = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     try {
       const r = await resignEmployee(form.employeeId, { lastDay: form.lastDay, leavingType: form.leavingType, reason: form.reason || null });
@@ -204,6 +207,7 @@ function RecordLeaving({ people, onClose, onSaved }) {
       onClose={onClose}
       title="Record leaving"
       description="From the day after the last day they are not expected at work."
+      dirty={dirty}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>

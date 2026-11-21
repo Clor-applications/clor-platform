@@ -13,6 +13,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import WebClockSettings from '../components/WebClockSettings';
 import { errorWords } from '@ui/utils/errorWords';
+import useSaving, { useDirty } from '../components/useSaving';
 import { countItems } from '../components/countItems';
 
 /* The map library (Leaflet, ~150 KB) loads with this drawer, not with the app every user downloads. */
@@ -138,8 +139,8 @@ export default function Geofences() {
               ) : (
                 rows.map((f) => (
                   <tr key={f.id} className="ui-row-click" onClick={() => setEditing({ ...f, address: f.address || '', areaId: f.areaId || '' })}>
-                    <td className="ui-col-entity" data-phone="name">{f.name}</td>
-                    <td className="ui-col-grow max-w-[1px]" onClick={(e) => e.stopPropagation()}><a className="ui-link block truncate text-sm font-normal" href={mapLink(f)} target="_blank" rel="noreferrer" title={f.address || `${f.latitude}, ${f.longitude}`}>{f.address || <span className="ui-mono text-xs">{f.latitude.toFixed(5)}, {f.longitude.toFixed(5)}</span>}</a></td>
+                    <td className="ui-col-entity" data-phone="name"><button type="button" className="ui-row-open" onClick={(e) => { e.stopPropagation(); setEditing({ ...f, address: f.address || '', areaId: f.areaId || '' }); }}>{f.name}</button></td>
+                    <td className="ui-col-grow max-w-[1px]" onClick={(e) => e.stopPropagation()}><a className="ui-link block truncate text-sm font-normal" href={mapLink(f)} target="_blank" rel="noreferrer" title={f.address || `${f.latitude}, ${f.longitude}`}>{f.address || <span className="text-xs tabular-nums">{f.latitude.toFixed(5)}, {f.longitude.toFixed(5)}</span>}</a></td>
                     <td className="ui-num" data-phone="key">{f.radiusMeters} m</td>
                     <td data-phone="sub">{f.areaName ? `${f.areaName} area` : 'Everyone'}</td>
                     <td className="ui-num">{f.people}</td>
@@ -236,6 +237,8 @@ function PlaceSearch({ onPick }) {
 function SiteForm({ initial, areas, onClose, onSaved }) {
   const [form, setForm] = useState(initial);
   const [locating, setLocating] = useState(false);
+  const [saving, runSave] = useSaving();
+  const [dirty] = useDirty(form);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const lat = form.latitude === '' ? NaN : Number(form.latitude);
   const lon = form.longitude === '' ? NaN : Number(form.longitude);
@@ -270,9 +273,12 @@ function SiteForm({ initial, areas, onClose, onSaved }) {
     );
   };
 
-  const save = async (e) => {
+  const save = (e) => {
     e.preventDefault();
     if (!placed) return notify.error('Find the place first: search for its address, or tap the map.');
+    return runSave(() => send());
+  };
+  const send = async () => {
     const body = {
       name: form.name,
       address: form.address || null,
@@ -307,15 +313,16 @@ function SiteForm({ initial, areas, onClose, onSaved }) {
       open
       onClose={onClose}
       title={form.id ? form.name : 'New punch area'}
+      dirty={dirty}
       actions={
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="site-form" className="ui-btn ui-btn-primary">Save</button>
+          <button type="submit" form="site-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
-      <form id="site-form" onSubmit={save} className="grid gap-4 sm:grid-cols-2">
+      <form id="site-form" onSubmit={save} className="grid gap-4 sm:grid-cols-2" aria-busy={saving || undefined}>
         <label className="block sm:col-span-2"><span className="ui-label">Name *</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={set('name')} placeholder="e.g. Head office" /></label>
         <div className="sm:col-span-2 space-y-2">
           <label htmlFor="site-search" className="ui-label">Find the place *</label>
@@ -350,8 +357,8 @@ function SiteForm({ initial, areas, onClose, onSaved }) {
         <details className="sm:col-span-2 text-sm">
           <summary className="ui-caption cursor-pointer">Exact position</summary>
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
-            <label className="block"><span className="ui-label">Latitude</span><input className="ui-input w-full ui-mono" inputMode="decimal" value={form.latitude} onChange={set('latitude')} placeholder="12.975700" /></label>
-            <label className="block"><span className="ui-label">Longitude</span><input className="ui-input w-full ui-mono" inputMode="decimal" value={form.longitude} onChange={set('longitude')} placeholder="77.606100" /></label>
+            <label className="block"><span className="ui-label">Latitude</span><input className="ui-input w-full tabular-nums" inputMode="decimal" value={form.latitude} onChange={set('latitude')} placeholder="12.975700" /></label>
+            <label className="block"><span className="ui-label">Longitude</span><input className="ui-input w-full tabular-nums" inputMode="decimal" value={form.longitude} onChange={set('longitude')} placeholder="77.606100" /></label>
             {placed ? <a className="ui-link sm:col-span-2" href={mapLink({ latitude: lat, longitude: lon })} target="_blank" rel="noreferrer">Open in OpenStreetMap</a> : null}
           </div>
         </details>

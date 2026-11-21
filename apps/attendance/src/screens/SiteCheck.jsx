@@ -4,6 +4,7 @@ import { LocateFixed, MapPin } from '@ui/components/ui/lineIcons';
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { listGeofences } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { errorWords } from '@ui/utils/errorWords';
 
 /**
  * Stand where the employees will stand and see what their phone will see.
@@ -84,7 +85,7 @@ export default function SiteCheck() {
         }
       />
       <div className="pb-8 space-y-3">
-        {loadError ? <LoadFailed error={loadError} onRetry={() => { setLoadError(null); load(); }} /> : !sites ? <SkeletonCard /> : (
+        {loadError ? <LoadFailed message={errorWords(loadError, 'load the punch areas')} onRetry={() => { setLoadError(null); load(); }} /> : !sites ? <SkeletonCard /> : (
           <>
             {locating && !position ? <p className="ui-caption" role="status">Finding this device’s location…</p> : null}
             {locationError ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{locationError}</p> : null}

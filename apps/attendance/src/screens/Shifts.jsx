@@ -17,6 +17,8 @@ import { mondayFirst, sortMondayFirst } from '@ui/timeOff/round33';
 import { SettingHelp, ShiftBar } from '@ui/picks/round64';
 import { errorWords } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
+import { shiftChip, shiftHues } from '../components/shiftColour';
+import { useDirty } from '../components/useSaving';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BLANK = {
@@ -118,6 +120,7 @@ export default function Shifts({ openScreen }) {
   const search = useListSearch(inTab, ['name', 'code', 'startTime', 'endTime']);
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const hues = useMemo(() => shiftHues((all || []).filter((s) => s.isActive)), [all]);
   const figures = useMemo(() => {
     const list = all || [];
     return {
@@ -126,6 +129,7 @@ export default function Shifts({ openScreen }) {
     };
   }, [all]);
   const create = () => setEditing({ ...BLANK });
+  const openShift = (s) => setEditing({ ...s, overtimeAfterMinutes: s.overtimeAfterMinutes ?? '', code: s.code || '', color: s.color || '', minStaff: s.minStaff ?? '', offSaturdays: s.offSaturdays || '' });
 
   return (
     <DocumentListShell
@@ -193,17 +197,19 @@ export default function Shifts({ openScreen }) {
                 </tr>
               ) : (
                 rows.map((s) => (
-                  <tr key={s.id} className="ui-row-click" onClick={() => setEditing({ ...s, overtimeAfterMinutes: s.overtimeAfterMinutes ?? '', code: s.code || '', color: s.color || '', minStaff: s.minStaff ?? '', offSaturdays: s.offSaturdays || '' })}>
+                  <tr key={s.id} className="ui-row-click" onClick={() => openShift(s)}>
                     <td className="ui-col-entity" data-phone="name">
-                      {s.code ? <span className="mr-1.5 inline-block rounded-full px-1.5 text-xs font-semibold text-white" style={{ backgroundColor: s.color || 'rgb(var(--fg-subtle))' }}>{s.code}</span> : null}
-                      {s.name}
+                      <button type="button" className="ui-row-open" onClick={(e) => { e.stopPropagation(); openShift(s); }}>
+                        {s.code ? <span className="mr-1.5 inline-block rounded-full px-1.5 text-xs font-semibold" style={shiftChip(hues.get(s.id) || s.color || 'rgb(var(--fg-subtle))')}>{s.code}</span> : null}
+                        {s.name}
+                      </button>
                     </td>
                     <td className="ui-col-h-center whitespace-nowrap" data-phone="key">
                       {splitShiftLabel(s) || `${s.startTime}–${s.endTime}`}
                       {s.endTime <= s.startTime ? <span className="ui-caption"> (night)</span> : null}
                     </td>
-                    <td className="ui-num">{s.breakMinutes}m{s.breakMode === 'PUNCHED' ? <span className="ui-caption block">or as punched</span> : null}</td>
-                    <td className="ui-num">{s.graceMinutes}m</td>
+                    <td className="ui-num">{s.breakMinutes} min{s.breakMode === 'PUNCHED' ? <span className="ui-caption block">or as punched</span> : null}</td>
+                    <td className="ui-num">{s.graceMinutes} min</td>
                     <td className="ui-num">{hm(s.fullDayMinutes)}</td>
                     <td data-phone="sub">{offs(s.weeklyOffDays, s.offSaturdays)}</td>
                     <td className="ui-num">{s.assignments}</td>
@@ -271,8 +277,10 @@ function ShiftForm({ initial, onClose, onSaved }) {
     setForm((f) => ({ ...f, weeklyOffDays: [...n].sort().join(',') }));
   };
 
+  const [dirty] = useDirty(form);
   const save = async (e) => {
     e.preventDefault();
+    if (saving) return;
     if (fullDayTooLong || breaksWrong) {
       setTried(true);
       return;
@@ -341,6 +349,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
       open
       onClose={onClose}
       title={form.id ? form.name : 'New shift'}
+      dirty={dirty}
       actions={
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}

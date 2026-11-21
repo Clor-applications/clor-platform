@@ -5,6 +5,7 @@ import Modal from '@ui/components/ui/Modal';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { decideHeldPunch, decideHeldPunches, getHeldPunches } from '../api/attendance';
 import { errorWords } from '@ui/utils/errorWords';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const plural = (n, one, many) => `${n.toLocaleString('en-IN')} ${n === 1 ? one : many}`;
 
@@ -116,8 +117,10 @@ function CountAllDialog({ reader, month, onClose, onDone }) {
 export default function HeldPunches({ canDecide = true, onChanged, month = null }) {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState('');
+  /* A failed load says so with a retry: held punches that did not load are not "nothing held". */
+  const [loadError, setLoadError] = useState('');
   const load = useCallback(() => {
-    getHeldPunches(month).then(setData).catch(() => setData(null));
+    getHeldPunches(month).then((d) => { setData(d); setLoadError(''); }).catch((e) => { setData(null); setLoadError(errorWords(e, 'load the held punches')); });
   }, [month]);
   useEffect(() => { load(); }, [load]);
 
@@ -168,6 +171,7 @@ export default function HeldPunches({ canDecide = true, onChanged, month = null 
   const impossible = data?.impossible || [];
   const readers = data?.readers || [];
   const total = data?.total ?? held.length;
+  if (loadError) return <LoadFailed message={loadError} onRetry={load} />;
   if (!held.length && !impossible.length) return null;
   return (
     <section className="ui-list-surface overflow-hidden" aria-labelledby="held-h">

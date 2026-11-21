@@ -1,9 +1,8 @@
 /*
- * Attendance on the R&D shell (owner, 14 Nov 2026; clor-rnd/README.md §3, §5).
- * Violet portal tokens come from rnd.css; this file holds only what Attendance's
- * own screens draw. Colour has one job: identity tiles take the categorical
- * palette, state takes the status colours (always beside a label), and the
- * portal violet is left to the primary button, links and "you are here".
+ * What Attendance's own screens draw, in the calm register (DESIGN.md, 19 Nov 2026).
+ * The app colour is amber #A85A00 (--act, set per data-app in rnd.css) and has four
+ * jobs only: the primary button, links, the open menu item and focus. State takes
+ * the status colours, always beside a word; everything else is ink on white.
  */
 
 /* The Today tiles became a count line under the title (design audit step 2, 20 Nov 2026). */
@@ -16,13 +15,38 @@
 :root .att-chart .ui-week [data-k='in'],
 :root .att-chart .ui-legend [data-k='in'] { background: rgb(var(--fg)); }
 :root .ui-today-hero .ui-today-hero-meter > span { background: rgb(var(--fg)); }
-/* The day's title is the page title: 24/32, 700 (DESIGN.md "title"). */
+/* The day's long date sits under the page title as a section heading (17/24, 600, no tracking):
+   one 24px title per screen (DESIGN.md "title"). */
 :root .ui-today-hero .ui-today-hero-greet {
   font-family: var(--font-brand);
-  font-size: 1.5rem !important;
-  line-height: 2rem !important;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 1.0625rem !important;
+  line-height: 1.5rem !important;
+  font-weight: 600;
+  letter-spacing: 0;
 }
-/* The queue's leading marks are neutral: violet stays for "you are here". */
+/* The ring is a figure, so it is drawn in ink, not the app colour (DESIGN.md "Charts"). */
+:root .ui-today-ring-inner {
+  background: conic-gradient(rgb(var(--fg)) 0 var(--pct), rgb(var(--border)) var(--pct) 100%);
+}
+/* The queue's leading marks are neutral: the app colour stays for "you are here". */
 :root .ui-today-hero-action > svg:first-child { color: rgb(var(--fg-muted)); }
+
+/* A section's open-and-close chevron turns with the house hover timing (DESIGN.md "Motion"), not an inline transition. */
+.att-chevron { transition: transform var(--dur-state, 120ms) var(--ease-out, ease-out); }
+.att-chevron[data-open='true'] { transform: rotate(180deg); }
+
+/* The punch button is a normal button: 14px words, 36px high, and 44px on a phone (DESIGN.md "Buttons"). */
+@media (max-width: 640px) {
+  .att-punch-btn { min-height: 2.75rem; }
+}
+
+/* A list on Today sits on the page ground under its heading and a 2px ink rule, with no box around it (DESIGN.md "Lists"). */
+.att-block-head {
+  border-bottom: 2px solid rgb(var(--fg));
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Month close: the month's state sits on the page ground under a hairline, its word in a tag. */
+.att-month-state { padding-bottom: 1rem; border-bottom: 1px solid rgb(var(--border)); }
+.att-month-state .ui-pill { display: inline-flex; }

@@ -228,6 +228,7 @@ const words = {
   "Why keep it? The person sees this.": "इसे क्यों बनाए रखें? यह व्यक्ति को दिखेगा।",
   "You asked to cancel this. It stays approved until whoever approved it agrees.": "आपने इसे रद्द करने की माँग की है। मंज़ूरी देने वाले के मानने तक यह मंज़ूर रहेगी।",
   "{}, {}. It will not be decided.": "{}, {}। इस पर फ़ैसला नहीं होगा।",
+  "{} for {}. It will not be decided.": "{}, {} के लिए। इस पर फ़ैसला नहीं होगा।",
   "Approved. It is in My documents.": "मंज़ूर। यह मेरे दस्तावेज़ में है।",
   "Approving this takes {} past the company’s overtime limit: {}.": "इसे मंज़ूर करने से {1} कंपनी की ओवरटाइम सीमा से आगे चले जाएँगे: {2}।",
   "Apr": "अप्रैल",

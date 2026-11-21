@@ -81,8 +81,11 @@ export default function Integrations() {
 
   const toggle = (list, v) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
+  const [adding, setAdding] = useState(false);
   const addHook = async (e) => {
     e.preventDefault();
+    if (adding) return;
+    setAdding(true);
     try {
       const r = await createWebhook(hookForm);
       setShown({ label: `Signing secret for “${r.webhook.name}”`, value: r.secret, kept: 'CLOR keeps it encrypted to sign with and does not show it again.' });
@@ -90,6 +93,8 @@ export default function Integrations() {
       load();
     } catch (err) {
       notify.error(errorWords(err, 'create it'));
+    } finally {
+      setAdding(false);
     }
   };
   const rotate = async (h) => {
@@ -101,11 +106,36 @@ export default function Integrations() {
       notify.error(errorWords(err, 'make the change'));
     }
   };
-  const test = async (h) => {
+  /* One change at a time on a webhook row; a failed call says why instead of failing silently. */
+  const [hookBusy, setHookBusy] = useState('');
+  const onHook = async (h, what, fn) => {
+    if (hookBusy) return;
+    setHookBusy(`${h.id}:${what}`);
+    try {
+      await fn();
+    } catch (err) {
+      notify.error(errorWords(err, what === 'delete' ? 'delete it' : what === 'test' ? 'send the test' : 'save the changes'));
+    } finally {
+      setHookBusy('');
+      load();
+    }
+  };
+  const test = (h) => onHook(h, 'test', async () => {
     const r = await testWebhook(h.id);
     if (r.ok) notify.success(`Delivered. The endpoint answered ${r.status}.`);
     else notify.error(r.error || `The endpoint answered ${r.status}.`);
-    load();
+  });
+  const switchHook = (h, on) => onHook(h, 'toggle', async () => {
+    await updateWebhook(h.id, { name: h.name, url: h.url, events: h.events, isActive: on });
+    notify.success(on ? `${h.name} is on.` : `${h.name} is off. CLOR stops sending to it.`);
+  });
+  const removeHook = async (h) => {
+    if (hookBusy) return;
+    if (!(await confirmDialog({ title: `Delete ${h.name}?`, message: 'CLOR stops sending to it.', confirmLabel: 'Delete webhook' }))) return;
+    await onHook(h, 'delete', async () => {
+      await deleteWebhook(h.id);
+      notify.success(`${h.name} deleted.`);
+    });
   };
 
   return (
@@ -150,7 +180,7 @@ export default function Integrations() {
               ))}
             </div>
           </fieldset>
-          <div className="md:col-span-2"><button type="submit" className="ui-btn ui-btn-primary" disabled={!hookForm.events.length}><Plus size={16} aria-hidden="true" /> Add webhook</button></div>
+          <div className="md:col-span-2"><button type="submit" className="ui-btn ui-btn-primary" disabled={adding || !hookForm.events.length} aria-busy={adding || undefined}><Plus size={16} aria-hidden="true" /> {adding ? 'Saving…' : 'Add webhook'}</button></div>
         </form>
         {!hooks ? (
           <SkeletonCard lines={2} />
@@ -167,23 +197,20 @@ export default function Integrations() {
                 </div>
                 <span className="flex gap-1">
                   <label className="flex items-center gap-1.5 text-xs">
-                    <input type="checkbox" className="ui-checkbox" checked={h.isActive} onChange={async (e) => { await updateWebhook(h.id, { name: h.name, url: h.url, events: h.events, isActive: e.target.checked }); load(); }} /> On
+                    <input type="checkbox" className="ui-checkbox" checked={h.isActive} disabled={Boolean(hookBusy)} aria-busy={hookBusy === `${h.id}:toggle` || undefined} onChange={(e) => switchHook(h, e.target.checked)} /> On
                   </label>
                   <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setOpenHook(openHook === h.id ? null : h.id)} aria-expanded={openHook === h.id}>{openHook === h.id ? 'Hide deliveries' : 'Deliveries'}</button>
-                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => test(h)}>Send test</button>
+                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(hookBusy)} aria-busy={hookBusy === `${h.id}:test` || undefined} onClick={() => test(h)}>{hookBusy === `${h.id}:test` ? 'Sending…' : 'Send test'}</button>
                   <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => rotate(h)}>New secret</button>
                   <button
                     type="button"
                     className="ui-btn ui-btn-ghost ui-btn-sm"
                     aria-label={`Delete ${h.name}`}
-                    onClick={async () => {
-                      if (await confirmDialog({ title: `Delete ${h.name}?`, message: 'CLOR stops sending to it.', confirmLabel: 'Delete' })) {
-                        await deleteWebhook(h.id);
-                        load();
-                      }
-                    }}
+                    disabled={Boolean(hookBusy)}
+                    aria-busy={hookBusy === `${h.id}:delete` || undefined}
+                    onClick={() => removeHook(h)}
                   >
-                    Delete
+                    {hookBusy === `${h.id}:delete` ? 'Deleting…' : 'Delete'}
                   </button>
                 </span>
                 {openHook === h.id ? <Deliveries hook={h} /> : null}

@@ -87,13 +87,15 @@ export default function ScheduleCalendar({ menuLabel } = {}) {
   const draft = data?.draft || { days: 0, people: 0 };
 
   /* Every write: one request, then the grid as the server now has it. */
-  const run = async (work, failed) => {
+  const [publishing, setPublishing] = useState(false);
+  const run = async (work, what) => {
+    if (busy) return;
     setBusy(true);
     try {
       await work();
       await load();
     } catch (e) {
-      notify.error(String(e?.message || failed));
+      notify.error(errorWords(e, what));
     } finally {
       setBusy(false);
     }
@@ -105,7 +107,7 @@ export default function ScheduleCalendar({ menuLabel } = {}) {
       const left = r.skippedCount ? ` ${skippedWords(r)}.` : '';
       if (r.changed) notify.success(`${plural(r.changed, 'day', 'days')} set in the draft.${left}`);
       else notify.info(`Those days are already so.${left}`);
-    }, 'Not set.');
+    }, 'set those days');
 
   const copyWeek = async (weeks) => {
     const ids = data?.employeeIds || [];
@@ -120,7 +122,7 @@ export default function ScheduleCalendar({ menuLabel } = {}) {
     await run(async () => {
       const r = await copyRosterWeek({ employeeIds: ids, weekStart: range.from, weeks });
       notify.success(`${plural(r.changed, 'day', 'days')} set in the draft.${r.skippedCount ? ` ${skippedWords(r)}.` : ''}`);
-    }, 'Not copied.');
+    }, 'copy the week');
   };
 
   const discard = async () => {
@@ -128,7 +130,7 @@ export default function ScheduleCalendar({ menuLabel } = {}) {
     await run(async () => {
       await discardRosterDraft();
       notify.success('Draft discarded.');
-    }, 'Not discarded.');
+    }, 'discard the draft');
   };
 
   const publish = async () => {
@@ -139,10 +141,12 @@ export default function ScheduleCalendar({ menuLabel } = {}) {
       tone: 'primary',
     });
     if (!ok) return;
+    setPublishing(true);
     await run(async () => {
       const r = await publishRoster();
       notify.success(`Roster published: ${plural(r.days, 'day', 'days')} changed for ${plural(r.people, 'person', 'people')}, ${r.notified} told.`);
-    }, 'Not published.');
+    }, 'publish the roster');
+    setPublishing(false);
   };
 
   const exportRoster = (format) => {
@@ -181,7 +185,7 @@ export default function ScheduleCalendar({ menuLabel } = {}) {
         const format = exportFormatFromKey(k);
         return format ? exportRoster(format) : undefined;
       }}
-      primary={canEdit ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !draft.days} onClick={publish}>Publish</button> : null}
+      primary={canEdit ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !draft.days} aria-busy={publishing || undefined} onClick={publish}>{publishing ? 'Publishing…' : 'Publish'}</button> : null}
       above={
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">

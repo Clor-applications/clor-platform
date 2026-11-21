@@ -270,7 +270,7 @@ const PRINT_CSS = `
 @media print {
   body * { visibility: hidden !important; }
   .clor-payslip-print, .clor-payslip-print * { visibility: visible !important; }
-  .clor-payslip-print { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; background: #fff; color: #000; font: 12px/1.5 'Inter Variable', Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  .clor-payslip-print { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; background: #fff; color: #000; font: 12px/1.5 'Figtree Variable', Figtree, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
   .clor-payslip-print h1 { font-size: 18px; font-weight: 700; margin: 0; }
   .clor-payslip-print table { width: 100%; border-collapse: collapse; margin-top: 12px; }
   .clor-payslip-print th, .clor-payslip-print td { padding: 4px 0; border-bottom: 1px solid #ddd; text-align: left; vertical-align: top; }

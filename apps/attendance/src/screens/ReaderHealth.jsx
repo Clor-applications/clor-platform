@@ -10,6 +10,7 @@ import { notify } from '@ui/components/ui/notify';
 import { getReaderHealth, getReaderTimeline, saveReaderAlertSettings } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
+import useSaving, { useDirty } from '../components/useSaving';
 
 const ago = (iso) => {
   if (!iso) return 'never';
@@ -321,7 +322,7 @@ function ReaderList({ readers, onTimeline }) {
                         aria-label={`${r.name}: details`}
                         onClick={(e) => { e.stopPropagation(); toggle(); }}
                       >
-                        <ChevronDown size={16} aria-hidden="true" style={{ transform: isOpen ? 'rotate(180deg)' : undefined, transition: 'transform 120ms' }} />
+                        <ChevronDown size={16} aria-hidden="true" className="att-chevron" data-open={isOpen ? 'true' : undefined} />
                       </button>
                     </td>
                   </tr>
@@ -425,15 +426,19 @@ function ReaderTimeline({ reader, onClose }) {
 
 function AlertSettings({ initial, onClose, onSaved }) {
   const [form, setForm] = useState(initial);
-  const save = async (e) => {
+  const [saving, runSave] = useSaving();
+  const [dirty] = useDirty(form);
+  const save = (e) => {
     e.preventDefault();
-    try {
-      await saveReaderAlertSettings({ ...form, offlineAlertMinutes: Number(form.offlineAlertMinutes), noPunchAfterHour: Number(form.noPunchAfterHour) });
-      notify.success('Alert settings saved.');
-      onSaved();
-    } catch (err) {
-      notify.error(errorWords(err, 'save the changes'));
-    }
+    return runSave(async () => {
+      try {
+        await saveReaderAlertSettings({ ...form, offlineAlertMinutes: Number(form.offlineAlertMinutes), noPunchAfterHour: Number(form.noPunchAfterHour) });
+        notify.success('Alert settings saved.');
+        onSaved();
+      } catch (err) {
+        notify.error(errorWords(err, 'save the changes'));
+      }
+    });
   };
   return (
     <Drawer
@@ -442,14 +447,15 @@ function AlertSettings({ initial, onClose, onSaved }) {
       onClose={onClose}
       title="Reader alerts"
       description="One email when a problem starts, one when it clears."
+      dirty={dirty}
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="alert-form" className="ui-btn ui-btn-primary">Save</button>
+          <button type="submit" form="alert-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
-      <form id="alert-form" onSubmit={save} className="grid gap-4">
+      <form id="alert-form" onSubmit={save} className="grid gap-4" aria-busy={saving || undefined}>
         <label className="block">
           <span className="ui-label">Email these people</span>
           <input className="ui-input w-full" value={form.alertEmails} onChange={(e) => setForm({ ...form, alertEmails: e.target.value })} placeholder="it@company.com, hr@company.com" />

@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import Drawer from '@ui/components/ui/Drawer';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { errorWords, dayText } from '@ui/utils/errorWords';
+// The figure style (22/28 600, tabular) lives with My leave, which this drawer opens from.
+import '../screens/MyLeave.css';
 
 const num = (n) => (Number.isInteger(n) ? String(n) : Number(n).toFixed(1).replace(/\.0$/, ''));
 const monthLabel = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' });
@@ -37,7 +39,7 @@ export default function LeaveExplain({ open, onClose, load }) {
         <div className="space-y-5">
           {data.type.isPaid && b ? (
             <div className="ui-explain-summary">
-              <div><span className="ui-caption">Available</span><strong className="text-[1.375rem] leading-7 font-semibold tabular-nums">{num(b.available)}</strong></div>
+              <div><span className="ui-caption">Available</span><strong className="ml-figure block">{num(b.available)}</strong></div>
               <div><span className="ui-caption">Allotted so far</span><strong className="tabular-nums">{num(b.allocated)}</strong></div>
               <div><span className="ui-caption">Taken</span><strong className="tabular-nums">{num(b.used)}</strong></div>
               <div><span className="ui-caption">Waiting</span><strong className="tabular-nums">{num(b.pending)}</strong></div>
