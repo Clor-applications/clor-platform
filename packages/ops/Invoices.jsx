@@ -100,7 +100,8 @@ const monthsWord = (n) => (Number(n) === 1 ? '1 month' : `${n} months`);
 /**
  * What marking an invoice paid will do, in words, for the last check before it goes:
  * the amount, the customer, the months it pays for, and a plain warning when the money is short.
- * The server takes a short amount and still closes the invoice in full (billing/invoices.ts markInvoicePaid).
+ * A short amount still closes the invoice in full; the server takes it only with acceptShort, which this
+ * confirmation sends (billing/invoices.ts markInvoicePaid).
  */
 export function markPaidWords(inv, amount, tds = 0) {
   const who = inv.account?.name || inv.buyerName || inv.buyer?.name || 'the customer';
@@ -877,7 +878,7 @@ function MarkPaid({ inv, onClose, onDone }) {
     if (!ok) return;
     setBusy(true);
     try {
-      onDone(await opsMarkInvoicePaid(inv.id, { reference: f.reference.trim(), paidOn: f.paidOn, amount, tdsDeducted: tds || null }));
+      onDone(await opsMarkInvoicePaid(inv.id, { reference: f.reference.trim(), paidOn: f.paidOn, amount, tdsDeducted: tds || null, acceptShort: words.short > 0 }));
     } catch (e) {
       setError(errorWords(e, 'mark the invoice paid'));
     } finally {

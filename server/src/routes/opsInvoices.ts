@@ -258,6 +258,8 @@ const paidBody = z.object({
   amount: z.number().int().positive().max(1_00_00_000_00).nullish(),
   /* Round 67: tax the customer deducted at source, in paise. */
   tdsDeducted: z.number().int().min(0).max(1_00_00_000_00).nullish(),
+  /* Short of the invoice on purpose: CLOR agreed to take less (billing/invoices.ts markInvoicePaid). */
+  acceptShort: z.boolean().optional(),
 });
 opsInvoicesRouter.post('/ops/invoices/:id/mark-paid', ...BILLING, (req: Request, res) =>
   outsideTenant('ops: mark an invoice paid', async () => {
@@ -270,8 +272,8 @@ opsInvoicesRouter.post('/ops/invoices/:id/mark-paid', ...BILLING, (req: Request,
     const paidOn = new Date(`${parsed.data.paidOn}T00:00:00+05:30`);
     if (paidOn.getTime() > Date.now() + 86400000) return res.status(400).json({ error: 'The date the money arrived cannot be in the future.' });
     try {
-      const r = await markInvoicePaid(String(req.params.id), { reference: parsed.data.reference, paidOn, amount: parsed.data.amount ?? null, tdsDeducted: parsed.data.tdsDeducted ?? null }, req.auth!.userId);
-      await audit(req, 'INVOICE_MARKED_PAID', { accountId: r.invoice.accountId }, { invoiceId: r.invoice.id, number: r.invoice.number, amount: r.invoice.paidAmount, tdsDeducted: r.invoice.tdsDeducted ?? null, reference: r.invoice.paymentReference, paidUntil: r.paidUntil });
+      const r = await markInvoicePaid(String(req.params.id), { reference: parsed.data.reference, paidOn, amount: parsed.data.amount ?? null, tdsDeducted: parsed.data.tdsDeducted ?? null, acceptShort: parsed.data.acceptShort === true }, req.auth!.userId);
+      await audit(req, 'INVOICE_MARKED_PAID', { accountId: r.invoice.accountId }, { invoiceId: r.invoice.id, number: r.invoice.number, amount: r.invoice.paidAmount, tdsDeducted: r.invoice.tdsDeducted ?? null, reference: r.invoice.paymentReference, paidUntil: r.paidUntil, shortBy: r.shortBy || null });
       res.json({ ...(await full(r.invoice.id)), paidUntil: r.paidUntil, paymentDetail: r.detail });
     } catch (e) {
       return refused(res, e);
