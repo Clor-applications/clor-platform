@@ -7,6 +7,7 @@ import { errorWords, enumWords } from '@ui/utils/errorWords';
 import { PortalLoading, RowState } from './portalUi';
 import { dateWords } from '@ui/utils/dates';
 import { confirmDialog } from '@ui/components/ui/notify';
+import { Button } from '@ui/components/ui/Primitives';
 
 /*
  * The month's review and overtime in the web employee app (time depth, gap 18):
@@ -122,13 +123,13 @@ export function MonthReview({ guard }) {
                   <textarea className="ui-input w-full" rows={3} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. I was on duty at the client on the 12th" />
                 </label>
                 <div className="flex gap-2">
-                  <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy || note.trim().length < 5} onClick={() => send(true)}>{busy ? 'Sending…' : 'Send to HR'}</button>
+                  <Button variant="primary" className="flex-1" loading={busy} disabled={note.trim().length < 5} onClick={() => send(true)}>Send to HR</Button>
                   <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => { setDisputing(false); setNote(''); }}>Cancel</button>
                 </div>
               </div>
             ) : (
               <div className="flex gap-2">
-                <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy} onClick={() => send(false)}>{busy ? 'Saving…' : c?.status === 'CONFIRMED' ? 'Confirm again' : 'These days are right'}</button>
+                <Button variant="primary" className="flex-1" loading={busy} onClick={() => send(false)}>{c?.status === 'CONFIRMED' ? 'Confirm again' : 'These days are right'}</Button>
                 <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setDisputing(true)}>Something is wrong</button>
               </div>
             )
@@ -207,13 +208,13 @@ export function MyOvertime({ guard }) {
                 {d.overtimeRequest ? (
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span>Overtime <Pill status={d.overtimeRequest.status} />{d.overtimeRequest.note ? <span className="ui-caption block">{d.overtimeRequest.note}</span> : null}</span>
-                    {d.overtimeRequest.status === 'PENDING' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === d.overtimeRequest.id} aria-busy={busy === d.overtimeRequest.id || undefined} onClick={() => cancel(d.overtimeRequest.id, 'Overtime', d.date)}>{busy === d.overtimeRequest.id ? 'Withdrawing…' : 'Withdraw'}</button> : null}
+                    {d.overtimeRequest.status === 'PENDING' ? <Button variant="ghost" size="sm" loading={busy === d.overtimeRequest.id} onClick={() => cancel(d.overtimeRequest.id, 'Overtime', d.date)}>Withdraw</Button> : null}
                   </div>
                 ) : null}
                 {d.compOffRequest ? (
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="tabular-nums">Comp-off {d.compOffRequest.days} day{d.compOffRequest.days === 1 ? '' : 's'} <Pill status={d.compOffRequest.status} />{d.compOffRequest.note ? <span className="ui-caption block">{d.compOffRequest.note}</span> : null}</span>
-                    {d.compOffRequest.status === 'PENDING' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === d.compOffRequest.id} aria-busy={busy === d.compOffRequest.id || undefined} onClick={() => cancel(d.compOffRequest.id, 'Comp-off', d.date)}>{busy === d.compOffRequest.id ? 'Withdrawing…' : 'Withdraw'}</button> : null}
+                    {d.compOffRequest.status === 'PENDING' ? <Button variant="ghost" size="sm" loading={busy === d.compOffRequest.id} onClick={() => cancel(d.compOffRequest.id, 'Comp-off', d.date)}>Withdraw</Button> : null}
                   </div>
                 ) : null}
                 {asking?.date === d.date ? (
@@ -223,7 +224,7 @@ export function MyOvertime({ guard }) {
                       <SuggestInput className="ui-input w-full" maxLength={500} value={reason} onChange={setReason} placeholder="e.g. Month-end stock count" />
                     </label>
                     <div className="flex gap-2">
-                      <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy === 'ask' || reason.trim().length < 3} onClick={ask}>{busy === 'ask' ? 'Sending…' : 'Send'}</button>
+                      <Button variant="primary" className="flex-1" loading={busy === 'ask'} disabled={reason.trim().length < 3} onClick={ask}>Send</Button>
                       <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setAsking(null); setReason(''); }}>Cancel</button>
                     </div>
                   </div>

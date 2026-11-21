@@ -8,7 +8,7 @@ import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { approveOvertime, bulkChangeDays, dayLabel, deleteDay, explainDay, hm, listEmployees, listRecords, markDay, STATUS, todayIst, validateDays } from '../api/attendance';
@@ -424,9 +424,9 @@ function BulkChange({ spec, ids, onClose, onDone }) {
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !preview?.ready || reason.trim().length < 3} onClick={apply}>
-            {busy ? 'Applying…' : `Change ${preview?.ready || 0} day${preview?.ready === 1 ? '' : 's'}`}
-          </button>
+          <Button variant="primary" loading={busy} disabled={!preview?.ready || reason.trim().length < 3} onClick={apply}>
+            {`Change ${preview?.ready || 0} day${preview?.ready === 1 ? '' : 's'}`}
+          </Button>
         </>
       }
     >
@@ -530,7 +530,7 @@ function MarkDay({ initial, people, onClose, onSaved }) {
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="mark-day" className="ui-btn ui-btn-primary" disabled={saving || !form.employeeId || !form.date}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} disabled={!form.employeeId || !form.date} type="submit" form="mark-day">Save</Button>
         </>
       }
     >

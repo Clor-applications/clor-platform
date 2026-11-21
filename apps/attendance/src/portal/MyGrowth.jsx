@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, acknowledgeReview, checkInGoal, getGrowth, writeSelfReview } from './portalApi';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Growth in the employee app (Talent, TALENT-DECISIONS.md): my goals with a check-in, my reviews
@@ -168,7 +169,7 @@ function Goal({ goal: g, guard, onDone, onFail }) {
           </fieldset>
           <label className="block"><span className="ui-label">{health === 'ON_TRACK' ? 'Note' : 'What is in the way'}</span><textarea className="ui-input w-full" rows={2} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} /></label>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy || progress === ''}>{busy ? 'Saving…' : 'Save'}</button>
+            <Button variant="primary" size="sm" loading={busy} disabled={progress === ''} type="submit">Save</Button>
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setOpen(false)}>Cancel</button>
           </div>
         </form>
@@ -212,7 +213,7 @@ function Review({ review: r, guard, onDone, onFail }) {
             </label>
             <label className="block"><span className="ui-label">What you did and what you want to work on</span><textarea className="ui-input w-full" rows={5} maxLength={8000} value={text} onChange={(e) => setText(e.target.value)} /></label>
             <div className="flex gap-2">
-              <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+              <Button variant="primary" size="sm" loading={busy} type="submit">Save</Button>
               <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setOpen(false)}>Cancel</button>
             </div>
           </form>

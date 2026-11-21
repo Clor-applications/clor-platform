@@ -5,7 +5,7 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createContractor, deleteContractor, listContractors, updateContractor } from '@ui/personnel/api';
@@ -210,7 +210,7 @@ function ContractorForm({ initial, onClose, onSaved }) {
         <>
           {form.id ? <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Delete</button> : null}
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="contractor-form" className="ui-btn ui-btn-primary" disabled={saving || !form.name?.trim()}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} disabled={!form.name?.trim()} type="submit" form="contractor-form">Save</Button>
         </>
       }
     >

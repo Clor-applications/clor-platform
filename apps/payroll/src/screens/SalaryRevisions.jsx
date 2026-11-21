@@ -9,7 +9,7 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listSalaryStructures } from '../api/payrollStructures';
 import { listEmployees } from '../api/payrollPeople';
@@ -384,9 +384,9 @@ const RevisionForm = ({ people, structures, onCancel, onCreated, initialEmployee
 
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={saving || !impact}>
-          {saving ? 'Creating…' : 'Create as draft'}
-        </button>
+        <Button variant="primary" loading={saving} disabled={!impact} type="submit">
+          Create as draft
+        </Button>
       </div>
     </form>
   );
@@ -551,9 +551,9 @@ const RevisionDetail = ({ revisionId, onBack }) => {
   }
   if (revision.status === 'APPROVED') {
     actions.push(
-      <button key="apply" type="button" className="ui-btn ui-btn-primary" disabled={busy === 'apply'} onClick={apply}>
-        {busy === 'apply' ? 'Applying…' : 'Put into effect'}
-      </button>
+      <Button variant="primary" loading={busy === 'apply'} key="apply" onClick={apply}>
+        Put into effect
+      </Button>
     );
   }
   if (['DRAFT', 'REVIEWED', 'APPROVED'].includes(revision.status)) {

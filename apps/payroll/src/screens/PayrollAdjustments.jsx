@@ -7,7 +7,7 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { SkeletonCard, EmptyState, FieldError } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, FieldError, Button } from '@ui/components/ui/Primitives';
 import useFieldErrors from '@ui/components/ui/useFieldErrors';
 import Drawer from '../components/EditDrawer';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -573,9 +573,9 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
 
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={saving}>
-          {saving ? 'Saving…' : row.id ? 'Save adjustment' : 'Add adjustment'}
-        </button>
+        <Button variant="primary" loading={saving} type="submit">
+          {row.id ? 'Save adjustment' : 'Add adjustment'}
+        </Button>
       </div>
     </form>
   );

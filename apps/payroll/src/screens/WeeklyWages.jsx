@@ -4,7 +4,7 @@ import { Figure } from '../components/Figure';
 import { ArrowLeft, CalendarRange, Check, Download, FileText, HardHat, Plus, Printer, RefreshCw, Trash2, Undo2, Wallet } from '@ui/components/ui/lineIcons';
 
 import DocumentListShell from '@ui/components/list/DocumentListShell';
-import { EmptyState, PageHeader, SkeletonCard, StatusPill } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard, StatusPill, Button } from '@ui/components/ui/Primitives';
 import Drawer from '../components/EditDrawer';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -325,7 +325,7 @@ function MakeSheetForm({ groups, onClose, onMade }) {
       </label>
       <div className="flex items-center justify-end gap-2 pt-1">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || !payGroupId}>{busy ? 'Making…' : 'Make sheet'}</button>
+        <Button variant="primary" loading={busy} disabled={!payGroupId} type="submit">Make sheet</Button>
       </div>
     </form>
   );
@@ -428,7 +428,7 @@ function RateForm({ initial, groups, onClose, onSaved }) {
       </label>
       <div className="flex items-center justify-end gap-2 pt-1">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save daily rate'}</button>
+        <Button variant="primary" loading={busy} type="submit">Save daily rate</Button>
       </div>
     </form>
   );
@@ -684,7 +684,7 @@ function PaidForm({ sheet, onClose, onPaid }) {
       </div>
       <div className="flex items-center justify-end gap-2 pt-1">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Mark paid'}</button>
+        <Button variant="primary" loading={busy} type="submit">Mark paid</Button>
       </div>
     </form>
   );

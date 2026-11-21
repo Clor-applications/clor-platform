@@ -6,6 +6,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { decideHeldPunch, decideHeldPunches, getHeldPunches } from '../api/attendance';
 import { errorWords } from '@ui/utils/errorWords';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { Button } from '@ui/components/ui/Primitives';
 
 const plural = (n, one, many) => `${n.toLocaleString('en-IN')} ${n === 1 ? one : many}`;
 
@@ -74,7 +75,7 @@ function CountAllDialog({ reader, month, onClose, onDone }) {
       showCloseIcon={!working}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={working}>Cancel</button>
-        <button type="submit" form="count-all" className="ui-btn ui-btn-primary" disabled={working}>{working ? 'Counting…' : 'Count all'}</button>
+        <Button variant="primary" loading={working} type="submit" form="count-all">Count all</Button>
       </>}
     >
       <form id="count-all" onSubmit={run} className="space-y-3">

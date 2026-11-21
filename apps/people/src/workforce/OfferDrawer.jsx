@@ -9,6 +9,7 @@ import { notify } from '@ui/components/ui/notify';
 import { createOffer, offerSetup, previewOffer } from './api';
 import { todayIst } from '@ui/utils/dates';
 import TakeHomeEstimate from './TakeHomeEstimate';
+import { Button } from '@ui/components/ui/Primitives';
 
 /*
  * Send an offer from CLOR (HR-VIEW gap 5), to a draft hire (`employee`) or
@@ -87,7 +88,7 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
   const structureOptions = [...(setup?.structures || []).map((s) => ({ value: s.id, label: s.name })), { value: TYPED, label: 'Type the monthly lines' }];
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(40rem,96vw)]" title={`Send an offer to ${target.name || target.title}`} dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="offer-form" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Send offer'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} type="submit" form="offer-form">Send offer</Button></>}>
       <form id="offer-form" onSubmit={send} className="grid gap-4">
         <div className="ui-form-grid">
           <label className="block">

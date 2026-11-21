@@ -2,7 +2,7 @@ import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, BellRing, ChevronDown, Cpu, Fingerprint, History, RefreshCw, Router, Wifi } from '@ui/components/ui/lineIcons';
 
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { CountLine } from '@ui/components/ui/CountLine';
 import { countItems } from '../components/countItems';
@@ -451,7 +451,7 @@ function AlertSettings({ initial, onClose, onSaved }) {
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="alert-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} type="submit" form="alert-form">Save</Button>
         </>
       }
     >

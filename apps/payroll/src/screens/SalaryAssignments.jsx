@@ -7,7 +7,7 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import Drawer from '../components/EditDrawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listSalaryStructures } from '../api/payrollStructures';
@@ -575,9 +575,9 @@ const RaiseForm = ({ person, structures, current, onCancel, onSaved }) => {
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>
           Cancel
         </button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={saving}>
-          {saving ? 'Saving…' : 'Record salary'}
-        </button>
+        <Button variant="primary" loading={saving} type="submit">
+          Record salary
+        </Button>
       </div>
     </form>
   );
@@ -814,9 +814,9 @@ const EmployeeForm = ({ initial, sensitiveVisible, onClose, onSaved }) => {
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={saving}>
           Cancel
         </button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
+        <Button variant="primary" loading={saving} type="submit">
+          Save
+        </Button>
       </div>
     </form>
   );

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiFetch } from '@platform/http';
 import { me } from '@platform/auth';
 import { orgId as platformOrgId } from '@platform/context';
-import { PageHeader, SkeletonCard } from '../components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '../components/ui/Primitives';
 import { notify } from '../components/ui/notify';
 import { errorWords } from '@ui/utils/errorWords.js';
 import { SettingHelp } from '../picks/round64';
@@ -100,7 +100,7 @@ export default function CompanyDetails() {
       <PageHeader
         title="Company details"
         description="Who the company is, on its letters, tax forms and invoices."
-        actions={form ? <button type="submit" form="company-details" className="ui-btn ui-btn-primary" disabled={saving || !isDirty(form, saved)}>{saving ? 'Saving…' : 'Save changes'}</button> : null}
+        actions={form ? <Button variant="primary" loading={saving} disabled={!isDirty(form, saved)} type="submit" form="company-details">Save changes</Button> : null}
       />
       {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       {!form ? (

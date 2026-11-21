@@ -7,6 +7,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { dayLabel, getHolidayCalendars, getRestrictedPicks, importHolidayCalendar } from '../api/attendance';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /*
  * Holidays per branch (time depth, gaps 17 and 22): a built-in calendar —
@@ -61,7 +62,7 @@ export function CalendarImport({ year, onClose, onDone }) {
     <Drawer open onClose={onClose} title="Add a holiday calendar" widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" dirty={Boolean(key)}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="button" className="ui-btn ui-btn-primary" disabled={!cal || busy || !preview?.added?.length} onClick={run}>{busy ? 'Adding…' : preview?.added?.length ? `Add ${preview.added.length} holiday${preview.added.length === 1 ? '' : 's'}` : 'Add'}</button>
+        <Button variant="primary" loading={busy} disabled={!cal || !preview?.added?.length} onClick={run}>{preview?.added?.length ? `Add ${preview.added.length} holiday${preview.added.length === 1 ? '' : 's'}` : 'Add'}</Button>
       </>}
     >
       <div className="space-y-4 text-sm">

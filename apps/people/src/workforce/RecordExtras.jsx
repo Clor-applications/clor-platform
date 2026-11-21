@@ -15,6 +15,7 @@ import { appAccessSends, decideProbation, getProbation, listAssets, policiesFor,
 import { getCelebrationsFor, setCelebrationsFor } from '../api/engagement';
 import Toggle from '../components/Toggle';
 import { todayIst } from '@ui/utils/dates';
+import { Button } from '@ui/components/ui/Primitives';
 
 /*
  * Parts of the employee record that each read one more thing the server
@@ -142,7 +143,7 @@ export function ProbationReviewDrawer({ person, review, onClose, onSaved }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`Probation review: ${person.name}`} dirty={dirty}
-      footer={<span className="contents" data-write-allowed=""><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="probation-review" className="ui-btn ui-btn-primary" disabled={busy || needsDate || !dirty}>{busy ? 'Saving…' : 'Save review'}</button></span>}>
+      footer={<span className="contents" data-write-allowed=""><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={needsDate || !dirty} type="submit" form="probation-review">Save review</Button></span>}>
       <form id="probation-review" className="grid gap-4" onSubmit={save} data-write-allowed="">
         {error ? <ErrorState error={error} compact onRetry={save} retryLabel="Try again" body={error?.status === 400 || error?.status === 409 ? error.message : undefined} /> : null}
         <label className="block"><span className="ui-label">Goals agreed</span><textarea className="ui-input w-full" rows={3} maxLength={2000} value={form.goals} onChange={(e) => setForm({ ...form, goals: e.target.value })} /></label>

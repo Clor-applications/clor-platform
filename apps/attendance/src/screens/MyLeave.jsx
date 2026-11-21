@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Plus } from '@ui/components/ui/lineIcons';
 
 import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
@@ -522,7 +522,7 @@ function CameBackEarly({ request, onClose, onDone }) {
       title="Came back early"
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" form="came-back-early" className="ui-btn ui-btn-primary" disabled={!toDate || saving}>{saving ? 'Saving…' : 'Save'}</button>
+        <Button variant="primary" loading={saving} disabled={!toDate} type="submit" form="came-back-early">Save</Button>
       </>}
     >
       <form id="came-back-early" onSubmit={save} className="space-y-4">

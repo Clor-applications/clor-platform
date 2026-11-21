@@ -5,7 +5,7 @@ import { Copy, Download, ShieldCheck } from '@ui/components/ui/lineIcons';
 import { enableSmsTwoFactor, enableTwoFactor, getTwoFactor, startSmsTwoFactor, startTwoFactor } from '@ui/profile/twoFactorApi';
 import GatePage, { GateStep } from './GatePage';
 import { useSession } from './session';
-import { FieldError, FieldErrorAnnounce } from '@ui/components/ui/Primitives';
+import { FieldError, FieldErrorAnnounce, Button } from '@ui/components/ui/Primitives';
 import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
 
 /**
@@ -198,7 +198,7 @@ export default function TwoFactorGate() {
               <FieldError error={v.error('password')} id={v.errorId('password')} />
             </label>
             <div>
-              <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || !password || (method === 'SMS' && phone.replace(/\D/g, '').length < 10)}>{busy ? 'Checking…' : method === 'SMS' ? 'Text me a code' : 'Continue'}</button>
+              <Button variant="primary" loading={busy} disabled={!password || (method === 'SMS' && phone.replace(/\D/g, '').length < 10)} type="submit">{method === 'SMS' ? 'Text me a code' : 'Continue'}</Button>
             </div>
           </form>
         </GateStep>
@@ -213,7 +213,7 @@ export default function TwoFactorGate() {
                 <FieldError error={v.error('code')} id={v.errorId('code')} />
               </label>
               <div className="flex flex-wrap items-center gap-2">
-                <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.trim().length !== 6}>{busy ? 'Checking…' : 'Turn on text codes'}</button>
+                <Button variant="primary" loading={busy} disabled={code.trim().length !== 6} type="submit">Turn on text codes</Button>
                 <button type="button" className="ui-btn ui-btn-ghost" disabled={busy || wait > 0} onClick={() => act(() => textCode(smsPassword.current))}>
                   {wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'}
                 </button>
@@ -238,7 +238,7 @@ export default function TwoFactorGate() {
                 <FieldError error={v.error('code')} id={v.errorId('code')} />
               </label>
               <div>
-                <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || code.trim().length !== 6}>{busy ? 'Checking…' : 'Turn on authenticator'}</button>
+                <Button variant="primary" loading={busy} disabled={code.trim().length !== 6} type="submit">Turn on authenticator</Button>
               </div>
             </div>
           </form>
@@ -272,7 +272,7 @@ export default function TwoFactorGate() {
               <p className="text-sm">Two-factor sign-in is already on for this account.</p>
             )}
             <div>
-              <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !saved} onClick={carryOn}>{busy ? 'Opening…' : 'Continue to CLOR'}</button>
+              <Button variant="primary" loading={busy} disabled={!saved} onClick={carryOn}>Continue to CLOR</Button>
             </div>
           </div>
         </GateStep>

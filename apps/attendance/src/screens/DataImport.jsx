@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Download, Upload } from '@ui/components/ui/lineIcons';
 
-import { PageHeader } from '@ui/components/ui/Primitives';
+import { PageHeader, Button } from '@ui/components/ui/Primitives';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { parseCsv, readFileText } from '@ui/utils/csv';
 import { downloadImportTemplate } from '@ui/utils/importTemplate';
@@ -300,7 +300,7 @@ export default function DataImport({ params } = {}) {
                 </div>
               ) : null}
               {dateNote ? <p className="ui-caption">{dateNote}</p> : null}
-              <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={checkFile}>{busy ? 'Checking…' : 'Check the file'}</button>
+              <Button variant="primary" className="w-full" loading={busy} onClick={checkFile}>Check the file</Button>
               <p className="ui-caption">Every row is checked the way it would be imported. Nothing is saved until you confirm.</p>
             </>
           ) : null}
@@ -321,7 +321,7 @@ export default function DataImport({ params } = {}) {
                 </details>
               ) : null}
               <div className="flex gap-2">
-                <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy || !check.imported} onClick={go}>{busy ? 'Importing…' : `Import ${check.imported.toLocaleString('en-IN')} ${kind.unit}`}</button>
+                <Button variant="primary" className="flex-1" loading={busy} disabled={!check.imported} onClick={go}>{`Import ${check.imported.toLocaleString('en-IN')} ${kind.unit}`}</Button>
                 <button type="button" className="ui-btn ui-btn-secondary" onClick={reset}>Start again</button>
               </div>
               {check.failed ? <p className="ui-caption">Rows with a problem are left out; fix them in the file and import it again.</p> : null}

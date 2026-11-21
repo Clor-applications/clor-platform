@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 import Drawer from '@ui/components/ui/Drawer';
-import { SkeletonCard } from '@ui/components/ui/Primitives';
+import { SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import useRequest from '@ui/components/ui/useRequest';
@@ -93,7 +93,7 @@ export default function PlanDrawer({ row, kind, canEdit, canAssign, openScreen, 
         ) : (
           <div className="space-y-2">
             <p className="text-sm">No {kind === 'JOINING' ? 'joining' : 'leaving'} plan yet. CLOR starts it within a quarter of an hour.</p>
-            {canEdit ? <button type="button" className="ui-btn ui-btn-secondary" disabled={starting} onClick={start}>{starting ? 'Starting…' : 'Start it now'}</button> : null}
+            {canEdit ? <Button variant="secondary" loading={starting} onClick={start}>Start it now</Button> : null}
           </div>
         )}
 

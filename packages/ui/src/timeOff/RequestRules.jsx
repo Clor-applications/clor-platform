@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
@@ -130,7 +130,7 @@ export default function RequestRules() {
           <div className="ui-wizard-actions">
             <span className="flex flex-wrap gap-2 ml-auto">
               {dirty ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setDraft(null); setError(null); }}>Undo changes</button> : null}
-              <button type="submit" className="ui-btn ui-btn-primary" disabled={!dirty || saving}>{saving ? 'Saving…' : 'Save'}</button>
+              <Button variant="primary" loading={saving} disabled={!dirty} type="submit">Save</Button>
             </span>
           </div>
         ) : null}

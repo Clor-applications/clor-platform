@@ -11,6 +11,7 @@ import {
   lastSlips, monthWeeks, shiftMonth, shouldAskInstall, tapDay,
 } from '@ui/picks/round58';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* ---------------------------------------------------------------- installapp A */
 
@@ -204,7 +205,7 @@ export function PayslipAsk({ slip, onAsk }) {
       </label>
       <p className="ui-caption">HR gets the month and the line with your question.</p>
       <div className="flex gap-2">
-        <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Ask HR'}</button>
+        <Button variant="primary" className="flex-1" loading={saving} type="submit">Ask HR</Button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
       </div>
     </form>
@@ -300,7 +301,7 @@ export function PayslipBundle({ slips, load }) {
             <button key={c} type="button" role="radio" aria-checked={n === c} className="ui-seg-btn" data-on={n === c || undefined} onClick={() => setN(c)}>Last {c}</button>
           ))}
         </div>
-        <button type="button" className="ui-btn ui-btn-secondary" onClick={save} disabled={busy}>{busy ? 'Putting together…' : 'Save as one PDF'}</button>
+        <Button variant="secondary" loading={busy} onClick={save}>Save as one PDF</Button>
       </div>
       {failed ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{failed}</p> : null}
       {ready ? createPortal(<div className="clor-slip-bundle" aria-hidden="true"><style>{BUNDLE_CSS}</style>{ready.map((s, i) => <BundleSheet key={i} slip={s} />)}</div>, document.body) : null}

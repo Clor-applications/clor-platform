@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { EmptyState, PageHeader, SkeletonCard, StatusPill } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard, StatusPill, Button } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { listShifts, updateShift } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
@@ -116,9 +116,9 @@ export default function WeeklyOffPolicy({ openScreen }) {
                         ))}
                         <td className="text-end">
                           {dirty(s) ? (
-                            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" data-write onClick={() => save(s)} disabled={saving === s.id}>
-                              {saving === s.id ? 'Saving…' : 'Save'}
-                            </button>
+                            <Button variant="secondary" size="sm" loading={saving === s.id} data-write onClick={() => save(s)}>
+                              Save
+                            </Button>
                           ) : null}
                         </td>
                       </tr>

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
@@ -245,9 +245,9 @@ export default function StructureList({ kind, title = '', singular = '' }) {
         actions={
           <>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing(null)}>Cancel</button>
-            <button type="submit" form="structure-form" className="ui-btn ui-btn-primary" disabled={saving || !editing?.name?.trim()}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
+            <Button variant="primary" loading={saving} disabled={!editing?.name?.trim()} type="submit" form="structure-form">
+              Save
+            </Button>
           </>
         }
       >

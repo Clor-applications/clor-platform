@@ -23,6 +23,7 @@ import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { can } from '../workforce/shared';
 import { createItem, deleteItem, listItems, mergeItem, people as listPeople, updateItem } from './api';
 import { plusDaysIso, todayIst } from '@ui/utils/dates';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * One Organization list (docs/people/design-v1/ORGANIZATION-DECISIONS.md),
@@ -422,7 +423,7 @@ function EditDrawer({ kind, cfg, value, items, refs, staff, onClose, onDone, onR
       footer={<>
         {!isNew && value.isActive !== false ? <button type="button" className="ui-btn ui-btn-ghost mr-auto" onClick={() => onRetire(value)}>Retire</button> : null}
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : 'Save'}</button>
+        <Button variant="primary" loading={busy} disabled={!dirty} onClick={save}>Save</Button>
       </>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status === 400 || error?.status === 409 ? error.message : undefined} /></div> : null}
@@ -468,7 +469,7 @@ function RetireDrawer({ kind, cfg, item, items, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(32rem,96vw)] ui-drawer-sheet" title={`Retire ${item.name}`}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || (people > 0 && !moveTo)} onClick={retire}>{busy ? 'Retiring…' : 'Retire'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={(people > 0 && !moveTo)} onClick={retire}>Retire</Button></>}>
       <div className="grid gap-4">
         {error ? <ErrorState error={error} compact body={error?.message} /> : null}
         <p className="text-sm">{people ? `${people} ${people === 1 ? 'person is' : 'people are'} in ${item.name}. They move first; the ${cfg.singular} then stays in the history and is offered to nobody new.` : `Nobody is in ${item.name}. It stays in the history and is offered to nobody new.`}</p>
@@ -500,7 +501,7 @@ function MergeDrawer({ kind, cfg, item, items, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(32rem,96vw)] ui-drawer-sheet" title={`Merge ${item.name}`} dirty={Boolean(intoId || reason)}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !intoId} onClick={merge}>{busy ? 'Merging…' : 'Merge'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!intoId} onClick={merge}>Merge</Button></>}>
       <div className="grid gap-4">
         {error ? <ErrorState error={error} compact body={error?.message} /> : null}
         <div><PopupSelect showValueSubtext={false} label="Into *" value={intoId} onChange={(v) => setIntoId(v || '')} placeholder="Choose the one to keep…" alwaysSearch={targets.length > 8} options={targets.map((r) => ({ value: r.id, label: tree ? pathOf(items, r, tree) : r.name }))} /></div>

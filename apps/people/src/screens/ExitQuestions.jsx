@@ -1,7 +1,7 @@
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -76,7 +76,7 @@ export default function ExitQuestions() {
   };
   return (
     <div className="space-y-6 max-w-2xl">
-      <PageHeader title={title} actions={canEdit ? <button type="button" className="ui-btn ui-btn-primary" disabled={!dirty || busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button> : null} />
+      <PageHeader title={title} actions={canEdit ? <Button variant="primary" loading={busy} disabled={!dirty} onClick={save}>Save</Button> : null} />
       <fieldset disabled={!canEdit} className="ui-record-section space-y-5 min-w-0">
         {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
         <ol className="space-y-5">

@@ -3,7 +3,7 @@ import SuggestInput from '@ui/components/ui/SuggestInput';
 import { refreshSuggestions, useSuggestions } from '../workforce/suggestions';
 import { Plus } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
@@ -138,7 +138,7 @@ function BranchDrawer({ value, codes, others, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={isNew ? 'New branch' : `Edit ${value.branchName}`} dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty || (working > 0 && !others.length)} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!dirty || (working > 0 && !others.length)} onClick={save}>Save</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" maxLength={200} value={form.branchName} onChange={(e) => set('branchName', e.target.value)} autoFocus /></label>

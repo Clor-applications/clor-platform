@@ -2,7 +2,7 @@ import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -118,7 +118,7 @@ function SwapDrawer({ swap, canCancel, onClose, onDone, openScreen }) {
       actions={(
         <>
           {swap.status === 'WAITING' && openScreen ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('approvals')}>Open in Inbox</button> : null}
-          {cancellable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={cancel}>{busy ? 'Cancelling…' : 'Cancel swap'}</button> : null}
+          {cancellable ? <Button variant="secondary" loading={busy} onClick={cancel}>Cancel swap</Button> : null}
         </>
       )}
     >

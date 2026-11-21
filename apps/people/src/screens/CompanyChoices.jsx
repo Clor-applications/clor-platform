@@ -1,7 +1,7 @@
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
 import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
@@ -140,7 +140,7 @@ export default function CompanyChoices({ openScreen }) {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <PageHeader title={title} actions={canChangeAny ? <button type="button" className="ui-btn ui-btn-primary" disabled={!dirty || saving} onClick={save}>{saving ? 'Saving…' : 'Save'}</button> : null} />
+      <PageHeader title={title} actions={canChangeAny ? <Button variant="primary" loading={saving} disabled={!dirty} onClick={save}>Save</Button> : null} />
       {GROUPS.map((g) => (
         <section key={g.key} aria-labelledby={`cc-${g.key}`}>
           <h2 id={`cc-${g.key}`} className="ui-t-sec">{g.title}</h2>

@@ -6,6 +6,7 @@ import CaseRating from './CaseRating';
 import { SignedOut, getDesk, getDeskCase, raiseDesk, reopenDesk, replyDesk } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
 import { PortalLoading, RowState } from './portalUi';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Ask HR as a conversation (DESK-01..04, server: peoplePortal /desk): my
@@ -101,7 +102,7 @@ export default function AskHr({ guard, preset, onPresetUsed, onAvailability }) {
           <label className="block"><span className="ui-label">In a few words *</span><input className="ui-input w-full" required maxLength={200} value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} placeholder="October salary is short" /></label>
           <label className="block"><span className="ui-label">What happened *</span><textarea className="ui-input w-full" rows={4} required minLength={5} maxLength={5000} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></label>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy}>{busy ? 'Sending…' : 'Send to HR'}</button>
+            <Button variant="primary" className="flex-1" loading={busy} type="submit">Send to HR</Button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAsking(false)}>Cancel</button>
           </div>
         </form>
@@ -197,7 +198,7 @@ function Thread({ id, guard, label, onBack }) {
               <label className="block"><span className="ui-label">Your reply</span>
                 <textarea className="ui-input w-full" rows={3} maxLength={5000} value={reply} onChange={(e) => setReply(e.target.value)} />
               </label>
-              <button type="submit" className="ui-btn ui-btn-primary w-full" disabled={busy || !reply.trim()}>{busy ? 'Sending…' : 'Send reply'}</button>
+              <Button variant="primary" className="w-full" loading={busy} disabled={!reply.trim()} type="submit">Send reply</Button>
             </form>
           )}
         </>

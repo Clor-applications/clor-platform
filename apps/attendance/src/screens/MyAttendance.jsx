@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { HelpCircle, LogIn, LogOut } from '@ui/components/ui/lineIcons';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { clock, dayLabel, explainMyDay, getMe, hm, phonePunch, REASON_CODES, requestCorrection, STATUS, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
@@ -163,7 +163,7 @@ export default function MyAttendance() {
             </select>
           </label>
           <label className="block sm:col-span-4"><span className="ui-label">Reason</span><input className="ui-input w-full" required minLength={3} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
-          <div className="sm:col-span-4"><button type="submit" className="ui-btn ui-btn-secondary" disabled={sending} aria-busy={sending || undefined}>{sending ? 'Saving…' : 'Send for approval'}</button></div>
+          <div className="sm:col-span-4"><Button variant="secondary" loading={sending} type="submit">Send for approval</Button></div>
         </form>
         {me.requests.length ? (
           <ul className="mt-4 space-y-1 text-sm">

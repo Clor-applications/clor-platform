@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { SignedOut, askForAsset, confirmMyAsset, getMyAssets, reportAssetProblem, todayIst } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Company things with me (picks round 51), in the employee app's Me tab: what
@@ -70,9 +71,9 @@ export default function MyAssets({ guard }) {
               {a.problem ? <div className="ui-caption ui-text-warn">Problem reported{a.problemOn ? ` on ${day(a.problemOn)}` : ''}: {a.problem}</div> : null}
               <div className="mt-2 flex flex-wrap gap-2">
                 {a.confirmedOn !== today ? (
-                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={() => run(`c:${a.id}`, () => confirmMyAsset(a.id), `Thanks. ${a.title} is confirmed as with you.`)}>
-                    {busy === `c:${a.id}` ? 'Saving…' : 'I still have this'}
-                  </button>
+                  <Button variant="secondary" size="sm" loading={busy === `c:${a.id}`} disabled={Boolean(busy)} onClick={() => run(`c:${a.id}`, () => confirmMyAsset(a.id), `Thanks. ${a.title} is confirmed as with you.`)}>
+                    I still have this
+                  </Button>
                 ) : null}
                 <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={Boolean(busy)} onClick={() => { setProblemFor(a); setAsking(false); setText(''); setNote(null); }}>Report a problem</button>
               </div>
@@ -94,7 +95,7 @@ export default function MyAssets({ guard }) {
             <textarea className="ui-input w-full" rows={3} maxLength={1000} value={text} onChange={(e) => setText(e.target.value)} placeholder={problemFor ? 'The screen flickers' : 'A headset for calls'} />
           </label>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={Boolean(busy) || text.trim().length < (problemFor ? 5 : 3)}>{busy ? 'Sending…' : 'Send to HR'}</button>
+            <Button variant="primary" className="flex-1" loading={busy} disabled={text.trim().length < (problemFor ? 5 : 3)} type="submit">Send to HR</Button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setProblemFor(null); setAsking(false); }}>Cancel</button>
           </div>
         </form>

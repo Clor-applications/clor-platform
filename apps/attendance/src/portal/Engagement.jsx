@@ -5,6 +5,7 @@ import { ExitQuestionsForm } from '@ui/lifecycle/LeavingExtras';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, getCelebrations, getExitInterview, getTodayPosts, sendExitInterview, setCelebrations } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /*
  * The employee app's side of leaving and engagement (WORKFLOW-GAP-RESEARCH-2026-10-30 4.8, 4.9; server
@@ -93,7 +94,7 @@ export function ExitInterview({ guard, refreshKey }) {
           <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" className="ui-checkbox h-5 w-5 shrink-0" checked={hide} onChange={(e) => setHide(e.target.checked)} />Keep my answers from my managers</label>
           <p className="ui-caption">{iv.purpose}</p>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary min-h-11 flex-1" disabled={busy}>{busy ? 'Sending…' : 'Send answers'}</button>
+            <Button variant="primary" className="min-h-11 flex-1" loading={busy} type="submit">Send answers</Button>
             <button type="button" className="ui-btn ui-btn-secondary min-h-11" onClick={() => setOpen(false)}>Later</button>
           </div>
         </form>

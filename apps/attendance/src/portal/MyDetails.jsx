@@ -6,6 +6,7 @@ import { maritalNextStep } from '@ui/personnel/round43';
 import { SignedOut, acceptItem, answerMyRequest, askDetailsChange, getLeaving, getMyDetails, getPolicies, getPolicy, shrinkPhoto, withdrawMyRequest } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
 import { RowState, kindOfPill } from './portalUi';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * People self-service in the employee app (server: routes/peoplePortal.ts):
@@ -163,7 +164,7 @@ function PersonalDetails({ d, guard, reload }) {
             {photo ? <span className="ui-caption block">New photo chosen. HR will check it before it shows.</span> : null}
           </label>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Save changes'}</button>
+            <Button variant="primary" loading={busy} type="submit">Save changes</Button>
             <button type="button" className="ui-btn" onClick={() => setEditing(false)}>Cancel</button>
           </div>
         </form>

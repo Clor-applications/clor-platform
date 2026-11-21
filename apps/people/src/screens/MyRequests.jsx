@@ -2,7 +2,7 @@ import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -107,7 +107,7 @@ function AskDrawer({ form, onClose, onSent }) {
       footer={(
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="ask-request" className="ui-btn ui-btn-primary" disabled={Boolean(missing) || sending} title={missing || undefined}>{sending ? 'Sending…' : 'Send request'}</button>
+          <Button variant="primary" loading={sending} disabled={Boolean(missing)} type="submit" form="ask-request" title={missing || undefined}>Send request</Button>
         </>
       )}
     >
@@ -142,7 +142,7 @@ function RequestDrawer({ request: r, onClose, onDone }) {
       actions={open ? (
         <>
           <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => act('withdraw')}>Withdraw</button>
-          {r.status === 'MORE_INFO' ? <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy) || !note.trim()} onClick={() => act('reply')}>{busy === 'reply' ? 'Sending…' : 'Send answer'}</button> : null}
+          {r.status === 'MORE_INFO' ? <Button variant="primary" loading={busy === 'reply'} disabled={Boolean(busy) || !note.trim()} onClick={() => act('reply')}>Send answer</Button> : null}
         </>
       ) : null}
     >

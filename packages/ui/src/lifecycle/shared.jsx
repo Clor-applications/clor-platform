@@ -9,6 +9,7 @@ import { Avatar, taskNote } from '@ui/personnel/Employees';
 
 import { KIND_WORD, OWNER_WORD, orgUsers, updateTask, withOwner } from './api';
 import { errorWords } from '@ui/utils/errorWords.js';
+import { Button } from '../components/ui/Primitives';
 
 export { can } from '@ui/permissions/can';
 export const crumbs = () => [{ label: 'People' }, { label: 'Joining & leaving' }];
@@ -95,7 +96,7 @@ export function TaskDrawer({ task, canAssign, onClose, onSaved }) {
     <Drawer open onClose={onClose} dirty={dirty} widthClass="w-[min(34rem,96vw)]" title={task.title} description={`${KIND_WORD[task.kind] || task.kind} · ${task.employee?.name || ''}`}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        {closable || handing ? <button type="submit" form="task-form" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Saving…' : primary}</button> : null}
+        {closable || handing ? <Button variant="primary" loading={busy} type="submit" form="task-form">{primary}</Button> : null}
       </>}>
       <form id="task-form" onSubmit={save} className="grid gap-4">
         <dl className="grid gap-3 sm:grid-cols-2 text-sm">

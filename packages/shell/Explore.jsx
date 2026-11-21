@@ -5,6 +5,7 @@ import { ClorMark } from '@ui/components/brand';
 import GatePage from './GatePage';
 
 import { EXPLORE_TEXT, KNOWN_APPS, exchangeOnce, readLinkOnce } from './exploreLink';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Explore (roadmap item 6): somebody who asked for a demo on clor.in looks
@@ -84,9 +85,9 @@ export function ExploreLanding({ demoUrl, restoring = false, signedIn = null, si
         subtitle={`You’re signed in to ${company}${signedIn.name ? ` as ${signedIn.name}` : ''}. Opening the sample company signs you out here first.`}
       >
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="ui-btn ui-btn-primary" onClick={openSample} disabled={leaving}>
-            {leaving ? 'Opening…' : 'Open the sample company'}
-          </button>
+          <Button variant="primary" loading={leaving} onClick={openSample}>
+            Open the sample company
+          </Button>
           <a className="ui-btn ui-btn-secondary" href="/">Stay in {company}</a>
         </div>
       </GatePage>

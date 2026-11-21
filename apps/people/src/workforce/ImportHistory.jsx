@@ -5,6 +5,7 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { importBatches, undoImport } from '@ui/personnel/api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Import employees → Past imports (FEATURE-UI-AUDIT gap 14): the company's
@@ -53,7 +54,7 @@ export default function ImportHistory({ canUndo }) {
                   <span className="block ui-caption">{b.undoneAt ? `Undone ${when(b.undoneAt)}` : b.canUndo ? `Can be undone until ${when(until)}` : 'Older than a day: correct people by hand'}</span>
                 </span>
                 {b.undoneAt ? <span className="ui-pill ui-pill-neutral">Undone</span> : null}
-                {canUndo && b.canUndo ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy === b.id} onClick={() => undo(b)}>{busy === b.id ? 'Undoing…' : 'Undo'}</button> : null}
+                {canUndo && b.canUndo ? <Button variant="secondary" size="sm" loading={busy === b.id} onClick={() => undo(b)}>Undo</Button> : null}
               </li>
             );
           })}

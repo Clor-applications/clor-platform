@@ -476,9 +476,11 @@ export const Spinner = () => <span className="ui-spinner" aria-hidden="true" />;
  * `icon`: a component, drawn at 16px (14px on `size="sm"`), aria-hidden.
  */
 export const Button = ({
-  variant = 'secondary', size, icon: Icon = null, loading = false, done = false, doneLabel = 'Saved',
+  variant = 'secondary', size, icon: Icon = null, loading: busy = false, done, doneLabel = 'Saved',
   className = '', type = 'button', onClick, children, ...rest
 }) => {
+  // A busy flag is often the id of the row being saved, so it is read as yes or no.
+  const loading = Boolean(busy);
   const state = loading ? 'loading' : done ? 'done' : undefined;
   const guard = (e) => {
     if (loading) {
@@ -503,8 +505,9 @@ export const Button = ({
           {Icon ? null : <span className="ui-btn-spinner" aria-hidden="true" />}
         </span>
       </button>
-      {/* Mounted empty from the start: a live region that appears already holding its words is often not read out. */}
-      <span className="sr-only" role="status">{done ? doneLabel : ''}</span>
+      {/* Mounted empty from the start: a live region that appears already holding its words is often not read out.
+          Only a button that has a done state (done passed, even false) needs one. */}
+      {done === undefined ? null : <span className="sr-only" role="status">{done ? doneLabel : ''}</span>}
     </>
   );
 };

@@ -6,6 +6,7 @@ import { SignedOut, answerSwap, askSwap, getSwaps, swapColleagues, todayIst, wit
 import { addDaysIso as plusDays } from '@ui/utils/dates';
 import { errorWords } from '@ui/utils/errorWords';
 import { RowState, kindOfPill } from './portalUi';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Shift swaps in the employee app (People, FEATURE-UI-AUDIT gap 24), on the
@@ -92,13 +93,13 @@ function AskedOfMe({ swap, guard, onDone }) {
         <div className="space-y-2">
           <textarea className="ui-input w-full" rows={2} maxLength={300} aria-label="Why not" placeholder="Why not? They see this." value={text} onChange={(e) => setText(e.target.value)} />
           <div className="flex gap-2">
-            <button type="button" className="ui-btn ui-btn-danger flex-1" disabled={Boolean(busy)} onClick={() => answer(false)}>{busy === 'decline' ? 'Saving…' : 'Decline'}</button>
+            <Button variant="danger" className="flex-1" loading={busy === 'decline'} disabled={Boolean(busy)} onClick={() => answer(false)}>Decline</Button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setDeclining(false); setText(''); }}>Back</button>
           </div>
         </div>
       ) : (
         <div className="flex gap-2">
-          <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={Boolean(busy)} onClick={() => answer(true)}>{busy === 'accept' ? 'Saving…' : 'Accept'}</button>
+          <Button variant="primary" className="flex-1" loading={busy === 'accept'} disabled={Boolean(busy)} onClick={() => answer(true)}>Accept</Button>
           <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => setDeclining(true)}>Decline</button>
         </div>
       )}
@@ -184,7 +185,7 @@ function AskSwap({ guard, rules, onDone, reasons = [] }) {
           {pick ? <label className="block"><span className="ui-label">Why</span><SuggestInput maxLength={300} value={reason} onChange={setReason} suggestions={reasons} placeholder="Exam on Wednesday morning" /></label> : null}
           {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={!pick || busy}>{busy ? 'Sending…' : 'Ask'}</button>
+            <Button variant="primary" className="flex-1" loading={busy} disabled={!pick} type="submit">Ask</Button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={reset}>Cancel</button>
           </div>
         </form>

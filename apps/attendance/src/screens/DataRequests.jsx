@@ -6,7 +6,7 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { anonymiseEmployee, listDataRequests, resolveDataRequest } from '@ui/personnel/api';
@@ -224,9 +224,9 @@ export default function DataRequests() {
           actions={
             <>
               <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setErasing(null)} disabled={busy}>Cancel</button>
-              <button type="button" className="ui-btn ui-btn-danger" data-write onClick={anonymise} disabled={busy || typed.trim().toLowerCase() !== String(erasing.employeeName || '').trim().toLowerCase()}>
-                {busy ? 'Erasing…' : 'Anonymise'}
-              </button>
+              <Button variant="danger" loading={busy} disabled={typed.trim().toLowerCase() !== String(erasing.employeeName || '').trim().toLowerCase()} data-write onClick={anonymise}>
+                Anonymise
+              </Button>
             </>
           }
         >

@@ -2,7 +2,7 @@ import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { SkeletonCard } from '@ui/components/ui/Primitives';
+import { SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -162,7 +162,7 @@ function GoalDrawer({ id, onEdit, onClose, onChanged }) {
               <label className="block"><span className="ui-label">Progress (%)</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={form.progress} onChange={(e) => setForm({ ...form, progress: e.target.value.replace(/\D/g, '').slice(0, 3) })} /></label>
               <div><PopupSelect showValueSubtext={false} label="How it is going" value={form.health} onChange={(v) => setForm({ ...form, health: v || 'ON_TRACK' })} options={Object.entries(HEALTH).map(([v, [l]]) => ({ value: v, label: l }))} /></div>
               <label className="block sm:col-span-2"><span className="ui-label">{form.health === 'ON_TRACK' ? 'Note' : 'What is in the way *'}</span><textarea className="ui-input w-full" rows={3} maxLength={2000} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label>
-              <div className="sm:col-span-2 flex justify-end"><button type="submit" className="ui-btn ui-btn-primary" disabled={busy || form.progress === ''}>{busy ? 'Saving…' : 'Save check-in'}</button></div>
+              <div className="sm:col-span-2 flex justify-end"><Button variant="primary" loading={busy} disabled={form.progress === ''} type="submit">Save check-in</Button></div>
             </form>
           ) : null}
           <section aria-label="Check-ins" className="space-y-2">

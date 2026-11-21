@@ -10,6 +10,7 @@ import { listStructure } from '@ui/personnel/api';
 import { useSuggestions } from './suggestions';
 import { bulkGrantLeave } from './api';
 import { errorWords } from '@ui/utils/errorWords.js';
+import { Button } from '../components/ui/Primitives';
 
 /**
  * Leave balances → Grant leave to many (owner, 29 Oct 2026, from ERPNext's
@@ -82,7 +83,7 @@ export default function BulkGrant({ types, year, label, onClose, onDone }) {
       title="Grant leave to many"
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" form="bulk-grant" className="ui-btn ui-btn-primary" disabled={!ready || saving || !preview?.count}>{saving ? 'Granting…' : preview?.count ? `Grant to ${preview.count}` : 'Grant'}</button>
+        <Button variant="primary" loading={saving} disabled={!ready || !preview?.count} type="submit" form="bulk-grant">{preview?.count ? `Grant to ${preview.count}` : 'Grant'}</Button>
       </>}
     >
       <form id="bulk-grant" onSubmit={save} className="space-y-4">

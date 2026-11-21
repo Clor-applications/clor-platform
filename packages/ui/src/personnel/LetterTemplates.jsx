@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
@@ -70,7 +70,7 @@ function Editor({ data, current, kind, setKind, onSaved }) {
       <PageHeader title="Letters"
         actions={<>
           {dirty ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setForm({ name: current.name, body: current.body })}>Discard</button> : null}
-          <button type="button" className="ui-btn ui-btn-primary" disabled={!dirty || saving} onClick={save}>{saving ? 'Saving…' : 'Save as new version'}</button>
+          <Button variant="primary" loading={saving} disabled={!dirty} onClick={save}>Save as new version</Button>
         </>} />
       <div className="ui-form-grid">
         <div><PopupSelect showValueSubtext={false} label="Letter" value={kind} onChange={(v) => v && switchTo(v)} options={data.kinds.map((k) => ({ value: k.kind, label: k.label }))} /></div>

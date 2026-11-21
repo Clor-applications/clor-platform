@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { PageHeader, SkeletonCard, StatusPill } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, StatusPill, Button } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
 import { getOvertimeRules, listShifts, saveOvertimeRules, updateShift } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
@@ -140,9 +140,9 @@ export default function OvertimePolicy({ openScreen }) {
                       </td>
                       <td className="text-end">
                         {dirty(s) ? (
-                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" data-write onClick={() => saveShift(s)} disabled={saving === s.id}>
-                            {saving === s.id ? 'Saving…' : 'Save'}
-                          </button>
+                          <Button variant="secondary" size="sm" loading={saving === s.id} data-write onClick={() => saveShift(s)}>
+                            Save
+                          </Button>
                         ) : null}
                       </td>
                     </tr>

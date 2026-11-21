@@ -6,7 +6,7 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
@@ -477,7 +477,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="add-reader" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Adding…' : 'Add'}</button>
+          <Button variant="primary" loading={saving} type="submit" form="add-reader">Add</Button>
         </>
       }
     >
@@ -736,7 +736,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
         <>
           <button type="button" className="ui-btn ui-btn-ghost" disabled={busy === 'delete'} onClick={remove}>Remove</button>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="mapped-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'} aria-busy={busy === 'save' || undefined}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={busy === 'save'} type="submit" form="mapped-form">Save</Button>
         </>
       }
     >
@@ -787,9 +787,9 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
             {fileName ? <span className="ui-caption">{fileName}</span> : null}
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!map.employeeCode || busy === 'preview' || (isFile && !sample)} onClick={() => run(false)}>Preview</button>
             {isFile ? (
-              <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={!preview || !preview.readable || busy === 'import'} onClick={() => run(true)}>
-                {busy === 'import' ? 'Importing…' : `Import ${preview?.readable || ''} punches`}
-              </button>
+              <Button variant="primary" size="sm" loading={busy === 'import'} disabled={!preview || !preview.readable} onClick={() => run(true)}>
+                {`Import ${preview?.readable || ''} punches`}
+              </Button>
             ) : null}
           </div>
           {sample && !isFile ? <pre className="ui-card ui-mono max-h-40 overflow-auto p-3 text-xs">{sample.slice(0, 3000)}</pre> : null}
@@ -934,7 +934,7 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="hik-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'} aria-busy={busy === 'save' || undefined}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={busy === 'save'} type="submit" form="hik-form">Save</Button>
         </>
       }
     >
@@ -952,7 +952,7 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
           </dl>
           <p className="ui-caption">Events with an employee number that passed verification are punches; failed attempts and door events go to Reader logs. The clock is measured from each live event; set NTP on the terminal if it drifts.</p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={showLast}>{busy === 'last' ? 'Loading…' : 'Show the last event it sent'}</button>
+            <Button variant="secondary" size="sm" loading={busy === 'last'} disabled={Boolean(busy)} onClick={showLast}>Show the last event it sent</Button>
           </div>
           {last ? <pre className="ui-card ui-mono max-h-64 overflow-auto p-3 text-xs">{last}</pre> : null}
         </section>
@@ -967,7 +967,7 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={rotate}>{busy === 'rotate' ? 'Making…' : 'New URL'}</button>
+            <Button variant="secondary" size="sm" loading={busy === 'rotate'} disabled={Boolean(busy)} onClick={rotate}>New URL</Button>
           </div>
           <HikvisionSetupNote />
         </section>
@@ -1071,7 +1071,7 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="matrix-form" className="ui-btn ui-btn-primary" disabled={busy === 'save'} aria-busy={busy === 'save' || undefined}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={busy === 'save'} type="submit" form="matrix-form">Save</Button>
         </>
       }
     >
@@ -1122,7 +1122,7 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(busy)} onClick={rotate}>{busy === 'rotate' ? 'Making…' : 'New URL'}</button>
+            <Button variant="secondary" size="sm" loading={busy === 'rotate'} disabled={Boolean(busy)} onClick={rotate}>New URL</Button>
           </div>
           <MatrixSetupNote />
         </section>
@@ -1193,7 +1193,7 @@ function CloudDrawer({ device, onClose, onChanged }) {
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="cloud-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} type="submit" form="cloud-form">Save</Button>
         </>
       }
     >
@@ -1204,7 +1204,7 @@ function CloudDrawer({ device, onClose, onChanged }) {
           <h3 id="sync-h" className="ui-t-sec">Punches</h3>
           <p className="ui-caption">Pulled every few minutes. Sync now pulls at once; a date fetches older punches (up to 31 days back).</p>
           <div className="flex flex-wrap items-end gap-2">
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => sync()}>{busy ? 'Pulling…' : 'Sync now'}</button>
+            <Button variant="secondary" size="sm" loading={busy} onClick={() => sync()}>Sync now</Button>
             <input type="date" className="ui-input !w-auto" value={from} max={todayIst()} onChange={(e) => setFrom(e.target.value)} aria-label="Fetch from" />
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || !from} onClick={() => sync(from)}>Fetch from this date</button>
           </div>
@@ -1251,7 +1251,7 @@ function PullControls({ device, onChanged }) {
       <h3 id="sync-h" className="ui-t-sec">Punches</h3>
       <p className="ui-caption">Pulled every few minutes. Sync now pulls at once; a date fetches older punches (up to 31 days back).</p>
       <div className="flex flex-wrap items-end gap-2">
-        <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => sync()}>{busy ? 'Pulling…' : 'Sync now'}</button>
+        <Button variant="secondary" size="sm" loading={busy} onClick={() => sync()}>Sync now</Button>
         <input type="date" className="ui-input !w-auto" value={from} max={todayIst()} onChange={(e) => setFrom(e.target.value)} aria-label="Fetch from" />
         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || !from} onClick={() => sync(from)}>Fetch from this date</button>
       </div>
@@ -1301,7 +1301,7 @@ function PullDrawer({ device, onClose, onChanged }) {
       actions={
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="pull-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} type="submit" form="pull-form">Save</Button>
         </>
       }
     >
@@ -1435,7 +1435,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={remove}>Remove</button>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-          <button type="submit" form="reader-form" className="ui-btn ui-btn-primary" disabled={saving} aria-busy={saving || undefined}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} type="submit" form="reader-form">Save</Button>
         </>
       }
     >
@@ -1633,7 +1633,7 @@ function ReaderMessage({ device, onSent }) {
             {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` · ${p.code}` : ''}</option>)}
           </select>
         </label>
-        <button type="submit" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || !text.trim()}>{busy ? 'Queuing…' : 'Show it'}</button>
+        <Button variant="secondary" size="sm" loading={busy} disabled={!text.trim()} type="submit">Show it</Button>
       </form>
       <p className="ui-caption mt-2">A message to one person appears when they punch; to everyone, on the idle screen.</p>
     </section>

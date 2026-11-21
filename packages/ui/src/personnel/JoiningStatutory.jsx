@@ -3,6 +3,7 @@ import { notify } from '@ui/components/ui/notify';
 import { hasApp } from '@platform/context';
 import { approveJoiningStatutory, joiningStatutory, listEmployeeInvites, rejectJoiningStatutory, sendHeldToPayroll } from './api';
 import { errorWords } from '@ui/utils/errorWords.js';
+import { Button } from '../components/ui/Primitives';
 
 /*
  * The statutory half of a joiner's form (HR-VIEW gap 2): PAN, UAN, ESIC,
@@ -113,7 +114,7 @@ export default function JoiningStatutory({ invite, canView, canApprove, onDecide
         </div>
       ) : null}
       {summary.status === 'HELD' && canApprove && hasApp('payroll') ? (
-        <div className="flex flex-wrap items-center justify-end gap-2"><span className="ui-caption mr-auto">Payroll is on now.</span><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={sendHeld}>{busy ? 'Sending…' : 'Send to Payroll'}</button></div>
+        <div className="flex flex-wrap items-center justify-end gap-2"><span className="ui-caption mr-auto">Payroll is on now.</span><Button variant="secondary" size="sm" loading={busy} onClick={sendHeld}>Send to Payroll</Button></div>
       ) : null}
       {waiting && canView && !full ? (
         <div className="flex justify-end"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={open}>Show in full to check</button></div>
@@ -127,7 +128,7 @@ export default function JoiningStatutory({ invite, canView, canApprove, onDecide
           </label>
           <div className="flex justify-end gap-2">
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy || !note.trim()} onClick={() => decide(false)}>Not accepted</button>
-            <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={() => decide(true)}>{busy ? 'Saving…' : 'Approve for payroll'}</button>
+            <Button variant="primary" size="sm" loading={busy} onClick={() => decide(true)}>Approve for payroll</Button>
           </div>
         </div>
       ) : null}

@@ -6,7 +6,7 @@ import { usePageTitle } from '@ui/picks/round61';
 import CallButtons from '@ui/components/ui/CallButtons';
 import { CalendarClock, Camera, ChevronDown, Hourglass, Pencil, Plus } from '@ui/components/ui/lineIcons';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import RecordTabs from '@ui/components/ui/RecordTabs';
 import ErrorState, { errorKind } from '@ui/components/ui/ErrorState';
 import Alert from '@ui/components/ui/Alert';
@@ -407,7 +407,7 @@ function SignInSection({ person, canEdit, editing, setEditing, onSaved }) {
           <div className="flex flex-wrap gap-2 justify-end">
             {linked ? <button type="button" className="ui-btn ui-btn-secondary mr-auto" disabled={busy} onClick={() => save(null)}>Remove link</button> : null}
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing(null)}>Cancel</button>
-            <button type="button" className="ui-btn ui-btn-secondary" disabled={busy || !choice} onClick={() => save(choice)}>{busy ? 'Saving…' : 'Link sign-in'}</button>
+            <Button variant="secondary" loading={busy} disabled={!choice} onClick={() => save(choice)}>Link sign-in</Button>
           </div>
         </div>
       ) : (
@@ -695,7 +695,7 @@ function CommentBox({ employeeId, onPosted }) {
       <textarea className="ui-input w-full" aria-label="Add a comment" rows={2} maxLength={4000} value={text} placeholder="Add a comment…" onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); post(); } }} />
       <div className="ui-composer-bar">
-        <button type="button" className="ui-btn ui-btn-sm ui-btn-secondary" disabled={!text.trim() || busy} onClick={post}>{busy ? 'Posting…' : 'Comment'}</button>
+        <Button variant="secondary" size="sm" loading={busy} disabled={!text.trim()} onClick={post}>Comment</Button>
       </div>
     </div>
   );
@@ -788,7 +788,7 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
       </div>
       <div className="flex justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={async () => { if (!dirty || await confirmDialog({ title: 'Discard your changes?', confirmLabel: 'Discard' })) onCancel(); }}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || !dirty}>{busy ? 'Saving…' : 'Save'}</button>
+        <Button variant="primary" loading={busy} disabled={!dirty} type="submit">Save</Button>
       </div>
     </form>
   );
@@ -1181,7 +1181,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={`${target ? (target === 'ACTIVE' ? 'Reactivate' : 'Suspend') : op.title}: ${person.name}`} dirty={Object.keys(form).some((k) => (form[k] || '') !== (initial[k] || '')) || Boolean(reason)}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !Object.keys(changed).length} onClick={submit}>{busy ? 'Saving…' : target ? (target === 'ACTIVE' ? 'Reactivate' : 'Suspend') : op.title}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!Object.keys(changed).length} onClick={submit}>{target ? (target === 'ACTIVE' ? 'Reactivate' : 'Suspend') : op.title}</Button></>}>
       <div className="grid gap-4">
         {error ? (error?.status === 409 && error?.data?.code === 'STALE'
           ? <Alert tone="warn" title="This record was updated elsewhere">Close this, reload the record, and make the change again. Nothing was overwritten.</Alert>

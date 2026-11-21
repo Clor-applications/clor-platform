@@ -7,6 +7,7 @@ import { confirmDialog } from '@ui/components/ui/notify';
 import { SignedOut, askFormRequest, getFormFile, getForms, replyFormRequest, withdrawFormRequest } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
 import { RowState, kindOfPill } from './portalUi';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Requests HR set up, in the employee app (People, FEATURE-UI-AUDIT gap 25),
@@ -96,7 +97,7 @@ function Ask({ form, guard, onCancel, onSent }) {
       <FormFields fields={form.fields} answers={answers} files={files} onAnswer={(k, v) => setAnswers((a) => ({ ...a, [k]: v }))} onFile={(k, v) => setFiles((f) => ({ ...f, [k]: v }))} idPrefix="app-ask" native />
       {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       <div className="flex gap-2">
-        <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy}>{busy ? 'Sending…' : 'Send'}</button>
+        <Button variant="primary" className="flex-1" loading={busy} type="submit">Send</Button>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>
       </div>
     </form>
@@ -142,7 +143,7 @@ function Row({ r, open, onToggle, guard, onDone }) {
           {r.status === 'MORE_INFO' ? (
             <div className="space-y-2">
               <textarea className="ui-input w-full" rows={2} maxLength={1000} aria-label="Your answer" placeholder="Your answer" value={text} onChange={(e) => setText(e.target.value)} />
-              <button type="button" className="ui-btn ui-btn-primary w-full" disabled={!text.trim() || Boolean(busy)} onClick={() => act('reply')}>{busy === 'reply' ? 'Sending…' : 'Send answer'}</button>
+              <Button variant="primary" className="w-full" loading={busy === 'reply'} disabled={!text.trim() || Boolean(busy)} onClick={() => act('reply')}>Send answer</Button>
             </div>
           ) : null}
           {['WAITING', 'MORE_INFO'].includes(r.status) ? <button type="button" className="ui-link text-xs" disabled={Boolean(busy)} onClick={() => act('withdraw')}>Withdraw</button> : null}

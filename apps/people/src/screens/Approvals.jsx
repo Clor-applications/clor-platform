@@ -29,6 +29,7 @@ import { requestFile } from '../api/requests';
 import { openFile } from '@ui/requests/formFiles';
 import MoneyRequestDetail from '../money/MoneyRequestDetail';
 import { MONEY_TYPES } from '../money/words';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* The fields a request can name, in plain words (never "photoUrl" or "addressLine"). */
 const FIELD_WORDS = {
@@ -411,8 +412,8 @@ function TimeDrawer({ item, onClose, onDone }) {
   return (
     <Drawer open onClose={onClose} title={`${INBOX_KIND[item.kind]}: ${item.employeeName || '—'}`} widthClass="w-[min(32rem,96vw)]" dirty={Boolean(note.trim())}
       actions={<>
-        <button type="button" className="ui-btn ui-btn-ghost" disabled={Boolean(busy)} onClick={() => act(false)}>{busy === 'reject' ? 'Saving…' : 'Reject'}</button>
-        <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => act(true)}>{busy === 'approve' ? 'Approving…' : 'Approve'}</button>
+        <Button variant="ghost" loading={busy === 'reject'} disabled={Boolean(busy)} onClick={() => act(false)}>Reject</Button>
+        <Button variant="primary" loading={busy === 'approve'} disabled={Boolean(busy)} onClick={() => act(true)}>Approve</Button>
       </>}
     >
       <div className="space-y-4 text-sm">
@@ -479,7 +480,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
             <>
               <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => act('more-info')}>Ask for more</button>
               <button type="button" className="ui-btn ui-btn-ghost" disabled={Boolean(busy)} onClick={() => act('reject')}>Reject</button>
-              <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => act('approve')}>{busy === 'approve' ? 'Approving…' : 'Approve'}</button>
+              <Button variant="primary" loading={busy === 'approve'} disabled={Boolean(busy)} onClick={() => act('approve')}>Approve</Button>
             </>
           ) : null}
           {mine && open.status === 'MORE_INFO' ? <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => act('reply')}>Send answer</button> : null}

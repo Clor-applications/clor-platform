@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link2, Pencil, Plus, Trash2, UserX } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
@@ -233,7 +233,7 @@ function SiteIdsEditor({ initial, onClose, onSaved }) {
       description="For a site whose readers know this person by a different number."
       dirty={Boolean(current) && JSON.stringify(rows) !== JSON.stringify(current.sites)}
       widthClass="w-[min(34rem,96vw)]"
-      actions={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={!current || busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}
+      actions={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!current} onClick={save}>Save</Button></>}
     >
       <div className="space-y-4">
         <label className="block"><span className="ui-label">Employee</span>

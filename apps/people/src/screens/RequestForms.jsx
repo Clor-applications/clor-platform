@@ -2,7 +2,7 @@ import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Plus, X } from '@ui/components/ui/lineIcons';
 
-import { EmptyState } from '@ui/components/ui/Primitives';
+import { EmptyState, Button } from '@ui/components/ui/Primitives';
 import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
@@ -162,7 +162,7 @@ function FormDrawer({ start, departments, canEdit, taken, ideas, onClose, onSave
       footer={canEdit ? (
         <>
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="request-form" className="ui-btn ui-btn-primary" disabled={saving || !dirty || Boolean(problem)} title={problem || undefined}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="primary" loading={saving} disabled={!dirty || Boolean(problem)} type="submit" form="request-form" title={problem || undefined}>Save</Button>
         </>
       ) : null}
     >

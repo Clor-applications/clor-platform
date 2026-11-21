@@ -1,7 +1,7 @@
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -222,7 +222,7 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
   );
   return (
     <Drawer open onClose={onClose} title={`${typeName(form.requestType)}: who decides`} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet" dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>{rule.readOnly ? 'Close' : 'Cancel'}</button>{rule.readOnly ? null : <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !dirty} onClick={save}>{saving ? 'Saving…' : 'Save as new version'}</button>}</>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>{rule.readOnly ? 'Close' : 'Cancel'}</button>{rule.readOnly ? null : <Button variant="primary" loading={saving} disabled={!dirty} onClick={save}>Save as new version</Button>}</>}>
       <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); if (!rule.readOnly) save(); }}>
         {rule.readOnly ? <p className="ui-caption" role="note">This rule does more than this screen can edit yet. It stays as it is; here is what it does.</p> : null}
         {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}

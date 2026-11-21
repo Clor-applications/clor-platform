@@ -407,8 +407,8 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
 
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
-        <Button type="submit" variant="primary" loading={saving} disabled={!form.runId || !preview?.payable?.length}>
-          {saving ? 'Starting…' : 'Start payment'}
+        <Button loading={saving} disabled={!form.runId || !preview?.payable?.length} type="submit" variant="primary" loading={saving}>
+          Start payment
         </Button>
       </div>
     </form>
@@ -582,8 +582,8 @@ const PaymentDetail = ({ paymentId, onBack }) => {
               <ArrowLeft size={16} aria-hidden="true" /> Back
             </button>
             {posted ? null : (
-              <Button variant="primary" onClick={post} loading={busy === 'post'} disabled={(Boolean(busy) && busy !== 'post') || Boolean(posting?.problems?.length)}>
-                {busy === 'post' ? 'Posting…' : 'Post to accounts'}
+              <Button loading={busy === 'post'} disabled={(Boolean(busy) && busy !== 'post') || Boolean(posting?.problems?.length)} variant="primary" onClick={post} loading={busy === 'post'}>
+                Post to accounts
               </Button>
             )}
           </div>
@@ -674,8 +674,8 @@ const PaymentDetail = ({ paymentId, onBack }) => {
               </button>
             ) : null}
             {settled && !payment.paidCount ? (
-              <Button variant="danger" size="sm" icon={Ban} onClick={callOff} loading={busy === 'cancel'} disabled={Boolean(busy) && busy !== 'cancel'}>
-                {busy === 'cancel' ? 'Cancelling…' : 'Cancel payment'}
+              <Button loading={busy === 'cancel'} disabled={Boolean(busy) && busy !== 'cancel'} variant="danger" size="sm" icon={Ban} onClick={callOff} loading={busy === 'cancel'}>
+                Cancel payment
               </Button>
             ) : null}
           </div>
@@ -802,7 +802,7 @@ const RejectLine = ({ line, busy, onCancel, onSave }) => {
           </div>
           <div className="flex items-center justify-end gap-2">
             <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={busy}>Cancel</button>
-            <Button type="submit" variant="primary" loading={busy}>{busy ? 'Recording…' : 'Record rejection'}</Button>
+            <Button loading={busy} type="submit" variant="primary" loading={busy}>Record rejection</Button>
           </div>
         </form>
       ) : null}

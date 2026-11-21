@@ -38,6 +38,7 @@ import {
 } from './api';
 import { addDaysIso as addDays } from '@ui/utils/dates';
 import { errorWords } from '@ui/utils/errorWords.js';
+import { Button } from '../components/ui/Primitives';
 
 /**
  * Time & Leave → Requests (TIME-LEAVE-DECISIONS.md). Everything the list
@@ -393,7 +394,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   const actions = !r ? null : shortening ? (
     <>
       <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => { setShortening(false); setShortTo(''); }}>Cancel</button>
-      <button type="submit" form="came-back-early" className="ui-btn ui-btn-primary" disabled={busy || !shortTo}>{busy ? 'Saving…' : 'Save'}</button>
+      <Button variant="primary" loading={busy} disabled={!shortTo} type="submit" form="came-back-early">Save</Button>
     </>
   ) : r.status === 'PENDING' && canDecide ? (
     <>
@@ -696,7 +697,7 @@ export function EnterLeave({ onClose, onDone, request = null, parts = [], openSc
       title={editing ? `Change ${request.employeeName}'s leave` : 'Enter leave'}
       actions={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" form="enter-leave" className="ui-btn ui-btn-primary" disabled={blocked || saving}>{saving ? 'Saving…' : 'Save'}</button>
+        <Button variant="primary" loading={saving} disabled={blocked} type="submit" form="enter-leave">Save</Button>
       </>}
     >
       <form id="enter-leave" onSubmit={save} className="space-y-4">

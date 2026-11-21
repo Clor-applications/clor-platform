@@ -3,7 +3,7 @@ import ShownOnce from '@ui/components/ui/ShownOnce';
 import React, { useCallback, useEffect, useState } from 'react';
 import { KeyRound, Plug, Plus, Server, Webhook } from '@ui/components/ui/lineIcons';
 
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import {
   createHrConnection,
@@ -200,18 +200,11 @@ export default function Integrations() {
                     <input type="checkbox" className="ui-checkbox" checked={h.isActive} disabled={Boolean(hookBusy)} aria-busy={hookBusy === `${h.id}:toggle` || undefined} onChange={(e) => switchHook(h, e.target.checked)} /> On
                   </label>
                   <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setOpenHook(openHook === h.id ? null : h.id)} aria-expanded={openHook === h.id}>{openHook === h.id ? 'Hide deliveries' : 'Deliveries'}</button>
-                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(hookBusy)} aria-busy={hookBusy === `${h.id}:test` || undefined} onClick={() => test(h)}>{hookBusy === `${h.id}:test` ? 'Sending…' : 'Send test'}</button>
+                  <Button variant="secondary" size="sm" loading={hookBusy === `${h.id}:test`} disabled={Boolean(hookBusy)} onClick={() => test(h)}>Send test</Button>
                   <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => rotate(h)}>New secret</button>
-                  <button
-                    type="button"
-                    className="ui-btn ui-btn-ghost ui-btn-sm"
-                    aria-label={`Delete ${h.name}`}
-                    disabled={Boolean(hookBusy)}
-                    aria-busy={hookBusy === `${h.id}:delete` || undefined}
-                    onClick={() => removeHook(h)}
-                  >
-                    {hookBusy === `${h.id}:delete` ? 'Deleting…' : 'Delete'}
-                  </button>
+                  <Button variant="ghost" size="sm" loading={hookBusy === `${h.id}:delete`} disabled={Boolean(hookBusy)} aria-label={`Delete ${h.name}`} onClick={() => removeHook(h)}>
+                    Delete
+                  </Button>
                 </span>
                 {openHook === h.id ? <Deliveries hook={h} /> : null}
               </li>
@@ -476,7 +469,7 @@ function Connectors({ onShown }) {
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary" disabled={busy}>{busy ? 'Saving…' : form.id ? 'Save' : 'Make the connector'}</button>
+            <Button variant="primary" loading={busy} type="submit">{form.id ? 'Save' : 'Make the connector'}</Button>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setForm(null)}>Cancel</button>
           </div>
         </form>
@@ -660,7 +653,7 @@ function HrTools() {
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} /> Switched on</label>
           </div>
           <div className="flex gap-2">
-            <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy === 'save'}>{busy === 'save' ? 'Saving…' : form.id ? 'Save' : 'Connect'}</button>
+            <Button variant="primary" size="sm" loading={busy === 'save'} type="submit">{form.id ? 'Save' : 'Connect'}</Button>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setForm(null)}>Cancel</button>
           </div>
           </div>

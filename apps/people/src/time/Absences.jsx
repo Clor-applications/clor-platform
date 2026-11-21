@@ -2,7 +2,7 @@ import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 import CallButtons from '@ui/components/ui/CallButtons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -71,7 +71,7 @@ export default function Absences({ params = {}, updateParams }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Time' }]} title="Absent without leave" actions={canAct ? <button type="button" className="ui-btn ui-btn-secondary" disabled={checking} onClick={check}>{checking ? 'Checking…' : 'Check now'}</button> : null} />
+      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Time' }]} title="Absent without leave" actions={canAct ? <Button variant="secondary" loading={checking} onClick={check}>Check now</Button> : null} />
       <DataTable
         tabs={(
           <div ref={tabsRef} role="tablist" aria-label="Absences" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
@@ -192,7 +192,7 @@ function FormShell({ title, busy, ready, why = '', label, onCancel, onSubmit, ch
       {children}
       <div className="flex justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || !ready} aria-describedby={!ready && why ? helpId : undefined}>{busy ? 'Saving…' : label}</button>
+        <Button variant="primary" loading={busy} disabled={!ready} type="submit" aria-describedby={!ready && why ? helpId : undefined}>{label}</Button>
       </div>
       {!ready && why ? <p id={helpId} className="ui-caption text-right">{why}</p> : null}
     </form>

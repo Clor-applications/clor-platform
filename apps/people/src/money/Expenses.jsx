@@ -5,7 +5,7 @@ import RangePresets from '@ui/components/ui/RangePresets';
 import MoneyInput from '@ui/components/ui/MoneyInput';
 import { Plus, Receipt } from '@ui/components/ui/lineIcons';
 
-import { StatStrip } from '@ui/components/ui/Primitives';
+import { StatStrip, Button } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
 import DataTable from '@ui/components/ui/DataTable';
@@ -182,8 +182,8 @@ function ClaimDrawer({ claim: c, reimbursement, mayPay, onClose, onDone }) {
   return (
     <Drawer open onClose={onClose} title={`${c.employeeName}: ${c.title}`} widthClass="w-[min(40rem,96vw)]"
       actions={payable ? (paying
-        ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setPaying(false)}>Back</button><button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => pay('NOW')}>{busy === 'NOW' ? 'Saving…' : 'Mark paid'}</button></>
-        : <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setPaying(true)}>Paid now</button><button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => pay('SALARY')}>{busy === 'SALARY' ? 'Sending…' : 'Pay with salary'}</button></>) : null}
+        ? <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setPaying(false)}>Back</button><Button variant="primary" loading={busy === 'NOW'} disabled={Boolean(busy)} onClick={() => pay('NOW')}>Mark paid</Button></>
+        : <><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setPaying(true)}>Paid now</button><Button variant="primary" loading={busy === 'SALARY'} disabled={Boolean(busy)} onClick={() => pay('SALARY')}>Pay with salary</Button></>) : null}
     >
       <div className="space-y-4 text-sm">
         <dl className="grid gap-3 sm:grid-cols-3">
@@ -278,7 +278,7 @@ function AdvanceDrawer({ advance: a, mayPay, onClose, onDone }) {
   const open = a.status === 'PAID' && a.open > 0 && mayPay;
   return (
     <Drawer open onClose={onClose} title={`${a.employeeName}: ${a.purpose}`} widthClass="w-[min(32rem,96vw)]"
-      actions={toPay ? <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => run('pay', () => payAdvance(a.id, form), 'Marked paid.')}>{busy ? 'Saving…' : `Mark ${money(a.amount)} paid`}</button>
+      actions={toPay ? <Button variant="primary" loading={busy} onClick={() => run('pay', () => payAdvance(a.id, form), 'Marked paid.')}>{`Mark ${money(a.amount)} paid`}</Button>
         : open ? <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={async () => { if (await confirmDialog({ title: `Take ${money(a.open)} from ${a.employeeName}’s salary?`, message: 'It goes to Payroll as a deduction this month, within half their pay; anything over that stays open.', confirmLabel: 'Take from salary' })) run('recover', () => recoverAdvance(a.id), (r) => (r.left > 0 ? `${money(r.recovered)} goes to Payroll; ${money(r.left)} stays open.` : `${money(r.recovered)} goes to Payroll.`)); }}>Take from salary</button> : null}
     >
       <div className="space-y-4 text-sm">

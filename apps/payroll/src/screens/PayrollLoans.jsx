@@ -9,7 +9,7 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayrollPeriods } from '../api/payrollCalendar';
 import { listSalaryComponents } from '../api/payrollComponents';
@@ -459,9 +459,9 @@ const LoanForm = ({ people, components, periods, onCancel, onCreated }) => {
 
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
-        <button type="submit" className="ui-btn ui-btn-primary" disabled={saving || !schedule}>
-          {saving ? 'Creating…' : 'Create as draft'}
-        </button>
+        <Button variant="primary" loading={saving} disabled={!schedule} type="submit">
+          Create as draft
+        </Button>
       </div>
     </form>
   );

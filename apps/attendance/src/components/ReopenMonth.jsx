@@ -4,6 +4,7 @@ import Modal from '@ui/components/ui/Modal';
 import { notify } from '@ui/components/ui/notify';
 import { reopenMonth } from '../api/attendance';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Reopening a closed month says why: the reason goes in the audit log beside
@@ -35,7 +36,7 @@ export default function ReopenMonth({ month, label, onClose, onDone }) {
       dirty={Boolean(reason.trim())}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" form="reopen-month" className="ui-btn ui-btn-primary" disabled={!ready || busy}>{busy ? 'Reopening…' : 'Reopen'}</button>
+        <Button variant="primary" loading={busy} disabled={!ready} type="submit" form="reopen-month">Reopen</Button>
       </>}
     >
       <form id="reopen-month" onSubmit={save} className="space-y-3">

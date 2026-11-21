@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, Camera, Check, ChevronDown } from '@ui/component
 
 import PhoneInput from '@ui/components/ui/PhoneInput';
 import HelpTip from '@ui/components/ui/HelpTip';
-import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import Alert from '@ui/components/ui/Alert';
 import ErrorState from '@ui/components/ui/ErrorState';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
@@ -443,7 +443,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             {stepIndex > 0 ? <button type="button" className="ui-btn ui-btn-secondary" onClick={back}><ArrowLeft size={16} aria-hidden="true" /> Back</button> : null}
             {stepKey === 'review' ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy || (duplicates?.length && !duplicateReason.trim())} onClick={() => create(true)}>Create and add another</button> : null}
             {stepKey === 'review'
-              ? <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || (duplicates?.length && !duplicateReason.trim())}>{busy ? 'Creating…' : 'Create employee'}</button>
+              ? <Button variant="primary" loading={busy} disabled={(duplicates?.length && !duplicateReason.trim())} type="submit">Create employee</Button>
               : <button type="submit" className="ui-btn ui-btn-primary">Continue <ArrowRight size={16} aria-hidden="true" /></button>}
           </span>
         </div>

@@ -3,7 +3,7 @@ import { Trash2 } from '@ui/components/ui/lineIcons';
 
 import { useListSearch } from '@ui/components/ListToolbar';
 import { usePaged, useResetPage } from '@ui/components/list/ListPageParts';
-import { SkeletonCard } from '@ui/components/ui/Primitives';
+import { SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
@@ -222,7 +222,7 @@ function CompOff({ person, onClose, onDone }) {
       title={`Comp-off for ${person.name}`}
       footer={<>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" form="comp-off" className="ui-btn ui-btn-primary" disabled={!ready || saving}>{saving ? 'Saving…' : 'Grant'}</button>
+        <Button variant="primary" loading={saving} disabled={!ready} type="submit" form="comp-off">Grant</Button>
       </>}
     >
       <form id="comp-off" onSubmit={save} className="space-y-4">
@@ -323,7 +323,7 @@ function Ledger({ person, year, label, onClose, onChanged }) {
       title={`${person.name}, ${label}`}
       footer={paid.length ? <>
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Close</button>
-        <button type="submit" form="leave-adjust" className="ui-btn ui-btn-primary" disabled={!ready || saving}>{saving ? 'Saving…' : 'Save change'}</button>
+        <Button variant="primary" loading={saving} disabled={!ready} type="submit" form="leave-adjust">Save change</Button>
       </> : null}
     >
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} compact /> : !data ? <SkeletonCard lines={6} /> : (

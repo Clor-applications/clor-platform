@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { confirmDialog } from '@ui/components/ui/notify';
+import { Button } from '@ui/components/ui/Primitives';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, getFixes, getMyMarks, getNightConsent, setNightConsent } from './portalApi';
 import { errorWords } from '@ui/utils/errorWords';
@@ -118,7 +119,7 @@ export function NightConsent({ guard }) {
         {given ? `You agreed on ${day(data.consent.onDate)} to work from ${data.window}.` : data.consent ? `You withdrew on ${day(data.consent.onDate)}. You are not given shifts from ${data.window}.` : `You are not given shifts from ${data.window} unless you agree.`}
       </p>
       {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
-      <button type="button" className={`ui-btn ${given ? 'ui-btn-secondary' : 'ui-btn-primary'} w-full`} disabled={busy} onClick={change}>{busy ? 'Saving…' : given ? 'Withdraw consent' : 'I agree to night work'}</button>
+      <Button variant={given ? 'secondary' : 'primary'} className="w-full" loading={busy} onClick={change}>{given ? 'Withdraw consent' : 'I agree to night work'}</Button>
     </section>
   );
 }

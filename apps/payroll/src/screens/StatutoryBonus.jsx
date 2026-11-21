@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calculator, Download, SlidersHorizontal } from '@ui/components/ui/lineIcons';
 
-import { PageHeader, SkeletonCard, EmptyState, FieldError } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard, EmptyState, FieldError, Button } from '@ui/components/ui/Primitives';
 import useFieldErrors from '@ui/components/ui/useFieldErrors';
 import Drawer from '../components/EditDrawer';
 import LoadFailed from '@ui/components/ui/LoadFailed';
@@ -130,9 +130,9 @@ export default function StatutoryBonus() {
     </button>
   ) : run.status === 'DRAFT' ? (
     <>
-      <button type="button" className="ui-btn ui-btn-secondary" onClick={workOut} disabled={Boolean(busy)}>
-        {busy === 'work' ? 'Working out…' : 'Work out again'}
-      </button>
+      <Button variant="secondary" loading={busy === 'work'} disabled={Boolean(busy)} onClick={workOut}>
+        Work out again
+      </Button>
       <button type="button" className="ui-btn ui-btn-primary" onClick={() => setApproving(true)} disabled={Boolean(busy) || !eligible.length}>
         Approve bonus
       </button>
@@ -305,7 +305,7 @@ function ApproveDrawer({ run, eligible, onClose, onDone }) {
       footer={
         <div className="flex justify-end gap-2">
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
-          <button type="button" className="ui-btn ui-btn-primary" onClick={approve} disabled={busy || !periodId}>{busy ? 'Approving…' : 'Approve bonus'}</button>
+          <Button variant="primary" loading={busy} disabled={!periodId} onClick={approve}>Approve bonus</Button>
         </div>
       }
     >
@@ -348,7 +348,7 @@ function CancelForm({ run, onDone }) {
         <label className="ui-label" htmlFor="bonus-cancel-reason">Why is it cancelled?</label>
         <input id="bonus-cancel-reason" className="ui-input w-full" maxLength={240} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={5} />
       </div>
-      <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || reason.trim().length < 5}>{busy ? 'Cancelling…' : 'Cancel bonus'}</button>
+      <Button variant="secondary" loading={busy} disabled={reason.trim().length < 5} type="submit">Cancel bonus</Button>
     </form>
   );
 }
@@ -389,7 +389,7 @@ function RulesDrawer({ onClose, onSaved }) {
       footer={
         <div className="flex justify-end gap-2">
           <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
-          <button type="button" className="ui-btn ui-btn-primary" onClick={save} disabled={busy || !data}>{busy ? 'Saving…' : 'Save rules'}</button>
+          <Button variant="primary" loading={busy} disabled={!data} onClick={save}>Save rules</Button>
         </div>
       }
     >

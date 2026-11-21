@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -93,7 +93,7 @@ function CategoryDrawer({ value, users, queues, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={`Edit ${value.label}`} dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!dirty} onClick={save}>Save</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <label className="block"><span className="ui-label">Name *</span><input className="ui-input w-full" maxLength={80} value={form.label} onChange={(e) => set('label', e.target.value)} autoFocus /></label>
@@ -128,7 +128,7 @@ function TemplateDrawer({ value, cats, policies, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={value.id ? `Edit ${value.title}` : 'New template'} dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!dirty} onClick={save}>Save</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {error ? <div className="sm:col-span-2"><ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /></div> : null}
         <label className="block sm:col-span-2"><span className="ui-label">Title *</span><input className="ui-input w-full" maxLength={120} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} autoFocus /></label>

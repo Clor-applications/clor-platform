@@ -2,7 +2,7 @@ import { errorWords } from '@ui/utils/errorWords';
 import React, { useRef, useState } from 'react';
 import RangePresets from '@ui/components/ui/RangePresets';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -159,7 +159,7 @@ function RetentionDrawer({ row, mode, onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} title={mode === 'years' ? row.label : `Hold: ${row.label}`} dirty={dirty}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : mode === 'years' ? 'Save' : 'Put on hold'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!dirty} onClick={save}>{mode === 'years' ? 'Save' : 'Put on hold'}</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {formError(error)}
         {mode === 'years' ? (
@@ -286,7 +286,7 @@ function GiveAccess({ onClose, onDone }) {
   };
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} title="Give auditor access" dirty={Boolean(draft.userId || draft.purpose || draft.documentIds.length)}
-      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Give access'}</button></>}>
+      footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} onClick={save}>Give access</Button></>}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); save(); }}>
         {formError(error)}
         <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Auditor *" value={draft.userId} placeholder={lists.data ? 'A user with the External auditor role' : 'Loading…'} alwaysSearch={users.length > 8} onChange={(v) => setDraft({ ...draft, userId: v || '' })} options={users.map((u) => ({ value: u.id, label: u.fullName || u.email }))} /></div>
