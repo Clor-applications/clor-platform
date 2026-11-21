@@ -57,7 +57,7 @@ export const PRODUCTS = [
     name: 'Payroll',
     category: 'HR',
     status: 'available',
-    accent: '#0079BF',
+    accent: '#006A9E',
     line: 'Salaries with PF, ESI, PT and TDS, payslips, and postings into your books.',
   },
   {
@@ -65,7 +65,7 @@ export const PRODUCTS = [
     name: 'People',
     category: 'HR',
     status: 'available',
-    accent: '#C93F28',
+    accent: '#A21CAF',
     line: 'Employee records, documents, onboarding and an app for every employee.',
   },
   {
@@ -73,7 +73,7 @@ export const PRODUCTS = [
     name: 'Attendance',
     category: 'HR',
     status: 'available',
-    accent: '#854D0E',
+    accent: '#A85A00',
     line: 'Biometric readers, phone punches with location, shifts, leave and month close.',
   },
   {

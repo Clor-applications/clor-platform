@@ -19,7 +19,7 @@
 :root:not(#rnd):not([data-palette='indigo']) {
   /* Brand */
   --graphite: 32 35 41;        /* #202329 */
-  --blaze: 255 107 0;          /* #FF6B00 — a mark, never a fill behind text */
+  --blaze: 255 84 0;           /* #FF5400, the logo orange (owner, 21 Nov 2026): a mark, never a fill behind text */
   --soft-white: 255 255 255;   /* #FFFFFF */
   --forest: 1 93 71;           /* #015D47 */
 
@@ -46,7 +46,7 @@
   --act: 201 80 0;             /* #C95000 — white on it 4.6:1 */
   --act-hover: 184 74 0;       /* #B84A00 */
   --act-ink: 165 64 0;         /* #A54000 — the accent as text: 6.0:1 on paper, 6.4:1 on --tint */
-  --marker: 255 107 0;         /* #FF6B00 */
+  --marker: 255 84 0;          /* #FF5400, the logo orange */
   --act-2: 15 118 110;         /* the second colour; each app sets its own below */
   --tint: 255 255 255;         /* white: the active state is the marker and the weight, not a fill (owner, 15 Nov) */
   --panel: 255 255 255;        /* white */
@@ -124,8 +124,10 @@
   --app-admin: 32 35 41;
 }
 
-/* People's content tags keep their own tints: they label a kind of leave or a
-   workplace fact, which is meaning, not identity (§6.4). */
+/* Content tints: People's tags label a kind of leave or a workplace fact, and every
+   app's Home uses them for its light accents (owner, 21 Nov 2026: one uniform look).
+   Meaning, not identity (§6.4), so they are the same in every app. */
+:root:not(#rnd):not([data-palette='indigo']),
 :root:not(#rnd)[data-app='people'] {
   --mint-soft: 225 245 238;  --mint-ink: 16 102 71;
   --lilac-soft: 236 234 250; --lilac-ink: 57 46 124;
@@ -149,7 +151,7 @@
  */
 :root:not(#rnd)[data-app='admin']:not([data-palette='indigo']) {
   --act: 32 35 41; --act-hover: 16 18 22; --act-ink: 32 35 41;      /* Graphite #202329, 15.6:1 */
-  --marker: 255 107 0; --tint: 247 247 247; --act-2: 201 80 0;      /* Blaze mark, orange second */
+  --marker: 255 84 0; --tint: 247 247 247; --act-2: 201 80 0;       /* Blaze mark #FF5400, orange second */
 }
 :root:not(#rnd)[data-app='people']:not([data-palette='indigo']) {
   --act: 162 28 175; --act-hover: 138 24 150; --act-ink: 162 28 175; /* Magenta #A21CAF, 5.9:1 */
@@ -162,6 +164,13 @@
 :root:not(#rnd)[data-app='attendance']:not([data-palette='indigo']) {
   --act: 168 90 0; --act-hover: 143 77 0; --act-ink: 168 90 0;       /* Amber #A85A00, 5.1:1 */
   --marker: 168 90 0; --tint: 247 247 247; --act-2: 91 71 196;      /* violet second */
+}
+/* Ops console (owner left the colour to Claude, 21 Nov 2026): forest #015D47, white on it 7.9:1.
+   A blue-green, so it does not read as the status green (#166534), which always carries a word.
+   OpsConsole sets <html data-portal="ops">; this comes after the app blocks so it wins there. */
+:root:not(#rnd)[data-portal='ops']:not([data-palette='indigo']) {
+  --act: 1 93 71; --act-hover: 1 74 57; --act-ink: 1 93 71;          /* Forest #015D47, 7.9:1 */
+  --marker: 1 93 71; --tint: 247 247 247; --act-2: 201 80 0;        /* orange second */
 }
 
 /* Light only (owner, 15 Nov 2026): there is no dark theme. */
@@ -803,3 +812,43 @@
   :root:not(#rnd) .ui-app-switch { height: 2.75rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot { min-height: 2.75rem; }
 }
+
+/* ------------------------------------------------------ Home light accents */
+/*
+ * The same three light accents on every app's Home and overview (owner, 20–21 Nov
+ * 2026; DESIGN.md "Light accents on Home pages"). A tone names a subject, never an
+ * app, and each soft ground pairs with its own ink at 4.5:1 or more.
+ *   .ui-accent-ico   a 32px tile behind a card's line icon
+ *   .ui-subject      a soft tag naming what a task is about
+ *   .ui-urgent       a soft inset top edge on a card that needs action
+ */
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-accent-ico, .ui-subject) { --t-soft: var(--neutral-soft); --t-ink: var(--neutral-ink); }
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-accent-ico, .ui-subject)[data-tone='info'] { --t-soft: var(--info-soft); --t-ink: var(--info); }
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-accent-ico, .ui-subject)[data-tone='lilac'] { --t-soft: var(--lilac-soft); --t-ink: var(--lilac-ink); }
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-accent-ico, .ui-subject)[data-tone='peach'] { --t-soft: var(--peach-soft); --t-ink: var(--peach-ink); }
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-accent-ico, .ui-subject)[data-tone='mint'] { --t-soft: var(--mint-soft); --t-ink: var(--mint-ink); }
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-accent-ico, .ui-subject)[data-tone='butter'] { --t-soft: var(--butter-soft); --t-ink: var(--butter-ink); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-accent-ico {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgb(var(--t-soft));
+  color: rgb(var(--t-ink));
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-subject {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgb(var(--t-soft));
+  color: rgb(var(--t-ink));
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-urgent[data-tone='warn'] { box-shadow: inset 0 3px 0 rgb(var(--warn-soft)); border-color: rgb(var(--warn-soft)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-urgent[data-tone='danger'] { box-shadow: inset 0 3px 0 rgb(var(--neg-soft)); border-color: rgb(var(--neg-soft)); }

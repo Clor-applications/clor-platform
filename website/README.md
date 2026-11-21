@@ -12,6 +12,6 @@ npm run preview   # http://localhost:5191, the built site
 ```
 
 - Content and product status: `src/site.js`, `src/content.js`. Pages: `src/pages`. Routes and page titles: `src/routes.jsx`.
-- Design: light only, white ground, tokens at the top of `src/styles/site.css`; one face, Plus Jakarta Sans; Blaze Orange (#FF5400) is kept for primary actions, the current-page marker and the focus ring, and #BA3900 for orange words.
+- Design: light only, white ground, tokens at the top of `src/styles/site.css`; one face, Figtree (the apps' face); Blaze Orange (#FF5400) is kept for primary actions, the current-page marker and the focus ring, and #BA3900 for orange words.
 - Home leads with Books, then Payroll, People and Attendance, each beside its screen drawn in code with sample data (`src/components/Windows.jsx`). No animation; pictures wait for the new illustration style.
 - Before publishing: `CONTENT_CHECKLIST.md`.

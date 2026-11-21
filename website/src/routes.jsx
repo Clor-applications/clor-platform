@@ -7,7 +7,7 @@ import Product, { Products } from './pages/Product.jsx';
 import { About, Businesses, Contact, Firms, Integrations, Legal, NotFound, Resources, Security, ServiceStatus, Team } from './pages/Pages.jsx';
 import Pricing from './pages/Pricing.jsx';
 /* The one font file every page needs first (the same hashed file site.css loads), so text does not wait for the stylesheet. */
-import fontUrl from '@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-wght-normal.woff2?url';
+import fontUrl from '@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2?url';
 
 /** Every page: its address, title, description and component. The sitemap is made from this list. */
 export const ROUTES = [
