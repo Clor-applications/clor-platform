@@ -17,6 +17,8 @@ import { opsAudit, opsHandover, opsHealth, opsHome, opsMarkQueue, opsOverview, o
  */
 const n = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 const KI = { accounts: Building2, paying: Receipt, trials: CalendarClock, legacy: TriangleAlert };
+/* Light accents on Home (DESIGN.md): a soft tile by subject, never by app. */
+const KT = { accounts: 'info', paying: 'mint', trials: 'butter', legacy: 'peach' };
 const WORKER = { ok: ['Healthy', 'ws-pill ws-pill--ok'], late: ['Slow', 'ws-pill ws-pill--warn'], failing: ['Failing', 'ws-pill ws-pill--danger'] };
 const initials = (s) =>
   String(s || '?')
@@ -124,8 +126,8 @@ function Kpis({ d, error, onRetry, go, has }) {
       {shown.map((t) => {
         const Icon = KI[t.k];
         return (
-          <button key={t.k} type="button" className="ops-kpi" onClick={t.open}>
-            <span className="ops-kpi-chip" aria-hidden="true">
+          <button key={t.k} type="button" className={`ops-kpi${t.state ? ' ui-urgent' : ''}`} data-tone={t.state === 'neg' ? 'danger' : t.state || undefined} onClick={t.open}>
+            <span className="ops-kpi-chip ui-accent-ico" data-tone={KT[t.k]} aria-hidden="true">
               <Icon size={16} />
             </span>
             <span className="ops-kpi-label">{t.label}</span>

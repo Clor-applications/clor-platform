@@ -55,6 +55,15 @@ const shown = (d) => {
 };
 const inWords = (n) => (n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : `In ${n} days`);
 
+/* Light accents on Home (DESIGN.md): a soft tag naming what each due is about. */
+const SUBJECT_TONE = { TDS: 'info', PF: 'mint', ESI: 'lilac', 'Form 16': 'peach' };
+function subjectOf(key) {
+  if (key.startsWith('pf-')) return 'PF';
+  if (key.startsWith('esi-')) return 'ESI';
+  if (key.startsWith('f16-')) return 'Form 16';
+  return 'TDS';
+}
+
 export default function StatutoryDues({ today }) {
   const dues = nextDues(today);
   if (!dues.length) return null;
@@ -66,7 +75,7 @@ export default function StatutoryDues({ today }) {
           const left = daysBetween(today, d.date);
           return (
             <li key={d.key} className="ui-dues-row">
-              <span className="ui-dues-what">{d.what}</span>
+              <span className="ui-dues-what"><span className="ui-subject" data-tone={SUBJECT_TONE[subjectOf(d.key)]}>{subjectOf(d.key)}</span> {d.what}</span>
               <span className="ui-dues-when tabular-nums">
                 {shown(d.date)} · <span className={left <= 3 ? 'ui-text-warn' : 'ui-muted'}>{inWords(left)}</span>
               </span>

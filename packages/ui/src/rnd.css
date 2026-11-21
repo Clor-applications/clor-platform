@@ -852,3 +852,6 @@
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-urgent[data-tone='warn'] { box-shadow: inset 0 3px 0 rgb(var(--warn-soft)); border-color: rgb(var(--warn-soft)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-urgent[data-tone='danger'] { box-shadow: inset 0 3px 0 rgb(var(--neg-soft)); border-color: rgb(var(--neg-soft)); }
+/* A list has no card (legibility.css S1), so on a list the edge is its top rule, drawn 3px in the same tint. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-list-surface.ui-urgent[data-tone='warn'] { border-top: 3px solid rgb(var(--warn-soft)) !important; }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-list-surface.ui-urgent[data-tone='danger'] { border-top: 3px solid rgb(var(--neg-soft)) !important; }

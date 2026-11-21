@@ -220,7 +220,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
 
       {/* What is in the way, in the order somebody would act on it. */}
       {blockers.length ? (
-        <div className="ui-list-surface overflow-hidden">
+        <div className="ui-list-surface ui-urgent overflow-hidden" data-tone="warn">
           <div className="px-4 py-3 ui-sec-head" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
             Worth dealing with first
           </div>

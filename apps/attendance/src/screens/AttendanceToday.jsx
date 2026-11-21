@@ -124,9 +124,9 @@ export default function AttendanceToday({ openScreen }) {
   const go = (key) => openScreen && openScreen(key);
   const waiting = data
     ? [
-        { n: data.toValidate, label: data.toValidate === 1 ? 'day to validate' : 'days to validate', key: 'records', icon: ListChecks },
-        { n: data.pendingRequests, label: data.pendingRequests === 1 ? 'correction' : 'corrections', key: 'requests', icon: Inbox },
-        { n: data.pendingLeave, label: data.pendingLeave === 1 ? 'leave request' : 'leave requests', key: 'leaveRequests', icon: CalendarDays },
+        { n: data.toValidate, label: data.toValidate === 1 ? 'day to validate' : 'days to validate', key: 'records', icon: ListChecks, tone: 'mint' },
+        { n: data.pendingRequests, label: data.pendingRequests === 1 ? 'correction' : 'corrections', key: 'requests', icon: Inbox, tone: 'info' },
+        { n: data.pendingLeave, label: data.pendingLeave === 1 ? 'leave request' : 'leave requests', key: 'leaveRequests', icon: CalendarDays, tone: 'lilac' },
       ]
     : [];
   const weekRate = week
@@ -188,7 +188,7 @@ export default function AttendanceToday({ openScreen }) {
                   {waiting.filter((w) => w.n).map((w) => (
                     <li key={w.key}>
                       <button type="button" className="ui-today-hero-action" onClick={() => go(w.key)} disabled={!openScreen}>
-                        <w.icon size={16} aria-hidden="true" />
+                        <span className="ui-accent-ico" data-tone={w.tone} aria-hidden="true"><w.icon size={16} /></span>
                         <span className="min-w-0 flex-1 text-left">
                           <strong className="tabular-nums">{w.n}</strong> {w.label}
                         </span>
