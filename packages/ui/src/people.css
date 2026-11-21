@@ -732,10 +732,10 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   background-image: none;
 }
 /* Home figures: no coloured top bar (DESIGN.md: tiles never carry coloured bars). */
-:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-kpi {
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-kpi:not(.ui-urgent) {
   box-shadow: none !important;
 }
-:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-kpi-icon {
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-kpi-icon:not(.ui-accent-ico) {
   background: transparent;
   color: rgb(var(--fg-muted));
 }
