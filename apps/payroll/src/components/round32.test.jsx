@@ -8,8 +8,8 @@ const slip = (id, netPay, previousNetPay, paymentStatus = "UNPAID") => ({ id, em
 describe("payChangeReason", () => {
   it("names this month's inputs", () => {
     expect(payChangeReason(slip("a", 1, 2), { lwpDays: 2, overtimeAmount: 0 })).toBe("2 days unpaid");
-    expect(payChangeReason(slip("a", 1, 2), { lwpDays: 1, overtimeAmount: 2400 })).toBe("1 day unpaid · Overtime ₹2,400");
-    expect(payChangeReason(slip("a", 1, 2), { variablePay: 5000 })).toBe("Variable pay ₹5,000");
+    expect(payChangeReason(slip("a", 1, 2), { lwpDays: 1, overtimeAmount: 2400 })).toBe("1 day unpaid · Overtime ₹2,400.00");
+    expect(payChangeReason(slip("a", 1, 2), { variablePay: 5000 })).toBe("Variable pay ₹5,000.00");
   });
   it("says first payslip, or a salary change when no input explains it", () => {
     expect(payChangeReason(slip("a", 1, null), null)).toBe("First payslip");
@@ -33,8 +33,8 @@ describe("PayChanges", () => {
     ]);
     render(<PayChanges slips={[slip("b", 56000, 52000), slip("c", 29900, 32000)]} byEmployee={byEmployee} />);
     expect(screen.getByText(/Paid differently from last period · 2 people/)).toBeTruthy();
-    expect(screen.getByText("+₹4,000")).toBeTruthy();
-    expect(screen.getByText("−₹2,100")).toBeTruthy();
+    expect(screen.getByText("+₹4,000.00")).toBeTruthy();
+    expect(screen.getByText("−₹2,100.00")).toBeTruthy();
     expect(screen.getByText("2 days unpaid")).toBeTruthy();
   });
   it("says so when nobody moved", () => {

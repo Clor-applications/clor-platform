@@ -21,7 +21,7 @@ import { errorWords } from '@ui/utils/errorWords.js';
  */
 
 /* Paise as two figures, or none: ₹1,250.50, not ₹1,250.5. */
-const rupees = (n) => { const v = Number(n || 0); return `₹${v.toLocaleString('en-IN', Number.isInteger(v) ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; };
+const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** The clock in words: tone, headline and the line under it. */

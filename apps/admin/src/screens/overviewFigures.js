@@ -4,8 +4,8 @@
  * seats), kept apart from the screen so they can be tested on their own.
  */
 
-/** Rupees a month from paise, whole rupees: a run rate is read, not reconciled. */
-export const rupees = (paise) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Math.round(Number(paise) / 100));
+/** Rupees from paise, with two decimals like every amount (DESIGN.md money rule). */
+export const rupees = (paise) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.round(Number(paise)) / 100);
 
 /**
  * Seats in use per app: active members of the account who can open it in at

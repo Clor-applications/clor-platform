@@ -249,17 +249,17 @@ export const amountInWordsInr = (value, company) => {
  * non-number amount shows as ₹0.
  */
 /** Two decimals, or none when whole: ₹1,23,456.50 and ₹1,23,456 (never ₹1,23,456.5, audit 17 Nov 2026). */
+/* An amount in a sentence or a field: ₹ in front, Indian grouping, always two decimals (DESIGN.md money rule). */
 export const rupees = (n) => {
   const v = Number(n || 0);
-  const whole = Math.abs(v - Math.round(v)) < 0.005;
-  return `₹${v.toLocaleString('en-IN', whole ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `₹${v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 /*
  * An amount in a table cell (DESIGN.md money rule; design audit S8/G5):
  * ₹ in front, Indian grouping, two decimals, a true minus (\u2212, not -), and
  * "—" when it is zero or missing. A balance that should read ₹0.00 passes
  * `{ zero: true }`. Pair it with the tabular, right-aligned cell classes.
- * In a sentence use `rupees`, which drops ".00" from a whole amount.
+ * In a sentence use `rupees`, which shows a zero as ₹0.00.
  */
 export const moneyCell = (n, { zero = false } = {}) => {
   const v = Number(n);

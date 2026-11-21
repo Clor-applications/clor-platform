@@ -60,7 +60,7 @@ it('no-dues: lines with owner and money; the manager signs theirs', async () => 
   const onChanged = vi.fn();
   render(<LeavingSections data={data()} employeeId="e1" name="Ravi Kumar" onChanged={onChanged} />);
   expect(screen.getByText('0 of 2 signed')).toBeTruthy();
-  expect(screen.getByText('Owes ₹4,000')).toBeTruthy();
+  expect(screen.getByText('Owes ₹4,000.00')).toBeTruthy();
   expect(screen.getByText(/never hold up final wages/)).toBeTruthy();
   /* Not HR: no line can be added. */
   expect(screen.queryByText('Add a line')).toBeNull();

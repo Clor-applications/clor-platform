@@ -45,7 +45,7 @@ it('Record a claim is the one primary; it asks which person, then the bills, and
   /* The category picker: open it and choose Travel. */
   fireEvent.click(screen.getByRole('combobox', { name: 'For *' }));
   fireEvent.click(await screen.findByRole('option', { name: /Travel/ }));
-  expect(screen.getByText('₹570')).toBeTruthy();
+  expect(screen.getByText('₹570.00')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Record claim' }));
   await waitFor(() => expect(api.recordClaim).toHaveBeenCalledTimes(1));
   const sent = api.recordClaim.mock.calls[0][0];

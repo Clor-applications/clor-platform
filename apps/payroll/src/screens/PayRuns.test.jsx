@@ -116,5 +116,5 @@ it('post to accounts asks first with the debit total, and posts nothing when dec
 it('locking names the net pay and the head count', async () => {
   const { lockWords } = await import('../components/round59');
   const words = lockWords({ period: { name: 'November 2026', endDate: '2026-11-30' }, netTotal: 80000, employeeCount: 3 });
-  expect(words.message).toMatch(/^₹80,000 net pay to 3 people\. After locking/);
+  expect(words.message).toMatch(/^₹80,000.00 net pay to 3 people\. After locking/);
 });

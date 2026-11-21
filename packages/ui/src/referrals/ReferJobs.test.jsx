@@ -27,7 +27,7 @@ it('lists the jobs open to me with the bonus, and my referrals in plain words', 
   render(<ReferJobs api={apiWith()} />);
   expect(await screen.findByText('Sales executive', { selector: 'span' })).toBeTruthy();
   expect(screen.getByText('Sales · Pune · 2 places')).toBeTruthy();
-  expect(screen.getAllByText('₹5,000').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('₹5,000.00').length).toBeGreaterThan(0);
   expect(screen.getByText('Priya Shah')).toBeTruthy();
   expect(screen.getByText('Interviewing')).toBeTruthy();
   expect(screen.getByText('Not taken forward')).toBeTruthy();

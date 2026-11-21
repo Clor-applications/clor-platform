@@ -141,7 +141,7 @@ export default function AttendanceCalendar() {
                     onClick={() => open(d)}
                   >
                     <span className="ui-calendar-date">{Number(d.date.slice(8))}</span>
-                    {d.holiday ? <span className="ui-calendar-tag">{d.holiday}</span> : d.off ? <span className="ui-calendar-tag">Weekly off</span> : null}
+                    {d.holiday ? <span className="ui-calendar-tag" data-short="Hol" title={d.holiday}>{d.holiday}</span> : d.off ? <span className="ui-calendar-tag" data-short="Off">Weekly off</span> : null}
                     {!quiet ? (
                       <span className="ui-calendar-counts">
                         <span className="ui-count-in">{d.present + d.halfDay}<span className="ui-count-k"> in</span></span>
