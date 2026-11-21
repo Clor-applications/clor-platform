@@ -1,7 +1,7 @@
 import { expect, type Locator } from '@playwright/test';
 
 /**
- * Picks an option in a select, whether it is a native <select> or the app's own pop-up list.
+ * Picks an option in a select, whether it is a native <select>, the app's own pop-up list or its searchable select.
  *
  * Waits for what a person waits for: the field to be usable (a form keeps it
  * disabled while its choices load) and, for the pop-up list, the option to be
@@ -23,9 +23,10 @@ export async function choose(field: Locator, label: string | RegExp) {
     return;
   }
   const page = field.page();
-  const option = page.getByRole('option', { name: label }).first();
+  /* The app's searchable select (SelectField) lists its choices as menu items. */
+  const option = page.getByRole('option', { name: label }).or(page.getByRole('menuitemradio', { name: label })).first();
   /* Pressed again only when its list is shut: pressing an open list closes it. */
-  const isOpen = async () => (await field.getAttribute('aria-expanded')) === 'true' || (await page.getByRole('listbox').first().isVisible());
+  const isOpen = async () => (await field.getAttribute('aria-expanded')) === 'true' || (await page.getByRole('listbox').first().isVisible()) || (await page.getByRole('menu').first().isVisible());
   await expect(async () => {
     if (!(await option.isVisible()) && !(await isOpen())) await field.click();
     await expect(option).toBeVisible({ timeout: 3_000 });

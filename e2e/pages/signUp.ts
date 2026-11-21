@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { choose } from '../support/ui';
 
 /**
  * A new person signs up and sets up a company, as from clor.in's People page
@@ -13,7 +14,7 @@ export async function signUpForPeople(page: Page, o: { name: string; email: stri
   await page.getByRole('button', { name: 'Create account' }).click();
 
   await page.getByLabel('Company name').fill(o.company);
-  await page.getByLabel('State').selectOption(o.state || 'Karnataka');
+  await choose(page.getByLabel('State', { exact: true }), o.state || 'Karnataka');
   await page.getByRole('button', { name: 'Continue' }).click();
 
   /* People is already chosen, from the address. */
