@@ -4,6 +4,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead } from '../../apps/admin/src/screens/wsKit';
 import { Empty, Err, Loading, ReasonDrawer, Tabs, countsChanged, useRowBusy, when, errorWords } from './kit';
 import { opsApprovalLimit, opsApprovalStep, opsApprovals } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Approvals (operator console, Trust; server: routes/opsApprovals.ts). A deal
@@ -160,9 +161,9 @@ export function Approvals({ openCustomer }) {
                         </>
                       ) : null}
                       {a.canWithdraw ? (
-                        <button type="button" className="ws-btn ws-btn--quiet" disabled={rowBusy.busy(a.id)} onClick={() => withdraw(a)} aria-label={`Withdraw the request for ${a.customer}`}>
-                          {rowBusy.busy(a.id) ? 'Withdrawing…' : 'Withdraw'}
-                        </button>
+                        <Button plain className="ws-btn ws-btn--quiet" loading={rowBusy.busy(a.id)} onClick={() => withdraw(a)} aria-label={`Withdraw the request for ${a.customer}`}>
+                          Withdraw
+                        </Button>
                       ) : null}
                     </span>
                   ) : null}

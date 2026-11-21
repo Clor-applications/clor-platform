@@ -5,6 +5,7 @@ import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
 import { Err, ErrorSummary, Loading, when, errorWords } from './kit';
 import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { opsSaveSms, opsSms, opsTestSms } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Settings, Text messages (server: routes/pricing.ts, /ops/settings/sms):
@@ -83,9 +84,9 @@ export function TextMessages({ role }) {
         counts={`Sign-in codes by SMS · ${status}`}
         actions={
           mayChange ? (
-            <button type="submit" form="ops-sms" className="ws-btn ws-btn--primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save text settings'}
-            </button>
+            <Button plain className="ws-btn ws-btn--primary" loading={busy} type="submit" form="ops-sms">
+              Save text settings
+            </Button>
           ) : null
         }
       />
@@ -151,9 +152,9 @@ export function TextMessages({ role }) {
               <span className="text-sm font-semibold">Indian mobile number</span>
               <input className="ui-input tabular-nums" inputMode="tel" autoComplete="off" maxLength={16} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" />
             </label>
-            <button type="submit" className="ws-btn ws-btn--quiet" title={dirty ? 'Save first: the test uses what is saved' : undefined} disabled={testing || dirty || phone.replace(/\D/g, '').length < 10 || !sms.authKeySaved || !sms.templateId}>
-              {testing ? 'Sending…' : 'Send test text'}
-            </button>
+            <Button plain className="ws-btn ws-btn--quiet" loading={testing} disabled={dirty || phone.replace(/\D/g, '').length < 10 || !sms.authKeySaved || !sms.templateId} type="submit" title={dirty ? 'Save first: the test uses what is saved' : undefined}>
+              Send test text
+            </Button>
           </form>
         ) : null}
         {sms.lastTestAt ? (

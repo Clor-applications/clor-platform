@@ -8,6 +8,7 @@ import { enumWords, errorWords } from '@ui/utils/errorWords';
 import { Avatar, Empty, FilterSelect, LoadError, Loading, PageHead, StatusPill } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('scroll');
@@ -285,9 +286,9 @@ export default function AccountActivity() {
           </div>
         )}
         {next ? (
-          <button type="button" className="ws-btn ws-btn--quiet" style={{ justifySelf: 'start' }} disabled={older} aria-busy={older || undefined} onClick={() => { if (older) return; setOlder(true); load(filters, next); }}>
-            {older ? 'Loading older…' : 'Show older'}
-          </button>
+          <Button plain className="ws-btn ws-btn--quiet" loading={older} style={{ justifySelf: 'start' }} onClick={() => { if (older) return; setOlder(true); load(filters, next); }}>
+            Show older
+          </Button>
         ) : null}
         <p className="ws-foot-note">What CLOR support asks to see, and every look it is let in for, is recorded under Activity with who approved it.</p>
       </div>

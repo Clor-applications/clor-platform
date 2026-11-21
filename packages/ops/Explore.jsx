@@ -4,6 +4,7 @@ import { Err, Loading, errorWords } from './kit';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
 import { opsBuildSample, opsEndPass, opsExplorePasses, opsResendPass, opsSampleCompany } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Explore on the operator console (server: routes/opsExplore.ts).
@@ -148,9 +149,9 @@ export function SampleCompany({ role, openLinks }) {
   };
 
   const primary = mayAct ? (
-    <button type="button" className="ws-btn ws-btn--primary" disabled={Boolean(busy) || running || !d} onClick={() => build(false)}>
-      {running ? 'Building…' : busy === 'build' ? 'Starting…' : 'Build sample company'}
-    </button>
+    <Button plain className="ws-btn ws-btn--primary" loading={running || busy === 'build'} disabled={(Boolean(busy) && busy !== 'build') || !d} onClick={() => build(false)}>
+      Build sample company
+    </Button>
   ) : null;
 
   return (
@@ -183,9 +184,9 @@ export function SampleCompany({ role, openLinks }) {
               {d.build || d.exists ? <BuildLine build={d.build} /> : null}
               {mayAct && d.exists ? (
                 <div>
-                  <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={Boolean(busy) || running} onClick={() => build(true)}>
-                    {busy === 'rebuild' ? 'Starting…' : 'Rebuild from scratch'}
-                  </button>
+                  <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={busy === 'rebuild'} disabled={Boolean(busy) || running} onClick={() => build(true)}>
+                    Rebuild from scratch
+                  </Button>
                 </div>
               ) : null}
             </div>
@@ -323,13 +324,13 @@ export function ExploreLinks({ role, openRequest }) {
                     {mayAct ? (
                       <td>
                         <div className="flex gap-2 justify-end">
-                          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={Boolean(busy)} onClick={() => act('resend', p)}>
-                            {busy === `resend:${p.id}` ? 'Sending…' : 'Resend'}
-                          </button>
+                          <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={busy === `resend:${p.id}`} disabled={Boolean(busy)} onClick={() => act('resend', p)}>
+                            Resend
+                          </Button>
                           {p.state === 'active' ? (
-                            <button type="button" className="ws-btn ws-btn--danger ws-btn--small" disabled={Boolean(busy)} onClick={() => act('end', p)}>
-                              {busy === `end:${p.id}` ? 'Ending…' : 'End access'}
-                            </button>
+                            <Button plain className="ws-btn ws-btn--danger ws-btn--small" loading={busy === `end:${p.id}`} disabled={Boolean(busy)} onClick={() => act('end', p)}>
+                              End access
+                            </Button>
                           ) : null}
                         </div>
                       </td>

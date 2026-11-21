@@ -6,6 +6,7 @@ import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsActivateProvider, opsPaymentAccounts, opsPaymentEvents, opsPayments, opsProviderMode, opsRecordPayment, opsRetryPaymentEvent, opsSaveProvider, opsTestProvider } from './api';
 import { inr, toPaise } from './money';
 import { Err, ErrorSummary, FieldMsg, HoldOpen, Loading, errorWords, fieldErr, subWord } from './kit';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Payments (server: routes/opsPayments.ts, billing/providers.ts). How
@@ -347,12 +348,12 @@ function ProviderDrawer({ p, current = null, mayChange, onClose, onChanged }) {
             </button>
             {mayChange ? (
               <>
-                <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(busy) || dirty} title={dirty ? 'Save the keys first' : undefined} onClick={test}>
-                  {busy === 'test' ? 'Testing…' : keyed ? 'Test connection' : 'Check details'}
-                </button>
-                <button type="button" className="ws-btn ws-btn--primary" disabled={Boolean(busy) || !dirty} onClick={save}>
-                  {busy === 'save' ? 'Saving…' : 'Save keys'}
-                </button>
+                <Button plain className="ws-btn ws-btn--quiet" loading={busy === 'test'} disabled={Boolean(busy) || dirty} title={dirty ? 'Save the keys first' : undefined} onClick={test}>
+                  {keyed ? 'Test connection' : 'Check details'}
+                </Button>
+                <Button plain className="ws-btn ws-btn--primary" loading={busy === 'save'} disabled={Boolean(busy) || !dirty} onClick={save}>
+                  Save keys
+                </Button>
               </>
             ) : null}
           </>
@@ -472,9 +473,9 @@ function ProviderDrawer({ p, current = null, mayChange, onClose, onChanged }) {
                 {p.missing?.length ? <Problems list={p.missing} /> : null}
                 {mayChange ? (
                   <div>
-                    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={Boolean(busy) || dirty || Boolean(p.missing?.length)} onClick={activate}>
-                      {busy === 'activate' ? 'Making it active…' : `Make ${p.name} the active provider`}
-                    </button>
+                    <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={busy === 'activate'} disabled={Boolean(busy) || dirty || Boolean(p.missing?.length)} onClick={activate}>
+                      {`Make ${p.name} the active provider`}
+                    </Button>
                   </div>
                 ) : null}
               </>
@@ -524,9 +525,9 @@ function LiveConfirm({ p, onClose, onDone }) {
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy || word.trim().toUpperCase() !== 'LIVE'} onClick={go}>
-            {busy ? 'Switching…' : 'Switch to Live'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={word.trim().toUpperCase() !== 'LIVE'} onClick={go}>
+            Switch to Live
+          </Button>
         </>
       }
     >
@@ -664,9 +665,9 @@ function PaymentsLog({ mayChange, openCustomer }) {
                   </td>
                   <td>
                     {mayChange && e.canRetry ? (
-                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={busy === e.id} onClick={() => retry(e)}>
-                        {busy === e.id ? 'Retrying…' : 'Retry'}
-                      </button>
+                      <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={busy === e.id} onClick={() => retry(e)}>
+                        Retry
+                      </Button>
                     ) : null}
                   </td>
                 </tr>
@@ -677,9 +678,9 @@ function PaymentsLog({ mayChange, openCustomer }) {
       )}
       {next ? (
         <div>
-          <button type="button" className="ws-btn ws-btn--quiet" disabled={loadingMore} onClick={more}>
-            {loadingMore ? 'Loading…' : 'Show older'}
-          </button>
+          <Button plain className="ws-btn ws-btn--quiet" loading={loadingMore} onClick={more}>
+            Show older
+          </Button>
         </div>
       ) : null}
     </div>
@@ -767,9 +768,9 @@ function RecordPayment({ onClose, onDone }) {
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>
-            {busy ? 'Recording…' : 'Record payment'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} onClick={save}>
+            Record payment
+          </Button>
         </>
       }
     >

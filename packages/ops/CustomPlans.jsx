@@ -5,6 +5,7 @@ import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { APP_NAMES, Empty, Err, ErrorSummary, FieldMsg, Loading, ReasonDrawer, Tabs, may, errorWords, fieldErr } from './kit';
 import { inr, rupeesText, toPaise } from './money';
 import { opsAccounts, opsCustomPlanArchive, opsCustomPlanSave, opsCustomPlans } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Custom plans (operator console, Billing and setup; server: routes/opsDeals.ts): a deal's
@@ -175,9 +176,9 @@ export function PlanEditor({ editing, apps, onClose, onSaved, forAccount = null 
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" form="ops-plan" className="ws-btn ws-btn--primary" disabled={busy}>
-            {busy ? 'Saving…' : isNew ? 'Make plan' : 'Save plan'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} type="submit" form="ops-plan">
+            {isNew ? 'Make plan' : 'Save plan'}
+          </Button>
         </>
       }
     >

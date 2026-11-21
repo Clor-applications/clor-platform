@@ -16,6 +16,7 @@ import './workspace.css';
 import './ws-home.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('convenience-store');
@@ -730,7 +731,7 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
         </fieldset>
       ) : null}
       <div className="flex gap-2">
-        <button type="submit" className="ws-btn ws-btn--primary" disabled={busy}>{busy ? 'Saving…' : submitLabel}</button>
+        <Button plain className="ws-btn ws-btn--primary" loading={busy} type="submit">{submitLabel}</Button>
         <button type="button" className="ws-btn ws-btn--quiet" onClick={onCancel}>Cancel</button>
       </div>
     </form>

@@ -5,6 +5,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsSaveTax, opsTax } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Settings, Tax (server: routes/pricing.ts, PUT /ops/settings/tax): CLOR's
@@ -104,9 +105,9 @@ export function Settings({ role }) {
         counts={tax.registered ? `GST registered · ${tax.gstin}` : 'Not GST registered'}
         actions={
           mayChange ? (
-            <button type="submit" form="ops-tax" className="ws-btn ws-btn--primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save tax settings'}
-            </button>
+            <Button plain className="ws-btn ws-btn--primary" loading={busy} type="submit" form="ops-tax">
+              Save tax settings
+            </Button>
           ) : null
         }
       />

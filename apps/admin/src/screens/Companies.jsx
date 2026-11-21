@@ -13,6 +13,7 @@ import './workspace.css';
 import './ws-home.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('classical-building');
@@ -325,7 +326,7 @@ export function AddCompanyForm({ onAdd, onCancel }) {
         </div>
       )}
       <div className="flex gap-2">
-        <button type="submit" className="ws-btn ws-btn--primary" disabled={busy}>{busy ? 'Adding…' : 'Add company'}</button>
+        <Button plain className="ws-btn ws-btn--primary" loading={busy} type="submit">Add company</Button>
         <button type="button" className="ws-btn ws-btn--quiet" onClick={onCancel}>Cancel</button>
       </div>
     </form>

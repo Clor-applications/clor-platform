@@ -5,6 +5,7 @@ import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { Empty, Err, ErrorSummary, FieldMsg, Loading, ReasonDrawer, Tabs, day, may, errorWords, countLine, fieldErr } from './kit';
 import { inr, rupeesText, toPaise } from './money';
 import { opsOfferSave, opsOfferStep, opsOffers } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Offers (operator console, Billing and setup; server: routes/opsDeals.ts). A code that
@@ -128,9 +129,9 @@ function Editor({ editing, plans, onClose, onSaved }) {
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" form="ops-offer" className="ws-btn ws-btn--primary" disabled={busy}>
-            {busy ? 'Saving…' : isNew ? 'Make offer' : 'Save offer'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} type="submit" form="ops-offer">
+            {isNew ? 'Make offer' : 'Save offer'}
+          </Button>
         </>
       }
     >

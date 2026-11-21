@@ -5,6 +5,7 @@ import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsAddVendorDocument, opsProformaToInvoice, opsProformas, opsRemoveVendorDocument, opsTdsCertificate, opsTdsDue, opsVendorDocumentFile, opsVendorDocuments } from './api';
 import { Empty, Err, Loading, day, may, errorWords } from './kit';
 import { inr } from './money';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Round 67 (selling to companies and CAs), on ops.clor.in under Billing:
@@ -322,9 +323,9 @@ function AddDocument({ onClose, onSaved }) {
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>
             Cancel
           </button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>
-            {busy ? 'Adding…' : 'Add document'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} onClick={save}>
+            Add document
+          </Button>
         </>
       }
     >

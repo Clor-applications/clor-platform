@@ -4,6 +4,7 @@ import { notify } from '@ui/components/ui/notify';
 import { PageHead } from '../../apps/admin/src/screens/wsKit';
 import { Empty, Err, Loading, Pager, when, errorWords } from './kit';
 import { opsAccounts, opsAudit, opsAuditExport, opsAuditFilters } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * The audit log (operator console): everything CLOR staff did, newest first,
@@ -59,9 +60,9 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
         title="Staff audit log"
         description="Every change a CLOR staff member made, with who, when, the customer and the reason. Nobody can edit or remove a line."
         actions={
-          <button type="button" className="ws-btn ws-btn--quiet" disabled={busy || !d?.events?.length} onClick={download}>
-            {busy ? 'Preparing…' : 'Download CSV'}
-          </button>
+          <Button plain className="ws-btn ws-btn--quiet" loading={busy} disabled={!d?.events?.length} onClick={download}>
+            Download CSV
+          </Button>
         }
       />
       <div className="ops-filters" role="search">

@@ -3,6 +3,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsAccounts, opsAssignStatus, opsPostStatus, opsRemoveStatus, opsStatusPosts, opsUpdateStatus } from './api';
 import { Empty, Err, HoldOpen, Loading, Tabs, errorWords, may, when } from './kit';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Status page (server: routes/opsStatus.ts). clor.in/status checks CLOR's
@@ -146,7 +147,7 @@ function Assign({ post, staff, onClose, onSaved }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} onClick={save}>Save</Button>
         </>
       }
     >
@@ -202,7 +203,7 @@ function NewPost({ staff, onClose, onSaved }) {
         previewing ? (
           <>
             <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={() => setPreviewing(false)}>Back to editing</button>
-            <button type="button" className="ws-btn ws-btn--primary" disabled={busy || !ready} onClick={save}>{busy ? 'Posting…' : 'Post notice'}</button>
+            <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={!ready} onClick={save}>Post notice</Button>
           </>
         ) : (
           <>
@@ -311,7 +312,7 @@ function AddUpdate({ post, onClose, onSaved }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy || body.trim().length < 4} onClick={save}>{busy ? 'Posting…' : 'Post update'}</button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={body.trim().length < 4} onClick={save}>Post update</Button>
         </>
       }
     >

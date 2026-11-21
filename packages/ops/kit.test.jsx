@@ -14,7 +14,7 @@ describe('the console kit', () => {
     expect(why).toHaveAccessibleDescription('Reason required (3+ characters)');
     fireEvent.change(why, { target: { value: 'Unpaid for three months' } });
     fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
-    expect(await screen.findByRole('button', { name: 'Working…' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Suspend' })).toHaveAttribute('aria-busy', 'true'));
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
     fireEvent.keyDown(why, { key: 'Escape' });

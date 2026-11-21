@@ -7,6 +7,7 @@ import { LoadError, WsDrawer } from './wsKit';
 import { InvoiceDocument, inr } from './InvoiceDocument';
 import { invoiceDay } from './InvoiceDrawer';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Round 67 (selling to companies and CAs), Workspace → Plan → Invoices, below
@@ -127,9 +128,9 @@ function PurchaseOrders() {
             <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => (setAdding(false), setProblems([]))}>
               Cancel
             </button>
-            <button type="button" className="ws-btn ws-btn--primary ws-btn--small" disabled={busy} onClick={save}>
-              {busy ? 'Saving…' : 'Save PO'}
-            </button>
+            <Button plain className="ws-btn ws-btn--primary ws-btn--small" loading={busy} onClick={save}>
+              Save PO
+            </Button>
           </div>
           {problems.length ? (
             <ul role="alert" className="text-sm r67-problems">
@@ -192,9 +193,9 @@ function ProformaList() {
           <h2 id="r67-pf-title" className="ws-h2">Proformas</h2>
           <p className="ws-card-blurb">A proforma shows your plan with GST, for your accounts team to pay against. It is valid for 15 days. The tax invoice follows once the payment arrives.</p>
         </div>
-        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={making} onClick={make}>
-          {making ? 'Making…' : 'Get a proforma'}
-        </button>
+        <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={making} onClick={make}>
+          Get a proforma
+        </Button>
       </div>
       {rows === null ? null : !rows.length ? (
         <p className="ws-item-sub">No proformas yet.</p>

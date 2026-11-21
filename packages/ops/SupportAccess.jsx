@@ -3,6 +3,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsAskSupportGrant, opsEndSupportGrant, opsSupportGrants } from './api';
 import { Empty, Err, Loading, countsChanged, may, useRowBusy, when, errorWords } from './kit';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Customer page → Support access (docs/workspace/SUPPORT_GRANTS.md).
@@ -114,7 +115,7 @@ export function SupportAccess({ id, companies, role }) {
               <input type="checkbox" className="ui-checkbox" checked={change} onChange={(e) => setChange(e.target.checked)} /> I may need to change something to fix it
             </label>
             <div>
-              <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || !orgId || reason.trim().length < 10}>{busy ? 'Asking…' : 'Ask the customer'}</button>
+              <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={!orgId || reason.trim().length < 10} type="submit">Ask the customer</Button>
             </div>
           </form>
         </Panel>
@@ -149,9 +150,9 @@ export function SupportAccess({ id, companies, role }) {
                           Open in the app
                         </a>
                       ) : null}
-                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={rowBusy.busy(g.id)} onClick={() => end(g)}>
-                        {rowBusy.busy(g.id) ? 'Closing…' : g.state === 'PENDING' ? 'Withdraw' : 'Done, close it'}
-                      </button>
+                      <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={rowBusy.busy(g.id)} onClick={() => end(g)}>
+                        {g.state === 'PENDING' ? 'Withdraw' : 'Done, close it'}
+                      </Button>
                     </span>
                   ) : null}
                 </div>

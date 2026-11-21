@@ -22,6 +22,7 @@ import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('locked');
@@ -108,7 +109,7 @@ function NewKey({ scopes, onDone, onClose }) {
           <p className="ui-caption">You can extend it later.</p>
           <div className="flex gap-2">
             <button type="button" className="ws-btn ws-btn--quiet" onClick={async () => { if (await askDiscard(dirty)) onClose(); }}>Cancel</button>
-            <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || noScope} aria-describedby={noScope ? 'ws-newkey-rule' : undefined}>{busy ? 'Making…' : 'Make the key'}</button>
+            <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={noScope} type="submit" aria-describedby={noScope ? 'ws-newkey-rule' : undefined}>Make the key</Button>
           </div>
         </form>
       </div>
@@ -177,7 +178,7 @@ function Change({ action, credential, onDone, onClose }) {
           )}
           <div className="flex gap-2">
             <button type="button" className="ws-btn ws-btn--quiet" onClick={async () => { if (await askDiscard(dirty)) onClose(); }}>Cancel</button>
-            <button type="submit" className={`ws-btn ${action === 'revoke' ? 'ws-btn--danger' : 'ws-btn--primary'}`} disabled={busy}>{busy ? 'Working…' : ACTION_LABEL[action]}</button>
+            <Button plain className={`ws-btn ${action === 'revoke' ? 'ws-btn--danger' : 'ws-btn--primary'}`} loading={busy} type="submit">{ACTION_LABEL[action]}</Button>
           </div>
         </form>
       </div>

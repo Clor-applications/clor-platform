@@ -8,6 +8,7 @@ import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { PageHead, Panel, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsArchivePriceBook, opsNewPriceBook, opsPriceBook, opsPricePreview, opsPricing, opsPublishPriceBook, opsRollBackPriceBook, opsSamplePlans, opsSavePriceBook } from './api';
 import { inr, rupeesText, toPaise } from './money';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Pricing (server: routes/pricing.ts). CLOR's price list is made here and
@@ -220,9 +221,9 @@ function NewBook({ open, live, onClose, onMade }) {
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={make}>
-            {busy ? 'Making…' : 'Make the draft'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} onClick={make}>
+            Make the draft
+          </Button>
         </>
       }
     >
@@ -595,12 +596,12 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
               <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setEditing(plans.length)}>
                 Add a plan
               </button>
-              <button type="button" className="ws-btn ws-btn--quiet" disabled={sampling} onClick={() => (plans.length ? setConfirm('sample') : loadSample())}>
-                {sampling ? 'Loading…' : plans.length ? 'Replace with sample prices' : 'Load sample prices'}
-              </button>
-              <button type="button" className="ws-btn ws-btn--quiet" disabled={!dirty || saving} onClick={save}>
-                {saving ? 'Saving…' : 'Save draft'}
-              </button>
+              <Button plain className="ws-btn ws-btn--quiet" loading={sampling} onClick={() => (plans.length ? setConfirm('sample') : loadSample())}>
+                {plans.length ? 'Replace with sample prices' : 'Load sample prices'}
+              </Button>
+              <Button plain className="ws-btn ws-btn--quiet" loading={saving} disabled={!dirty} onClick={save}>
+                Save draft
+              </Button>
               <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setConfirm('discard')}>
                 Discard draft
               </button>
@@ -685,9 +686,9 @@ function SampleConfirm({ count, busy, onClose, onConfirm }) {
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>
             Cancel
           </button>
-          <button type="button" className="ws-btn ws-btn--danger" disabled={busy} onClick={onConfirm}>
-            {busy ? 'Loading…' : 'Replace plans'}
-          </button>
+          <Button plain className="ws-btn ws-btn--danger" loading={busy} onClick={onConfirm}>
+            Replace plans
+          </Button>
         </div>
       }
     >

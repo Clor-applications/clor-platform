@@ -3,6 +3,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
 import { opsSetSwitch, opsSwitches } from './api';
 import { Err, Loading, when, errorWords } from './kit';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Forms on clor.in (server: routes/opsInsights.ts, services/platformSwitches.ts):
@@ -55,12 +56,12 @@ function SwitchCard({ s, canChange, onSaved }) {
                 <span className="ui-caption">Leave empty for the words shown above as the example.</span>
               </label>
               <div>
-                <button type="button" className="ws-btn ws-btn--danger" disabled={busy} onClick={() => flip(false)}>{busy ? 'Pausing…' : 'Pause'}</button>
+                <Button plain className="ws-btn ws-btn--danger" loading={busy} onClick={() => flip(false)}>Pause</Button>
               </div>
             </>
           ) : (
             <div>
-              <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={() => flip(true)}>{busy ? 'Opening…' : 'Open again'}</button>
+              <Button plain className="ws-btn ws-btn--primary" loading={busy} onClick={() => flip(true)}>Open again</Button>
             </div>
           )
         ) : null}

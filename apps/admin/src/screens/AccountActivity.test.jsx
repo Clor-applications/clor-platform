@@ -60,7 +60,7 @@ describe('Workspace → Audit log', () => {
     await screen.findByText('Suspended in the account');
     accountAudit.mockImplementationOnce(() => new Promise(() => {}));
     fireEvent.click(screen.getByRole('button', { name: 'Show older' }));
-    expect(await screen.findByRole('button', { name: 'Loading older…' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Show older' })).toHaveAttribute('aria-busy', 'true'));
   });
 
   it('searches 250ms after the last key', async () => {

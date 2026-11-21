@@ -4,6 +4,7 @@ import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
 import { Err, Loading, Pager, errorWords } from './kit';
 import { opsAccounts, opsExtendTrial, opsResendSignup, opsSignups } from './api';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Trials (roadmap item 7): every account on a free trial, and every trial
@@ -231,7 +232,7 @@ function ResendButton({ id, onDone }) {
     }
   };
   return (
-    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={busy} onClick={send}>{busy ? 'Sending…' : 'Send link again'}</button>
+    <Button plain className="ws-btn ws-btn--quiet ws-btn--small" loading={busy} onClick={send}>Send link again</Button>
   );
 }
 
@@ -277,9 +278,9 @@ function TrialDrawer({ action, onClose, onDone }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>Cancel</button>
-          <button type="submit" form="ops-trial" className="ws-btn ws-btn--primary" disabled={busy || reason.trim().length < 3 || !daysOk}>
-            {busy ? 'Working…' : 'Extend trial'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={reason.trim().length < 3 || !daysOk} type="submit" form="ops-trial">
+            Extend trial
+          </Button>
         </>
       }
     >

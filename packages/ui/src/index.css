@@ -944,8 +944,8 @@
      ("Saved") for about 1.5s. The toast stays the main success signal.
      The tick takes the icon's colour (`--btn-icon-color`) and the spinner
      takes `--btn-spinner-color` when an app sets one, else the icon's. */
-  .ui-btn[aria-busy='true'],
-  .ui-btn[data-state='loading'] {
+  :is(.ui-btn, .ws-btn)[aria-busy='true'],
+  :is(.ui-btn, .ws-btn)[data-state='loading'] {
     pointer-events: none;
   }
   .ui-btn-icon {
@@ -982,14 +982,14 @@
     border-right-color: transparent;
     animation: ui-spin 700ms linear infinite;
   }
-  .ui-btn-sm .ui-btn-spinner { width: 0.75rem; height: 0.75rem; }
+  :is(.ui-btn-sm, .ws-btn--small) .ui-btn-spinner { width: 0.75rem; height: 0.75rem; }
   .ui-btn-label > .ui-btn-spinner { visibility: hidden; }
   /* Loading, no icon: the label goes quiet (still read out) and the spinner sits where it was. */
-  .ui-btn:is([aria-busy='true'], [data-state='loading']) .ui-btn-label:has(> .ui-btn-spinner) > .ui-btn-text { opacity: 0; }
-  .ui-btn:is([aria-busy='true'], [data-state='loading']) .ui-btn-label > .ui-btn-spinner { visibility: visible; }
+  :is(.ui-btn, .ws-btn):is([aria-busy='true'], [data-state='loading']) .ui-btn-label:has(> .ui-btn-spinner) > .ui-btn-text { opacity: 0; }
+  :is(.ui-btn, .ws-btn):is([aria-busy='true'], [data-state='loading']) .ui-btn-label > .ui-btn-spinner { visibility: visible; }
   /* Done: the word replaces the label for a moment. */
-  .ui-btn[data-state='done'] .ui-btn-label > .ui-btn-text { visibility: hidden; }
-  .ui-btn[data-state='done'] .ui-btn-done {
+  :is(.ui-btn, .ws-btn)[data-state='done'] .ui-btn-label > .ui-btn-text { visibility: hidden; }
+  :is(.ui-btn, .ws-btn)[data-state='done'] .ui-btn-done {
     visibility: visible;
     animation: ui-btn-done-in var(--dur-state, 120ms) var(--ease-out, ease-out) both;
   }

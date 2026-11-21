@@ -3,6 +3,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { opsRemoveSavedReply, opsSaveSavedReply, opsSavedReplies } from './api';
 import { APP_NAMES, Empty, Err, ErrorSummary, FieldMsg, Loading, errorWords, fieldErr, may } from './kit';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Saved replies (server: routes/opsSavedReplies.ts): the answers Support gives
@@ -55,9 +56,9 @@ function Editor({ reply, onClose, onSaved }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy} onClick={close}>Cancel</button>
-          <button type="button" className="ws-btn ws-btn--primary" disabled={busy} onClick={save}>
-            {busy ? 'Saving…' : 'Save reply'}
-          </button>
+          <Button plain className="ws-btn ws-btn--primary" loading={busy} onClick={save}>
+            Save reply
+          </Button>
         </>
       }
     >

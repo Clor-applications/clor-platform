@@ -41,6 +41,7 @@ import './workspace.css';
 import './ws-security.css';
 import './ws-access.css';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* The colour icons the empty lists show: each the one its menu item wears. */
 const EMPTY_ICON = emoji('bust-in-silhouette');
@@ -498,7 +499,7 @@ export function SettingsUsers({ orgId, params }) {
   const footer = (formId, label) => (
     <>
       <button type="button" className="ws-btn ws-btn--quiet" onClick={async () => { if (await askDiscard(panelDirty)) close(); }}>Cancel</button>
-      <button type="submit" form={formId} className="ws-btn ws-btn--primary" disabled={busy || panelLoading}>{busy ? 'Saving…' : label}</button>
+      <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={panelLoading} type="submit" form={formId}>{label}</Button>
     </>
   );
 

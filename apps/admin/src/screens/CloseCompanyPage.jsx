@@ -7,6 +7,7 @@ import { notify } from '@ui/components/ui/notify';
 import { ICON, LoadError, Loading, PageHead, Panel } from './wsKit';
 import './workspace.css';
 import { errorWords } from '@ui/utils/errorWords';
+import { Button } from '@ui/components/ui/Primitives';
 
 /**
  * Workspace → Data → Close company (redesign W-R9; LX-07 part 2).
@@ -163,15 +164,9 @@ export default function CloseCompanyPage({ companyName = '' }) {
                   <input className="ui-input w-full" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" aria-label={`Type ${name} to confirm`} spellCheck={false} />
                 </label>
                 <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    className="ws-btn ws-btn--danger"
-                    data-write
-                    onClick={ask}
-                    disabled={busy === 'close' || !exportFresh || !nameMatches}
-                  >
-                    {busy === 'close' ? 'Scheduling…' : `Close company after ${state.noticeDays} days`}
-                  </button>
+                  <Button plain className="ws-btn ws-btn--danger" loading={busy === 'close'} disabled={!exportFresh || !nameMatches} data-write onClick={ask}>
+                    {`Close company after ${state.noticeDays} days`}
+                  </Button>
                   {!exportFresh ? <span className="ws-head-meta">Download the export first.</span> : null}
                 </div>
               </section>

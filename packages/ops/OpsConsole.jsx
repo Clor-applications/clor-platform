@@ -91,6 +91,7 @@ import { opsEnableTwoFactor, opsHome, opsMe, opsMySupportGrants, opsStartTwoFact
 import { ConsoleGrant, consoleGrantState } from './ConsoleGrant';
 import { confirmLeave, hasUnsaved } from '@platform/unsaved';
 import { confirmDialog } from '@ui/components/ui/notify';
+import { Button } from '@ui/components/ui/Primitives';
 
 /* Leaving a page with unsaved edits (a price-book draft): Stay is the main button, so a stray click loses nothing. */
 const askLeave = () =>
@@ -424,7 +425,7 @@ function EnrolAuthenticator({ onDone }) {
             <p className="ws-card-blurb">Can’t scan? Enter this key: <span className="ui-mono" style={{ wordBreak: 'break-all' }}>{setup.secret}</span></p>
             <div className="flex gap-2">
               <input className="ui-input ui-num w-36 text-center tracking-widest" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456" aria-label="Code from the app" value={code} onChange={(e) => { setCode(e.target.value); setError(''); }} autoFocus />
-              <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || code.trim().length !== 6}>{busy ? 'Turning on…' : 'Turn on'}</button>
+              <Button plain className="ws-btn ws-btn--primary" loading={busy} disabled={code.trim().length !== 6} type="submit">Turn on</Button>
             </div>
           </div>
         </form>
