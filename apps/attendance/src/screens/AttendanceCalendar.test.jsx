@@ -44,3 +44,17 @@ it('gives each day a spoken label and moves between days with the arrow keys', a
   await waitFor(() => expect(document.activeElement).toBe(before));
   expect(before.getAttribute('tabindex')).toBe('0');
 });
+
+/* Audit 21 Nov 2026: on a phone a weekly off or a holiday still says so, as "Off" or "Hol" (index.css reads data-short). */
+it('gives a weekly off and a holiday their short phone label', async () => {
+  const { getCalendar } = await import('../api/attendance');
+  getCalendar.mockResolvedValueOnce({
+    month: '2026-11',
+    today: '2026-11-03',
+    days: [day('2026-11-01', { off: true }), day('2026-11-02', { holiday: 'Diwali' }), day('2026-11-03')],
+  });
+  runReport.mockResolvedValue({ rows: [] });
+  render(<AttendanceCalendar />);
+  expect((await screen.findByText('Weekly off')).getAttribute('data-short')).toBe('Off');
+  expect(screen.getByText('Diwali').getAttribute('data-short')).toBe('Hol');
+});

@@ -62,7 +62,7 @@ it('opens a draft sheet, changes days and approves it', async () => {
   await user.tab();
   await waitFor(() => expect(editWageLine).toHaveBeenCalledWith('s1', 'l1', { daysWorked: 5 }));
   const row = screen.getByText('Ravi Kumar').closest('tr');
-  expect(within(row).getByText('₹576')).toBeTruthy();
+  expect(within(row).getByText('₹576.00')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: /Approve/ }));
   await waitFor(() => expect(approveWageSheet).toHaveBeenCalledWith('s1'));
   expect(await screen.findByRole('button', { name: /Mark paid/ })).toBeTruthy();

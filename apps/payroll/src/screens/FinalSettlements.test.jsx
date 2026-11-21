@@ -73,10 +73,10 @@ it('a settlement with no hold pays as before', async () => {
   render(<FinalSettlements />);
   await open(user);
   expect(screen.queryByText(/Nothing is forfeited/)).toBeNull();
-  /* Asked first (QA of #82, F7): she owes ₹3,000, so it is money received. */
+  /* Asked first (QA of #82, F7): she owes ₹3,000,.00 so it is money received. */
   vi.mocked(confirmDialog).mockResolvedValueOnce(false);
   await user.click(screen.getByRole('button', { name: 'Mark received' }));
-  expect(vi.mocked(confirmDialog).mock.calls.at(-1)[0].title).toMatch(/^Mark ₹3,000(\.00)? received from Ravi Kumar\?$/);
+  expect(vi.mocked(confirmDialog).mock.calls.at(-1)[0].title).toMatch(/^Mark ₹3,000.00(\.00)? received from Ravi Kumar\?$/);
   expect(markSettlementPaid).not.toHaveBeenCalled();
   vi.mocked(confirmDialog).mockResolvedValueOnce(true);
   await user.click(screen.getByRole('button', { name: 'Mark received' }));
@@ -159,7 +159,7 @@ it('F7: approving a settlement the person owes says so in words', async () => {
   await user.click(await screen.findByText('Meena Iyer'));
   await user.click(within(screen.getByRole('complementary', { name: 'drawer' })).getByRole('button', { name: 'Approve' }));
   const title = vi.mocked(confirmDialog).mock.calls.at(-1)[0].title;
-  expect(title).toMatch(/^Meena Iyer owes ₹11,200(\.00)?\. Approve this settlement\?$/);
+  expect(title).toMatch(/^Meena Iyer owes ₹11,200.00(\.00)?\. Approve this settlement\?$/);
   expect(title).not.toMatch(/−|-₹/);
   expect(approveSettlement).not.toHaveBeenCalled();
 });
@@ -199,12 +199,12 @@ describe('the limit on recovering loans and advances (setting 4)', () => {
     render(<FinalSettlements />);
     await open(user);
     const drawer = screen.getByRole('complementary', { name: 'drawer' });
-    expect(within(row(drawer, 'Final wages')).getByText('₹8,000')).toBeInTheDocument();
-    expect(within(row(drawer, 'Most that can be recovered (50%)')).getByText('₹4,000')).toBeInTheDocument();
-    expect(within(row(drawer, 'Recovered here')).getByText('₹4,000')).toBeInTheDocument();
-    expect(within(row(drawer, 'Stays owed by Ravi Kumar')).getByText('₹6,000')).toBeInTheDocument();
-    expect(within(drawer).getByText(/₹4,000 of ₹6,000 recovered here; ₹2,000 stays owed\. The limit on recovery holds it back\./)).toBeInTheDocument();
-    expect(within(drawer).getByText(/₹0 of ₹4,000 recovered here; ₹4,000 stays owed/)).toBeInTheDocument();
+    expect(within(row(drawer, 'Final wages')).getByText('₹8,000.00')).toBeInTheDocument();
+    expect(within(row(drawer, 'Most that can be recovered (50%)')).getByText('₹4,000.00')).toBeInTheDocument();
+    expect(within(row(drawer, 'Recovered here')).getByText('₹4,000.00')).toBeInTheDocument();
+    expect(within(row(drawer, 'Stays owed by Ravi Kumar')).getByText('₹6,000.00')).toBeInTheDocument();
+    expect(within(drawer).getByText(/₹4,000.00 of ₹6,000.00 recovered here; ₹2,000.00 stays owed\. The limit on recovery holds it back\./)).toBeInTheDocument();
+    expect(within(drawer).getByText(/₹0.00 of ₹4,000.00 recovered here; ₹4,000.00 stays owed/)).toBeInTheDocument();
     expect(within(drawer).getByText(/not written off: it stays on the loan or advance, shown in People/)).toBeInTheDocument();
     expect(within(drawer).getByText(/gratuity and reimbursements never count/)).toBeInTheDocument();
     /* Review of #86: entered deductions stand in full, and the screen says so. */
@@ -221,7 +221,7 @@ describe('the limit on recovering loans and advances (setting 4)', () => {
     await open(user);
     const drawer = screen.getByRole('complementary', { name: 'drawer' });
     expect(within(drawer).getByText(/Nothing is left owed/)).toBeInTheDocument();
-    expect(within(drawer).getByText(/Days worked ₹14,000 \(payslip PS-10\)/)).toBeInTheDocument();
+    expect(within(drawer).getByText(/Days worked ₹14,000.00 \(payslip PS-10\)/)).toBeInTheDocument();
     expect(within(drawer).queryByText(/stays owed\./)).not.toBeInTheDocument();
     expect(within(drawer).queryByText(/payroll is approved/)).not.toBeInTheDocument();
   });
@@ -232,7 +232,7 @@ describe('the limit on recovering loans and advances (setting 4)', () => {
     render(<FinalSettlements />);
     await open(user);
     const drawer = screen.getByRole('complementary', { name: 'drawer' });
-    expect(within(row(drawer, 'Stays owed by Ravi Kumar')).getByText('₹6,000')).toBeInTheDocument();
+    expect(within(row(drawer, 'Stays owed by Ravi Kumar')).getByText('₹6,000.00')).toBeInTheDocument();
     expect(within(drawer).queryByText(/Calculate it again then/)).not.toBeInTheDocument();
   });
 
@@ -245,7 +245,7 @@ describe('the limit on recovering loans and advances (setting 4)', () => {
     await open(user);
     const drawer = screen.getByRole('complementary', { name: 'drawer' });
     const note = within(drawer).getByText(/These figures are from the earlier payslip/);
-    expect(note).toHaveTextContent("These figures are from the earlier payslip (PS-10). The leaving month's payroll has changed since, and the limit now allows ₹7,000 to be recovered.");
+    expect(note).toHaveTextContent("These figures are from the earlier payslip (PS-10). The leaving month's payroll has changed since, and the limit now allows ₹7,000.00 to be recovered.");
     await user.click(within(drawer).getByRole('button', { name: 'Calculate again from the new payslip' }));
     expect(recalculateSettlement).toHaveBeenCalledWith('s1');
     unmount();

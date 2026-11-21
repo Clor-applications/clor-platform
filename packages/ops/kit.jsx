@@ -245,7 +245,7 @@ export function ReasonDrawer({ open, title, what, confirmLabel, cancelLabel = 'C
   const actions = (
     <>
       <button type="button" className="ws-btn ws-btn--quiet" onClick={close} disabled={busy}>{cancelLabel}</button>
-      <button type="submit" form="ops-reason" className={tone === 'danger' ? 'ws-btn ws-btn--danger' : 'ws-btn ws-btn--primary'} disabled={busy || !okReason || !ready}>
+      <button type="submit" form="ops-reason" className={tone === 'danger' ? 'ws-btn ws-btn--danger' : 'ws-btn ws-btn--primary'} disabled={busy || !okReason || !ready} aria-busy={busy || undefined}>
         {busy ? 'Working…' : confirmLabel}
       </button>
     </>
@@ -282,7 +282,7 @@ export function ReasonDrawer({ open, title, what, confirmLabel, cancelLabel = 'C
      a confirmation that only shows things (a list of price changes) a dialog; `wide` gives it room. */
   if (modal) {
     return open ? (
-      <Modal title={title} onClose={close} showCloseIcon={!busy} dirty={busy || dirty} maxWidthClass={wide ? 'max-w-[640px]' : 'max-w-[420px]'} footer={<div className="flex justify-end gap-2">{actions}</div>}>
+      <Modal title={title} onClose={close} showCloseIcon={!busy} busy={busy} dirty={dirty} maxWidthClass={wide ? 'max-w-[640px]' : 'max-w-[420px]'} footer={<div className="flex justify-end gap-2">{actions}</div>}>
         {form}
       </Modal>
     ) : null;

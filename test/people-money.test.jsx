@@ -99,9 +99,9 @@ describe('the employee app: spent for work', () => {
     const form = screen.getByRole('form', { name: 'Add a bill' });
     fireEvent.change(within(form).getByRole('combobox', { name: /What it was for/ }), { target: { value: 'c2' } });
     fireEvent.change(within(form).getByPlaceholderText('0'), { target: { value: '800' } });
-    expect(within(form).getByText(/Food and meals limit is ₹1,000 a bill · ₹200 left/)).toBeTruthy();
+    expect(within(form).getByText(/Food and meals limit is ₹1,000.00 a bill · ₹200.00 left/)).toBeTruthy();
     fireEvent.change(within(form).getByPlaceholderText('0'), { target: { value: '1250' } });
-    expect(within(form).getByText(/₹250 over/)).toBeTruthy();
+    expect(within(form).getByText(/₹250.00 over/)).toBeTruthy();
   });
 
   it('a draft shows its bills and total, and is sent against an open advance', async () => {
@@ -111,8 +111,8 @@ describe('the employee app: spent for work', () => {
     }));
     render(<MyMoney guard={guard} />);
     expect(await screen.findByText('Not sent yet')).toBeTruthy();
-    expect(screen.getByText('₹1,650')).toBeTruthy();
-    expect(screen.getByText(/Over the ₹1,000 limit for Food and meals/)).toBeTruthy();
+    expect(screen.getByText('₹1,650.00')).toBeTruthy();
+    expect(screen.getByText(/Over the ₹1,000.00 limit for Food and meals/)).toBeTruthy();
     fireEvent.change(screen.getByRole('combobox', { name: /Set against an advance/ }), { target: { value: 'a1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send 2 bills for approval' }));
     await waitFor(() => expect(portal.sendClaim).toHaveBeenCalledWith('k1', { title: undefined, advanceId: 'a1' }));
@@ -130,12 +130,12 @@ describe('the employee app: spent for work', () => {
 
   it('a sent claim shows what was allowed and why', async () => {
     portal.getMoney.mockResolvedValue(base({
-      claims: [{ id: 'k2', number: 'EXP-0002', title: 'Mysuru visit', status: 'APPROVED', statusLabel: 'Approved, to be paid', claimed: 1650, approved: 1450, advanceSettled: 1000, advanceNumber: 'ADV-0001', toPay: 450, lines: [line({ amount: 1200, approvedAmount: 1000, cutReason: 'Meals up to ₹1,000 a day', merchant: 'Hotel Saravana' })] }],
+      claims: [{ id: 'k2', number: 'EXP-0002', title: 'Mysuru visit', status: 'APPROVED', statusLabel: 'Approved, to be paid', claimed: 1650, approved: 1450, advanceSettled: 1000, advanceNumber: 'ADV-0001', toPay: 450, lines: [line({ amount: 1200, approvedAmount: 1000, cutReason: 'Meals up to ₹1,000.00 a day', merchant: 'Hotel Saravana' })] }],
     }));
     render(<MyMoney guard={guard} />);
     fireEvent.click(await screen.findByRole('button', { name: /Mysuru visit/ }));
-    expect(screen.getByText(/Allowed ₹1,000 of ₹1,200: Meals up to ₹1,000 a day/)).toBeTruthy();
-    expect(screen.getByText(/₹1,000 set against advance ADV-0001; ₹450 to you/)).toBeTruthy();
+    expect(screen.getByText(/Allowed ₹1,000.00 of ₹1,200.00: Meals up to ₹1,000.00 a day/)).toBeTruthy();
+    expect(screen.getByText(/₹1,000.00 set against advance ADV-0001; ₹450.00 to you/)).toBeTruthy();
   });
 });
 
@@ -144,7 +144,7 @@ describe('the employee app: salary advance', () => {
     portal.getMoney.mockResolvedValue(base());
     portal.previewSalaryAdvance.mockResolvedValue({ amount: 30000, months: 1, emi: 30000, fits: false, monthlyRoom: 25000, mostYouCanAsk: 25000, perquisite: false });
     render(<MyMoney guard={guard} />);
-    expect(await screen.findByText('₹25,000')).toBeTruthy();
+    expect(await screen.findByText('₹25,000.00')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Ask for one' }));
     const form = screen.getByRole('form', { name: 'Ask for a salary advance' });
     fireEvent.change(within(form).getByPlaceholderText('0'), { target: { value: '30000' } });
@@ -165,28 +165,28 @@ describe('the approver in the inbox drawer', () => {
   it('sees each bill with its warnings, and allowing less needs the reason sent with it', async () => {
     hr.moneyRequest.mockResolvedValue({ kind: 'EXPENSE_CLAIM', waitingOnMe: true, record: { id: 'k1', number: 'EXP-0001', claimed: 1650, lines: [line(), line({ id: 'l2', merchant: 'Hotel Saravana', amount: 1200, overLimit: 1000, companyGstin: true, supplierGstin: '29ABCDE1234F1ZW', taxAmount: 60, creditBlocked: true, possibleDuplicate: true })] }, advance: { number: 'ADV-0001', purpose: 'Mysuru visit', open: 1000, amount: 1000 } });
     render(<MoneyRequestDetail request={{ id: 'r1', requestType: 'EXPENSE_CLAIM' }} />);
-    expect(await screen.findByText(/Over the ₹1,000 limit/)).toBeTruthy();
+    expect(await screen.findByText(/Over the ₹1,000.00 limit/)).toBeTruthy();
     expect(screen.getByText(/credit usually not available/)).toBeTruthy();
     expect(screen.getByText(/Check it is not the same one/)).toBeTruthy();
     expect(screen.getByText(/Set against advance ADV-0001/)).toBeTruthy();
     expect(screen.queryByText(/in claims this month/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Allow less on a bill' }));
     fireEvent.change(screen.getByLabelText('Allow for Hotel Saravana'), { target: { value: '1000' } });
-    fireEvent.change(screen.getByLabelText('Why less for Hotel Saravana'), { target: { value: 'Meals up to ₹1,000 a day' } });
+    fireEvent.change(screen.getByLabelText('Why less for Hotel Saravana'), { target: { value: 'Meals up to ₹1,000.00 a day' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save allowed amounts' }));
-    await waitFor(() => expect(hr.sanctionClaim).toHaveBeenCalledWith('k1', [{ id: 'l2', approvedAmount: 1000, reason: 'Meals up to ₹1,000 a day' }]));
+    await waitFor(() => expect(hr.sanctionClaim).toHaveBeenCalledWith('k1', [{ id: 'l2', approvedAmount: 1000, reason: 'Meals up to ₹1,000.00 a day' }]));
   });
 
   it('shows the month\'s total when it is more than this claim, so split claims are seen', async () => {
     hr.moneyRequest.mockResolvedValue({ kind: 'EXPENSE_CLAIM', waitingOnMe: false, monthTotal: 18000, record: { id: 'k9', number: 'EXP-0009', employeeName: 'Asha Nair', claimed: 4500, lines: [line({ amount: 4500 })] } });
     render(<MoneyRequestDetail request={{ id: 'r9', requestType: 'EXPENSE_CLAIM' }} />);
-    expect(await screen.findByText(/Asha Nair sent ₹18,000 in claims this month, this one included/)).toBeTruthy();
+    expect(await screen.findByText(/Asha Nair sent ₹18,000.00 in claims this month, this one included/)).toBeTruthy();
   });
 
   it('a salary advance shows the cap and the perquisite warning', async () => {
-    hr.moneyRequest.mockResolvedValue({ kind: 'SALARY_ADVANCE', waitingOnMe: true, record: { amount: 250000, months: 24, emi: 10417, reason: 'House repair' }, cap: { known: true, monthlyRoom: 25000, wages: 50000, basis: 'salary structure', fits: true }, perquisite: 'Above ₹2,00,000 in total, the interest saved can be a taxable perquisite.' });
+    hr.moneyRequest.mockResolvedValue({ kind: 'SALARY_ADVANCE', waitingOnMe: true, record: { amount: 250000, months: 24, emi: 10417, reason: 'House repair' }, cap: { known: true, monthlyRoom: 25000, wages: 50000, basis: 'salary structure', fits: true }, perquisite: 'Above ₹2,00,000.00 in total, the interest saved can be a taxable perquisite.' });
     render(<MoneyRequestDetail request={{ id: 'r2', requestType: 'SALARY_ADVANCE' }} />);
-    expect(await screen.findByText('₹25,000 a month')).toBeTruthy();
+    expect(await screen.findByText('₹25,000.00 a month')).toBeTruthy();
     expect(screen.getByText(/taxable perquisite/)).toBeTruthy();
   });
 
@@ -206,7 +206,7 @@ describe('HR: Expenses', () => {
     fireEvent.click((await screen.findAllByText('Asha Nair'))[0]);
     fireEvent.click(await screen.findByRole('button', { name: 'Pay with salary' }));
     await waitFor(() => expect(hr.payClaim).toHaveBeenCalledWith('k1', { mode: 'SALARY' }));
-    expect(dialogs.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Pay ₹450 with Asha Nair’s salary?', message: expect.stringMatching(/not taxed\. It shows as paid once Payroll approves it/) }));
+    expect(dialogs.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Pay ₹450.00 with Asha Nair’s salary?', message: expect.stringMatching(/not taxed\. It shows as paid once Payroll approves it/) }));
   });
 
   it('never says "not taxed" when Payroll taxes the reimbursement line', async () => {

@@ -39,7 +39,7 @@ it('lists referrals with the referrer, the stage and the bonus amount for HR', a
   expect((await screen.findAllByText('Priya Shah')).length).toBeGreaterThan(0);
   expect(screen.getAllByText('Ravi Kumar').length).toBeGreaterThan(0);
   expect(screen.getAllByText('Through their link').length).toBeGreaterThan(0);
-  expect(screen.getAllByText('₹5,000').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('₹5,000.00').length).toBeGreaterThan(0);
   expect(screen.getAllByText('Due').length).toBeGreaterThan(0);
 });
 
@@ -47,7 +47,7 @@ it('hides amounts from someone who may not see them', async () => {
   api.listReferrals.mockResolvedValue({ rows: rows.map((r) => ({ ...r, bonusAmount: null })), counts: {}, money: false });
   render(<Referrals />);
   expect((await screen.findAllByText('Priya Shah')).length).toBeGreaterThan(0);
-  expect(screen.queryByText('₹5,000')).toBeNull();
+  expect(screen.queryByText('₹5,000.00')).toBeNull();
   expect(screen.getAllByText('Due').length).toBeGreaterThan(0);
 });
 
@@ -58,7 +58,7 @@ it('filters to bonuses due from a notice, and shows the report by employee', asy
   fireEvent.click(screen.getByRole('tab', { name: 'By employee' }));
   const table = await screen.findByRole('table', { name: 'Referrals by employee' });
   expect(table.textContent).toContain('Ravi Kumar');
-  expect(screen.getByText('Bonus due', { selector: 'dt' }).nextSibling.textContent).toBe('₹5,000');
+  expect(screen.getByText('Bonus due', { selector: 'dt' }).nextSibling.textContent).toBe('₹5,000.00');
 });
 
 it('a bonus for a referrer who left points to the final settlement', async () => {

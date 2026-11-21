@@ -59,7 +59,7 @@ describe('ctcsplit A: one CTC in, every part out', () => {
     render(<CtcSplit structureId="s1" annualCtc="600000" />);
     expect(await screen.findByText('Basic')).toBeInTheDocument();
     expect(screen.getByText('Net pay')).toBeInTheDocument();
-    expect(screen.getByText('₹43,180')).toBeInTheDocument();
+    expect(screen.getByText('₹43,180.00')).toBeInTheDocument();
     expect(previewSalaryStructure).toHaveBeenCalledWith(expect.objectContaining({ annualCtc: 600000, components: [expect.objectContaining({ componentId: 'c1', percentage: 50 })] }));
   });
   it('says nothing until a CTC is typed', () => {

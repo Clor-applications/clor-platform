@@ -17,7 +17,7 @@ import { errorWords } from '@ui/utils/errorWords';
  * and the money at stake (estimated from salaries, for those allowed to see
  * pay). Read-only: every fix opens the screen that makes it.
  */
-const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const money = (v) => (v == null ? '—' : inr.format(v));
 const lastMonth = () => {
   const [y, m] = todayIst().slice(0, 7).split('-').map(Number);

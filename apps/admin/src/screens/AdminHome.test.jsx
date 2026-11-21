@@ -101,7 +101,7 @@ describe('Home', () => {
     /* No Apps screen in this person's menu: no button to it. */
     expect(apps.queryByRole('button', { name: 'Manage apps' })).toBeNull();
     const plan = within(screen.getByRole('region', { name: 'Plan' }));
-    expect(plan.getByText('₹2,499')).toBeInTheDocument();
+    expect(plan.getByText('₹2,499.00')).toBeInTheDocument();
     expect(plan.getByText('Renews')).toBeInTheDocument();
     expect(plan.getByText('Nothing')).toBeInTheDocument();
     const security = within(screen.getByRole('region', { name: 'Security' }));
@@ -242,8 +242,8 @@ describe('the overview’s figures', () => {
     expect(securityOf([]).pct).toBeNull();
   });
 
-  it('writes the run rate in whole rupees', () => {
-    expect(rupees(249950)).toBe('₹2,500');
+  it('writes the run rate with two decimals, like every amount', () => {
+    expect(rupees(249950)).toBe('₹2,499.50');
   });
 
   /* The hero's Today card: one line per app that reported a day, in the app's own figures. */

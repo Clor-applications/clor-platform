@@ -49,7 +49,7 @@ it('says so when the setting cannot be read', async () => {
 });
 
 it('shows the run message the server sends, and nothing otherwise', () => {
-  const message = 'Deductions held to 50% of wages for 1 person: ₹5,000 carried to next month.';
+  const message = 'Deductions held to 50% of wages for 1 person: ₹5,000.00 carried to next month.';
   const { rerender, container } = render(<DeductionCapNotice run={{ deductionCapMessage: message }} />);
   expect(screen.getByRole('status')).toHaveTextContent(message);
   rerender(<DeductionCapNotice run={{ deductionCapMessage: null }} />);
@@ -63,7 +63,7 @@ it('lists who passes the limit, takes a reason, and shows it once recorded', asy
   const people = [{ employeeId: 'e1', name: 'Tanmay', counted: 6000, limit: 5000, percent: 10 }];
   const { rerender } = render(<OverLimitPanel run={{ id: 'r1', status: 'CALCULATED', overLimit: { people, reason: null } }} onSaved={onSaved} />);
   expect(screen.getByRole('heading', { name: 'Deductions pass 10% of wages for 1 person' })).toBeInTheDocument();
-  expect(screen.getByText('₹6,000 of ₹5,000 allowed')).toBeInTheDocument();
+  expect(screen.getByText('₹6,000.00 of ₹5,000.00 allowed')).toBeInTheDocument();
   const record = screen.getByRole('button', { name: 'Record reason' });
   expect(record).toBeDisabled();
   await user.type(screen.getByRole('combobox', { name: /Why do they stand/ }), 'Signed damage agreement');
