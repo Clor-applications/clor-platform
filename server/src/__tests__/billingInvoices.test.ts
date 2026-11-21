@@ -125,8 +125,13 @@ describe('invoices to customers', () => {
     const other = await company();
     await request(app).get(`/api/billing/invoices/${d.body.id}`).set(at(other)).expect(404);
 
-    const p = await request(app).post(`/api/ops/invoices/${d.body.id}/mark-paid`).set(h).send({ reference: 'UTR123456789012', paidOn: new Date().toISOString().slice(0, 10) }).expect(200);
-    expect(p.body).toMatchObject({ status: 'PAID', paidAmount: 198000, paymentReference: 'UTR123456789012' });
+    /* Short of the invoice: refused unless the request says CLOR agreed to take less; nothing moves. */
+    const short = await request(app).post(`/api/ops/invoices/${d.body.id}/mark-paid`).set(h).send({ reference: 'UTR123456789012', paidOn: new Date().toISOString().slice(0, 10), amount: 150000 }).expect(409);
+    expect(short.body.error).toContain('₹480.00 short');
+    expect((await request(app).get(`/api/billing/invoices/${d.body.id}`).set(at(cust)).expect(200)).body.status).toBe('ISSUED');
+
+    const p = await request(app).post(`/api/ops/invoices/${d.body.id}/mark-paid`).set(h).send({ reference: 'UTR123456789012', paidOn: new Date().toISOString().slice(0, 10), amount: 150000, acceptShort: true }).expect(200);
+    expect(p.body).toMatchObject({ status: 'PAID', paidAmount: 150000, paymentReference: 'UTR123456789012' });
     expect((await getSubscription(accountId))?.status).toBe('active');
     expect(p.body.paidUntil).toBeTruthy();
     await request(app).post(`/api/ops/invoices/${d.body.id}/mark-paid`).set(h).send({ reference: 'UTR999999999999', paidOn: new Date().toISOString().slice(0, 10) }).expect(409);
@@ -135,6 +140,8 @@ describe('invoices to customers', () => {
 
     const log = await db(() => platformPrisma.operatorAuditEvent.findMany({ where: { operatorUserId: op.userId, action: { startsWith: 'INVOICE_' } }, orderBy: { at: 'asc' } }));
     expect(log.map((e) => e.action)).toEqual(['INVOICE_DRAFTED', 'INVOICE_DRAFT_CHANGED', 'INVOICE_ISSUED', 'INVOICE_MARKED_PAID']);
+    /* The shortfall CLOR agreed to is on the operator log. */
+    expect((log.at(-1)?.detail as any)?.shortBy).toBe(48000);
   });
 
   it('numbers run on without a gap: a discarded draft takes none, a cancelled invoice keeps its own', async () => {

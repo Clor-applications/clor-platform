@@ -253,7 +253,11 @@ export async function issueInvoice(id: string, userId: string | null, opts: { du
 }
 
 /** Mark paid: the UTR of a UPI or bank payment. Recorded as a payment, and the subscription moves on by the invoice's months. */
-export async function markInvoicePaid(id: string, input: { reference: string; paidOn: Date; amount?: number | null; tdsDeducted?: number | null }, userId: string) {
+export async function markInvoicePaid(
+  id: string,
+  input: { reference: string; paidOn: Date; amount?: number | null; tdsDeducted?: number | null; acceptShort?: boolean },
+  userId: string,
+) {
   const inv = await getInvoice(id);
   if (inv.status === 'PAID') throw new PaymentsError('This invoice is already paid.', 409);
   if (inv.status !== 'ISSUED') throw new PaymentsError('Only an issued invoice can be marked paid.', 409);
@@ -261,12 +265,21 @@ export async function markInvoicePaid(id: string, input: { reference: string; pa
   const tds = input.tdsDeducted && input.tdsDeducted > 0 ? input.tdsDeducted : 0;
   if (tds >= inv.total) throw new PaymentsError('The TDS cannot be the whole invoice.', 400);
   const amount = input.amount ?? inv.total - tds;
+  /*
+   * A short payment still closes the invoice in full, and nothing asks the customer for the rest. That is a
+   * decision (CLOR agreed to take less), so it has to be asked for in so many words: a request that does not
+   * say acceptShort is refused, and the shortfall goes on the operator log with the payment.
+   */
+  const shortBy = Math.max(0, inv.total - tds - amount);
+  if (shortBy > 0 && !input.acceptShort) {
+    throw new PaymentsError(`This is ₹${(shortBy / 100).toFixed(2)} short of the invoice. Mark it paid only if CLOR agreed to take less, and say so.`, 409);
+  }
   /* The claim on the invoice comes first, in one transaction with the payment and the subscription (events.ts). */
   const r = await outsideTenant('billing: mark an invoice paid', () =>
     recordInvoicePayment({ invoiceId: id, number: inv.number, accountId: inv.accountId, amount, reference: input.reference, paidOn: input.paidOn, months: inv.months, periodStart: inv.periodStart, userId }),
   );
   if (tds) await outsideTenant('billing: TDS on a payment', () => platformPrisma.billingInvoice.update({ where: { id }, data: { tdsDeducted: tds } }));
-  return { invoice: await getInvoice(id), paidUntil: r.paidUntil, detail: r.detail };
+  return { invoice: await getInvoice(id), paidUntil: r.paidUntil, detail: r.detail, shortBy };
 }
 
 /** Cancel an issued, unpaid invoice. Its number stays used, marked cancelled, so the series has no gap. */
