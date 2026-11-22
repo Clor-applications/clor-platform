@@ -16,6 +16,7 @@ import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
 import TipLayer from './packages/ui/src/components/ui/TipLayer';
 import { OldBrowserPage, browserIsTooOld } from './packages/ui/src/components/ui/OldBrowser';
+import { installStrayDropGuard } from './packages/ui/src/components/ui/FileDrop';
 
 /*
  * Personal data an earlier version left in this browser.
@@ -39,6 +40,9 @@ if (typeof document !== 'undefined') {
   const toKeyboard = mark('keyboard');
   document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') toKeyboard(); }, true);
 }
+
+/* A file let go outside a file field must not open in the tab and lose the form (FileDrop.jsx). */
+installStrayDropGuard();
 
 try {
   localStorage.removeItem('userEmail');

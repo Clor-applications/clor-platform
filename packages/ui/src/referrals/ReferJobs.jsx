@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import PhoneInput from '@ui/components/ui/PhoneInput';
 import SuggestInput from '../components/ui/SuggestInput';
 import { dayWords, rupees } from './words';
 import { Button } from '../components/ui/Primitives';
+import FileDrop from '../components/ui/FileDrop';
 
 /**
  * Jobs and referrals for someone who works here (server: services/people/talent/referrals.ts),
@@ -162,16 +163,8 @@ function ReferForm({ job, api, run, onCancel, onDone }) {
   const [file, setFile] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const fileRef = useRef(null);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
-  const pickFile = (e) => {
-    const f = e.target.files?.[0];
-    e.target.value = '';
-    if (!f) return;
-    if (f.size > 2 * 1024 * 1024) { setError('A résumé sent with a referral is up to 2 MB.'); return; }
-    setError('');
-    setFile(f);
-  };
+  const pickFile = (f) => { setError(''); setFile(f); };
   const send = async (e) => {
     e.preventDefault();
     if (busy) return;
@@ -198,11 +191,7 @@ function ReferForm({ job, api, run, onCancel, onDone }) {
       <label className="block"><span className="ui-label">E-mail</span><input className="ui-input w-full" type="email" inputMode="email" maxLength={200} autoComplete="off" value={form.email} onChange={(e) => set({ email: e.target.value })} /></label>
       <label className="block"><span className="ui-label">How you know them</span><SuggestInput className="ui-input w-full" maxLength={120} value={form.relation} onChange={(v) => set({ relation: v })} suggestions={RELATIONS} /></label>
       <label className="block"><span className="ui-label">Why they would be good</span><textarea className="ui-input w-full" rows={3} maxLength={2000} value={form.note} onChange={(e) => set({ note: e.target.value })} /></label>
-      <div className="flex flex-wrap items-center gap-2">
-        <input ref={fileRef} type="file" className="sr-only" accept={RESUME_ACCEPT} onChange={pickFile} aria-label="Résumé file" />
-        <button type="button" className="ui-btn ui-btn-secondary" onClick={() => fileRef.current?.click()}>{file ? 'Change résumé' : 'Add résumé'}</button>
-        <span className="ui-caption truncate">{file ? file.name : 'PDF or Word, up to 2 MB'}</span>
-      </div>
+      <FileDrop label="Résumé" aria-label="Résumé file" file={file} onFile={pickFile} accept={RESUME_ACCEPT} maxBytes={2 * 1024 * 1024} hint="PDF or Word, up to 2 MB" compact />
       <div className="flex flex-wrap justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button>
         <Button variant="primary" loading={busy} type="submit">Send referral</Button>

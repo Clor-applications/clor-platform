@@ -7,6 +7,7 @@ import { SignedOut, acceptItem, answerMyRequest, askDetailsChange, getLeaving, g
 import { errorWords } from '@ui/utils/errorWords';
 import { RowState, kindOfPill } from './portalUi';
 import { Button } from '@ui/components/ui/Primitives';
+import FileDrop from '@ui/components/ui/FileDrop';
 
 /**
  * People self-service in the employee app (server: routes/peoplePortal.ts):
@@ -93,15 +94,16 @@ function PersonalDetails({ d, guard, reload }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
   const [photo, setPhoto] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);
   const atOnce = new Set(d.savesAtOnce || []);
-  const open = () => { setForm({ ...d.fields }); setPhoto(null); setNote(null); setEditing(true); };
+  const open = () => { setForm({ ...d.fields }); setPhoto(null); setPhotoFile(null); setNote(null); setEditing(true); };
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const choosePhoto = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try { setPhoto(await shrinkPhoto(file)); } catch (err) { setNote({ ok: false, text: err.message }); }
+  const choosePhoto = async (file) => {
+    setPhotoFile(file);
+    if (!file) { setPhoto(null); return; }
+    try { setPhoto(await shrinkPhoto(file)); } catch (err) { setPhoto(null); setPhotoFile(null); setNote({ ok: false, text: err.message }); }
   };
   const save = async (e) => {
     e.preventDefault();
@@ -159,10 +161,10 @@ function PersonalDetails({ d, guard, reload }) {
       {editing ? (
         <form onSubmit={save} className="space-y-3">
           {ORDER.map(field)}
-          <label className="block"><span className="ui-label">New photo</span>
-            <input type="file" accept="image/jpeg,image/png,image/webp" className="ui-input w-full" onChange={choosePhoto} />
+          <div className="block space-y-1">
+            <FileDrop label="New photo" file={photoFile} onFile={choosePhoto} accept="image/jpeg,image/png,image/webp" hint="JPEG, PNG or WebP" compact />
             {photo ? <span className="ui-caption block">New photo chosen. HR will check it before it shows.</span> : null}
-          </label>
+          </div>
           <div className="flex gap-2">
             <Button variant="primary" loading={busy} type="submit">Save changes</Button>
             <button type="button" className="ui-btn" onClick={() => setEditing(false)}>Cancel</button>

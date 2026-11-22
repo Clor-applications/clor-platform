@@ -26,6 +26,8 @@ export const NOT_SHOWN = new Set([
   'noopener noreferrer',
   'repeat({}, minmax(0, 1fr))',
   'translate3d(0, {}px, 0)',
+  'Files', /* the type a dragged file carries (FileDrop.jsx) */
+  '[data-file-drop], input[type="file"]',
   /* utils/money.js amount in words */
   'Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve',
   'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen', 'Twenty', 'Thirty', 'Forty',
