@@ -1,6 +1,6 @@
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Cake, CalendarDays, ChevronRight, CircleAlert, Hourglass, LogOut, Medal, Megaphone, MessagesSquare, Pin, Plane, Plus, Users } from 'lucide-react';
+import { ArrowRight, Cake, CalendarDays, ChevronRight, CircleAlert, Clock, Hourglass, LogOut, Medal, Megaphone, MessagesSquare, Pin, Plane, Plus, Users } from 'lucide-react';
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { MoreButton } from '@ui/components/list/ListPageParts';
@@ -17,6 +17,7 @@ import { HomeCheckIn } from '@ui/timeOff/MyDays';
 import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
 import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
+import { ArrivalSpark, ArrivalsChart, ConnectionBar, DecideInPlace, HomeSkeleton, LeaveSplit, TodayFeed, clockWords, useConnection } from './HomeToday';
 
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'neutral' }, info: { label: 'When you can', pill: 'neutral' } };
 /** Headcount by department draws the categorical series, never past eight; the rest is one grey "Other" (R&D brand, 14 Nov 2026). */
@@ -276,6 +277,17 @@ export default function PeopleOverview({ openScreen }) {
   /* Only what this reader may use (QA, 1 Nov 2026: a Team Manager was offered Announce and Add an employee). The server checks again. */
   const perms = usePermissions();
   const may = (key) => can(perms, key);
+  /* Connection lost: the figures stay, marked with when they were fresh; back online, every card asks again. */
+  const reloadAll = () => {
+    getOverview().then(setData, () => {});
+    loadTodos();
+    loadPeople();
+    loadLeave();
+    loadNews();
+    loadEvents();
+    loadFinalPay();
+  };
+  const conn = useConnection(() => reloadAll());
   /* The setup list replaces "All caught up" while it is showing (HomeSetup). */
   const [setupShowing, setSetupShowing] = useState(false);
   const onSetup = useCallback((d) => setSetupShowing(Boolean(d?.setup?.show)), []);
@@ -334,7 +346,7 @@ export default function PeopleOverview({ openScreen }) {
   }, [data, people]);
 
   if (error) return <div className="people-empty" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</div>;
-  if (!data) return <SkeletonCard lines={6} />;
+  if (!data) return <HomeSkeleton />;
 
   const today = isoToday();
   const pending = (leave || []).filter((r) => r.status === 'PENDING').sort((a, b) => a.fromDate.localeCompare(b.fromDate));
@@ -364,6 +376,17 @@ export default function PeopleOverview({ openScreen }) {
   const nextProbation = (glance?.probation || []).find((p) => !p.over) || null;
   const deptMax = Math.max(1, ...deptBars.map((d) => d.count));
   const joined = data.joinedThisMonth.length;
+  const today_ = glance?.today || null;
+  /* Leave today by type, biggest first, in each type's own colour. */
+  const leaveParts = Object.values(outToday.reduce((m, r) => {
+    const name = r.isPrivate ? 'Leave' : r.leaveTypeName || 'Leave';
+    m[name] = m[name] || { name, count: 0, colour: swatchOf({ color: r.leaveTypeColor, name }) };
+    m[name].count += 1;
+    return m;
+  }, {})).sort((a, b) => b.count - a.count);
+  /* Leave this reader may decide, oldest start first; Home shows three, the Inbox has the rest. */
+  const decidable = may('ATTENDANCE::Leave Requests::APPROVE') ? pending : [];
+  const onDecided = () => { loadTodos(); loadLeave(); };
 
   return (
     <div className="people-home">
@@ -372,6 +395,7 @@ export default function PeopleOverview({ openScreen }) {
           {/* Titled by the day, not a time-of-day greeting (8 Nov 2026). */}
           <h1 className="ui-t-page">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</h1>
           <p className="people-home-sub">
+            {!conn.online ? <span className="people-home-offline block">Offline. Showing what we had at {clockWords(conn.since)}.</span> : null}
             {waiting === null ? <>Could not check what needs your action</> : !todos && !leave ? <>Checking what needs your action</> : waiting ? <><strong>{plural(waiting, 'item')}</strong> {waiting === 1 ? 'needs' : 'need'} your action</> : <>Nothing needs your action</>}
             {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
           </p>
@@ -398,6 +422,7 @@ export default function PeopleOverview({ openScreen }) {
           </div>
         </div>
       </header>
+      <ConnectionBar online={conn.online} back={conn.back} onRetry={() => { if (navigator.onLine !== false) reloadAll(); }} />
       <HomeCheckIn />
       {failed.finalPay ? <CardFailed what="the final pay that is due" onRetry={loadFinalPay} /> : null}
       {finalPay.length ? (
@@ -416,6 +441,18 @@ export default function PeopleOverview({ openScreen }) {
           <span className="people-kpi-row"><span className="people-kpi-value" data-zero={Number(data.headcount) === 0 || undefined}>{data.headcount}</span></span>
           <span className="people-kpi-note">{joined ? <><span className="people-delta">+{joined}</span> joined in {monthName()}</> : `None joined in ${monthName()}`}</span>
         </button>
+        {/* Who has come in today, with the morning's arrivals drawn small (owner, 22 Nov 2026). Left out before anyone punches. */}
+        {today_ && today_.inCount > 0 ? (
+          <button type="button" className="people-kpi" onClick={() => requestOpenApp('attendance', 'today')}>
+            <span className="people-kpi-icon ui-accent-ico" data-tone="info"><Clock size={20} aria-hidden="true" /></span>
+            <span className="people-kpi-label">In today</span>
+            <span className="people-kpi-row">
+              <span className="people-kpi-value">{today_.inCount}<small className="people-kpi-of"> of {today_.expected}</small></span>
+              <ArrivalSpark arrivals={today_.arrivals} />
+            </span>
+            <span className="people-kpi-note">{today_.late ? `${plural(today_.late, 'person', 'people')} came in late` : 'Nobody came in late'}</span>
+          </button>
+        ) : null}
         {/* An overview figure never shows at zero (DESIGN.md "Overview pages"); the count line under the title says it. */}
         {leave && outToday.length === 0 ? null : (
         <button type="button" className="people-kpi" onClick={go('leaveCalendar')}>
@@ -423,7 +460,7 @@ export default function PeopleOverview({ openScreen }) {
           <span className="people-kpi-label">Out today</span>
           <span className="people-kpi-row">
             <span className="people-kpi-value" data-zero={(leave && outToday.length === 0) || undefined}>{leave ? outToday.length : '–'}</span>
-            {outToday.length ? (
+            {leaveParts.length > 1 ? <LeaveSplit parts={leaveParts} /> : outToday.length ? (
               <span className="people-faces" aria-hidden="true">
                 {outToday.slice(0, 3).map((r) => <Face key={r.id} person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={28} colour={colourOf(r.department)} />)}
               </span>
@@ -459,6 +496,8 @@ export default function PeopleOverview({ openScreen }) {
            * more (People plan 8 Nov 2026, §3 rule 1): the requests in the Inbox on one line, the tasks on my name on another.
            */}
           <Block id="todo-h" title="Waiting for you">
+            {/* Leave decided in place, with a short undo (owner, 22 Nov 2026, replacing "approvals live only in the Inbox"); the Inbox line below keeps the full count. */}
+            {decidable.length && conn.online ? <DecideInPlace requests={decidable} onDecided={onDecided} /> : null}
             {waiting ? (
               <ul className="people-list">
                 {requestsWaiting ? (
@@ -517,6 +556,9 @@ export default function PeopleOverview({ openScreen }) {
               </ul>
             </Block>
           ) : null}
+
+          {today_ ? <ArrivalsChart today={today_} onOpen={() => requestOpenApp('attendance', 'today')} /> : null}
+          {today_ ? <TodayFeed today={today_} openPerson={openPerson} /> : null}
 
           <HomeGlance glance={glance} go={go} />
 
