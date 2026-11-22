@@ -9043,6 +9043,20 @@ button.ui-side-alert { cursor: pointer; }
  * minimum), and field text is 16px so Safari does not zoom into a field.
  * Outside any layer, so it wins over the component sizes without !important.
  */
+/*
+ * The same on every phone screen, not only those that opted in (DESIGN.md Buttons: "44px on
+ * phones"; touch-target and input-field reels, 22 Nov 2026). A touch screen under 768px: a mouse
+ * on a narrow desktop window keeps the desktop sizes.
+ */
+@media (max-width: 767px) and (pointer: coarse) {
+  :is(.ui-btn, .ui-btn-sm, .ui-tab, .ui-page-btn, .ui-input, .ui-select) {
+    height: auto;
+    min-height: 2.75rem;
+  }
+  .ui-btn-sm { padding-block: 0; }
+  :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea, .ui-select-field) { font-size: 1rem; }
+  .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
+}
 @media (max-width: 767px) {
   .ui-touch-44 :is(.ui-btn, .ui-btn-sm, .ui-tab, .ui-page-btn, .ui-input, .ui-select),
   .ui-touch-44 :is(input:not([type='checkbox']):not([type='radio']), select, textarea, [role='tab'], button) {
