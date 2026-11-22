@@ -44,11 +44,46 @@
 .ui-views-cols li[data-now]:hover .ui-views-col i { background: rgb(var(--fg)); }
 .ui-views-month { overflow: hidden; text-align: center; white-space: nowrap; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); }
 
+/* One big figure and a ledger (style G): the hero on the left, rows that are shares of it on the right. */
+.ui-figledger { display: grid; grid-template-columns: minmax(12rem, 16rem) 1fr; gap: 1.5rem 2.5rem; align-items: start; padding-bottom: 1.25rem; border-bottom: 1px solid rgb(var(--border)); }
+.ui-figledger-kicker { font-size: 0.8125rem; line-height: 1.25rem; font-weight: 600; color: rgb(var(--fg-muted)); }
+.ui-figledger-figure { font-size: 4rem; line-height: 4.25rem; font-weight: 700; letter-spacing: -0.02em; color: rgb(var(--fg)); }
+.ui-figledger-words { margin-top: 0.25rem; font-size: 0.9375rem; line-height: 1.375rem; color: rgb(var(--fg-muted)); }
+.ui-figledger-pill { display: inline-flex; align-items: center; height: 1.5rem; margin-top: 0.625rem; padding: 0 0.625rem; border-radius: 9999px; background: rgb(var(--surface-sunken)); font-size: 0.8125rem; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.ui-figledger-pill[data-tone='warn'] { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+.ui-figledger-rows { list-style: none; margin: 0; padding: 0; }
+.ui-figledger-rows li + li { border-top: 1px solid rgb(var(--border)); }
+.ui-figledger-row { display: grid; grid-template-columns: minmax(9rem, 20rem) minmax(6rem, 1fr) 4rem; align-items: center; gap: 1rem; width: 100%; min-height: 2.75rem; padding: 0.375rem 0.5rem; border: 0; border-radius: 8px; background: none; text-align: left; color: rgb(var(--fg)); }
+.ui-figledger-row:hover { background: rgb(var(--hover)); }
+.ui-figledger-row:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.ui-figledger-label { min-width: 0; }
+.ui-figledger-label b { display: block; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; }
+.ui-figledger-label span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); }
+.ui-figledger-bar { height: 0.5rem; border-radius: 9999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
+.ui-figledger-bar i { display: block; height: 100%; border-radius: 9999px; background: rgb(var(--fg-subtle)); transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+.ui-figledger-row[data-tone='pos'] .ui-figledger-bar i { background: rgb(var(--pos)); }
+.ui-figledger-row[data-tone='warn'] .ui-figledger-bar i { background: rgb(var(--warn)); }
+.ui-figledger-row[data-tone='info'] .ui-figledger-bar i { background: rgb(var(--info)); }
+.ui-figledger-row[data-tone='neg'] .ui-figledger-bar i { background: rgb(var(--neg)); }
+.ui-figledger-n { justify-self: end; font-size: 1rem; line-height: 1.5rem; font-weight: 600; }
+.ui-figledger-row[data-tone='warn'] .ui-figledger-n { color: rgb(var(--warn-ink)); }
+.ui-figledger-row[data-tone='neg'] .ui-figledger-n { color: rgb(var(--neg)); }
+.ui-figledger-pill[data-tone='pos'] { background: rgb(var(--pos-soft)); color: rgb(var(--pos)); }
+
+/* Admin center and Ops (.ws) still carry an older violet "attention"; their status tags are amber,
+   so the figures take the shared Attention amber (rnd.css) to match the tags beside them. */
+.ws :is(.ui-ring, .ui-figledger, .ui-views) { --warn: 154 103 0; --warn-ink: 138 90 0; --warn-soft: 251 241 220; }
+
+@media (max-width: 760px) {
+  .ui-figledger { grid-template-columns: 1fr; gap: 1rem; }
+  .ui-figledger-figure { font-size: 3rem; line-height: 3.25rem; }
+  .ui-figledger-row { grid-template-columns: minmax(8rem, 1fr) 5rem 3rem; }
+}
 @media (max-width: 640px) {
   .ui-ring { grid-template-columns: 7rem 1fr; }
   .ui-ring-svg { width: 7rem; height: 7rem; }
   .ui-views-body { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ui-ring-arc, .ui-views-col i { transition: none; }
+  .ui-ring-arc, .ui-views-col i, .ui-figledger-bar i { transition: none; }
 }

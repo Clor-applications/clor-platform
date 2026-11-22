@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import './FigureViews.css';
 
 /*
- * Two ways to show a few figures without four tiles (owner, 22 Nov 2026, styles E and H):
- * a ring cut into the day's parts, and one figure you switch between views of.
+ * Three ways to show a few figures without four tiles (owner, 22 Nov 2026, styles E and H):
+ * one big figure with a ledger of its parts (G), a ring cut into the day's parts (E), and one figure you switch between views of.
  */
 
 const R = 48;
@@ -86,16 +86,56 @@ export function ViewSwitch({ views, label, initial }) {
           {view.note ? <span>{view.note}</span> : null}
         </div>
         {view.points.length ? (
-          <ol className="ui-views-cols" aria-label={`${view.label}, month by month`}>
+          <ol className="ui-views-cols" aria-label={view.colsLabel || `${view.label}, month by month`}>
             {view.points.map((p, i) => (
               <li key={p.key} aria-label={`${p.label}: ${p.words}`} title={`${p.label}: ${p.words}`} data-now={i === view.points.length - 1 || undefined}>
                 <span className="ui-views-col" aria-hidden="true"><i style={{ height: `${Math.max(2, (Math.abs(Number(p.value) || 0) / max) * 100)}%` }} /></span>
-                <span className="ui-views-month" aria-hidden="true">{p.label}</span>
+                <span className="ui-views-month" aria-hidden="true">{p.tick ?? p.label}</span>
               </li>
             ))}
           </ol>
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** A ledger row: a button when it opens something, plain otherwise. */
+const Row = ({ onClick, ...rest }) => (onClick ? <button type="button" onClick={onClick} {...rest} /> : <div {...rest} />);
+
+/**
+ * The figures as one big number and a ledger (owner, 22 Nov 2026, style G, replacing
+ * the four tiles): the hero says the one thing, and each row under it is a share of
+ * the hero's whole, drawn as a bar, with its number at the end. Every row opens the
+ * screen that owns it. A row at nought is left out, as DESIGN.md asks of figures.
+ */
+export function FigureLedger({ hero, rows, label, children = null }) {
+  const shown = rows.filter((r) => r.always || r.value == null || Number(r.value) > 0);
+  return (
+    <section className="ui-figledger" aria-label={label}>
+      <div className="ui-figledger-hero">
+        {hero.label ? <p className="ui-figledger-kicker">{hero.label}</p> : null}
+        <p className="ui-figledger-figure tabular-nums">{hero.value}</p>
+        <p className="ui-figledger-words">{hero.words}</p>
+        {hero.pill ? <span className="ui-figledger-pill" data-tone={hero.tone || undefined}>{hero.pill}</span> : null}
+        {children}
+      </div>
+      <ul className="ui-figledger-rows">
+        {shown.map((r) => (
+          <li key={r.key}>
+            <Row className="ui-figledger-row" onClick={r.onClick} data-tone={r.tone || undefined}>
+              <span className="ui-figledger-label">
+                <b>{r.label}</b>
+                {r.sub ? <span>{r.sub}</span> : null}
+              </span>
+              <span className="ui-figledger-bar" aria-hidden="true">
+                {r.share != null ? <i style={{ width: `${Math.max(r.value ? 2 : 0, Math.min(100, r.share * 100))}%` }} /> : null}
+              </span>
+              <span className="ui-figledger-n tabular-nums">{r.value == null ? '–' : r.value}</span>
+            </Row>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
