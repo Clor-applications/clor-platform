@@ -622,7 +622,7 @@
   /* Light only, white grounds (owner, 15 Nov 2026): no grey or tinted backgrounds. */
   --app-bg: 255 255 255; --surface: 255 255 255; --surface-raised: 255 255 255;
   --surface-sunken: 255 255 255; --border: 229 229 229; --border-strong: 200 200 200;
-  --border-field: 214 214 214; --doc-section: 255 255 255;
+  --border-field: 214 214 214; --border-input: 148 148 148; --doc-section: 255 255 255;
   /* fg 16.0:1, muted 7.3:1, subtle 5.0:1 on the ground; all higher on white. */
   --fg: 31 26 28; --fg-muted: 91 79 83; --fg-subtle: 116 104 108; --fg-heading: var(--oxblood);
   /* White on red 5.9:1; hover 7.8:1; pressed 9.8:1. */

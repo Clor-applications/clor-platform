@@ -816,7 +816,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 /* Fields: white with a hairline; the list toolbar's search keeps its fill. */
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content :is(.ui-input, .ui-select, textarea):not(.ui-list-toolbar *):not(.ui-list-header *) {
   background-color: rgb(var(--surface, 255 255 255));
-  border-color: rgb(var(--border-field, 214 211 204));
+  border-color: rgb(var(--border-input, 148 148 148));
 }
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content :is(.ui-input, .ui-select, textarea):not(.ui-list-toolbar *):not(.ui-list-header *):hover:not(:focus):not(:focus-within) {
   background-color: rgb(var(--surface, 255 255 255)) !important;

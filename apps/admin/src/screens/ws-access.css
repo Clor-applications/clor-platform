@@ -388,7 +388,7 @@
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-role-group { font-size: 0.75rem; line-height: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.03em; }
 /* Labels the same height whether or not they carry the Required badge, so the two fields line up. */
 .ws-role-fields > label > span:first-child { display: flex; align-items: center; gap: 8px; min-height: 1.5rem; }
-:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-find .ws-search > .ui-input { border-color: rgb(var(--border-field, 220 223 217)); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-find .ws-search > .ui-input { border-color: rgb(var(--border-input, 148 148 148)); }
 /* The grid fits the panel: narrower action columns, ticks in Workspace blue rather than black. */
 :root:not(#ux1):not(#ux2):not(#ux3) .ws-pm-table th:not(:first-child),
 :root:not(#ux1):not(#ux2):not(#ux3) .ws-pm-table td:not(:first-child) { width: 64px; padding-inline: 2px; }
@@ -399,7 +399,7 @@
 :root:not(#ux1):not(#ux2):not(#ux3) .ws-role-form .ws-pm-head .ws-pill { background: rgb(42 120 214 / 0.1); color: rgb(28 84 160); }
 /* picks.css sizes every h3 in a flat section and darkens the focused search with !important; these win back. */
 .ws .ws-flat h3.ws-role-group { font-size: 0.75rem !important; line-height: 1rem !important; }
-.ws .ws-role-find .ws-search > input.ui-input:not(:focus) { border-color: rgb(var(--border-field, 220 223 217)) !important; box-shadow: none !important; }
+.ws .ws-role-find .ws-search > input.ui-input:not(:focus) { border-color: rgb(var(--border-input, 148 148 148)) !important; box-shadow: none !important; }
 
 /* One person's access as sentences, app by app; and what only they hold, read before they leave. */
 .ws-member-words { display: grid; gap: 8px; margin: 0; }

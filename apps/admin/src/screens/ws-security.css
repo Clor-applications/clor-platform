@@ -513,7 +513,7 @@
 :root:not(#pk):not(#pk2) .ws .ws-profile .ui-input {
   min-height: 40px !important;
   background: rgb(var(--surface, 255 255 255)) !important;
-  border: 1px solid rgb(var(--border-field, 214 214 214)) !important;
+  border: 1px solid rgb(var(--border-input, 148 148 148)) !important;
   border-radius: 8px !important;
   box-shadow: none !important;
   color: rgb(var(--fg, 28 27 24)) !important;
