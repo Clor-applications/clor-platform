@@ -1,6 +1,6 @@
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Cake, CalendarDays, ChevronRight, CircleAlert, Clock, Hourglass, LogOut, Medal, Megaphone, MessagesSquare, Pin, Plane, Plus, Users } from 'lucide-react';
+import { ArrowRight, Cake, CalendarDays, ChevronRight, CircleAlert, Medal, Megaphone, MessagesSquare, Pin, Plus } from 'lucide-react';
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { MoreButton } from '@ui/components/list/ListPageParts';
@@ -17,7 +17,7 @@ import { HomeCheckIn } from '@ui/timeOff/MyDays';
 import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
 import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
-import { ArrivalSpark, ArrivalsChart, ConnectionBar, DecideInPlace, HomeSkeleton, LeaveSplit, TodayFeed, clockWords, useConnection } from './HomeToday';
+import { ConnectionBar, DayTimeline, DecideInPlace, FigureLedger, HomeSkeleton, TeamsToday, TodayFeed, clockWords, useConnection } from './HomeToday';
 
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'neutral' }, info: { label: 'When you can', pill: 'neutral' } };
 /** Headcount by department draws the categorical series, never past eight; the rest is one grey "Other" (R&D brand, 14 Nov 2026). */
@@ -377,16 +377,41 @@ export default function PeopleOverview({ openScreen }) {
   const deptMax = Math.max(1, ...deptBars.map((d) => d.count));
   const joined = data.joinedThisMonth.length;
   const today_ = glance?.today || null;
-  /* Leave today by type, biggest first, in each type's own colour. */
-  const leaveParts = Object.values(outToday.reduce((m, r) => {
-    const name = r.isPrivate ? 'Leave' : r.leaveTypeName || 'Leave';
-    m[name] = m[name] || { name, count: 0, colour: swatchOf({ color: r.leaveTypeColor, name }) };
-    m[name].count += 1;
-    return m;
-  }, {})).sort((a, b) => b.count - a.count);
   /* Leave this reader may decide, oldest start first; Home shows three, the Inbox has the rest. */
   const decidable = may('ATTENDANCE::Leave Requests::APPROVE') ? pending : [];
   const onDecided = () => { loadTodos(); loadLeave(); };
+  const toAttendance = () => requestOpenApp('attendance', 'today');
+  const showLeavings = !data.leavingsHidden;
+  const probationValue = todos ? Math.max(probationDue, probationOver) : null;
+  const probationSub = failed.todos ? 'Could not load' : !todos ? 'Checking' : probationOver ? `${plural(probationOver, 'person', 'people')} past their date` : nextProbation ? `Next ends ${shortDate(nextProbation.endsOn)}` : '';
+  const outSub = leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : failed.leave ? 'Could not load leave' : 'Loading leave';
+  const joinedSub = joined ? `+${joined} joined in ${monthName()}` : `None joined in ${monthName()}`;
+  const dayOn = Boolean(today_ && today_.inCount > 0);
+  /* With the day from Attendance the hero is who is in; without it, headcount. */
+  const hero = dayOn
+    ? {
+        label: 'In today',
+        value: today_.inCount,
+        words: `of ${plural(today_.expected, 'person', 'people')} ${today_.inCount === 1 ? 'is' : 'are'} in`,
+        pill: `${Math.round((today_.inCount / Math.max(1, today_.expected)) * 100)}%${today_.late ? ` · ${today_.late} late` : ''}`,
+        tone: today_.late ? 'warn' : undefined,
+      }
+    : { label: 'Headcount', value: data.headcount, words: Number(data.headcount) === 1 ? 'person works here' : 'people work here', pill: joined ? `+${joined} in ${monthName()}` : null };
+  const base = dayOn ? Math.max(1, today_.expected) : Math.max(1, Number(data.headcount) || 0);
+  const notYet = dayOn ? Math.max(0, today_.expected - today_.inCount - (today_.onLeave ?? outToday.length)) : 0;
+  const ledger = [
+    ...(dayOn
+      ? [
+          { key: 'onTime', label: 'In on time', sub: today_.shiftStart ? `By ${today_.shiftStart}` : 'No late mark', value: today_.inCount - today_.late, share: (today_.inCount - today_.late) / base, tone: 'pos', onClick: toAttendance },
+          { key: 'late', label: 'Came in late', sub: 'After the shift start', value: today_.late, share: today_.late / base, tone: 'warn', onClick: toAttendance },
+          { key: 'notYet', label: 'Not in yet', sub: 'No punch today', value: notYet, share: notYet / base, onClick: toAttendance },
+        ]
+      : []),
+    { key: 'out', label: 'Out on leave', sub: outSub, value: leave ? outToday.length : null, share: leave ? outToday.length / base : null, tone: 'info', onClick: go('leaveCalendar') },
+    ...(dayOn ? [{ key: 'headcount', label: 'Headcount', sub: joinedSub, value: data.headcount, always: true, onClick: go('employees') }] : []),
+    { key: 'probation', label: 'Probation due', sub: probationSub, value: probationValue, share: probationValue != null ? probationValue / base : null, tone: probationDue > 0 ? 'warn' : undefined, onClick: go('employees', { prob: 'on' }) },
+    ...(showLeavings ? [{ key: 'notice', label: 'On notice', sub: data.leftThisMonth ? `${plural(data.leftThisMonth, 'person', 'people')} left in ${monthName()}` : '', value: Number(onNotice) || 0, share: (Number(onNotice) || 0) / base, onClick: go('employees') }] : []),
+  ];
 
   return (
     <div className="people-home">
@@ -434,60 +459,8 @@ export default function PeopleOverview({ openScreen }) {
         </section>
       ) : null}
 
-      <div className="people-kpis">
-        <button type="button" className="people-kpi" onClick={go('employees')}>
-          <span className="people-kpi-icon ui-accent-ico" data-tone="info"><Users size={20} aria-hidden="true" /></span>
-          <span className="people-kpi-label">Headcount</span>
-          <span className="people-kpi-row"><span className="people-kpi-value" data-zero={Number(data.headcount) === 0 || undefined}>{data.headcount}</span></span>
-          <span className="people-kpi-note">{joined ? <><span className="people-delta">+{joined}</span> joined in {monthName()}</> : `None joined in ${monthName()}`}</span>
-        </button>
-        {/* Who has come in today, with the morning's arrivals drawn small (owner, 22 Nov 2026). Left out before anyone punches. */}
-        {today_ && today_.inCount > 0 ? (
-          <button type="button" className="people-kpi" onClick={() => requestOpenApp('attendance', 'today')}>
-            <span className="people-kpi-icon ui-accent-ico" data-tone="info"><Clock size={20} aria-hidden="true" /></span>
-            <span className="people-kpi-label">In today</span>
-            <span className="people-kpi-row">
-              <span className="people-kpi-value">{today_.inCount}<small className="people-kpi-of"> of {today_.expected}</small></span>
-              <ArrivalSpark arrivals={today_.arrivals} />
-            </span>
-            <span className="people-kpi-note">{today_.late ? `${plural(today_.late, 'person', 'people')} came in late` : 'Nobody came in late'}</span>
-          </button>
-        ) : null}
-        {/* An overview figure never shows at zero (DESIGN.md "Overview pages"); the count line under the title says it. */}
-        {leave && outToday.length === 0 ? null : (
-        <button type="button" className="people-kpi" onClick={go('leaveCalendar')}>
-          <span className="people-kpi-icon ui-accent-ico" data-tone="mint"><Plane size={20} aria-hidden="true" /></span>
-          <span className="people-kpi-label">Out today</span>
-          <span className="people-kpi-row">
-            <span className="people-kpi-value" data-zero={(leave && outToday.length === 0) || undefined}>{leave ? outToday.length : '–'}</span>
-            {leaveParts.length > 1 ? <LeaveSplit parts={leaveParts} /> : outToday.length ? (
-              <span className="people-faces" aria-hidden="true">
-                {outToday.slice(0, 3).map((r) => <Face key={r.id} person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={28} colour={colourOf(r.department)} />)}
-              </span>
-            ) : null}
-          </span>
-          <span className="people-kpi-note">{leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : failed.leave ? 'Could not load leave' : 'Loading leave'}</span>
-        </button>
-        )}
-        {/* No approvals among Home's figures (owner, 8 Nov 2026): the Inbox owns them. Probation is a decision that is Home's. */}
-        {todos && probationDue === 0 && !probationOver ? null : (
-        <button type="button" className={`people-kpi${probationDue > 0 ? ' ui-urgent' : ''}`} data-tone={probationDue > 0 ? 'warn' : undefined} data-attention={probationDue > 0 || undefined} onClick={go('employees', { prob: 'on' })}>
-          <span className="people-kpi-icon ui-accent-ico" data-tone="butter"><Hourglass size={20} aria-hidden="true" /></span>
-          <span className="people-kpi-label">Probation due</span>
-          <span className="people-kpi-row"><span className="people-kpi-value">{todos ? Math.max(probationDue, probationOver) : '–'}</span></span>
-          <span className="people-kpi-note">{failed.todos ? 'Could not load' : !todos ? 'Checking' : probationOver ? `${plural(probationOver, 'person', 'people')} past their date` : nextProbation ? `Next ends ${shortDate(nextProbation.endsOn)}` : 'None in the next 30 days'}</span>
-        </button>
-        )}
-        {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
-        {data.leavingsHidden || (Number(onNotice) === 0 && !data.leftThisMonth) ? null : (
-          <button type="button" className="people-kpi" onClick={go('employees')}>
-            <span className="people-kpi-icon ui-accent-ico" data-tone="peach"><LogOut size={20} aria-hidden="true" /></span>
-            <span className="people-kpi-label">On notice</span>
-            <span className="people-kpi-row"><span className="people-kpi-value" data-zero={Number(onNotice) === 0 || undefined}>{onNotice}</span></span>
-            <span className="people-kpi-note">{data.leftThisMonth ? `${plural(data.leftThisMonth, 'person', 'people')} left in ${monthName()}` : `Nobody left in ${monthName()}`}</span>
-          </button>
-        )}
-      </div>
+      {/* One big figure and a ledger under it, in place of the four tiles (owner, 22 Nov 2026, style G). */}
+      <FigureLedger label="Today in numbers" hero={hero} rows={ledger} />
 
       <div className="people-home-grid">
         <div className="people-home-main">
@@ -557,7 +530,7 @@ export default function PeopleOverview({ openScreen }) {
             </Block>
           ) : null}
 
-          {today_ ? <ArrivalsChart today={today_} onOpen={() => requestOpenApp('attendance', 'today')} /> : null}
+          {today_ ? <DayTimeline today={today_} onOpen={() => requestOpenApp('attendance', 'today')} /> : null}
           {today_ ? <TodayFeed today={today_} openPerson={openPerson} /> : null}
 
           <HomeGlance glance={glance} go={go} />
@@ -565,7 +538,8 @@ export default function PeopleOverview({ openScreen }) {
           {/* The setup list sits under what waits on you, so a request is never below the fold behind it (2 Nov 2026). */}
           <HomeSetup openScreen={openScreen} onState={onSetup} />
 
-          {deptBars.length ? (
+          {/* Each team's day as a heat table when Attendance gives the day (style I); otherwise headcount by department. */}
+          {today_?.byTeam?.length ? <TeamsToday teams={today_.byTeam} /> : deptBars.length ? (
             <Block id="dept-h" title="Headcount by department" action={<span className="ui-caption">Active employees, today</span>}>
               <figure className="people-dept-chart" aria-label={depts.map((d) => `${d.name} ${d.count}`).join(', ')}>
                 <ul>

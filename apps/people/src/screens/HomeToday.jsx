@@ -26,84 +26,255 @@ export function arrivalWords(b) {
   return `${b.at}: ${plural(b.count, 'person', 'people')} came in${named ? ` (${named}${more > 0 ? ` and ${more} more` : ''})` : ''}${b.late ? `, ${b.late} late` : ''}`;
 }
 
-/** The small arrivals chart inside the "In today" tile; the last step drawn in the tile's ink. */
-export function ArrivalSpark({ arrivals }) {
-  const max = Math.max(1, ...arrivals.map((b) => b.count));
+/**
+ * The figures as one big number and a ledger (owner, 22 Nov 2026, style G, replacing
+ * the four tiles): the hero says the one thing, and each row under it is a share of
+ * the hero's whole, drawn as a bar, with its number at the end. Every row opens the
+ * screen that owns it. A row at nought is left out, as DESIGN.md asks of figures.
+ */
+export function FigureLedger({ hero, rows, label }) {
+  const shown = rows.filter((r) => r.always || r.value == null || Number(r.value) > 0);
   return (
-    <span className="people-spark" aria-hidden="true">
-      {arrivals.map((b, i) => <i key={b.at} data-now={i === arrivals.length - 1 || undefined} style={{ height: `${Math.max(8, (b.count / max) * 100)}%` }} />)}
-    </span>
+    <section className="people-ledger" aria-label={label}>
+      <div className="people-ledger-hero">
+        {hero.label ? <p className="people-ledger-kicker">{hero.label}</p> : null}
+        <p className="people-ledger-figure tabular-nums">{hero.value}</p>
+        <p className="people-ledger-words">{hero.words}</p>
+        {hero.pill ? <span className="people-ledger-pill" data-tone={hero.tone || undefined}>{hero.pill}</span> : null}
+      </div>
+      <ul className="people-ledger-rows">
+        {shown.map((r) => (
+          <li key={r.key}>
+            <button type="button" className="people-ledger-row" onClick={r.onClick} data-tone={r.tone || undefined}>
+              <span className="people-ledger-label">
+                <b>{r.label}</b>
+                {r.sub ? <span>{r.sub}</span> : null}
+              </span>
+              <span className="people-ledger-bar" aria-hidden="true">
+                {r.share != null ? <i style={{ width: `${Math.max(r.value ? 2 : 0, Math.min(100, r.share * 100))}%` }} /> : null}
+              </span>
+              <span className="people-ledger-n tabular-nums">{r.value == null ? '–' : r.value}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
-/** Leave today split by type, each part in its type's colour, the biggest two named under it. */
-export function LeaveSplit({ parts }) {
-  const total = parts.reduce((n, p) => n + p.count, 0);
-  if (!total) return null;
-  return (
-    <span className="people-split-wrap" aria-hidden="true">
-      <span className="people-split">{parts.map((p) => <i key={p.name} style={{ flex: p.count, background: p.colour }} />)}</span>
-      <span className="people-split-legend">{parts.slice(0, 2).map((p) => <span key={p.name}><i style={{ background: p.colour }} />{p.count} {p.name.replace(/ leave$/i, '').toLowerCase()}</span>)}</span>
-    </span>
-  );
+const clockOfMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+/** The date and clock in India now, "YYYY-MM-DDTHH:MM". */
+const istStamp = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 16);
+
+/** India's date and clock, moved on every minute while the timeline is open. */
+function useIstClock() {
+  const [stamp, setStamp] = useState(istStamp);
+  useEffect(() => {
+    const id = setInterval(() => setStamp(istStamp()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return { date: stamp.slice(0, 10), time: stamp.slice(11, 16) };
+}
+
+/** How many had come in by the end of each 15-minute step, and who came in during it. */
+export function dayCurve(arrivals) {
+  let total = 0;
+  return arrivals.map((b) => {
+    total += b.count;
+    return { ...b, from: minutesOf(b.at), to: minutesOf(b.at) + 15, total };
+  });
+}
+
+/** One step of the day in words, for the slider and the screen reader. */
+export function stepWords(s, expected) {
+  return `By ${clockOfMin(s.to)}, ${s.total} of ${expected} in. ${arrivalWords(s)}`;
 }
 
 /**
- * Arrivals this morning: one bar per 15 minutes. Each bar is a button: pointing at it
- * or moving to it with the keyboard says who came in. Steps after the shift start are
- * drawn in the warning tint, and a dashed line marks the start.
+ * The day as a timeline (owner, 22 Nov 2026, style F, replacing the arrival bars): how
+ * many people are in, climbing through the morning, against the whole expected today.
+ * The shift start is a dashed line and now is a solid one. Pointing anywhere, or the
+ * arrow keys, says how many were in by then and who came in.
  */
-export function ArrivalsChart({ today, onOpen }) {
+export function DayTimeline({ today, onOpen, now: pinned }) {
   const [shown, setShown] = useState(null);
-  const bars = useRef(null);
-  const { arrivals, shiftStart } = today;
+  const clock = useIstClock();
+  const { arrivals, shiftStart, expected } = today;
   if (!arrivals?.length) return null;
-  const max = Math.max(1, ...arrivals.map((b) => b.count));
-  const lateFrom = shiftStart ? minutesOf(shiftStart) : null;
-  const startIndex = lateFrom == null ? -1 : arrivals.findIndex((b) => minutesOf(b.at) >= lateFrom);
-  const ticks = arrivals.filter((b) => b.at.endsWith(':00'));
-  const tip = shown == null ? null : arrivals[shown];
+  const steps = dayCurve(arrivals);
+  const last = steps[steps.length - 1];
+  /* "Now" is drawn only on today's own date; `now` pins the clock (tests). */
+  const now = pinned || (clock.date === today.date ? clock.time : null);
+  const nowMin = now ? minutesOf(now) : null;
+  const shiftMin = shiftStart ? minutesOf(shiftStart) : null;
+  const lo = Math.floor(Math.min(steps[0].from, shiftMin ?? Infinity, ...(nowMin == null ? [] : [nowMin])) / 60) * 60;
+  /* The morning, not the whole day: up to an hour past the last arrival, or now if sooner. */
+  const hi = Math.min(24 * 60, Math.ceil(Math.max(last.to, (shiftMin ?? 0) + 60, Math.min(nowMin ?? 0, last.to + 60)) / 60) * 60);
+  const top = Math.max(1, expected, last.total) * 1.08;
+  const x = (m) => ((m - lo) / (hi - lo)) * 100;
+  const y = (n) => 100 - (n / top) * 100;
+  const end = nowMin == null ? last.to : Math.max(last.to, Math.min(nowMin, hi));
+  const pts = [[x(steps[0].from), y(0)], ...steps.map((s) => [x(s.to), y(s.total)]), [x(end), y(last.total)]];
+  const line = pts.map(([a, b], i) => `${i ? 'L' : 'M'}${a.toFixed(2)},${b.toFixed(2)}`).join(' ');
+  const area = `${line} L${x(end).toFixed(2)},100 L${x(steps[0].from).toFixed(2)},100 Z`;
+  const hours = [];
+  for (let h = lo; h <= hi; h += 60) hours.push(h);
+  const step = shown == null ? null : steps[shown];
+  const byShift = shiftMin == null ? null : steps.filter((s) => s.to <= shiftMin).reduce((n, s) => Math.max(n, s.total), 0);
+  const pick = (clientX, box) => {
+    const m = lo + ((clientX - box.left) / box.width) * (hi - lo);
+    let i = steps.findIndex((s) => m < s.to);
+    if (i < 0) i = steps.length - 1;
+    setShown(i);
+  };
+  const onKey = (e) => {
+    const i = shown == null ? steps.length - 1 : shown;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); setShown(Math.max(0, i - 1)); }
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); setShown(Math.min(steps.length - 1, shown == null ? i : i + 1)); }
+    else if (e.key === 'Home') { e.preventDefault(); setShown(0); }
+    else if (e.key === 'End') { e.preventDefault(); setShown(steps.length - 1); }
+    else if (e.key === 'Escape') setShown(null);
+  };
+  const first = steps.find((s) => s.count);
+  const facts = [
+    first?.names[0] ? { k: 'first', label: 'First in', value: `${first.names[0]}, ${first.at}` } : null,
+    byShift != null ? { k: 'shift', label: `In by ${shiftStart}`, value: `${byShift} of ${expected}` } : null,
+    { k: 'late', label: 'Came in late', value: String(today.late || 0), tone: today.late ? 'warn' : undefined },
+    { k: 'now', label: nowMin == null ? 'In that day' : 'In now', value: `${today.inCount} of ${expected}` },
+  ].filter(Boolean);
   return (
-    <section className="people-today-block" aria-labelledby="arrivals-h">
+    <section className="people-today-block" aria-labelledby="day-h">
       <header className="people-block-head">
         <div className="min-w-0">
-          <h2 id="arrivals-h" className="people-block-title">Arrivals this morning</h2>
-          <p className="ui-caption">Each bar is 15 minutes. Point at one to see who came in.</p>
+          <h2 id="day-h" className="people-block-title">The day so far</h2>
+          <p className="ui-caption">How many are in, through the morning. Point anywhere, or use the arrow keys.</p>
         </div>
         {onOpen ? <button type="button" className="people-more" onClick={onOpen}>Today’s register</button> : null}
       </header>
-      <figure className="people-arrivals" aria-label={`Arrivals by quarter hour. ${arrivals.map(arrivalWords).join('. ')}`}>
-        <div className="people-arrivals-bars" ref={bars} onPointerLeave={() => setShown(null)}>
-          {arrivals.map((b, i) => (
-            <button
-              key={b.at}
-              type="button"
-              className="people-arrivals-bar"
-              data-late={(startIndex >= 0 && i >= startIndex) || undefined}
-              aria-label={arrivalWords(b)}
-              onPointerEnter={() => setShown(i)}
-              onFocus={() => setShown(i)}
-              onBlur={() => setShown(null)}
-            >
-              <span style={{ height: `${Math.max(3, (b.count / max) * 100)}%` }} />
-            </button>
+      <figure className="people-day">
+        <div
+          className="people-day-plot"
+          role="slider"
+          tabIndex={0}
+          aria-label="Time of day"
+          aria-valuemin={0}
+          aria-valuemax={steps.length - 1}
+          aria-valuenow={shown ?? steps.length - 1}
+          aria-valuetext={stepWords(step || last, expected)}
+          onPointerMove={(e) => pick(e.clientX, e.currentTarget.getBoundingClientRect())}
+          onPointerDown={(e) => pick(e.clientX, e.currentTarget.getBoundingClientRect())}
+          onPointerLeave={() => setShown(null)}
+          onKeyDown={onKey}
+          onBlur={() => setShown(null)}
+        >
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <line x1="0" x2="100" y1={y(expected)} y2={y(expected)} className="people-day-goal" vectorEffect="non-scaling-stroke" />
+            <path d={area} className="people-day-area" />
+            <path d={line} className="people-day-line" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <span className="people-day-goal-label" style={{ top: `${y(expected)}%` }}>{expected} expected</span>
+          {shiftMin != null && shiftMin >= lo && shiftMin <= hi ? (
+            <span className="people-day-mark" data-k="shift" style={{ left: `${x(shiftMin)}%` }}><b>Shift starts {shiftStart}</b></span>
+          ) : null}
+          {nowMin != null && nowMin >= lo && nowMin <= hi ? (
+            <span className="people-day-mark" data-k="now" style={{ left: `${x(nowMin)}%` }}><b>Now {now} · {today.inCount} in</b></span>
+          ) : null}
+          {step ? (
+            <>
+              <span className="people-day-dot" style={{ left: `${x(step.to)}%`, top: `${y(step.total)}%` }} aria-hidden="true" />
+              <span className="people-day-tip" role="status" style={{ left: `${Math.min(85, Math.max(15, x(step.to)))}%` }}>
+                <b>By {clockOfMin(step.to)}</b> · {step.total} in{step.count ? `, ${step.count} came in` : ''}{step.late ? ` (${step.late} late)` : ''}
+                {step.names.length ? <><br />{step.names.join(', ')}{step.count > step.names.length ? ` and ${step.count - step.names.length} more` : ''}</> : null}
+              </span>
+            </>
+          ) : null}
+        </div>
+        <div className="people-day-axis" aria-hidden="true">
+          {hours.map((h) => <span key={h} style={{ left: `${x(h)}%` }}>{clockOfMin(h)}</span>)}
+        </div>
+        <dl className="people-day-facts">
+          {facts.map((f) => (
+            <div key={f.k} data-tone={f.tone}>
+              <dt>{f.label}</dt>
+              <dd className="tabular-nums">{f.value}</dd>
+            </div>
           ))}
-          {startIndex >= 0 ? (
-            <span className="people-arrivals-start" style={{ left: `${(startIndex / arrivals.length) * 100}%` }}>
-              <b>Shift starts {shiftStart}</b>
-            </span>
-          ) : null}
-          {tip ? (
-            <span className="people-arrivals-tip" role="status" style={{ left: `${((shown + 0.5) / arrivals.length) * 100}%` }}>
-              <b>{tip.at}</b> · {tip.count} in{tip.late ? `, ${tip.late} late` : ''}
-              {tip.names.length ? <><br />{tip.names.join(', ')}{tip.count > tip.names.length ? ` and ${tip.count - tip.names.length} more` : ''}</> : null}
-            </span>
-          ) : null}
-        </div>
-        <div className="people-arrivals-axis" aria-hidden="true">
-          {ticks.map((t) => <span key={t.at} style={{ left: `${(arrivals.indexOf(t) / arrivals.length) * 100}%` }}>{t.at}</span>)}
-        </div>
+        </dl>
       </figure>
+    </section>
+  );
+}
+
+const TEAM_COLS = [
+  ['onTime', 'In on time', 'pos'],
+  ['late', 'In late', 'warn'],
+  ['notYet', 'Not in yet', 'neutral'],
+  ['onLeave', 'On leave', 'info'],
+];
+const MAX_TEAMS = 8;
+
+/**
+ * Each team's day as a heat table (owner, 22 Nov 2026, style I, replacing headcount by
+ * department): a cell is tinted by its share of the team, so the team with half its
+ * people not in shows at a glance. The numbers stay in ink; a nought is a dash.
+ */
+export function TeamsToday({ teams }) {
+  if (!teams?.length) return null;
+  const head = teams.slice(0, MAX_TEAMS);
+  const rest = teams.slice(MAX_TEAMS);
+  const sum = (list, name) => list.reduce((t, r) => {
+    for (const [k] of TEAM_COLS) t[k] += r[k];
+    t.total += r.total;
+    return t;
+  }, { name, onTime: 0, late: 0, notYet: 0, onLeave: 0, total: 0 });
+  const rows = rest.length ? [...head, sum(rest, rest.length === 1 ? rest[0].name : `${rest.length} other teams`)] : head;
+  const all = sum(teams, 'Everyone');
+  const cell = (r, k, tone) => {
+    const v = r[k];
+    const share = r.total ? v / r.total : 0;
+    return (
+      <td key={k} className="people-heat-cell tabular-nums" data-tone={tone} data-zero={v === 0 || undefined} style={{ '--a': (0.08 + share * 0.52).toFixed(3) }}>
+        {v || '–'}
+      </td>
+    );
+  };
+  return (
+    <section className="people-today-block" aria-labelledby="teams-h">
+      <header className="people-block-head">
+        <div className="min-w-0">
+          <h2 id="teams-h" className="people-block-title">Teams today</h2>
+          <p className="ui-caption">Darker means more of that team.</p>
+        </div>
+      </header>
+      <div className="ui-table-scroll">
+        <table className="people-heat">
+          <thead>
+            <tr>
+              <th scope="col">Team</th>
+              {TEAM_COLS.map(([k, label]) => <th key={k} scope="col">{label}</th>)}
+              <th scope="col">People</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.name}>
+                <th scope="row">{r.name}</th>
+                {TEAM_COLS.map(([k, , tone]) => cell(r, k, tone))}
+                <td className="tabular-nums">{r.total}</td>
+              </tr>
+            ))}
+          </tbody>
+          {teams.length > 1 ? (
+            <tfoot>
+              <tr>
+                <th scope="row">{all.name}</th>
+                {TEAM_COLS.map(([k, , tone]) => cell(all, k, tone))}
+                <td className="tabular-nums">{all.total}</td>
+              </tr>
+            </tfoot>
+          ) : null}
+        </table>
+      </div>
     </section>
   );
 }
@@ -303,8 +474,9 @@ export function HomeSkeleton() {
   return (
     <div className="people-home" role="status" aria-busy="true" aria-label="Loading Home">
       <div className="people-home-head"><div className="min-w-0 space-y-2"><div className="ui-skel h-8 w-64" /><div className="ui-skel h-4 w-80" /></div></div>
-      <div className="people-kpis">
-        {[0, 1, 2, 3].map((i) => <div key={i} className="people-kpi people-kpi-skel"><div className="ui-skel h-9 w-9" /><div className="ui-skel h-3 w-24" /><div className="ui-skel h-7 w-16" /><div className="ui-skel h-3 w-32" /></div>)}
+      <div className="people-ledger">
+        <div className="people-ledger-hero space-y-2"><div className="ui-skel h-3 w-20" /><div className="ui-skel h-14 w-24" /><div className="ui-skel h-4 w-40" /></div>
+        <div className="space-y-2">{[0, 1, 2, 3].map((i) => <div key={i} className="ui-skel h-9 w-full" />)}</div>
       </div>
       <div className="people-home-grid">
         <div className="people-home-main space-y-3"><div className="ui-skel h-5 w-40" /><div className="ui-skel h-11 w-full" /><div className="ui-skel h-11 w-full" /><div className="ui-skel h-40 w-full" /></div>

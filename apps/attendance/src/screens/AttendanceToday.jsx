@@ -3,6 +3,7 @@ import { ChevronRight } from '@ui/components/ui/lineIcons';
 import { CalendarDays, Fingerprint, Inbox, ListChecks } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PartsRing } from '@ui/components/ui/FigureViews';
 import '../attendance.css';
 
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
@@ -44,6 +45,25 @@ function daySentence(data, isToday) {
   if (data.onLeave) parts.push(`${data.onLeave} on leave`);
   if (data.absent) parts.push(`${data.absent} absent`);
   return `${parts.join(', ')}.`;
+}
+
+/** The day's parts for the ring: on time, late, on leave, absent, and the rest not in yet (or not marked, on a past day). */
+export function dayParts(data, isToday) {
+  const inn = data.present + data.halfDay;
+  const late = Math.min(inn, data.late.length);
+  const rest = Math.max(0, data.headcount - inn - data.onLeave - data.absent);
+  return {
+    total: Math.max(data.headcount, inn + data.onLeave + data.absent),
+    middle: `${Math.min(100, Math.round((inn / Math.max(1, data.headcount)) * 100))}%`,
+    middleWords: `${inn} of ${data.headcount} in`,
+    parts: [
+      { key: 'onTime', label: 'In on time', value: inn - late, tone: 'pos' },
+      { key: 'late', label: 'In late', value: late, tone: 'warn' },
+      { key: 'leave', label: 'On leave', value: data.onLeave, tone: 'info' },
+      { key: 'absent', label: 'Absent', value: data.absent, tone: 'neg' },
+      { key: 'rest', label: isToday ? 'Not in yet' : 'Not marked', value: rest, tone: 'none' },
+    ],
+  };
 }
 
 /** Who is in today, who is late, who has not come, and what is waiting for HR. */
@@ -173,12 +193,8 @@ export default function AttendanceToday({ openScreen }) {
               <div className="ui-today-hero-text">
               <h2 id="hello-h" className="ui-today-hero-greet">{longDate(date)}</h2>
               <p className="ui-today-hero-line">{daySentence(data, date === todayIst())}</p>
-              {data.headcount ? (
-                <div className="ui-today-ring" role="img" aria-label={`${data.present + data.halfDay} of ${data.headcount} in`} style={{ '--pct': `${Math.min(100, Math.round(((data.present + data.halfDay) / data.headcount) * 100))}%` }}>
-                  <span className="ui-today-ring-inner tabular-nums" aria-hidden="true">{Math.min(100, Math.round(((data.present + data.halfDay) / data.headcount) * 100))}%</span>
-                  <span className="ui-today-ring-note" aria-hidden="true"><b className="tabular-nums">{data.present + data.halfDay} of {data.headcount}</b> in</span>
-                </div>
-              ) : null}
+              {/* The day as a ring of its parts (owner, 22 Nov 2026, style E), each part in its status colour and named beside it. */}
+              {data.headcount ? <PartsRing label="The day" {...dayParts(data, date === todayIst())} /> : null}
               </div>
             </div>
             <div className="ui-today-hero-side">

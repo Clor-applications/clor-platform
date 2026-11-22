@@ -21,7 +21,38 @@ export type HomeToday = {
   arrivals: ArrivalBucket[];
   /** Newest first, at most 12. */
   feed: TodayEvent[];
+  /** Expected today and on approved leave, not checked in. */
+  onLeave: number;
+  /** Each team's day, biggest team first; people with no department are "No department". */
+  byTeam: TeamToday[];
 };
+export type TeamToday = { name: string; onTime: number; late: number; notYet: number; onLeave: number; total: number };
+
+const NO_TEAM = 'No department';
+
+/**
+ * Each team's day: on time, late, not in yet, on leave. Someone on leave who
+ * still checked in counts as in. Biggest team first, then by name.
+ */
+export function teamsToday(
+  staff: Array<{ id: string; department: string | null }>,
+  came: Map<string, { late: boolean }>,
+  away: Set<string>,
+): TeamToday[] {
+  const by = new Map<string, TeamToday>();
+  for (const p of staff) {
+    const name = p.department?.trim() || NO_TEAM;
+    const t = by.get(name) || { name, onTime: 0, late: 0, notYet: 0, onLeave: 0, total: 0 };
+    t.total += 1;
+    const r = came.get(p.id);
+    if (r?.late) t.late += 1;
+    else if (r) t.onTime += 1;
+    else if (away.has(p.id)) t.onLeave += 1;
+    else t.notYet += 1;
+    by.set(name, t);
+  }
+  return [...by.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+}
 
 const IST_MS = 330 * 60_000;
 const BUCKET = 15;
@@ -63,10 +94,10 @@ const mostCommon = (values: string[]): string | null => {
 
 export async function homeToday(accountId: string, orgId: string, scope: TeamScope, today: string, opts: { seesLeavings: boolean }): Promise<HomeToday> {
   const dayStart = new Date(new Date(`${today}T00:00:00Z`).getTime() - IST_MS);
-  const [staff, records, applied] = await Promise.all([
+  const [staff, records, applied, away] = await Promise.all([
     peoplePrisma.employee.findMany({
       where: { accountId, orgId, status: { not: 'LEFT' }, OR: [{ dateOfJoining: null }, { dateOfJoining: { lte: today } }] },
-      select: { id: true, name: true, dateOfJoining: true, dateOfLeaving: true },
+      select: { id: true, name: true, department: true, dateOfJoining: true, dateOfLeaving: true },
     }),
     peoplePrisma.attendanceRecord.findMany({
       where: { accountId, orgId, date: today, checkIn: { not: null } },
@@ -77,6 +108,10 @@ export async function homeToday(accountId: string, orgId: string, scope: TeamSco
       select: { employeeId: true, createdAt: true, fromDate: true, toDate: true },
       orderBy: { createdAt: 'desc' },
       take: 40,
+    }),
+    peoplePrisma.leaveRequest.findMany({
+      where: { accountId, orgId, status: 'APPROVED', fromDate: { lte: today }, toDate: { gte: today } },
+      select: { employeeId: true },
     }),
   ]);
   const mine = staff.filter((p) => inScope(scope, p.id));
@@ -101,8 +136,12 @@ export async function homeToday(accountId: string, orgId: string, scope: TeamSco
     if (opts.seesLeavings && p.dateOfLeaving === today) feed.push({ at: '00:00', kind: 'leaving', employeeId: p.id, name: p.name, text: 'has their last day today' });
   }
   feed.sort((a, b) => b.at.localeCompare(a.at) || a.name.localeCompare(b.name));
+  const came = new Map(seen.map((r) => [r.employeeId, { late: r.lateMinutes > 0 }]));
+  const byTeam = teamsToday(mine, came, new Set(away.map((l) => l.employeeId)));
 
   return {
+    onLeave: byTeam.reduce((n, t) => n + t.onLeave, 0),
+    byTeam,
     date: today,
     expected: mine.length,
     inCount: seen.length,
