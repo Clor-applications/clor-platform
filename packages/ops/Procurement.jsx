@@ -6,6 +6,7 @@ import { opsAddVendorDocument, opsProformaToInvoice, opsProformas, opsRemoveVend
 import { Empty, Err, Loading, day, may, errorWords } from './kit';
 import { inr } from './money';
 import { Button } from '@ui/components/ui/Primitives';
+import FileDrop from '@ui/components/ui/FileDrop';
 
 /**
  * Round 67 (selling to companies and CAs), on ops.clor.in under Billing:
@@ -283,17 +284,22 @@ function AddDocument({ onClose, onSaved }) {
   const [title, setTitle] = useState('');
   const [validUntil, setValidUntil] = useState('');
   const [file, setFile] = useState(null);
+  const [chosen, setChosen] = useState(null);
+  const [fileError, setFileError] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const pick = (e) => {
-    setError('');
-    const f = e.target.files?.[0];
-    if (!f) return setFile(null);
-    if (f.size > 2 * 1024 * 1024) return (setFile(null), setError('The file is larger than 2 MB.'));
+  const read = (f) => {
+    setFileError('');
     const reader = new FileReader();
     reader.onload = () => setFile({ name: f.name, dataUrl: String(reader.result) });
-    reader.onerror = () => setError('That file could not be read. Choose it again.');
+    reader.onerror = () => { setFile(null); setFileError('That file could not be read.'); };
     reader.readAsDataURL(f);
+  };
+  const pick = (f) => {
+    setError('');
+    setChosen(f);
+    if (!f) { setFile(null); setFileError(''); return; }
+    read(f);
   };
   const dirty = Boolean(file) || Boolean(title.trim()) || Boolean(validUntil) || kind !== 'GST';
   const close = () => { if (!busy) onClose(); };
@@ -355,12 +361,8 @@ function AddDocument({ onClose, onSaved }) {
           <input id="vd-valid" type="date" className="ui-input" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           <span className="ws-card-blurb">Leave empty if it does not run out, as a PAN does not.</span>
         </div>
-        <div className="grid gap-1">
-          <label htmlFor="vd-file" className="text-sm font-semibold">
-            File
-          </label>
-          <input id="vd-file" type="file" accept="application/pdf,image/png,image/jpeg" onChange={pick} aria-invalid={error && !file ? true : undefined} aria-describedby={error && !file ? 'vd-file-err' : undefined} />
-        </div>
+        <FileDrop id="vd-file" label="File" file={chosen} onFile={pick} accept="application/pdf,image/png,image/jpeg" maxBytes={2 * 1024 * 1024}
+          hint="PDF or picture, up to 2 MB" error={fileError || (error && !file ? error : '')} onRetry={chosen && fileError ? () => read(chosen) : undefined} />
         <div id="vd-file-err">
           <Err>{error}</Err>
         </div>

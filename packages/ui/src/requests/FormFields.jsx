@@ -4,6 +4,7 @@ import SuggestInput from '../components/ui/SuggestInput';
 import PopupSelect from '../components/pickers/PopupSelect';
 import DatePicker from '../components/ui/DatePicker';
 import { MAX_FILE_BYTES } from './formFiles';
+import FileDrop from '../components/ui/FileDrop';
 
 /*
  * The fields of a request type HR set up (People, gap 25), the same in
@@ -18,20 +19,22 @@ import { MAX_FILE_BYTES } from './formFiles';
  */
 function FileField({ value, onChange, id }) {
   const [error, setError] = useState('');
-  const pick = (file) => {
+  const [chosen, setChosen] = useState(null);
+  const read = (file) => {
     setError('');
-    if (!file) { onChange(null); return; }
-    if (file.size > MAX_FILE_BYTES) { setError('Files up to 2 MB.'); onChange(null); return; }
     const reader = new FileReader();
     reader.onload = () => onChange({ name: file.name, dataUrl: String(reader.result) });
-    reader.onerror = () => setError('The file could not be read.');
+    reader.onerror = () => { setError('The file could not be read.'); onChange(null); };
     reader.readAsDataURL(file);
   };
+  const pick = (file) => {
+    setChosen(file);
+    if (!file) { setError(''); onChange(null); return; }
+    read(file);
+  };
   return (
-    <>
-      <input id={id} type="file" className="ui-input w-full" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(e) => pick(e.target.files?.[0] || null)} />
-      <span className={`ui-caption ${error ? 'ui-text-neg' : ''}`}>{error || (value ? `${value.name} is attached.` : 'A picture or a PDF, up to 2 MB.')}</span>
-    </>
+    <FileDrop id={id} file={chosen || (value ? { name: value.name } : null)} onFile={pick} accept="application/pdf,image/jpeg,image/png,image/webp"
+      maxBytes={MAX_FILE_BYTES} hint="A picture or a PDF, up to 2 MB" error={error} onRetry={chosen ? () => read(chosen) : undefined} compact />
   );
 }
 

@@ -7,6 +7,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import DatePicker from '@ui/components/ui/DatePicker';
+import FileDrop from '@ui/components/ui/FileDrop';
 import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 
@@ -98,16 +99,22 @@ function ConsentDrawer({ row, canEdit, onClose, onDone }) {
   const [onDate, setOnDate] = useState(istToday());
   const [note, setNote] = useState('');
   const [file, setFile] = useState(null);
+  const [chosen, setChosen] = useState(null);
+  const [fileError, setFileError] = useState('');
   const [busy, setBusy] = useState(false);
-  const pick = async (f) => {
-    if (!f) return setFile(null);
-    if (f.size > MAX_BYTES) { notify.error('Files up to 5 MB.'); return null; }
+  const read = async (f) => {
+    setFileError('');
     try {
       setFile({ name: f.name, mime: f.type, data: await readFile(f) });
     } catch (e) {
-      notify.error(errorWords(e, 'read the file'));
+      setFile(null);
+      setFileError(errorWords(e, 'read the file'));
     }
-    return null;
+  };
+  const pick = (f) => {
+    setChosen(f);
+    if (!f) { setFile(null); setFileError(''); return; }
+    read(f);
   };
   const save = async (e) => {
     e.preventDefault();
@@ -134,7 +141,7 @@ function ConsentDrawer({ row, canEdit, onClose, onDone }) {
               {[['GIVEN', 'Given'], ['WITHDRAWN', 'Withdrawn']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={status === k} aria-pressed={status === k} className="ui-choice-chip" onClick={() => setStatus(k)}>{l}</button>)}
             </div>
             <div className="grid gap-3 sm:grid-cols-2"><DateField label="On" value={onDate} max={istToday()} onChange={(v) => setOnDate(v || '')} /></div>
-            <label className="block"><span className="ui-label">Signed copy</span><input type="file" className="ui-input w-full" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(e) => pick(e.target.files?.[0] || null)} /><span className="block ui-caption mt-1">PDF or picture, up to 5 MB.</span></label>
+            <FileDrop label="Signed copy" file={chosen} onFile={pick} accept="application/pdf,image/jpeg,image/png,image/webp" maxBytes={MAX_BYTES} hint="PDF or picture, up to 5 MB" error={fileError} onRetry={chosen ? () => read(chosen) : undefined} compact />
             <label className="block"><span className="ui-label">Note</span><SuggestInput value={note} onChange={setNote} suggestions={['Signed consent form', 'Transport arranged both ways', 'Asked to move to day shifts']} maxLength={500} /></label>
           </form>
         ) : null}

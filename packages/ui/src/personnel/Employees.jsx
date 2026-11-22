@@ -10,6 +10,7 @@ import { SkeletonCard, EmptyState, Button } from '@ui/components/ui/Primitives';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import Drawer from '@ui/components/ui/Drawer';
+import FileDrop from '@ui/components/ui/FileDrop';
 import Popover from '@ui/components/ui/Popover';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import DatePicker from '@ui/components/ui/DatePicker';
@@ -2336,12 +2337,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
         <Drawer open onClose={closeUpload} widthClass="w-[min(36rem,96vw)]" title="Upload a document" dirty={Boolean(file || form.title)}
           footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={closeUpload}>Cancel</button><Button variant="primary" loading={busy} disabled={!file || (permit && !form.expiresOn)} type="submit" form="doc-upload">Upload</Button></>}>
           <form id="doc-upload" className="grid gap-4" onSubmit={async (e) => { if (await upload(e)) setUploading(false); }}>
-            <label className="ui-dropzone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}>
-              <Upload size={18} aria-hidden="true" />
-              <span className="text-sm">{file ? file.name : 'Choose a file'}</span>
-              <span className="ui-caption">{file ? kb(file.size) : 'or drop it here · PDF, image or Word, up to 5 MB'}</span>
-              <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] || null)} aria-label="File" />
-            </label>
+            <FileDrop aria-label="File" file={file} onFile={setFile} accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" maxBytes={5 * 1024 * 1024} hint="PDF, image or Word, up to 5 MB" />
             <div><PopupSelect showValueSubtext={false} label="Type" value={form.kind} onChange={(v) => setForm({ ...form, kind: v || 'ID_PROOF' })} options={DOC_KINDS.filter(([k]) => k !== 'LETTER').map(([value, label]) => ({ value, label }))} /></div>
             <label className="block"><span className="ui-label">Title</span><input className="ui-input w-full" value={form.title} placeholder={file ? file.name.replace(/\.[^.]+$/, '') : ''} onChange={(e) => setForm({ ...form, title: e.target.value })} maxLength={160} /></label>
             <div><label className="ui-label" htmlFor="doc-valid">{permit ? 'Valid until *' : 'Valid until'}</label><DatePicker id="doc-valid" value={form.expiresOn} onChange={(v) => setForm({ ...form, expiresOn: v || '' })} /></div>

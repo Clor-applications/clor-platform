@@ -6,6 +6,7 @@ import { SkeletonCard } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
+import FileDrop from '@ui/components/ui/FileDrop';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SearchField from '@ui/components/ui/SearchField';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -199,7 +200,6 @@ function CompleteForm({ seat, validMonths, onClose, onSaved }) {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const ref = useRef(null);
   const save = async () => {
     if (!completedOn) { setError({ message: 'Choose the day they completed it.' }); return; }
     if (file && file.size > 5 * 1024 * 1024) { setError({ message: 'A certificate is up to 5 MB.' }); return; }
@@ -214,10 +214,8 @@ function CompleteForm({ seat, validMonths, onClose, onSaved }) {
         <FormError error={error} />
         <div><label className="ui-label" htmlFor="seat-done">Completed on *</label><DatePicker id="seat-done" max={todayIst()} value={completedOn} onChange={(d) => setDate(d || '')} /></div>
         <div>
-          <span className="ui-label">Certificate</span>
-          <input ref={ref} type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" aria-label="Certificate file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-          <button type="button" className="ui-btn ui-btn-secondary w-full justify-start truncate" onClick={() => ref.current?.click()}>{file ? file.name : seat.cert ? `Replace ${seat.cert.name}` : 'Choose a PDF or photo'}</button>
-          <span className="block ui-caption mt-1">Up to 5 MB.</span>
+          <FileDrop label="Certificate" aria-label="Certificate file" file={file} onFile={setFile} accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" maxBytes={5 * 1024 * 1024}
+            hint={seat.cert ? `PDF or photo, up to 5 MB. It replaces ${seat.cert.name}` : 'PDF or photo, up to 5 MB'} compact />
         </div>
         {validMonths ? <p className="sm:col-span-2 ui-caption">Good for {months(validMonths)} from this date.</p> : null}
       </form>
