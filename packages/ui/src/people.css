@@ -861,30 +861,9 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
  * Tokens only; the app colour stays on links, focus and the primary button.
  */
 .people-kpi-of { font-size: 0.8125rem; font-weight: 400; color: rgb(var(--fg-muted)); }
-.people-spark { display: flex; align-items: flex-end; gap: 3px; width: 6.5rem; height: 2rem; flex: none; }
-.people-spark i { flex: 1; min-width: 2px; border-radius: 2px; background: rgb(var(--info-soft)); }
-.people-spark i[data-now] { background: rgb(var(--info)); }
-.people-split-wrap { display: grid; gap: 4px; width: 7rem; flex: none; }
-.people-split { display: flex; gap: 2px; height: 0.5rem; border-radius: 9999px; overflow: hidden; }
-.people-split i { display: block; }
-.people-split-legend { display: flex; gap: 0.5rem; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); white-space: nowrap; }
-.people-split-legend i { display: inline-block; width: 6px; height: 6px; border-radius: 9999px; margin-right: 4px; vertical-align: 1px; }
 .people-kpi-skel { pointer-events: none; }
 
 .people-today-block .people-block-head { align-items: flex-start; }
-.people-arrivals { margin: 0; }
-.people-arrivals-bars { position: relative; display: flex; align-items: flex-end; gap: 6px; height: 10rem; padding-top: 1.25rem; }
-.people-arrivals-bar { flex: 1; height: 100%; display: flex; align-items: flex-end; padding: 0; border: 0; background: none; border-radius: 4px; cursor: default; }
-.people-arrivals-bar > span { display: block; width: 100%; border-radius: 4px 4px 0 0; background: rgb(var(--info-soft)); transition: background-color 120ms ease; }
-.people-arrivals-bar[data-late] > span { background: rgb(var(--warn-soft)); }
-.people-arrivals-bar:hover > span, .people-arrivals-bar:focus-visible > span { background: rgb(var(--info)); }
-.people-arrivals-bar[data-late]:hover > span, .people-arrivals-bar[data-late]:focus-visible > span { background: rgb(var(--warn)); }
-.people-arrivals-bar:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
-.people-arrivals-start { position: absolute; top: 0; bottom: 0; margin-left: -3px; border-left: 1.5px dashed rgb(var(--warn)); pointer-events: none; }
-.people-arrivals-start b { position: absolute; top: 0; left: 6px; font-size: 0.75rem; line-height: 1rem; font-weight: 600; color: rgb(var(--warn-ink, var(--warn))); white-space: nowrap; }
-.people-arrivals-tip { position: absolute; bottom: calc(100% - 1rem); transform: translateX(-50%); z-index: 2; padding: 6px 8px; border-radius: 8px; background: rgb(var(--fg)); color: #fff; font-size: 0.75rem; line-height: 1rem; white-space: nowrap; pointer-events: none; box-shadow: var(--shadow-pop); }
-.people-arrivals-axis { position: relative; height: 1.25rem; margin-top: 4px; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; }
-.people-arrivals-axis span { position: absolute; top: 0; }
 
 .people-feed-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 0.5rem; }
 .people-feed-chip { height: 1.75rem; padding: 0 0.625rem; border-radius: 9999px; border: 1px solid rgb(var(--border)); background: #fff; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
@@ -914,10 +893,80 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   .people-decide { flex-wrap: wrap; }
   .people-decide-why { width: 100%; }
   .people-decide-why .ui-input { flex: 1; width: auto; }
-  .people-spark, .people-split-wrap { display: none; }
+  }
+@media (prefers-reduced-motion: reduce) {
+  }
+
+/* One big figure and a ledger (style G): the hero on the left, rows that are shares of it on the right. */
+.people-ledger { display: grid; grid-template-columns: minmax(12rem, 16rem) 1fr; gap: 1.5rem 2.5rem; align-items: start; padding-bottom: 1.25rem; border-bottom: 1px solid rgb(var(--border)); }
+.people-ledger-kicker { font-size: 0.8125rem; line-height: 1.25rem; font-weight: 600; color: rgb(var(--fg-muted)); }
+.people-ledger-figure { font-size: 4rem; line-height: 4.25rem; font-weight: 700; letter-spacing: -0.02em; color: rgb(var(--fg)); }
+.people-ledger-words { margin-top: 0.25rem; font-size: 0.9375rem; line-height: 1.375rem; color: rgb(var(--fg-muted)); }
+.people-ledger-pill { display: inline-flex; align-items: center; height: 1.5rem; margin-top: 0.625rem; padding: 0 0.625rem; border-radius: 9999px; background: rgb(var(--surface-sunken)); font-size: 0.8125rem; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.people-ledger-pill[data-tone='warn'] { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+.people-ledger-rows { list-style: none; margin: 0; padding: 0; }
+.people-ledger-rows li + li { border-top: 1px solid rgb(var(--border)); }
+.people-ledger-row { display: grid; grid-template-columns: minmax(9rem, 12rem) 1fr 4rem; align-items: center; gap: 1rem; width: 100%; min-height: 2.75rem; padding: 0.375rem 0.5rem; border: 0; border-radius: 8px; background: none; text-align: left; color: rgb(var(--fg)); }
+.people-ledger-row:hover { background: rgb(var(--hover)); }
+.people-ledger-row:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
+.people-ledger-label { min-width: 0; }
+.people-ledger-label b { display: block; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; }
+.people-ledger-label span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); }
+.people-ledger-bar { height: 0.5rem; border-radius: 9999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
+.people-ledger-bar i { display: block; height: 100%; border-radius: 9999px; background: rgb(var(--fg-subtle)); transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+.people-ledger-row[data-tone='pos'] .people-ledger-bar i { background: rgb(var(--pos)); }
+.people-ledger-row[data-tone='warn'] .people-ledger-bar i { background: rgb(var(--warn)); }
+.people-ledger-row[data-tone='info'] .people-ledger-bar i { background: rgb(var(--info)); }
+.people-ledger-n { justify-self: end; font-size: 1rem; line-height: 1.5rem; font-weight: 600; }
+.people-ledger-row[data-tone='warn'] .people-ledger-n { color: rgb(var(--warn-ink)); }
+
+/* The day as a timeline (style F): the curve of who is in, the shift start dashed, now solid. */
+.people-day { margin: 0; }
+.people-day-plot { position: relative; height: 11rem; margin-top: 1.5rem; border-bottom: 1px solid rgb(var(--border)); touch-action: pan-y; cursor: crosshair; }
+.people-day-plot:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 4px; border-radius: 4px; }
+.people-day-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.people-day-area { fill: rgb(var(--mint-soft)); }
+.people-day-line { fill: none; stroke: rgb(var(--mint-ink)); stroke-width: 2; stroke-linejoin: round; }
+.people-day-goal { stroke: rgb(var(--border-strong, var(--border))); stroke-width: 1; stroke-dasharray: 2 3; }
+.people-day-goal-label { position: absolute; left: 0; padding-top: 2px; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; pointer-events: none; }
+.people-day-mark { position: absolute; top: -1.25rem; bottom: 0; border-left: 1.5px solid rgb(var(--fg)); pointer-events: none; }
+.people-day-mark[data-k='shift'] { border-left: 1.5px dashed rgb(var(--warn)); }
+.people-day-mark b { position: absolute; top: 0; left: 6px; font-size: 0.75rem; line-height: 1rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.people-day-mark[data-k='shift'] b { color: rgb(var(--warn-ink)); }
+.people-day-dot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 9999px; background: #fff; border: 2px solid rgb(var(--mint-ink)); pointer-events: none; }
+.people-day-tip { position: absolute; top: 0.5rem; transform: translateX(-50%); z-index: 2; padding: 6px 8px; border-radius: 8px; background: rgb(var(--fg)); color: #fff; font-size: 0.75rem; line-height: 1rem; white-space: nowrap; pointer-events: none; box-shadow: var(--shadow-pop); }
+.people-day-axis { position: relative; height: 1.25rem; margin-top: 4px; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; }
+.people-day-axis span { position: absolute; top: 0; transform: translateX(-50%); }
+.people-day-axis span:first-child { transform: none; }
+.people-day-axis span:last-child { transform: translateX(-100%); }
+.people-day-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem 1.5rem; margin: 0.75rem 0 0; }
+.people-day-facts div { padding-left: 0.625rem; border-left: 3px solid rgb(var(--border)); }
+.people-day-facts div[data-tone='warn'] { border-left-color: rgb(var(--warn)); }
+.people-day-facts dt { font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); }
+.people-day-facts dd { margin: 0; font-size: 0.9375rem; line-height: 1.375rem; font-weight: 600; }
+
+/* Each team's day as a heat table (style I): the tint is the share of the team; numbers stay in ink. */
+.people-heat { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: 0.875rem; }
+.people-heat th { font-weight: 600; text-align: left; white-space: nowrap; }
+.people-heat thead th { padding: 0 0.5rem 0.25rem; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); }
+.people-heat thead th:not(:first-child), .people-heat td { text-align: right; }
+.people-heat tbody th, .people-heat tfoot th { padding: 0 0.5rem 0 0; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
+.people-heat td { height: 2.75rem; min-width: 4.5rem; padding: 0 0.75rem; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.people-heat-cell { --c: var(--fg-subtle); background: rgb(var(--c) / var(--a)); }
+.people-heat-cell[data-tone='pos'] { --c: var(--pos); }
+.people-heat-cell[data-tone='warn'] { --c: var(--warn); }
+.people-heat-cell[data-tone='info'] { --c: var(--info); }
+.people-heat-cell[data-zero] { background: none; color: rgb(var(--fg-subtle)); }
+.people-heat tfoot th, .people-heat tfoot td { font-weight: 700; }
+.people-heat tfoot tr > * { border-top: 1px solid rgb(var(--border)); }
+
+@media (max-width: 760px) {
+  .people-ledger { grid-template-columns: 1fr; gap: 1rem; }
+  .people-ledger-figure { font-size: 3rem; line-height: 3.25rem; }
+  .people-ledger-row { grid-template-columns: minmax(8rem, 1fr) 5rem 3rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .people-arrivals-bar > span { transition: none; }
+  .people-ledger-bar i { transition: none; }
 }
 
 /*

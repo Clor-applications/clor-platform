@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { approveLeave, rejectLeave } from '@ui/timeOff/api';
-import { ArrivalsChart, ConnectionBar, DecideInPlace, TodayFeed, arrivalWords, useConnection } from './HomeToday';
+import { ConnectionBar, DayTimeline, DecideInPlace, FigureLedger, TeamsToday, TodayFeed, arrivalWords, dayCurve, useConnection } from './HomeToday';
 
 /*
  * People → Home, read and act on (owner, 22 Nov 2026): a chart you can point
@@ -36,20 +36,69 @@ describe('arrivals', () => {
     expect(arrivalWords({ at: '10:00', count: 0, late: 0, names: [] })).toBe('10:00: nobody came in');
   });
 
-  it('shows who came in when a bar is focused, and marks the shift start', () => {
-    render(<ArrivalsChart today={today} />);
+  it('adds the steps up into how many were in by the end of each', () => {
+    expect(dayCurve(today.arrivals).map((s) => [s.at, s.to, s.total])).toEqual([['09:00', 555, 3], ['09:15', 570, 4], ['09:30', 585, 6]]);
+  });
+
+  it('marks the shift start, and says who was in at a step with the arrow keys', () => {
+    render(<DayTimeline today={today} now="10:40" />);
     expect(screen.getByText('Shift starts 09:30')).toBeTruthy();
-    const bar = screen.getByRole('button', { name: /^09:30: 2 people came in/ });
-    expect(bar.getAttribute('data-late')).toBe('true');
-    fireEvent.focus(bar);
-    expect(screen.getByRole('status').textContent).toContain('Ravi, Farah');
-    fireEvent.blur(bar);
+    expect(screen.getByText('10 expected')).toBeTruthy();
+    const plot = screen.getByRole('slider', { name: 'Time of day' });
+    expect(plot.getAttribute('aria-valuetext')).toBe('By 09:45, 6 of 10 in. 09:30: 2 people came in (Ravi, Farah), 2 late');
+    fireEvent.keyDown(plot, { key: 'Home' });
+    expect(screen.getByRole('status').textContent).toContain('By 09:15');
+    expect(screen.getByRole('status').textContent).toContain('Asha, Meera, Joseph');
+    fireEvent.keyDown(plot, { key: 'ArrowRight' });
+    expect(plot.getAttribute('aria-valuetext')).toMatch(/^By 09:30, 4 of 10 in/);
+    fireEvent.keyDown(plot, { key: 'Escape' });
     expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByText('In by 09:30')).toBeTruthy();
+    expect(screen.getByText('Asha, 09:00')).toBeTruthy();
   });
 
   it('draws nothing before anyone comes in', () => {
-    const { container } = render(<ArrivalsChart today={{ ...today, arrivals: [] }} />);
+    const { container } = render(<DayTimeline today={{ ...today, arrivals: [] }} />);
     expect(container.innerHTML).toBe('');
+  });
+});
+
+describe('figures as a ledger', () => {
+  it('shows the hero, leaves out rows at nought unless always shown, and opens each row', () => {
+    const open = vi.fn();
+    render(
+      <FigureLedger
+        label="Today in numbers"
+        hero={{ label: 'In today', value: 6, words: 'of 10 people are in', pill: '60% · 2 late' }}
+        rows={[
+          { key: 'late', label: 'Came in late', value: 2, share: 0.2, onClick: open },
+          { key: 'notice', label: 'On notice', value: 0, share: 0 },
+          { key: 'head', label: 'Headcount', value: 0, always: true },
+          { key: 'out', label: 'Out on leave', value: null },
+        ]}
+      />,
+    );
+    expect(screen.getByText('In today')).toBeTruthy();
+    expect(screen.getByText('60% · 2 late')).toBeTruthy();
+    expect(screen.queryByText('On notice')).toBeNull();
+    expect(screen.getByText('Headcount')).toBeTruthy();
+    expect(screen.getByText('Out on leave').closest('button').textContent).toContain('–');
+    fireEvent.click(screen.getByText('Came in late').closest('button'));
+    expect(open).toHaveBeenCalled();
+  });
+});
+
+describe('teams today', () => {
+  it('tints each cell by its share of the team, adds an Everyone row, and folds teams past eight', () => {
+    const teams = Array.from({ length: 10 }, (_, i) => ({ name: `Team ${i + 1}`, onTime: 2, late: i === 0 ? 2 : 0, notYet: 0, onLeave: 0, total: i === 0 ? 4 : 2 }));
+    const { container } = render(<TeamsToday teams={teams} />);
+    expect(screen.getByRole('columnheader', { name: 'Not in yet' })).toBeTruthy();
+    expect(screen.getByRole('rowheader', { name: '2 other teams' })).toBeTruthy();
+    const everyone = screen.getByRole('rowheader', { name: 'Everyone' }).closest('tr');
+    expect(everyone.textContent).toBe('Everyone202––22');
+    const late = container.querySelector('tbody tr td[data-tone="warn"]');
+    expect(late.style.getPropertyValue('--a')).toBe('0.340');
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(9);
   });
 });
 

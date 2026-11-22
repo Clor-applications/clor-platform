@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-b9ee2e0 - 2026-11-22
+
+API revision `clor-api-00160-wfv`. Previous release `rel-c49f0ba` (roll back there).
+
+- #434 People Home: tiles with charts, arrivals, day feed, decide in place
+- #433 Reels notes: keep tinted Home tiles
+- #432 Fields get a 3:1 edge: --border-input #949494
+- #431 One shared file field: reacting drop zone, file row, retry, stray-drop guard
+- #430 Phones get 44px controls and 16px field text everywhere; UX reel notes
+- #429 Long dropdowns get a search box (SelectField)
+- #428 Admin center and Ops busy buttons use the shared Button; add audit doc
+- #427 Busy buttons use the shared Button
+- #426 Money always shows two decimals; phone calendar labels; Ops confirm waits while saving
+- #425 Release record: rel-c49f0ba
+
 ## rel-c49f0ba - 2026-11-21
 
 API revision `clor-api-00159-6j6`. Previous release `rel-2c1ac84` (roll back there).

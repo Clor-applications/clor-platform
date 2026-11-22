@@ -7,7 +7,7 @@ import request from 'supertest';
  */
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
-const { bucketArrivals, istClock } = await import('../services/people/homeToday.js');
+const { bucketArrivals, istClock, teamsToday } = await import('../services/people/homeToday.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
@@ -42,6 +42,21 @@ describe('bucketArrivals', () => {
   });
 });
 
+describe('teamsToday', () => {
+  it('splits each team into on time, late, not in yet and on leave; checked in beats leave', () => {
+    const staff = [
+      { id: 'a', department: 'Sales' }, { id: 'b', department: 'Sales' }, { id: 'c', department: 'Sales' },
+      { id: 'd', department: 'Stores' }, { id: 'e', department: null }, { id: 'f', department: 'Sales' },
+    ];
+    const came = new Map([['a', { late: false }], ['b', { late: true }], ['d', { late: false }]]);
+    expect(teamsToday(staff, came, new Set(['c', 'd']))).toEqual([
+      { name: 'Sales', onTime: 1, late: 1, notYet: 1, onLeave: 1, total: 4 },
+      { name: 'No department', onTime: 0, late: 0, notYet: 1, onLeave: 0, total: 1 },
+      { name: 'Stores', onTime: 1, late: 0, notYet: 0, onLeave: 0, total: 1 },
+    ]);
+  });
+});
+
 describe('People home today', () => {
   it('counts arrivals and lateness and lists the day newest first', async () => {
     const email = `today.${Date.now()}.${rnd()}@example.com`;
@@ -69,5 +84,7 @@ describe('People home today', () => {
     expect(t.arrivals[3].names).toEqual(['Ravi']);
     expect(t.feed[0]).toMatchObject({ kind: 'late', name: 'Ravi', at: '09:50', minutes: 20 });
     expect(t.feed.find((e: any) => e.kind === 'joined')).toMatchObject({ employeeId: n.id, name: 'Nisha' });
+    expect(t.onLeave).toBe(0);
+    expect(t.byTeam).toEqual([{ name: 'No department', onTime: 1, late: 1, notYet: 1, onLeave: 0, total: 3 }]);
   });
 });

@@ -15,6 +15,7 @@ import { errorWords } from '@ui/utils/errorWords';
 import { FormPart } from '@ui/components/ui/FormPart';
 import { Figures } from '../components/Figure';
 import Notice from '../components/Notice';
+import { ViewSwitch } from '@ui/components/ui/FigureViews';
 
 /**
  * Where payroll is this month, and what is in the way.
@@ -31,6 +32,37 @@ import Notice from '../components/Notice';
  */
 
 
+
+const MAX_MONTHS = 12;
+const monthOf = (t) => (t.payrollDate ? new Date(`${String(t.payrollDate).slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' }) : String(t.periodName || t.number).slice(0, 3));
+
+/**
+ * What payroll has cost, as one figure with four views (owner, 22 Nov 2026, style H):
+ * company pays, gross, net pay and people, each the newest run's, its history as columns.
+ */
+export function costViews(trend) {
+  const runs = trend.slice(-MAX_MONTHS);
+  const last = runs[runs.length - 1];
+  const before = runs[runs.length - 2];
+  if (!last) return [];
+  const note = (k) => {
+    const c = before ? percentChange(before[k], last[k]) : null;
+    return c == null ? `${last.periodName || last.number}` : `${c > 0 ? 'Up' : c < 0 ? 'Down' : 'Level'}${c ? ` ${Math.abs(c)}%` : ''} on ${before.periodName || before.number}`;
+  };
+  const view = (key, label, fmt) => ({
+    key,
+    label,
+    value: fmt(last[key]),
+    note: note(key),
+    points: runs.map((t) => ({ key: t.runId, label: monthOf(t), value: Number(t[key]) || 0, words: fmt(t[key]) })),
+  });
+  return [
+    view('employerCost', 'Company pays', (v) => money(v)),
+    view('gross', 'Gross', (v) => money(v)),
+    view('net', 'Net pay', (v) => money(v)),
+    view('employeeCount', 'People', (v) => `${Number(v) || 0} ${Number(v) === 1 ? 'person' : 'people'}`),
+  ];
+}
 
 const percentChange = (from, to) => {
   const a = Number(from || 0);
@@ -246,6 +278,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
               </span>
             ) : null}
           </div>
+          <ViewSwitch label="Show" views={costViews(trend)} />
           <div className="ui-table-scroll">
             <table className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
