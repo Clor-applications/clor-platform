@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { confirmDialog } from '@ui/components/ui/notify';
-import { Building2, CalendarClock, Receipt, TriangleAlert } from 'lucide-react';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
 import { Err, Loading, Tabs, day, may, useRowBusy, errorWords } from './kit';
@@ -9,17 +8,16 @@ import { daysLeft } from './Trials';
 import { inr } from './money';
 import { opsAudit, opsHandover, opsHealth, opsHome, opsMarkQueue, opsOverview, opsUnmarkQueue, opsWriteHandover } from './api';
 import { Button } from '@ui/components/ui/Primitives';
+import { FigureLedger, PartsRing, ViewSwitch } from '@ui/components/ui/FigureViews';
 
 /**
- * Overview (operator console; R&D CLOR-05): four numbers about the customer
- * base, the background services, the work that needs a staff member today
+ * Overview (operator console; R&D CLOR-05): the customer base as one figure
+ * and a ledger, sign-ups over the month, the background services, the work that needs a staff member today
  * (the things themselves, not a count of them), and what staff did last. Each part loads on its own, so a role that cannot see one
  * still gets the rest.
  */
 const n = (count, one, many) => `${count} ${count === 1 ? one : many}`;
-const KI = { accounts: Building2, paying: Receipt, trials: CalendarClock, legacy: TriangleAlert };
-/* Light accents on Home (DESIGN.md): a soft tile by subject, never by app. */
-const KT = { accounts: 'info', paying: 'mint', trials: 'butter', legacy: 'peach' };
+const nf = (count, one, many) => `${Number(count).toLocaleString('en-IN')} ${count === 1 ? one : many}`;
 const WORKER = { ok: ['Healthy', 'ws-pill ws-pill--ok'], late: ['Slow', 'ws-pill ws-pill--warn'], failing: ['Failing', 'ws-pill ws-pill--danger'] };
 const initials = (s) =>
   String(s || '?')
@@ -79,7 +77,7 @@ export function Home({ go, has, me }) {
           </>
         }
       />
-      <Kpis d={ov.d} error={ov.error} onRetry={ov.reload} go={go} has={has} />
+      <Figures d={ov.d} error={ov.error} onRetry={ov.reload} go={go} has={has} />
       <Handover canWrite={may(me?.role, 'SUPPORT', 'SALES', 'BILLING')} />
       {/* What needs somebody comes before how the machinery is doing: it was under the services table, below the fold (owner, 17 Nov 2026: "info should be available right away"). */}
       <div className="ops-split">
@@ -91,55 +89,86 @@ export function Home({ go, has, me }) {
   );
 }
 
-/* ----------------------------------------------------------------- tiles */
-function Kpis({ d, error, onRetry, go, has }) {
+/* --------------------------------------------------------------- figures */
+const SHORT = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const shortDay = (iso) => SHORT.format(new Date(`${iso}T00:00:00Z`));
+
+/**
+ * New accounts over the last 30 days, two ways (style H): day by day, and in
+ * weeks counted back from today. The newest column is drawn strong.
+ */
+export function signupViews(signups = []) {
+  if (!signups.length) return [];
+  const total = signups.reduce((s, d) => s + d.count, 0);
+  const days = signups.map((d, i) => ({
+    key: d.day,
+    label: shortDay(d.day),
+    /* A date under every seventh column, counted back from today: one number fits a column. */
+    tick: (signups.length - 1 - i) % 7 === 0 ? String(Number(d.day.slice(8, 10))) : '',
+    value: d.count,
+    words: n(d.count, 'new account', 'new accounts'),
+  }));
+  const weeks = [];
+  for (let end = signups.length; end > 0; end -= 7) {
+    const part = signups.slice(Math.max(0, end - 7), end);
+    const c = part.reduce((s, d) => s + d.count, 0);
+    weeks.unshift({ key: part[0].day, label: `${shortDay(part[0].day)} to ${shortDay(part[part.length - 1].day)}`, tick: shortDay(part[0].day), value: c, words: n(c, 'new account', 'new accounts') });
+  }
+  const week = weeks[weeks.length - 1].value;
+  return [
+    { key: 'days', label: 'Last 30 days', value: n(total, 'new account', 'new accounts'), short: total.toLocaleString('en-IN'), note: 'Sign-ups day by day', colsLabel: 'New accounts, day by day', points: days },
+    { key: 'weeks', label: 'Week by week', value: n(week, 'new account', 'new accounts'), short: `${week} this week`, note: 'The last seven days, against the weeks before', colsLabel: 'New accounts, week by week', points: weeks },
+  ];
+}
+
+/**
+ * The customer base as one big figure and a ledger (owner, 22 Nov 2026, style G,
+ * replacing the four tiles): accounts in all, and under it the shares that need
+ * reading. Each row opens its list; a row at nought is left out.
+ */
+function Figures({ d, error, onRetry, go, has }) {
   if (error) return <Err onRetry={onRetry}>{error}</Err>;
   if (!d) return <Loading />;
+  const all = d.accounts || 0;
+  if (!all) return null;
   const paying = d.paying ?? 0;
-  const pct = d.accounts ? Math.round((paying / d.accounts) * 100) : 0;
-  const tiles = [
-    { k: 'accounts', label: 'Accounts', value: d.accounts, note: d.newThisWeek ? `+${d.newThisWeek} this week` : 'None new this week', open: () => go('customers') },
-    { k: 'paying', label: 'Paying', value: paying, note: `${pct}% of accounts`, open: () => go('customers', { status: 'active' }) },
+  const share = (v) => (all ? (v || 0) / all : 0);
+  const pct = Math.round(share(paying) * 100);
+  const people = [d.companies ? nf(d.companies, 'company', 'companies') : null, d.users ? nf(d.users, 'person', 'people') : null].filter(Boolean).join(', ');
+  const hero = {
+    label: 'Customer accounts',
+    value: all.toLocaleString('en-IN'),
+    words: people ? `${people} signed up` : 'Accounts on CLOR',
+    pill: d.newThisWeek ? `+${d.newThisWeek} this week` : 'None new this week',
+    tone: d.newThisWeek ? 'pos' : undefined,
+  };
+  const rows = [
+    { key: 'paying', label: 'Paying', sub: `${pct}% of accounts`, value: paying, share: share(paying), tone: 'pos', onClick: () => go('customers', { status: 'active' }) },
     {
-      k: 'trials',
-     
+      key: 'trials',
       label: 'Trials ending in 7 days',
+      sub: 'Each owner is emailed before it ends',
       value: d.trialsEndingIn7d,
-      note: d.trialsEndingIn7d ? 'Each owner is emailed before it ends' : 'No trial ends this week',
-      state: d.trialsEndingIn7d ? 'warn' : null,
-      open: () => (has('trials') ? go('trials') : go('customers', { status: 'trialing' })),
+      share: share(d.trialsEndingIn7d),
+      tone: 'warn',
+      onClick: () => (has('trials') ? go('trials') : go('customers', { status: 'trialing' })),
     },
-    {
-      k: 'legacy',
-     
-      label: 'Older accounts with no plan',
-      value: d.legacy ?? 0,
-      note: d.legacy ? 'Every app is open to them: move each to a plan' : 'Every account is on a plan',
-      state: d.legacy ? 'neg' : null,
-      open: () => go('customers'),
-    },
+    { key: 'legacy', label: 'Older accounts with no plan', sub: 'Every app is open to them: move each to a plan', value: d.legacy ?? 0, share: share(d.legacy), tone: 'neg', onClick: () => go('customers') },
+    { key: 'suspended', label: 'Suspended', sub: 'Signed out until staff bring them back', value: d.suspended ?? 0, share: share(d.suspended), onClick: () => go('customers', { status: 'suspended' }) },
   ];
-  /* An overview shows at most four figures and never one at zero (DESIGN.md "Layout"; design audit step 2). */
-  const shown = tiles.filter((t) => Number(t.value) > 0);
-  if (!shown.length) return null;
+  const views = signupViews(d.signups);
   return (
-    <div className="ops-kpis">
-      {shown.map((t) => {
-        const Icon = KI[t.k];
-        return (
-          <button key={t.k} type="button" className={`ops-kpi${t.state ? ' ui-urgent' : ''}`} data-tone={t.state === 'neg' ? 'danger' : t.state || undefined} onClick={t.open}>
-            <span className="ops-kpi-chip ui-accent-ico" data-tone={KT[t.k]} aria-hidden="true">
-              <Icon size={16} />
-            </span>
-            <span className="ops-kpi-label">{t.label}</span>
-            <span className="ops-kpi-value" data-state={t.state || undefined}>
-              {Number(t.value || 0).toLocaleString('en-IN')}
-            </span>
-            <span className="ops-kpi-note">{t.note}</span>
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <FigureLedger label="Customers in numbers" hero={hero} rows={rows} />
+      {views.length && views[0].points.some((p) => p.value > 0) ? (
+        <section className="ops-section" aria-labelledby="ops-signups">
+          <div className="ops-section-head">
+            <h2 id="ops-signups" className="ops-h2">Sign-ups</h2>
+          </div>
+          <ViewSwitch views={views} label="Sign-ups, how to look" />
+        </section>
+      ) : null}
+    </>
   );
 }
 
@@ -162,6 +191,17 @@ function Services({ d, error, onRetry, go, has }) {
       ) : !d.workers.length ? (
         <p className="ws-card-blurb">No background job has run in the last week.</p>
       ) : (
+        <>
+        <PartsRing
+          label="Background services now"
+          middle={d.workers.length}
+          middleWords={d.workers.length === 1 ? 'service' : 'services'}
+          parts={[
+            { key: 'failing', label: 'Failing now', value: d.workers.filter((w) => w.state === 'failing').length, tone: 'neg' },
+            { key: 'late', label: 'Running late', value: d.workers.filter((w) => w.state === 'late').length, tone: 'warn' },
+            { key: 'ok', label: 'Running well', value: d.workers.filter((w) => w.state === 'ok').length, tone: 'pos' },
+          ]}
+        />
         <div className="ws-table-wrap">
           <table className="ws-table">
             <caption className="sr-only">Background services</caption>
@@ -192,6 +232,7 @@ function Services({ d, error, onRetry, go, has }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </section>
   );

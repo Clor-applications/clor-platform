@@ -8,6 +8,7 @@ import { actionText } from './AccountActivity';
 import { planSentence, planWord } from './planWords';
 import { listOutsideAccess } from '@platform/admin/outsideAccess';
 import { AppMark, Avatar, ICON, LoadError, Meter, ago, appName, productIcon, seatState } from './wsKit';
+import { FigureLedger, PartsRing } from '@ui/components/ui/FigureViews';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
 import { orgId, requestOpenHelp } from '@platform/context';
 import { apiFetch } from '@platform/http';
@@ -432,25 +433,36 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             </button>
           </h2>
           {/* Folded, the cards stay in the page but hidden, so aria-controls always names something and nothing is read again. */}
-          <div id="wsg-glance" className="wsg-cards" hidden={folded}>
+          <div id="wsg-glance" className="wsg-glance-wrap" hidden={folded}>
               {isAdmin && memberCount != null ? (
-                <GlanceCard
-                  id="members"
-                  icon={Users}
-                  title="Members"
-                  label={memberCount === 1 ? 'Active member' : 'Active members'}
-                  figure={memberCount}
-                  note={pending ? `${plural(pending, 'invitation')} not accepted yet` : null}
-                  foot={[{ label: 'Manage members', go: go('members') }, { label: 'Roles', go: go('roles') }]}
+                <FigureLedger
+                  label="Members"
+                  hero={{
+                    label: memberCount === 1 ? 'Active member' : 'Active members',
+                    value: memberCount.toLocaleString('en-IN'),
+                    words: pending ? `${plural(pending, 'invitation')} not accepted yet` : 'Everyone invited has joined',
+                  }}
+                  rows={memberSeats.map((x) => ({
+                    key: x.app,
+                    label: APP_NAME[x.app] || appName(x.app),
+                    sub: seatWords(x),
+                    value: x.bought != null ? `${x.used} / ${x.bought}` : String(x.used),
+                    share: x.bought ? x.used / x.bought : null,
+                    tone: x.bought != null && x.used >= x.bought ? 'warn' : 'pos',
+                    always: true,
+                    onClick: go('members'),
+                  }))}
                 >
-                  {memberSeats.length ? (
-                    <div className="wsg-rows" role="group" aria-label="Seats by app">
-                      <p className="wsg-sub-title">Seats by app</p>
-                      {memberSeats.map((x) => <Meter key={x.app} label={APP_NAME[x.app] || appName(x.app)} used={x.used} limit={x.bought} />)}
-                    </div>
-                  ) : null}
-                </GlanceCard>
+                  <div className="wsg-ledger-links">
+                    {[{ label: 'Manage members', go: go('members') }, { label: 'Roles', go: go('roles') }].filter((x) => x.go).map((x) => (
+                      <button key={x.label} type="button" className="ws-link" onClick={x.go}>
+                        {x.label} <ChevronRight size={16} aria-hidden="true" />
+                      </button>
+                    ))}
+                  </div>
+                </FigureLedger>
               ) : null}
+              <div className="wsg-cards">
 
               {appRows.length ? (
                 <GlanceCard
@@ -533,6 +545,19 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   note={privilegedNo2fa ? `${plural(privilegedNo2fa, 'administrator')} without one` : 'Every administrator uses one'}
                   foot={[{ label: 'Open security', go: go('securityHome') }]}
                 >
+                  {security.active ? (
+                    <PartsRing
+                      label="Members and their authenticator"
+                      total={security.active}
+                      middle={`${Math.round(((security.withTotp || 0) / security.active) * 100)}%`}
+                      middleWords="protected"
+                      parts={[
+                        { key: 'with', label: 'With one', value: security.withTotp || 0, tone: 'pos' },
+                        { key: 'admins', label: 'Administrators without', value: privilegedNo2fa, tone: 'neg' },
+                        { key: 'others', label: 'Others without', value: Math.max(0, security.active - (security.withTotp || 0) - privilegedNo2fa), tone: 'none' },
+                      ]}
+                    />
+                  ) : null}
                   {health && health.sources.length ? (
                     <ul className="wsg-list" aria-label="Connections">
                       {health.sources.map((x) => (
@@ -549,6 +574,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   ) : null}
                 </GlanceCard>
               ) : null}
+              </div>
             </div>
         </section>
 
@@ -731,6 +757,15 @@ const AREA = { plan: 'Billing', overdue: 'Billing', renewal: 'Billing', unpaid: 
 export const areaOf = (key) => AREA[key] || AREA[String(key).split('-')[0]] || 'Other';
 
 /* The words of a title written as JSX (a count in the figure face beside words), for a button's name. */
+/** A seat row's second line: what is left, or that it is full. */
+export function seatWords({ used, bought }) {
+  if (bought == null) return 'No seat limit';
+  if (used > bought) return `${used - bought} over the seats bought`;
+  if (used === bought) return 'Every seat in use';
+  const left = bought - used;
+  return `${left} ${left === 1 ? 'seat' : 'seats'} free`;
+}
+
 function textOf(node) {
   if (node == null || typeof node === 'boolean') return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);

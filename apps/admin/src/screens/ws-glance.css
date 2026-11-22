@@ -88,7 +88,14 @@
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
 }
-.wsh .wsg-cards[hidden] { display: none; }
+.wsh .wsg-cards[hidden], .wsh .wsg-glance-wrap[hidden] { display: none; }
+/* Members as one big figure and a ledger of seats by app (style G), above the cards. */
+.wsh .wsg-glance-wrap { display: grid; gap: 24px; }
+.wsh .wsg-ledger-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 16px; }
+.wsh .wsg-ledger-links .ws-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.wsh .wsg-glance .ui-ring { grid-template-columns: 6.5rem minmax(0, 1fr); gap: 0.75rem 1rem; margin-top: 0; }
+.wsh .wsg-glance .ui-ring-svg { width: 6.5rem; height: 6.5rem; }
+.wsh .wsg-glance .ui-ring-middle b { font-size: 1.125rem; line-height: 1.5rem; }
 .wsh .wsg-glance {
   display: flex;
   flex-direction: column;

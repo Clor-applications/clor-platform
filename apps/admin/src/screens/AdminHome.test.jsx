@@ -24,7 +24,7 @@ vi.mock('@platform/operator', () => ({ operator: { contactEmail: 'info@clor.in' 
 const http = vi.hoisted(() => ({ apiFetch: vi.fn() }));
 vi.mock('@platform/http', () => ({ apiFetch: (...a) => http.apiFetch(...a) }));
 
-import AdminHome, { appState, renewalNotice, todayLines } from './AdminHome';
+import AdminHome, { appState, renewalNotice, seatWords, todayLines } from './AdminHome';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
 
 const CATALOG = [
@@ -274,5 +274,15 @@ describe('the overview’s figures', () => {
     expect((await screen.findAllByText('Members')).length).toBeGreaterThan(0);
     expect(screen.queryByText('What needs your action could not be loaded.')).toBeNull();
     expect(api.getAccountMe).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('seatWords', () => {
+  it('says what is left of the seats, or that they are full or over', () => {
+    expect(seatWords({ used: 2, bought: 5 })).toBe('3 seats free');
+    expect(seatWords({ used: 4, bought: 5 })).toBe('1 seat free');
+    expect(seatWords({ used: 5, bought: 5 })).toBe('Every seat in use');
+    expect(seatWords({ used: 7, bought: 5 })).toBe('2 over the seats bought');
+    expect(seatWords({ used: 3, bought: null })).toBe('No seat limit');
   });
 });

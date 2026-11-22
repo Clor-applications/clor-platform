@@ -82,7 +82,9 @@ describe('figures as a ledger', () => {
     expect(screen.getByText('60% · 2 late')).toBeTruthy();
     expect(screen.queryByText('On notice')).toBeNull();
     expect(screen.getByText('Headcount')).toBeTruthy();
-    expect(screen.getByText('Out on leave').closest('button').textContent).toContain('–');
+    /* A row with nowhere to go is plain text, not a button that does nothing. */
+    expect(screen.getByText('Out on leave').closest('button')).toBeNull();
+    expect(screen.getByText('Out on leave').closest('.ui-figledger-row').textContent).toContain('–');
     fireEvent.click(screen.getByText('Came in late').closest('button'));
     expect(open).toHaveBeenCalled();
   });

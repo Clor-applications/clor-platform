@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CircleCheck, RotateCw, TriangleAlert } from 'lucide-react';
 
 import ApproveActions from '@ui/components/ui/ApproveActions';
+import { FigureLedger } from '@ui/components/ui/FigureViews';
 import { errorWords } from '@ui/utils/errorWords';
 import { approveLeave, rejectLeave } from '@ui/timeOff/api';
 
@@ -26,41 +27,8 @@ export function arrivalWords(b) {
   return `${b.at}: ${plural(b.count, 'person', 'people')} came in${named ? ` (${named}${more > 0 ? ` and ${more} more` : ''})` : ''}${b.late ? `, ${b.late} late` : ''}`;
 }
 
-/**
- * The figures as one big number and a ledger (owner, 22 Nov 2026, style G, replacing
- * the four tiles): the hero says the one thing, and each row under it is a share of
- * the hero's whole, drawn as a bar, with its number at the end. Every row opens the
- * screen that owns it. A row at nought is left out, as DESIGN.md asks of figures.
- */
-export function FigureLedger({ hero, rows, label }) {
-  const shown = rows.filter((r) => r.always || r.value == null || Number(r.value) > 0);
-  return (
-    <section className="people-ledger" aria-label={label}>
-      <div className="people-ledger-hero">
-        {hero.label ? <p className="people-ledger-kicker">{hero.label}</p> : null}
-        <p className="people-ledger-figure tabular-nums">{hero.value}</p>
-        <p className="people-ledger-words">{hero.words}</p>
-        {hero.pill ? <span className="people-ledger-pill" data-tone={hero.tone || undefined}>{hero.pill}</span> : null}
-      </div>
-      <ul className="people-ledger-rows">
-        {shown.map((r) => (
-          <li key={r.key}>
-            <button type="button" className="people-ledger-row" onClick={r.onClick} data-tone={r.tone || undefined}>
-              <span className="people-ledger-label">
-                <b>{r.label}</b>
-                {r.sub ? <span>{r.sub}</span> : null}
-              </span>
-              <span className="people-ledger-bar" aria-hidden="true">
-                {r.share != null ? <i style={{ width: `${Math.max(r.value ? 2 : 0, Math.min(100, r.share * 100))}%` }} /> : null}
-              </span>
-              <span className="people-ledger-n tabular-nums">{r.value == null ? '–' : r.value}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
+/** The ledger moved to the shared figure kit; People keeps the name. */
+export { FigureLedger };
 
 const clockOfMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 /** The date and clock in India now, "YYYY-MM-DDTHH:MM". */
