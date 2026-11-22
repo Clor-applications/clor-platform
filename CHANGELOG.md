@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-1aaf520 - 2026-11-22
+
+API revision `clor-api-00161-hc9`. Previous release `rel-b9ee2e0` (roll back there).
+
+- #435 Homes without the four tiles: ledger, day timeline, teams heat table, ring, four views
+
 ## rel-b9ee2e0 - 2026-11-22
 
 API revision `clor-api-00160-wfv`. Previous release `rel-c49f0ba` (roll back there).
