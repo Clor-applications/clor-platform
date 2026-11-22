@@ -8,7 +8,7 @@ const send = (path, method, body) => apiFetch(`${base()}${path}`, { method, body
 
 export const getOverview = () => apiFetch(`${base()}/overview`, opts);
 /** People → Home (server: services/people/home.ts): the to-dos, the one waiting number (the inbox's own), probation ending, this week and last month's close. */
-export const getPeopleHome = () => apiFetch(`${base()}/home`, opts).then((r) => ({ todos: r?.todos || [], waiting: Number(r?.waiting) || 0, probation: r?.probation ?? null, week: r?.week ?? null, monthClose: r?.monthClose ?? null }));
+export const getPeopleHome = () => apiFetch(`${base()}/home`, opts).then((r) => ({ todos: r?.todos || [], waiting: Number(r?.waiting) || 0, probation: r?.probation ?? null, week: r?.week ?? null, monthClose: r?.monthClose ?? null, teamWeek: r?.teamWeek ?? null, today: r?.today ?? null }));
 /* People → Home's setup list and simple mode's suggestion (server: services/people/setup.ts). */
 export const getPeopleSetup = () => apiFetch(`${base()}/setup`, opts);
 /* { action: 'skip' | 'unskip' | 'hide' | 'show' | 'simpleAdviceSeen', step? } */

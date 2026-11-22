@@ -11,6 +11,7 @@ import { inScope, teamScope } from './scope.js';
 import { dataHealth } from './dataHealth.js';
 import { buildObligations } from './complianceRules.js';
 import { addDays as plusDays, todayIst } from '../../utils/istDate.js';
+import { homeToday, type HomeToday } from './homeToday.js';
 
 /**
  * People → Home: what needs someone today, not a wall of charts (founder,
@@ -157,6 +158,8 @@ export type HomeGlance = {
   monthClose: { month: string; closedAt: string | null; ready: boolean; blocking: number; noRecordDays: number } | null;
   /** Round 55 (week ahead A): a manager's own team for the next seven days. Null for someone with no reports. */
   teamWeek?: TeamWeek | null;
+  /** Today's arrivals and events (services/people/homeToday.ts). Null when Attendance is off or the reader may not see records. */
+  today?: HomeToday | null;
 };
 
 export type TeamWeek = {
@@ -217,12 +220,13 @@ export async function homeGlance(req: Request): Promise<HomeGlance> {
   const today = todayIst();
   const may = async (module: string, action: PermissionAction, resource: string) => !(await authorize(req, module, action as any, resource));
   const scope = await teamScope(req);
-  const [lifecycle, employees, closer] = await Promise.all([
+  const [lifecycle, employees, closer, records] = await Promise.all([
     may(PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.lifecycle),
     may(PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.employees),
     may(ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.records),
+    may(ATTENDANCE_MODULE, PermissionAction.VIEW, ATTENDANCE_RESOURCE.records),
   ]);
-  const out: HomeGlance = { probation: null, week: null, monthClose: null, teamWeek: null };
+  const out: HomeGlance = { probation: null, week: null, monthClose: null, teamWeek: null, today: null };
   /* A manager's own team for the week; never takes Home down. */
   if (req.auth?.userId) {
     out.teamWeek = await teamWeekOf(accountId, orgId, req.auth.userId, today).catch((e) => {
@@ -259,6 +263,17 @@ export async function homeGlance(req: Request): Promise<HomeGlance> {
       /* One line per day and name: an area's copy of a company holiday is the same day off. */
       holidays: holidays.filter((h) => (seen.has(`${h.date}|${h.name}`) ? false : (seen.add(`${h.date}|${h.name}`), true))).map((h) => ({ date: h.date, name: h.name, optional: h.isOptional })),
     };
+  }
+
+  /* Today's arrivals and events: only where Attendance is on and this reader may see records; never takes Home down. */
+  if (records && employees) {
+    const [{ isAppEntitled }, { isFeatureEnabled }, { seesLeavings }] = await Promise.all([import('../subscriptions.js'), import('../features.js'), import('./companyChoices.js')]);
+    if ((await isAppEntitled(accountId, 'attendance')) && (await isFeatureEnabled(accountId, orgId, 'attendance'))) {
+      out.today = await homeToday(accountId, orgId, scope, today, { seesLeavings: await seesLeavings(req) }).catch((e) => {
+        console.error(`[home] today for ${orgId}:`, e instanceof Error ? e.message : e); // eslint-disable-line no-console
+        return null;
+      });
+    }
   }
 
   /* Last month's close: only for someone who closes months for the whole company, and only where Attendance is on. */
