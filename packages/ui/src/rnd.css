@@ -67,7 +67,8 @@
   --surface-sunken: 255 255 255; /* white */
   --soft-panel: 255 255 255;     /* white */
   --border: 229 229 229;         /* #E5E5E5 hairline */
-  --border-field: 214 214 214;   /* #D6D6D6 */
+  --border-field: 214 214 214;   /* #D6D6D6: cards and secondary buttons */
+  --border-input: 148 148 148;   /* #949494: a field's edge, 3.0:1 on white (WCAG 1.4.11; owner, 22 Nov 2026) */
   --border-strong: 200 200 200;  /* #C8C8C8 */
   --doc-section: 255 255 255;
   --heading-bg: 255 255 255;

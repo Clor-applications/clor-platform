@@ -7,6 +7,7 @@ colors:
   hover: "#F7F7F7"
   hairline: "#E5E5E5"
   field-border: "#D6D6D6"
+  input-border: "#949494"
   rule: "#C8C8C8"
   text: "#1C1B18"
   text-muted: "#5C5A54"
@@ -89,7 +90,7 @@ components:
     height: 36px
   input:
     backgroundColor: "{colors.surface}"
-    borderColor: "{colors.field-border}"
+    borderColor: "{colors.input-border}"
     rounded: "{rounded.control}"
     height: 36px
   table-row:
@@ -153,7 +154,8 @@ open last. The logo orange is `#FF5400` (owner, 21 Nov 2026), the same on clor.i
 is not a text colour (white on `#FF5400` is 3.2:1), so text uses `logo-text`.
 
 **Neutrals:** `hover` is feedback only, never a ground. The one exception is `rail`, the first sidebar's light grey `#F3F3F0` (owner, 19 Nov 2026), which tells the first menu from the second; every other ground stays white. `hairline` separates rows and regions.
-`field-border` edges inputs and secondary buttons. `rule` sits under a table header and above a
+`field-border` edges secondary buttons and cards. `input-border` edges every text field, select and
+textarea: 3:1 on white, so a field is found without its label (WCAG 1.4.11; owner, 22 Nov 2026). `rule` sits under a table header and above a
 total. `text-subtle` is placeholder and disabled only, never information.
 
 **Status:** done, waiting and problem are shared by every app. Each always carries a word and is
@@ -238,7 +240,7 @@ only pills. Nothing is nested inside a card.
   - Every button has a Lucide icon and a word, except a pure text button.
   - Focus is a 3px ring of the app colour at 28%.
   - Disabled is at 45% opacity and says why in a title or help line.
-- **Fields:** white with a field border, 36px, and the app colour on focus. The label (12/16, 600)
+- **Fields:** white with an input border (`#949494`), 36px, and the app colour on focus. The label (12/16, 600)
   sits above the field and help or error text (12/16) below it. The error says what is wrong
   and how to fix it ("A PAN has 10 characters. This one has 9."). Fields with 5 or more options
   get a search box. Every free text field suggests matching existing values.
