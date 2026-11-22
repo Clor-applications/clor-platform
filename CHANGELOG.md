@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-a7d05b9 - 2026-11-23
+
+API revision `clor-api-00162-dt9`. Previous release `rel-1aaf520` (roll back there).
+
+- #437 Admin center and Ops Homes: big figure and ledger, rings, sign-ups switch
+
 ## rel-1aaf520 - 2026-11-22
 
 API revision `clor-api-00161-hc9`. Previous release `rel-b9ee2e0` (roll back there).
