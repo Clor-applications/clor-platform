@@ -87,3 +87,8 @@ dist-e2e/
 e2e/.state/
 e2e/test-results/
 e2e/report/
+
+# Live QA (e2e/live/)
+e2e/live/.env.live
+e2e/live/report/
+e2e/live/test-results/
