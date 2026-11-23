@@ -72,6 +72,26 @@ export default function Demo() {
   const thanksRef = useRef(null);
   const search = useSearch();
 
+  /* An email typed in the home page's hero comes along in this tab's storage; it is used once. */
+  useEffect(() => {
+    let v = '';
+    try {
+      v = sessionStorage.getItem('clor.demo.email') || '';
+    } catch {
+      /* Private mode: nothing was kept. */
+    }
+    if (!v) return undefined;
+    const frame = requestAnimationFrame(() => {
+      try {
+        sessionStorage.removeItem('clor.demo.email');
+      } catch {
+        /* Nothing to clear. */
+      }
+      setForm((f) => (f.email ? f : { ...f, email: v }));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   /* ?app= is known only in the browser: read after hydration, on the next frame. */
   useEffect(() => {
     const p = productBySlug(new URLSearchParams(search).get('app') || '');

@@ -1,9 +1,9 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowSquareIn, ArrowsSplit, BookOpenText, CalendarX, CaretDown, CaretRight, CloudCheck, Fingerprint, Headset, MagnifyingGlass, Receipt, WarningCircle } from '@phosphor-icons/react';
+import { ArrowRight, ArrowSquareIn, ArrowsSplit, BookOpenText, CalendarX, CaretDown, CaretRight, CloudCheck, Fingerprint, Headset, MagnifyingGlass, Receipt, WarningCircle } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, NAV, PRODUCTS, SITE, productBySlug } from '../site.js';
 import { useProducts } from '../catalogue.js';
-import { BooksWindow, GstrWindow, WINDOWS } from '../components/Windows.jsx';
+import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { SettingUp } from '../components/Sections.jsx';
 import { Faq } from '../components/Blocks.jsx';
 import { Mark, ProductName, Status } from '../components/Brand.jsx';
@@ -464,30 +464,36 @@ const DOES = {
   timesheet: ['Time by project', 'Approved and billed'],
 };
 
-function ProductCard({ p, feature }) {
+/*
+ * A product as a tall pale-blue card (owner, 24 Nov 2026): name, one line, the
+ * product's own screen rising from the bottom, and an arrow in a notched corner.
+ * The name is the link and its hit area covers the whole card.
+ */
+function ProductCard({ p }) {
+  const Win = WINDOWS[p.slug];
   return (
-    <li className={`fx-pcard${feature ? ' fx-pcard--feature' : ''}`} data-p={p.slug}>
-      {feature ? (
-        <div className="fx-pcard-shot" aria-hidden="true">
-          <BooksWindow bare />
-        </div>
-      ) : null}
-      <div className="fx-pcard-top">
-        <Mark product={p} size={44} />
-        <Status product={p} />
-      </div>
+    <li className="dx-card" data-p={p.slug}>
       <h3>
-        <ProductName name={p.name} />
+        <Link href={`/products/${p.slug}`}>
+          <ProductName name={p.name} />
+        </Link>
       </h3>
       <p>{p.line}</p>
-      <ul className="fx-does">
-        {(DOES[p.slug] || []).map((d) => (
-          <li key={d}>{d}</li>
-        ))}
-      </ul>
-      <Link className={feature ? 'btn fx-btn-light' : 'fx-under'} href={`/products/${p.slug}`}>
-        See <ProductName name={p.name} />
-      </Link>
+      {p.status === 'available' ? null : <Status product={p} />}
+      <div className={`dx-card-art${Win ? '' : ' dx-card-art--words'}`} aria-hidden={Win ? 'true' : undefined}>
+        {Win ? (
+          <Win bare />
+        ) : (
+          <ul className="dx-chips">
+            {(DOES[p.slug] || []).map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <span className="dx-card-go" aria-hidden="true">
+        <ArrowRight size={24} weight="bold" />
+      </span>
     </li>
   );
 }
@@ -497,39 +503,53 @@ function ProductsBand() {
   const [cat, setCat] = useState('all');
   const list = cat === 'all' ? products : products.filter((p) => p.category === cat);
   return (
-    <section className="fx-band fx-band--cool fx-deco fx-deco--br" id="products" aria-labelledby="products-title">
+    <section className="fx-band dx-suite" id="products" aria-labelledby="products-title">
       <div className="wrap">
-        <p className="fx-eyebrow">Products</p>
-        <h2 className="fx-h" id="products-title">
-          Choose the products your company needs
-        </h2>
-        <Tabs label="Product group" id="prod" tabs={CATS} current={cat} pick={setCat} />
-        <div role="tabpanel" id="prod-panel" aria-labelledby={`prod-tab-${cat}`}>
-        <ul className={`fx-pgrid${cat === 'all' ? ' fx-pgrid--featured' : ''}`}>
-          {list.map((p, i) => (
-            <ProductCard key={p.slug} p={p} feature={cat === 'all' && i === 0} />
-          ))}
-          {cat === 'all' ? (
-            <li className="fx-pcard fx-pcard--brand">
-              <h3>One sign-in for every product</h3>
-              <p>Add products as you need them. Each one joins the same employees and the same books.</p>
-              <ul className="fx-brand-marks" aria-hidden="true">
-                {['books', 'people', 'payroll', 'attendance'].map((sl) => (
-                  <li key={sl}>
-                    <Mark product={productBySlug(sl)} size={36} />
-                  </li>
-                ))}
-              </ul>
-              <Link className="btn fx-btn-white" href="/pricing">
-                See pricing
-              </Link>
-            </li>
-          ) : null}
-        </ul>
+        <div className="dx-suite-head">
+          <h2 className="dx-suite-h" id="products-title">
+            Choose the products your company needs
+          </h2>
+          <p className="dx-suite-sub">One sign-in for every product. Add products as you need them.</p>
+          <Tabs label="Product group" id="prod" tabs={CATS} current={cat} pick={setCat} />
         </div>
-        <Go href="/products">See all products</Go>
+        <div role="tabpanel" id="prod-panel" aria-labelledby={`prod-tab-${cat}`}>
+          <ul className="dx-grid">
+            {list.map((p) => (
+              <ProductCard key={p.slug} p={p} />
+            ))}
+          </ul>
+        </div>
+        <div className="dx-suite-foot">
+          <Go href="/products">See all products</Go>
+          <Go href="/pricing">See pricing</Go>
+        </div>
       </div>
     </section>
+  );
+}
+
+/* The hero's one field: the email goes with the visitor to the demo form, kept in this tab only, never in the address. */
+function HeroLead() {
+  const [email, setEmail] = useState('');
+  const go = (e) => {
+    e.preventDefault();
+    try {
+      if (email.trim()) sessionStorage.setItem('clor.demo.email', email.trim());
+    } catch {
+      /* Private mode: the form simply opens empty. */
+    }
+    window.location.assign(SITE.demoUrl);
+  };
+  return (
+    <form className="dx-lead" onSubmit={go}>
+      <label className="sr-only" htmlFor="hero-email">
+        Work email
+      </label>
+      <input id="hero-email" type="email" name="email" autoComplete="email" spellCheck={false} placeholder="Work email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <button className="btn btn--primary btn--lg" type="submit">
+        Request a demo
+      </button>
+    </form>
   );
 }
 
@@ -729,45 +749,27 @@ export default function Home() {
         <div className="wrap fx-hero-in">
           <div className="fx-hero-copy">
             <p className="fx-eyebrow">CLOR. One back office.</p>
-            <h1 id="hero-title">Accounts, payroll and HR for growing Indian companies.</h1>
+            <h1 id="hero-title">
+              <strong>Accounts, payroll and HR</strong> for growing Indian companies.
+            </h1>
             <p className="fx-hero-lede">
               GST accounting in CLOR Books, salaries with PF, ESI, PT and TDS in Payroll, every employee’s record in People, and punches from the gate in Attendance. One sign-in, one list of
               employees, one set of books.
             </p>
-            <div className="actions">
-              <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
-                Request a demo
-              </Link>
-              <a className="btn fx-btn-ghost btn--lg" href={SITE.startUrl}>
-                Start free trial
-              </a>
-            </div>
+            <HeroLead />
             <p className="fx-hero-note">
-              No card needed. <Link href="/pricing">See pricing</Link>
+              No card needed. <a href={SITE.startUrl}>Start free trial</a> <span aria-hidden="true">·</span> <Link href="/pricing">See pricing</Link>
             </p>
           </div>
-          <div className="fx-hero-art" aria-hidden="true">
-            <span className="fx-ring fx-ring--1" />
-            <span className="fx-ring fx-ring--2" />
-            <span className="fx-ring fx-ring--3" />
-            <div className="fx-hero-win">
-              <BooksWindow />
+          <div className="dx-hero-art" aria-hidden="true">
+            <span className="dx-hero-disc" />
+            <div className="dx-hero-photo">
+              <Photo name="people-hr" w={1400} h={788} alt="" lazy={false} />
             </div>
-            {/* A second thing in the picture: the payslip that the same month ends in, on a phone. */}
-            <div className="fx-hero-phone" data-p="payroll">
-              <p className="fx-phone-head">
-                <Mark product={productBySlug('payroll')} size={22} /> Payslip, October
-              </p>
-              <p className="fx-phone-k">Net pay</p>
-              <p className="fx-phone-v">₹26,680</p>
-              <dl>
-                <dt>Earnings</dt>
-                <dd>₹29,400</dd>
-                <dt>PF and PT</dt>
-                <dd>− ₹2,720</dd>
-              </dl>
-              <span className="fx-phone-pdf">Payslip PDF in the app</span>
-            </div>
+            <p className="dx-hero-stat">
+              <strong className="num">4</strong>
+              <span>products on one sign-in and one list of employees</span>
+            </p>
           </div>
         </div>
       </section>

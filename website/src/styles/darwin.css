@@ -105,3 +105,336 @@
     transform: none;
   }
 }
+
+/* ------------------------------------------------------------ home: hero */
+/* A flat navy field; the headline's first words heavy and the rest light. */
+.fx-hero {
+  background: var(--dx-navy);
+  border-top: 0;
+}
+.fx-hero-in {
+  min-height: clamp(480px, 44vw, 600px);
+}
+.fx-hero h1 {
+  font-size: clamp(2.25rem, 1.2rem + 3vw, 3.5rem);
+  font-weight: 300;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  max-width: 16ch;
+}
+.fx-hero h1 strong {
+  display: block;
+  font-weight: 800;
+}
+.fx-hero-lede {
+  color: color-mix(in srgb, #fff 82%, var(--dx-navy));
+}
+.fx-hero-note {
+  color: color-mix(in srgb, #fff 70%, var(--dx-navy));
+}
+.fx-hero-note a + span {
+  margin-inline: var(--s-2);
+}
+
+/* One pill: the email field with the button set into its right end. */
+.dx-lead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-6);
+  max-width: 520px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, #fff 45%, var(--dx-navy));
+  border-radius: var(--r-pill);
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.dx-lead:hover {
+  border-color: #fff;
+}
+.dx-lead:focus-within {
+  border-color: #fff;
+  background: color-mix(in srgb, #fff 8%, var(--dx-navy));
+}
+.dx-lead input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 var(--s-5);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: #fff;
+  font-size: var(--t-md);
+}
+.dx-lead input::placeholder {
+  color: color-mix(in srgb, #fff 70%, var(--dx-navy));
+}
+.dx-lead input:focus-visible {
+  outline: 2px solid #ffb08a;
+  outline-offset: -2px;
+  border-radius: var(--r-pill);
+}
+.dx-lead .btn {
+  flex: none;
+  min-height: 48px;
+}
+
+/* The picture: a striped disc behind a photo, with one figure on glass. */
+.dx-hero-art {
+  position: relative;
+  justify-self: end;
+  width: min(100%, 560px);
+  padding: 40px 0 40px 40px;
+}
+.dx-hero-disc {
+  position: absolute;
+  inset: -72px -120px -72px -24px;
+  border-radius: 50%;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, #fff 12%, var(--dx-navy)) 0 28px, transparent 28px 56px);
+  -webkit-mask-image: radial-gradient(closest-side, #000 78%, transparent);
+  mask-image: radial-gradient(closest-side, #000 78%, transparent);
+}
+.dx-hero-photo {
+  position: relative;
+  z-index: 1;
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lift);
+}
+.dx-hero-photo img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 5 / 4;
+  object-fit: cover;
+  object-position: 100% 50%;
+}
+.dx-hero-stat {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  max-width: 300px;
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid color-mix(in srgb, #fff 55%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--dx-navy) 62%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: #fff;
+  font-size: var(--t-sm);
+  line-height: 1.4;
+}
+.dx-hero-stat strong {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+/* ------------------------------------------------- home: the product suite */
+.dx-suite {
+  background: #fff;
+}
+.dx-suite-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.dx-suite-h {
+  font-size: clamp(2rem, 1.2rem + 2.4vw, 3rem);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  max-width: 22ch;
+}
+.dx-suite-sub {
+  margin-top: var(--s-4);
+  color: var(--ink-2);
+  font-size: var(--t-lg);
+}
+.dx-suite-head .fx-tabs {
+  margin-top: var(--s-6);
+  justify-content: center;
+}
+.dx-grid {
+  list-style: none;
+  margin: var(--s-7) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-6);
+}
+.dx-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 440px;
+  padding: 40px 40px 0;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--dx-ground), var(--dx-surface));
+  overflow: hidden;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.dx-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lift);
+}
+.dx-card:has(a:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.dx-card h3 {
+  font-size: var(--t-xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.dx-card h3 a {
+  text-decoration: none;
+  outline: 0;
+}
+/* The name's link covers the card. */
+.dx-card h3 a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+.dx-card > p {
+  margin-top: var(--s-2);
+  max-width: 32ch;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.dx-card .status {
+  align-self: flex-start;
+  margin-top: var(--s-3);
+}
+/* The screen stands on the card's floor, clear of the arrow's corner. */
+.dx-card-art {
+  flex: 1;
+  margin: var(--s-6) 40px 0 0;
+  max-height: 240px;
+  border-radius: 14px 14px 0 0;
+  background: #fff;
+  box-shadow: var(--shadow-lift);
+  overflow: hidden;
+}
+.dx-card-art > * {
+  width: 100%;
+  zoom: 0.8;
+}
+/* A product still to come has no screen yet: its words stand on the card itself. */
+.dx-card-art--words {
+  background: none;
+  box-shadow: none;
+}
+.dx-card-art--words > * {
+  zoom: 1;
+}
+.dx-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.dx-chips li {
+  padding: 6px var(--s-3);
+  border-radius: var(--r-pill);
+  background: #fff;
+  border: 1px solid var(--dx-border);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+/* The arrow sits in a corner cut out of the card, rounded where it meets it. */
+.dx-card-go {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  padding: 12px 0 0 12px;
+  border-top-left-radius: 28px;
+  background: #fff;
+  color: var(--accent-text);
+}
+.dx-card-go::before,
+.dx-card-go::after {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background: radial-gradient(circle at 0 0, transparent 27.5px, #fff 28px);
+}
+.dx-card-go::before {
+  right: 0;
+  top: -28px;
+}
+.dx-card-go::after {
+  left: -28px;
+  bottom: 0;
+}
+.dx-card-go svg {
+  transition: transform 0.3s;
+}
+.dx-card:hover .dx-card-go svg {
+  transform: translateX(4px);
+}
+.dx-suite-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-6);
+  margin-top: var(--s-7);
+}
+
+@media (max-width: 1080px) {
+  .dx-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .dx-hero-art {
+    justify-self: center;
+    padding: 24px 0 24px 24px;
+  }
+}
+@media (max-width: 640px) {
+  .dx-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dx-card {
+    min-height: 0;
+    padding: 24px 24px 0;
+  }
+  .dx-card-art {
+    margin-right: 48px;
+    min-height: 160px;
+  }
+  .dx-lead {
+    flex-direction: column;
+    align-items: stretch;
+    border-radius: 28px;
+    padding: var(--s-2);
+  }
+  .dx-lead input {
+    text-align: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dx-card,
+  .dx-card-go svg {
+    transition: none;
+  }
+  .dx-card:hover {
+    transform: none;
+  }
+}
