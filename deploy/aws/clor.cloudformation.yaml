@@ -4,12 +4,12 @@ Description: >
   and one managed PostgreSQL database (RDS). Reached through the api.clor.in
   Cloudflare Worker, exactly as Cloud Run was. See deploy/aws/README.md.
 
-# What this costs, roughly, per month in ap-south-1 (check the AWS calculator):
-#   API server t4g.small ............ about $9
-#   Database db.t4g.small, 20 GB .... about $27
+# What this costs per month in ap-south-1 (AWS price list, 23 Nov 2026):
+#   API server t4g.small ............ about $8
+#   Database db.t4g.micro, 20 GB .... about $18   (db.t4g.small: about $33)
 #   Server disk 30 GB, public IPv4 .. about $7
 #   Backups, image store, secret .... about $2
-# About $45 a month: $1,000 of credits last about 22 months.
+# About $35 a month: $1,000 of credits last about 29 months.
 # The two sizes are parameters; changing one is a few minutes of downtime.
 
 Parameters:
@@ -20,9 +20,9 @@ Parameters:
     Description: The API server. 2 vCPU and 2 GB serves 150-200 people; t4g.medium doubles the memory.
   DbInstanceClass:
     Type: String
-    Default: db.t4g.small
+    Default: db.t4g.micro
     AllowedValues: [db.t4g.micro, db.t4g.small, db.t4g.medium]
-    Description: The database. It is the busy part of CLOR, so the money goes here first.
+    Description: The database. micro (1 GB) to start; small (2 GB) when real customers arrive. It is the busy part of CLOR, so it is the first size to raise.
   DbEngineVersion:
     Type: String
     Default: '18'

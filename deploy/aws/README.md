@@ -12,21 +12,21 @@ is still the release script until the cutover below is done.
 Cloud Run was set to sleep when idle (first request after a quiet spell waited
 for a cold start) and the database was Cloud SQL's smallest tier (shared CPU,
 0.6 GB, 25 connections). Here the server never sleeps and the database has
-2 vCPU, 2 GB and room for about 220 connections.
+2 vCPU, 1 GB and room for about 100 connections.
 
 ## What runs
 
 | Part | What | About, per month |
 |---|---|---|
-| API server | EC2 `t4g.small` (2 vCPU, 2 GB), Docker: Caddy + the API image + the jobs wake call | $9 |
-| Database | RDS PostgreSQL `db.t4g.small`, 20 GB, nightly backup kept 7 days, restore to any minute | $27 |
+| API server | EC2 `t4g.small` (2 vCPU, 2 GB), Docker: Caddy + the API image + the jobs wake call | $8 |
+| Database | RDS PostgreSQL `db.t4g.micro`, 20 GB, nightly backup kept 7 days, restore to any minute | $18 |
 | Disk, public address | 30 GB, one IPv4 | $7 |
 | Image store, snapshots, one secret | ECR, RDS snapshots, Secrets Manager | $2 |
-| **Total** | | **about $45** |
+| **Total** | | **about $35** |
 
-$1,000 of credits last about 22 months. Prices are estimates: confirm them in
-the AWS pricing calculator, and set a budget alert (step 2). To spend less, set
-`DbInstanceClass=db.t4g.micro` (about $13 less, half the memory).
+$1,000 of credits last about 29 months. Hourly prices read from the AWS price
+list on 23 Nov 2026 ($0.021 database, $0.0112 server); set a budget alert (step 2). The bill is by the hour the machines exist, not by use. When real customers
+arrive, set `DbInstanceClass=db.t4g.small` (2 GB, about $15 more a month).
 
 Request path: browser, Cloudflare Worker `clor-api-proxy` (`api.clor.in`),
 `https://origin.clor.in` (Caddy on the server), the API container, RDS.
@@ -51,7 +51,7 @@ the GitHub release and rollback workflows, and the monitoring alerts.
    access key of an administrator user).
 
 2. **Budget alert**, so credits never run out unseen: AWS console, Billing,
-   Budgets, a monthly cost budget of $50 with an email at 80%.
+   Budgets, a monthly cost budget of $40 with an email at 80%.
 
 3. **Create everything:**
 
