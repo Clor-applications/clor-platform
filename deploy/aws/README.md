@@ -59,10 +59,10 @@ Files in this folder: `clor.cloudformation.yaml` (everything AWS makes),
 `clor-server.sh` (runs on the server). The release script is
 `scripts/release-aws.sh`.
 
-Not moved by this work, and still pointing at Google Cloud:
-the Engineering Console (`clor-console`, reads Cloud Run and Cloud SQL status),
-the Ops health page's Google readings (`server/src/routes/opsHealth.ts`),
-the GitHub release and rollback workflows, and the monitoring alerts.
+Moved after the cutover: the Ops log lookup (CloudWatch, group `clor/api`),
+the release and rollback workflows, and the Engineering Console (below).
+Still on Google Cloud: the monitoring alerts, and the old services kept as
+the fallback.
 
 ## Setting it up (once)
 
@@ -164,6 +164,22 @@ One-time setup, in GitHub, Settings, Environments:
 | `production`, secret (optional) | `AGENT_SIGNING_KEY` | the connector signing key |
 
 The environment: `main` only, and a required reviewer.
+
+## The Engineering Console
+
+`console.clor.in` (Cloudflare Pages, `console/web`) forwards `/api/*` to
+`https://console-origin.clor.in`, the compose service `console` on the same
+server (since 24 Nov 2026). Its database `clor_console` is on the same RDS
+instance, under its own user; its settings are in Parameter Store under
+`/clor/console/`. It reads AWS with the server's role: releases from the
+image store, the serving one and the last migration from `/opt/clor/state`
+(written by `clor-server.sh`), backups from RDS.
+
+- New Console API image: build `console/api` for `linux/amd64`, push it to
+  the `clor/console` repository, then on the server
+  `./clor-server.sh console <image>`. An API release does not touch it.
+- New Console page: `npm run console:build`, then `wrangler pages deploy
+  --branch main` in `console/web`.
 
 ## Day to day
 
