@@ -22,3 +22,16 @@
 
 	header -Server
 }
+
+# The Engineering Console's API. console.clor.in's Pages Function
+# (console/web/functions/api) is its only caller and overwrites
+# X-Forwarded-For with the visitor's address, so it is passed through as is.
+# Until the Console is started (clor-server.sh console <image>) this answers 502.
+{$CONSOLE_ORIGIN_HOST:console-origin.clor.in} {
+	encode zstd gzip
+	reverse_proxy console:4010 {
+		header_up X-Forwarded-For {http.request.header.X-Forwarded-For}
+		header_up X-Forwarded-Host {http.request.header.X-Forwarded-Host}
+	}
+	header -Server
+}

@@ -3,6 +3,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import pg from 'pg';
 
 import { createApp } from './app.js';
+import { awsCloud } from './aws.js';
 import { realCloud } from './cloud.js';
 import { githubOn, missingSettings, readConfig } from './config.js';
 import { fakeCloud, fakeGitHub } from './fakes.js';
@@ -36,5 +37,5 @@ if (config.devFakes) {
     process.exit(1);
   }
   const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 4 });
-  createApp({ config, store: pgStore(pool), github: githubOn(config) ? realGitHub(config) : offGitHub(), cloud: realCloud(config) }).listen(config.port, () => console.log(`Console API on port ${config.port}`));
+  createApp({ config, store: pgStore(pool), github: githubOn(config) ? realGitHub(config) : offGitHub(), cloud: config.cloud === 'aws' ? awsCloud(config) : realCloud(config) }).listen(config.port, () => console.log(`Console API on port ${config.port}`));
 }
