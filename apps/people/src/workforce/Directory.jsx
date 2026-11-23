@@ -46,6 +46,10 @@ import { Button } from '@ui/components/ui/Primitives';
 const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'contract', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to', 'lfrom', 'lto', 'working', 'branch', 'lang'];
 const COLUMNS_KEY = 'people.workforce.columns';
 const DISMISS_KEY = 'people.workforce.dismissed';
+/* Lower-priority columns start hidden so the table fits beside both sidebars; Columns shows them (WF-03). */
+/* Columns added after the first release of the list (see the saved-choice note where prefs are read). */
+const NEW_COLUMNS = ['workEmail'];
+const DEFAULT_HIDDEN = ['manager', 'workEmail', 'type', 'location', 'department', 'code', 'languages'];
 /* Ticked rows are sent as ids in the export address; above this many it grows too long. */
 const EXPORT_IDS_MAX = 500;
 const readJson = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || '') || fallback; } catch { return fallback; } };
@@ -94,9 +98,14 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const [selKey, setSelKey] = useState(listKey);
   if (selKey !== listKey) { setSelKey(listKey); setSelected(new Set()); }
 
-  /* Lower-priority columns start hidden so the table fits beside both sidebars; Columns shows them (WF-03). */
-  const [prefs, setPrefsState] = useState(() => readJson(COLUMNS_KEY, { hidden: ['manager', 'type', 'location', 'department', 'code', 'languages'] }));
-  const setPrefs = (next) => { setPrefsState(next); writeJson(COLUMNS_KEY, next); };
+  const [prefs, setPrefsState] = useState(() => {
+    const saved = readJson(COLUMNS_KEY, null);
+    if (!saved) return { hidden: DEFAULT_HIDDEN, known: NEW_COLUMNS };
+    /* A column added after someone saved their choice starts hidden for them too, once; after that the choice is theirs. */
+    const fresh = NEW_COLUMNS.filter((k) => !(saved.known || []).includes(k));
+    return fresh.length ? { ...saved, hidden: [...new Set([...(saved.hidden || []), ...fresh])], known: [...(saved.known || []), ...fresh] } : saved;
+  });
+  const setPrefs = (next) => { const kept = { ...next, known: NEW_COLUMNS }; setPrefsState(kept); writeJson(COLUMNS_KEY, kept); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bulk, setBulk] = useState(null);
   const [appAccess, setAppAccess] = useState(null);
@@ -131,6 +140,8 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     { key: 'department', label: 'Department', sortable: true, render: (r) => (r.department ? <DeptTag name={r.department} /> : '—') },
     { key: 'designation', label: 'Designation', sortable: true, render: (r) => r.designation || '—' },
     { key: 'manager', label: 'Manager', render: (r) => r.reportingManagerName || '—' },
+    /* A directory is also where a colleague's address is looked up: an optional column, hidden until asked for. */
+    { key: 'workEmail', label: 'Work email', render: (r) => (r.workEmail ? <a className="ui-link" href={`mailto:${r.workEmail}`} onClick={(e) => e.stopPropagation()}>{r.workEmail}</a> : '—') },
     { key: 'branch', label: 'Works at', render: (r) => <span className="whitespace-nowrap">{r.branchName || '—'}</span> },
     { key: 'location', label: 'Location', sortable: true, render: (r) => r.areaName || r.workLocation || '—' },
     { key: 'type', label: 'Employment type', render: (r) => lists.types.find((t) => t.id === r.employeeTypeId)?.name || '—' },
@@ -233,13 +244,24 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
             <Filter size={16} aria-hidden="true" /> Filters{filtersOn ? <span className="ui-pill ui-pill-info tabular-nums ml-1">{filtersOn}</span> : null}
           </button>
         </> : null}
-        toolbarEnd={!firstRun && (tab === 'directory' || tab === 'team') ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={setPrefs} defaults={{ hidden: ['manager', 'type', 'location', 'department', 'code', 'languages'] }} /> : null}
+        toolbarEnd={!firstRun && (tab === 'directory' || tab === 'team') ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={setPrefs} defaults={{ hidden: DEFAULT_HIDDEN }} /> : null}
         tabs={firstRun ? [] : [{ key: 'directory', label: 'Directory' }, counts.data?.myTeam ? { key: 'team', label: 'My team', count: counts.data.myTeam } : null, { key: 'views', label: 'Saved views' }, pendingCount ? { key: 'pending', label: 'Pending actions', count: pendingCount } : null]}
         tab={tab}
         onTab={(k) => set({ tab: k === 'directory' ? null : k }, true)}
       />
       <Banners openScreen={openScreen} />
       {tab === 'team' && !firstRun ? <MyTeamPanel onFilter={(f) => set({ ...f, page: null }, true)} openScreen={openScreen} /> : null}
+      {/* The filters in force sit above the list they narrow, so they are seen without scrolling past it (24 Nov 2026; they were under the table). */}
+      {['directory', 'team'].includes(tab) && chips.length ? (
+        <div className="flex flex-wrap items-center gap-1.5" aria-label="Filters in force">
+          {chips.map((c) => (
+            <button key={c.k} type="button" className="ui-pill" onClick={() => set(c.k === 'dates' ? { from: null, to: null, page: null } : c.k === 'left' ? { lfrom: null, lto: null, page: null } : { [c.k]: null, page: null })} aria-label={`Remove ${c.label}`}>
+              {c.label} <X size={12} aria-hidden="true" />
+            </button>
+          ))}
+          <button type="button" className="ui-link text-sm" onClick={clearFilters}>Clear all</button>
+        </div>
+      ) : null}
       {selected.size ? (
         <div className="ui-bulkbar" role="status" aria-live="polite">
           <span className="tabular-nums">{selected.size === total && total > rows.length ? `All ${total} matching selected` : `${selected.size} selected`}</span>
@@ -300,17 +322,6 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
 
       {['directory', 'team'].includes(tab) && list.error && rows.length ? <Alert tone="neg" title="Could not refresh the list" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.reload}>Retry</button>}>Showing the last list loaded. {list.error.message}</Alert> : null}
       {['directory', 'team'].includes(tab) && list.slow ? <Alert tone="info" title="Still loading employee records…" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.cancel}>Cancel</button>} /> : null}
-      {['directory', 'team'].includes(tab) && chips.length ? (
-        <div className="flex flex-wrap items-center gap-1.5" aria-label="Filters in force">
-          {chips.map((c) => (
-            <button key={c.k} type="button" className="ui-pill" onClick={() => set(c.k === 'dates' ? { from: null, to: null, page: null } : c.k === 'left' ? { lfrom: null, lto: null, page: null } : { [c.k]: null, page: null })} aria-label={`Remove ${c.label}`}>
-              {c.label} <X size={12} aria-hidden="true" />
-            </button>
-          ))}
-          <button type="button" className="ui-link text-sm" onClick={clearFilters}>Clear all</button>
-        </div>
-      ) : null}
-
       {!firstRun && tab === 'directory' ? (
         <details className="ui-phone-filters ui-figures-fold">
           <summary>Show figures</summary>
