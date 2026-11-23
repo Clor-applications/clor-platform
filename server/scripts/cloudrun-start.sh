@@ -41,9 +41,16 @@ set -e
 if [ -z "$DATABASE_URL" ]; then
   : "${DB_USER:?DB_USER is not set}"
   : "${DB_PASSWORD:?DB_PASSWORD is not set}"
-  : "${CLOUDSQL_INSTANCE:?CLOUDSQL_INSTANCE is not set}"
-  base="postgresql://${DB_USER}:${DB_PASSWORD}@localhost"
-  q="host=/cloudsql/${CLOUDSQL_INSTANCE}&connection_limit"
+  if [ -n "$DB_HOST" ]; then
+    # A database reached by name over the network (Amazon RDS, deploy/aws):
+    # TLS is required, and the password must be URL-safe (letters and digits).
+    base="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}"
+    q="sslmode=require&connection_limit"
+  else
+    : "${CLOUDSQL_INSTANCE:?CLOUDSQL_INSTANCE (Cloud Run) or DB_HOST (anywhere else) is not set}"
+    base="postgresql://${DB_USER}:${DB_PASSWORD}@localhost"
+    q="host=/cloudsql/${CLOUDSQL_INSTANCE}&connection_limit"
+  fi
   s="${DB_NAME_SUFFIX:-}"
   export DATABASE_URL="${base}/clor_main${s}?${q}=${DB_POOL_MAIN:-3}"
   export PAYROLL_DATABASE_URL="${base}/clor_payroll${s}?${q}=${DB_POOL_PAYROLL:-2}"

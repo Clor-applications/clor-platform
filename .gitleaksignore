@@ -1,0 +1,4 @@
+# Not a key: the jobs wake address in the first commit of the AWS deploy
+# files (a host named after the service, then a port and a path) matched the
+# generic rule. The compose service was renamed in the next commit.
+223617a6043dfd57ce170937feee53b6676104e0:deploy/aws/docker-compose.yml:generic-api-key:61
