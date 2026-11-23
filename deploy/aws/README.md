@@ -151,19 +151,19 @@ and time it. Then for real, in a quiet hour:
 on GitHub's machines, which are x86 like the server, so the image is built
 there natively and no Mac is needed. They sign in to AWS as the role
 `clor-release` (the template's `ReleaseRole`), which only a run in this
-repository's `production` or `production-rollback` environment can take.
+repository's `production` environment can take. A rollback runs in that
+environment too, so it needs the same approval.
 
 One-time setup, in GitHub, Settings, Environments:
 
 | Where | Name | Value |
 |---|---|---|
-| `production` and `production-rollback`, variable | `AWS_RELEASE_ROLE_ARN` | the stack's `ReleaseRoleArn` output |
+| `production`, variable | `AWS_RELEASE_ROLE_ARN` | the stack's `ReleaseRoleArn` output |
 | repository variable | `WRANGLER_VERSION` | an exact version, e.g. the Mac's (`wrangler --version`) |
 | `production`, secrets | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | a token that may edit Cloudflare Pages; without it a release publishes the API only and says so |
 | `production`, secret (optional) | `AGENT_SIGNING_KEY` | the connector signing key |
 
-Both environments: `main` only, and a required reviewer. The rollback one
-too, because on AWS it uses the same role as a release.
+The environment: `main` only, and a required reviewer.
 
 ## Day to day
 

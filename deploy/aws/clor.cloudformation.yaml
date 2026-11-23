@@ -276,9 +276,8 @@ Resources:
 
   # ---- Releases from GitHub Actions (.github/workflows/release.yml, rollback.yml) ----
   # GitHub signs in with a short-lived token it mints for one run: no key is
-  # stored anywhere. Only runs of this repository in its `production` or
-  # `production-rollback` environment (main only, approved by an owner) can
-  # take the role. The subject carries the organisation's and the repository's
+  # stored anywhere. Only runs of this repository in its `production`
+  # environment (main only, approved by an owner) can take the role. The subject carries the organisation's and the repository's
   # numbers, because this organisation issues immutable subjects: a repository
   # recreated under the same name would not match.
   GithubSignIn:
@@ -300,9 +299,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub:
-                  - !Sub 'repo:${GithubRepositorySubject}:environment:production'
-                  - !Sub 'repo:${GithubRepositorySubject}:environment:production-rollback'
+                token.actions.githubusercontent.com:sub: !Sub 'repo:${GithubRepositorySubject}:environment:production'
       Policies:
         - PolicyName: clor-release
           PolicyDocument:

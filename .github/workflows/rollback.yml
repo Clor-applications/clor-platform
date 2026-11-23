@@ -5,12 +5,12 @@ name: Roll back
 # Nothing is built, nothing is published, and no migration is undone.
 #
 # Started from the Engineering Console (Releases, Roll back) or from this
-# page. It runs in its own environment, `production-rollback`. On AWS it signs
-# in as the same role a release uses (deploy/aws/clor.cloudformation.yaml,
-# ReleaseRole): a rollback is a command on the server, and AWS has no narrower
-# permission for "start an older image". Because that role can do everything
-# a release can, give `production-rollback` the same required reviewer as
-# `production` (the owner's choice of 15 Nov 2026: a rollback needs approval).
+# page. It runs in the `production` environment, the same one a release uses,
+# so it needs the same approval (the owner's choice of 15 Nov 2026). On AWS a
+# rollback is a command on the server, and the only role that may send one
+# is the release role (deploy/aws/clor.cloudformation.yaml, ReleaseRole): a
+# second environment without a reviewer would hand that role to anyone who
+# may start a workflow.
 
 on:
   workflow_dispatch:
@@ -37,7 +37,7 @@ jobs:
   rollback:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: production-rollback
+    environment: production
     permissions:
       contents: read
       id-token: write
