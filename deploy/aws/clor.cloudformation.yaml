@@ -45,6 +45,10 @@ Parameters:
     Default: 'true'
     AllowedValues: ['true', 'false']
     Description: Keep true. Only the very first create passes false, so a failed create can clean up after itself; it is switched on straight after.
+  GithubRepositorySubject:
+    Type: String
+    Default: Clor-applications@345664517/clor-platform@1416995327
+    Description: The repository as GitHub names it in its sign-in tokens (organisation@number/repository@number).
   ApiAmiX86:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
@@ -270,7 +274,81 @@ Resources:
     DependsOn: GatewayAttachment
     Properties: { Domain: vpc, InstanceId: !Ref ApiServer }
 
+  # ---- Releases from GitHub Actions (.github/workflows/release.yml, rollback.yml) ----
+  # GitHub signs in with a short-lived token it mints for one run: no key is
+  # stored anywhere. Only runs of this repository in its `production` or
+  # `production-rollback` environment (main only, approved by an owner) can
+  # take the role. The subject carries the organisation's and the repository's
+  # numbers, because this organisation issues immutable subjects: a repository
+  # recreated under the same name would not match.
+  GithubSignIn:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+  ReleaseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: clor-release
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: !Ref GithubSignIn }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub:
+                  - !Sub 'repo:${GithubRepositorySubject}:environment:production'
+                  - !Sub 'repo:${GithubRepositorySubject}:environment:production-rollback'
+      Policies:
+        - PolicyName: clor-release
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # What scripts/release-aws.sh does, and no more.
+              - Sid: ReadTheStack
+                Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Ref AWS::StackId
+              - Sid: PushTheImage
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:DescribeImages
+                Resource: !GetAtt ImageStore.Arn
+              - Sid: SnapshotBeforeMigrations
+                Effect: Allow
+                Action: [rds:CreateDBSnapshot, rds:DeleteDBSnapshot, rds:DescribeDBSnapshots, rds:AddTagsToResource]
+                Resource:
+                  - !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db:clor-pg'
+                  - !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:snapshot:clor-pg-rel-*'
+              # Commands on the one server, as the release script sends them.
+              - Sid: RunOnTheServer
+                Effect: Allow
+                Action: ssm:SendCommand
+                Resource:
+                  - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${ApiServer}'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
+              - Effect: Allow
+                Action: [ssm:GetCommandInvocation, ssm:ListCommandInvocations]
+                Resource: '*'
+
 Outputs:
+  ReleaseRoleArn:
+    Description: The repository variable AWS_RELEASE_ROLE_ARN (GitHub, Settings, Environments).
+    Value: !GetAtt ReleaseRole.Arn
   ApiServerId:
     Value: !Ref ApiServer
   ApiArchitecture:

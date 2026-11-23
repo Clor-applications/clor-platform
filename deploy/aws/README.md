@@ -77,7 +77,7 @@ the GitHub release and rollback workflows, and the monitoring alerts.
 3. **Create everything:**
 
    ```bash
-   aws cloudformation deploy --region ap-south-1 --stack-name clor --template-file deploy/aws/clor.cloudformation.yaml --capabilities CAPABILITY_IAM
+   aws cloudformation deploy --region ap-south-1 --stack-name clor --template-file deploy/aws/clor.cloudformation.yaml --capabilities CAPABILITY_NAMED_IAM
    ```
 
    About 15 minutes (the database is the slow part). Then read what it made:
@@ -144,6 +144,26 @@ and time it. Then for real, in a quiet hour:
    address again, and loses whatever was written on AWS in between. After the
    week, on the owner's word: delete `clor-api`, `clor-console`, `clor-pg`,
    `clor-pg-staging` (take a final export first) and close billing.
+
+## Releases from GitHub
+
+`.github/workflows/release.yml` and `rollback.yml` run `scripts/release-aws.sh`
+on GitHub's machines, which are x86 like the server, so the image is built
+there natively and no Mac is needed. They sign in to AWS as the role
+`clor-release` (the template's `ReleaseRole`), which only a run in this
+repository's `production` or `production-rollback` environment can take.
+
+One-time setup, in GitHub, Settings, Environments:
+
+| Where | Name | Value |
+|---|---|---|
+| `production` and `production-rollback`, variable | `AWS_RELEASE_ROLE_ARN` | the stack's `ReleaseRoleArn` output |
+| repository variable | `WRANGLER_VERSION` | an exact version, e.g. the Mac's (`wrangler --version`) |
+| `production`, secrets | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | a token that may edit Cloudflare Pages; without it a release publishes the API only and says so |
+| `production`, secret (optional) | `AGENT_SIGNING_KEY` | the connector signing key |
+
+Both environments: `main` only, and a required reviewer. The rollback one
+too, because on AWS it uses the same role as a release.
 
 ## Day to day
 

@@ -1,20 +1,22 @@
 name: Roll back
 
-# Moves every customer back to an earlier Cloud Run revision of the API. One
-# traffic move (scripts/release.sh --rollback): nothing is built, nothing is
-# published, and no migration is undone.
+# Moves every customer back to an earlier release of the API: the server
+# starts that release's image again (scripts/release-aws.sh --rollback).
+# Nothing is built, nothing is published, and no migration is undone.
 #
 # Started from the Engineering Console (Releases, Roll back) or from this
-# page. It runs in its own environment, `production-rollback`, which has no
-# required reviewer, on purpose: during an outage an engineer must not wait
-# for the owner. In exchange its Google Cloud account can do one thing only,
-# move traffic on the clor-api service (docs/console/SETUP.md).
+# page. It runs in its own environment, `production-rollback`. On AWS it signs
+# in as the same role a release uses (deploy/aws/clor.cloudformation.yaml,
+# ReleaseRole): a rollback is a command on the server, and AWS has no narrower
+# permission for "start an older image". Because that role can do everything
+# a release can, give `production-rollback` the same required reviewer as
+# `production` (the owner's choice of 15 Nov 2026: a rollback needs approval).
 
 on:
   workflow_dispatch:
     inputs:
       revision:
-        description: The Cloud Run revision to send all traffic to, e.g. clor-api-00127-622
+        description: The release to go back to, as seven characters of its commit, e.g. ad81ab7 (its image must still be in the image store)
         type: string
         required: true
       reason:
@@ -54,20 +56,17 @@ jobs:
         with:
           node-version: 22
 
-      - name: Sign in to Google Cloud
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+      - name: Sign in to AWS
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_ROLLBACK_SERVICE_ACCOUNT }}
+          role-to-assume: ${{ vars.AWS_RELEASE_ROLE_ARN }}
+          aws-region: ap-south-1
+          role-session-name: rollback-${{ github.run_id }}
 
-      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-
-      # Inputs reach the shell as environment values, never pasted into the
-      # script text; release.sh checks the name's shape before anything runs.
       - name: Roll back
         env:
           REVISION: ${{ inputs.revision }}
           REASON: ${{ inputs.reason }}
         run: |
           printf 'Asked for by %s. Reason: %s\n' "$GITHUB_ACTOR" "$REASON"
-          scripts/release.sh --rollback "$REVISION" --go
+          scripts/release-aws.sh --rollback "$REVISION" --go
