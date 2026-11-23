@@ -7,8 +7,11 @@ workers_dev = false
 routes = [{ pattern = "api.clor.in", custom_domain = true }]
 
 [vars]
-# Cloud Run service URL (set after the first deploy).
-ORIGIN = "https://clor-api-398490688104.asia-south1.run.app"
+# The API server on AWS (deploy/aws), since the cutover of 23 Nov 2026.
+# Going back to Cloud Run within the fallback week: put the old value here
+# (https://clor-api-398490688104.asia-south1.run.app), `wrangler deploy`, and
+# open the service again: gcloud run services update clor-api --ingress all.
+ORIGIN = "https://origin.clor.in"
 
 # Staging: api.staging.clor.in -> clor-api-staging (the *_staging databases).
 # Deploy: wrangler deploy --env staging; secret: wrangler secret put EDGE_SECRET --env staging

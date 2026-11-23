@@ -38,12 +38,6 @@ pg() { # pg <user> <password> <database> [psql args...]   (stdin is passed throu
     psql -h "$HOST" -U "$u" -d "$d" -v ON_ERROR_STOP=1 -X -q "$@"
 }
 
-have=$(pg "$ADMIN_USER" "$ADMIN_PW" postgres -Atc "select count(*) from pg_database where datname like 'clor\_%'")
-if [ "$have" != 0 ]; then
-  [ "$REPLACE" = --replace ] || { echo "$have clor_ database(s) already exist. Pass --replace to drop and restore them." >&2; exit 1; }
-  for d in $DBS; do pg "$ADMIN_USER" "$ADMIN_PW" postgres -c "drop database if exists $d with (force)"; done
-fi
-
 # The application role: may create databases and roles (as on Cloud SQL), is
 # not a superuser and cannot bypass row-level security.
 pg "$ADMIN_USER" "$ADMIN_PW" postgres <<SQL
@@ -54,6 +48,15 @@ do \$\$ begin
 end \$\$;
 alter role clor_app password '$APP_PW';
 SQL
+
+have=$(pg "$ADMIN_USER" "$ADMIN_PW" postgres -Atc "select count(*) from pg_database where datname like 'clor\_%'")
+if [ "$have" != 0 ]; then
+  [ "$REPLACE" = --replace ] || { echo "$have clor_ database(s) already exist. Pass --replace to drop and restore them." >&2; exit 1; }
+  # Dropped as clor_app: it owns them, and the administrator of an RDS
+  # database is not a superuser, so it cannot drop what it does not own.
+  for d in $DBS; do pg clor_app "$APP_PW" postgres -c "drop database if exists $d with (force)"; done
+fi
+
 
 for d in $DBS; do
   pg clor_app "$APP_PW" postgres -c "create database $d"

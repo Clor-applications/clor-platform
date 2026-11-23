@@ -3,17 +3,25 @@
 The API and the database on AWS in Mumbai (`ap-south-1`), in place of Cloud Run
 and Cloud SQL. The web app, the website and `api.clor.in` stay on Cloudflare.
 
-**Status (23 Nov 2026): created and rehearsed, not yet live.** The stack
-exists, the secrets are in Parameter Store, and a rehearsal restored the
-nightly copies (345 tables; row counts equal table by table) and started the
-API against them: `/ready` answered with all four stores, no migration was
-pending. Production is still Cloud Run; `scripts/release.sh` is still the
-release script until the cutover below is done.
+**Status: LIVE since 23 Nov 2026.** `api.clor.in` (the Worker) forwards to
+`https://origin.clor.in`, the AWS server; the data is the Cloud SQL export
+taken after Cloud Run was closed (345 tables, row counts equal table by
+table). Cloud Run `clor-api` still exists with ingress `internal` and its
+scheduler job paused: the fallback for one week, then to be deleted on the
+owner's word. **Release with `scripts/release-aws.sh`, not `scripts/release.sh`**
+(that one deploys to the closed Cloud Run service).
 
-Learnt in the rehearsal:
+Going back within the fallback week loses what was written on AWS since:
+`ORIGIN` in `deploy/cloudflare/api-proxy/wrangler.toml` back to the run.app
+address and `wrangler deploy`; `gcloud run services update clor-api --ingress all`;
+`gcloud scheduler jobs resume clor-api-jobs`.
+
+Learnt in the rehearsal and the cutover:
 - The image cannot be built on the server (the compiler runs out of memory
   on 2 GB). It is built on the Mac for `linux/amd64`, which needs Docker's
   x86 emulation (`docker run --privileged --rm tonistiigi/binfmt --install amd64`, once).
+- The RDS administrator is not a superuser: it cannot drop a database
+  `clor_app` owns. `restore-copies.sh --replace` drops them as `clor_app`.
 - An API started against a copy runs its background jobs (29 job runs in a
   few minutes). For a rehearsal that is noise; never start one against a copy
   while the real one is still serving if a job could send mail twice.
