@@ -18,14 +18,16 @@ for a cold start) and the database was Cloud SQL's smallest tier (shared CPU,
 
 | Part | What | About, per month |
 |---|---|---|
-| API server | EC2 `t4g.small` (2 vCPU, 2 GB), Docker: Caddy + the API image + the jobs wake call | $8 |
+| API server | EC2 `t3a.small` (2 vCPU, 2 GB), Docker: Caddy + the API image + the jobs wake call | $9 |
 | Database | RDS PostgreSQL `db.t4g.micro`, 20 GB, nightly backup kept 7 days, restore to any minute | $18 |
 | Disk, public address | 30 GB, one IPv4 | $7 |
 | Image store, snapshots, one secret | ECR, RDS snapshots, Secrets Manager | $2 |
 | **Total** | | **about $35** |
 
 $1,000 of credits last about 29 months. Hourly prices read from the AWS price
-list on 23 Nov 2026 ($0.021 database, $0.0112 server); set a budget alert (step 2). The bill is by the hour the machines exist, not by use. When real customers
+list on 23 Nov 2026 ($0.021 database, about $0.012 server). The server is `t3a` (x86)
+because Mumbai had no `t4g` (ARM) capacity in any zone that day; `t4g.small` is
+a one-setting change later and the release script builds for whichever it is; set a budget alert (step 2). The bill is by the hour the machines exist, not by use. When real customers
 arrive, set `DbInstanceClass=db.t4g.small` (2 GB, about $15 more a month).
 
 Request path: browser, Cloudflare Worker `clor-api-proxy` (`api.clor.in`),

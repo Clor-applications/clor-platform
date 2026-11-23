@@ -113,11 +113,12 @@ server_files() {
   printf 'set -e; mkdir -p /opt/clor; cd /opt/clor; echo %s | base64 -d | tar -xzf -; chmod +x clor-server.sh; export ORIGIN_HOST=%q; ' "$pack" "$ORIGIN_HOST"
 }
 
-SERVER='<server id>' REPO='<image repository>'
+SERVER='<server id>' REPO='<image repository>' ARCH=amd64
 if [ "$MODE" != dry ]; then
   for tool in aws curl node npm; do command -v "$tool" >/dev/null || stop "$tool is not installed."; done
   aws sts get-caller-identity >/dev/null || stop "aws is not signed in (aws sso login, or aws configure)."
   SERVER=$(stack_output ApiServerId); REPO=$(stack_output ImageRepository)
+  ARCH=$(stack_output ApiArchitecture); ARCH=${ARCH:-amd64}
   [ -n "$SERVER" ] && [ -n "$REPO" ] || stop "The '$STACK' stack has no server or image repository. Was it created? (deploy/aws/README.md)"
 fi
 
@@ -194,11 +195,12 @@ else
   fi
 
   step "3. Build the API image here and push it"
-  # The server is ARM (t4g), and so is this Mac, so the build is native.
+  # Built for the server's processor: x86 (t3a) is emulated on this ARM Mac and
+  # takes longer; ARM (t4g) is native.
   if on stage; then
     aws ecr get-login-password | docker login --username AWS --password-stdin "${REPO%%/*}" >/dev/null
   fi
-  run stage docker buildx build --platform linux/arm64 -f docker/api.cloudrun.Dockerfile -t "$IMAGE" --push server
+  run stage docker buildx build --platform "linux/$ARCH" -f docker/api.cloudrun.Dockerfile -t "$IMAGE" --push server
 
   step "4. Apply the migrations"
   on_server stage "apply the migrations with $IMAGE" "$(server_files)./clor-server.sh migrate $IMAGE" \

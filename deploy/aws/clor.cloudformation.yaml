@@ -5,7 +5,7 @@ Description: >
   Cloudflare Worker, exactly as Cloud Run was. See deploy/aws/README.md.
 
 # What this costs per month in ap-south-1 (AWS price list, 23 Nov 2026):
-#   API server t4g.small ............ about $8
+#   API server t3a.small ............ about $9
 #   Database db.t4g.micro, 20 GB .... about $18   (db.t4g.small: about $33)
 #   Server disk 30 GB, public IPv4 .. about $7
 #   Backups, image store, secret .... about $2
@@ -15,9 +15,13 @@ Description: >
 Parameters:
   ApiInstanceType:
     Type: String
-    Default: t4g.small
-    AllowedValues: [t4g.small, t4g.medium, t4g.large]
-    Description: The API server. 2 vCPU and 2 GB serves 150-200 people; t4g.medium doubles the memory.
+    Default: t3a.small
+    AllowedValues: [t3a.small, t3a.medium, t4g.small, t4g.medium]
+    Description: >-
+      The API server. 2 vCPU and 2 GB serves 150-200 people; a medium doubles the
+      memory. t3a is x86, t4g is ARM (a little cheaper): on 23 Nov 2026 Mumbai had
+      no t4g capacity in any zone, so the default is t3a. The image is built for
+      whichever this is (scripts/release-aws.sh reads it).
   DbInstanceClass:
     Type: String
     Default: db.t4g.micro
@@ -31,10 +35,28 @@ Parameters:
     Type: Number
     Default: 20
     MinValue: 20
-  ApiAmi:
+  ApiZone:
+    Type: String
+    Default: a
+    AllowedValues: [a, b]
+    Description: Which of the two zones the server runs in. If AWS says a zone has no capacity, use the other.
+  DbDeletionProtection:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Keep true. Only the very first create passes false, so a failed create can clean up after itself; it is switched on straight after.
+  ApiAmiX86:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: Amazon Linux 2023 for x86, newest at the time the stack is made.
+  ApiAmiArm:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
-    Description: Amazon Linux 2023 for ARM, newest at the time the stack is made.
+    Description: Amazon Linux 2023 for ARM.
+
+Conditions:
+  ApiInZoneA: !Equals [!Ref ApiZone, a]
+  ApiIsArm: !Or [!Equals [!Ref ApiInstanceType, t4g.small], !Equals [!Ref ApiInstanceType, t4g.medium]]
 
 Resources:
   # ---- Network: one small VPC, two public subnets (RDS wants two zones) ----
@@ -135,7 +157,7 @@ Resources:
       PreferredBackupWindow: 20:30-21:00 # 02:00 IST
       PreferredMaintenanceWindow: sun:21:30-sun:22:30 # Monday 03:00 IST
       AutoMinorVersionUpgrade: true
-      DeletionProtection: true
+      DeletionProtection: !Ref DbDeletionProtection
       CopyTagsToSnapshot: true
 
   # ---- Where images and database copies are kept ----
@@ -190,17 +212,20 @@ Resources:
               # The database administrator password, for the one-time restore.
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
-                Resource: !GetAtt Database.MasterUserSecret.SecretArn
+                # Named by pattern, not by reference: the server then does not
+                # wait for the database, and a server that cannot be made is
+                # known in the first minute, not after twenty.
+                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:rds!db-*'
   ApiProfile:
     Type: AWS::IAM::InstanceProfile
     Properties: { Roles: [!Ref ApiRole] }
   ApiServer:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: !Ref ApiAmi
+      ImageId: !If [ApiIsArm, !Ref ApiAmiArm, !Ref ApiAmiX86]
       InstanceType: !Ref ApiInstanceType
       IamInstanceProfile: !Ref ApiProfile
-      SubnetId: !Ref SubnetA
+      SubnetId: !If [ApiInZoneA, !Ref SubnetA, !Ref SubnetB]
       SecurityGroupIds: [!Ref ApiSecurityGroup]
       # "standard" credits: a burst never turns into a surprise bill.
       CreditSpecification: { CPUCredits: standard }
@@ -217,7 +242,7 @@ Resources:
           systemctl enable --now docker
           # The compose plugin is not in Amazon Linux's repository.
           mkdir -p /usr/local/lib/docker/cli-plugins
-          curl -fsSL "https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-aarch64" \
+          curl -fsSL "https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-$(uname -m)" \
             -o /usr/local/lib/docker/cli-plugins/docker-compose
           chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
           dnf install -y amazon-ecr-credential-helper
@@ -235,6 +260,9 @@ Resources:
 Outputs:
   ApiServerId:
     Value: !Ref ApiServer
+  ApiArchitecture:
+    Description: What the API image must be built for.
+    Value: !If [ApiIsArm, arm64, amd64]
   ApiPublicAddress:
     Description: Point a DNS-only A record (origin.clor.in) at this.
     Value: !GetAtt ApiAddress.PublicIp
