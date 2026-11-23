@@ -34,6 +34,7 @@ import { build as buildReport } from './routes/attendanceReports.js';
 import { startPhotoPurge, startReaderChecks, startVendorSync, startWebhookRetries } from './services/vendorSyncScheduler.js';
 import { reportProcessErrors } from './utils/log.js';
 import { stopJobs } from './services/jobLease.js';
+import { jobTimersInTurn } from './services/jobRegistry.js';
 import { startCredentialBackfill } from './services/credentialBackfill.js';
 import { startOwnerPermissionSync } from './services/ownerPermissions.js';
 import { startCredentialChecks } from './services/credentialReview.js';
@@ -80,79 +81,87 @@ process.once('SIGTERM', () => {
 });
 
 /*
- * Started with the server, not with a browser. Set RECURRING_SCHEDULER=off to
- * disable it — on an instance that only serves requests, say, or while
- * something is being investigated.
+ * Every job below runs on in-process timers that take turns, one tick at a time
+ * (services/jobRegistry.ts jobTimersInTurn): left free, timers that came due while
+ * Cloud Run held the CPU back all fired with the next request and took the
+ * database connections that request needed (23 Nov 2026).
  */
-startRecurringScheduler();
-/* Punches from vendor clouds (e-Time Office) — see services/vendorSyncScheduler.ts. */
-startVendorSync();
-startPhotoPurge();
-startReaderChecks();
-/* Failed webhook deliveries are tried again on a schedule. */
-startWebhookRetries();
+jobTimersInTurn(() => {
+  /*
+   * Started with the server, not with a browser. Set RECURRING_SCHEDULER=off to
+   * disable it — on an instance that only serves requests, say, or while
+   * something is being investigated.
+   */
+  startRecurringScheduler();
+  /* Punches from vendor clouds (e-Time Office) — see services/vendorSyncScheduler.ts. */
+  startVendorSync();
+  startPhotoPurge();
+  startReaderChecks();
+  /* Failed webhook deliveries are tried again on a schedule. */
+  startWebhookRetries();
 
-/* Sign-in records past their use are removed daily — see services/retention.ts. */
-startRetentionPurge();
-/* Companies whose closure notice has ended are deleted (checked hourly, resumable) — see services/companyClosure.ts. */
-startClosurePurge();
+  /* Sign-in records past their use are removed daily — see services/retention.ts. */
+  startRetentionPurge();
+  /* Companies whose closure notice has ended are deleted (checked hourly, resumable) — see services/companyClosure.ts. */
+  startClosurePurge();
 
-/* W-1.1: every login belongs to its home account; a membership missed by an older path is filled in. */
-syncAccountMemberships()
-  .then((n) => n && console.log(`Account memberships: ${n} added`)) // eslint-disable-line no-console
-  .catch((e) => console.error('Account memberships sync failed:', e instanceof Error ? e.message : e)); // eslint-disable-line no-console
-/* Recycle-bin items past their days are deleted for good — see services/recycleBin.ts. */
-startRecycleBinPurge();
-/* HR tools: the outbox every minute, their people hourly — see services/hr/sync.ts. */
-startHrSync();
-startDocumentReminders();
-/* People's outbox: events written with a change are delivered every few seconds — see services/people/outbox.ts. */
-startPeopleOutbox();
-/* Changes dated for a future day are applied on that day — see services/people/effectiveDating.ts. */
-startScheduledChanges();
-/* Approvals: what an approved request does, and overdue steps reminded or handed on — see services/people/approvals. */
-registerPeopleEffects();
-startApprovalDues();
-startDeskDues();
-startSeparations();
-startLifecycle();
-startTalentJobs();
-startObligationDues();
-/* Leave: steps handed on to HR when a manager does not decide, and the morning digest of what waits. */
-startLeaveJobs();
-/* The missing-punch notice and the unexplained-absence check (WORKFLOW-GAP-RESEARCH 4.5, 4.6). */
-startPunchNudges();
-startAbsenceChecks();
-/* Ready-made automations, greetings and exit-interview answers past keeping (WORKFLOW-GAP-RESEARCH 4.7, 4.8, 4.9). */
-startEngagement();
-startNotificationPruning();
-/* Alerts for CLOR staff on ops.clor.in: failing jobs, stuck mail, offline readers, overdue invoices, waiting tickets. */
-startOpsAlerts();
-/* Mail that failed is sent again, later each time, and mail left unsent by a stopped instance is picked up. */
-startEmailRetries();
-/* Renewal invoices, a few days before a paid period ends (billing/renewals.ts). */
-startRenewals();
-/* Seats a customer added and did not pay for within the days to pay come off again (billing/selfServe.ts). */
-startSeatLapses();
-startTrialReminders();
-/* Reminders to pay an issued invoice, on the schedule in Invoice settings. Off until staff switch it on. */
-startInvoiceReminders();
-startBooksDigest();
-startWeeklySummary();
-/* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
-startReportSchedules(buildReport);
-/* Batch 5: credentials issued before the registry are registered once, on one instance. */
-startCredentialBackfill();
-/* New permissions reach every company's Owner role, once per deploy. */
-startOwnerPermissionSync();
-/* Daily: expiry warnings, expired events, credentials whose own row is gone. */
-startCredentialChecks();
-/* GAP-010: links between the databases, checked nightly; safe ones repaired, the rest logged. */
-startIntegrityChecks();
-void checkDatabaseRole();
-/* Organization: "Detailed structure" on, once, for every company already using those lists. */
-startOrgDetailBackfill();
-/* Payroll: every company that took the standard statutory rates gets CLOR's newer PT and LWF figures, once per catalogue. */
-startStatutoryCatalogueBackfill();
-/* Attendance: days scored under the old full-day rule set to present in open months; closed months are listed, never changed. */
-startFullDayFix();
+  /* W-1.1: every login belongs to its home account; a membership missed by an older path is filled in. */
+  syncAccountMemberships()
+    .then((n) => n && console.log(`Account memberships: ${n} added`)) // eslint-disable-line no-console
+    .catch((e) => console.error('Account memberships sync failed:', e instanceof Error ? e.message : e)); // eslint-disable-line no-console
+  /* Recycle-bin items past their days are deleted for good — see services/recycleBin.ts. */
+  startRecycleBinPurge();
+  /* HR tools: the outbox every minute, their people hourly — see services/hr/sync.ts. */
+  startHrSync();
+  startDocumentReminders();
+  /* People's outbox: events written with a change are delivered every few seconds — see services/people/outbox.ts. */
+  startPeopleOutbox();
+  /* Changes dated for a future day are applied on that day — see services/people/effectiveDating.ts. */
+  startScheduledChanges();
+  /* Approvals: what an approved request does, and overdue steps reminded or handed on — see services/people/approvals. */
+  registerPeopleEffects();
+  startApprovalDues();
+  startDeskDues();
+  startSeparations();
+  startLifecycle();
+  startTalentJobs();
+  startObligationDues();
+  /* Leave: steps handed on to HR when a manager does not decide, and the morning digest of what waits. */
+  startLeaveJobs();
+  /* The missing-punch notice and the unexplained-absence check (WORKFLOW-GAP-RESEARCH 4.5, 4.6). */
+  startPunchNudges();
+  startAbsenceChecks();
+  /* Ready-made automations, greetings and exit-interview answers past keeping (WORKFLOW-GAP-RESEARCH 4.7, 4.8, 4.9). */
+  startEngagement();
+  startNotificationPruning();
+  /* Alerts for CLOR staff on ops.clor.in: failing jobs, stuck mail, offline readers, overdue invoices, waiting tickets. */
+  startOpsAlerts();
+  /* Mail that failed is sent again, later each time, and mail left unsent by a stopped instance is picked up. */
+  startEmailRetries();
+  /* Renewal invoices, a few days before a paid period ends (billing/renewals.ts). */
+  startRenewals();
+  /* Seats a customer added and did not pay for within the days to pay come off again (billing/selfServe.ts). */
+  startSeatLapses();
+  startTrialReminders();
+  /* Reminders to pay an issued invoice, on the schedule in Invoice settings. Off until staff switch it on. */
+  startInvoiceReminders();
+  startBooksDigest();
+  startWeeklySummary();
+  /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
+  startReportSchedules(buildReport);
+  /* Batch 5: credentials issued before the registry are registered once, on one instance. */
+  startCredentialBackfill();
+  /* New permissions reach every company's Owner role, once per deploy. */
+  startOwnerPermissionSync();
+  /* Daily: expiry warnings, expired events, credentials whose own row is gone. */
+  startCredentialChecks();
+  /* GAP-010: links between the databases, checked nightly; safe ones repaired, the rest logged. */
+  startIntegrityChecks();
+  void checkDatabaseRole();
+  /* Organization: "Detailed structure" on, once, for every company already using those lists. */
+  startOrgDetailBackfill();
+  /* Payroll: every company that took the standard statutory rates gets CLOR's newer PT and LWF figures, once per catalogue. */
+  startStatutoryCatalogueBackfill();
+  /* Attendance: days scored under the old full-day rule set to present in open months; closed months are listed, never changed. */
+  startFullDayFix();
+});

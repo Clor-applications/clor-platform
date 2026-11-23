@@ -7,13 +7,19 @@
 # /cloudsql/<instance> when the service has the Cloud SQL connection attached.
 #
 # Each Prisma client has its own pool, sized to how busy that database is:
-#   clor_main 3 (every accounting screen), clor_platform 2 (sign-in, membership
-#   and permission lookups, which are cached in memory), payroll 2, people 2.
-# People and payroll need two: code inside a transaction still reads through the
-# plain client now and then, and with one connection that read waits on the
-# transaction holding it until the 5s transaction timeout (seen live 25-31 Oct).
-# 9 per instance; with max 2 instances = 18. db-f1-micro allows 25, minus 3
-# reserved and ~3 used by Cloud SQL itself, so this must stay at or under ~18.
+#   clor_main 3 (every accounting screen), clor_platform 4 (sign-in, membership,
+#   permission and Admin center lookups), people 5 (People, Attendance and the
+#   Homes that read many People tables at once), payroll 2.
+# People and payroll need at least two: code inside a transaction still reads
+# through the plain client now and then, and with one connection that read waits
+# on the transaction holding it until the 5s transaction timeout (seen 25-31 Oct).
+# Every query runs in a short transaction that names the company (row-level
+# security), so a Home page's 15-20 parallel requests queued for 2 connections
+# and took 5-40 s (23 Nov 2026); the pools were raised then.
+# 14 per instance, and the API runs ONE instance (max-instances 1, set on the
+# service) so the total stays inside db-f1-micro: 25 connections, minus 3
+# reserved, ~3 used by Cloud SQL itself and up to ~6 for clor-console.
+# Raising max-instances again means shrinking these, or a bigger database tier.
 # Override per database with DB_POOL_MAIN / _PLATFORM / _PAYROLL / _PEOPLE.
 #
 # DB_NAME_SUFFIX (e.g. _staging) points a second service at its own four
@@ -41,8 +47,8 @@ if [ -z "$DATABASE_URL" ]; then
   s="${DB_NAME_SUFFIX:-}"
   export DATABASE_URL="${base}/clor_main${s}?${q}=${DB_POOL_MAIN:-3}"
   export PAYROLL_DATABASE_URL="${base}/clor_payroll${s}?${q}=${DB_POOL_PAYROLL:-2}"
-  export PEOPLE_DATABASE_URL="${base}/clor_people${s}?${q}=${DB_POOL_PEOPLE:-2}"
-  export PLATFORM_DATABASE_URL="${base}/clor_platform${s}?${q}=${DB_POOL_PLATFORM:-2}"
+  export PEOPLE_DATABASE_URL="${base}/clor_people${s}?${q}=${DB_POOL_PEOPLE:-5}"
+  export PLATFORM_DATABASE_URL="${base}/clor_platform${s}?${q}=${DB_POOL_PLATFORM:-4}"
 fi
 
 if [ -n "$MIGRATE_ONLY" ]; then
