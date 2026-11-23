@@ -3,9 +3,20 @@
 The API and the database on AWS in Mumbai (`ap-south-1`), in place of Cloud Run
 and Cloud SQL. The web app, the website and `api.clor.in` stay on Cloudflare.
 
-**Status (23 Nov 2026): written, not yet run.** Nothing here has been created
-in AWS and no data has moved. Production is still Cloud Run; `scripts/release.sh`
-is still the release script until the cutover below is done.
+**Status (23 Nov 2026): created and rehearsed, not yet live.** The stack
+exists, the secrets are in Parameter Store, and a rehearsal restored the
+nightly copies (345 tables; row counts equal table by table) and started the
+API against them: `/ready` answered with all four stores, no migration was
+pending. Production is still Cloud Run; `scripts/release.sh` is still the
+release script until the cutover below is done.
+
+Learnt in the rehearsal:
+- The image cannot be built on the server (the compiler runs out of memory
+  on 2 GB). It is built on the Mac for `linux/amd64`, which needs Docker's
+  x86 emulation (`docker run --privileged --rm tonistiigi/binfmt --install amd64`, once).
+- An API started against a copy runs its background jobs (29 job runs in a
+  few minutes). For a rehearsal that is noise; never start one against a copy
+  while the real one is still serving if a job could send mail twice.
 
 ## Why
 
@@ -96,26 +107,20 @@ and time it. Then for real, in a quiet hour:
 1. **Stop writes.** Announce the window. Anything written to Cloud SQL after
    the copy starts is lost, so for the window make the Worker answer 503
    ("back in 20 minutes") instead of forwarding.
-2. **Copy out** of Cloud SQL, on the Mac, with PostgreSQL 18 tools
-   (`cloud-sql-proxy` gives a local port):
-
-   ```bash
-   cloud-sql-proxy clor-apps-511409:asia-south1:clor-pg --port 6543 &
-   pg_dumpall -h 127.0.0.1 -p 6543 -U postgres --roles-only --no-role-passwords > roles.sql
-   for d in clor_main clor_payroll clor_people clor_platform clor_console; do pg_dump -h 127.0.0.1 -p 6543 -U postgres -Fc -f "$d.dump" "$d"; done
-   ```
-
-   Remove from `roles.sql` every line that names a `cloudsql…` role or
-   `postgres`; what is left is CLOR's own roles (`clor_app`, the row-level
-   security roles, the Console's two).
-3. **Send** the files to the `TransferBucket` (`aws s3 cp`).
-4. **Restore** on the server (it is the only machine that can reach RDS):
-   AWS console, Systems Manager, Session Manager, start a session on
-   `clor-api`; fetch the files from the bucket; with the administrator
-   password from `DatabaseAdminSecret`, run `roles.sql`, set `clor_app`'s
-   password to `DB_PASSWORD`, create the five databases, and `pg_restore
-   --no-owner --role=…` each one with a `postgres:18` container. Row-level
-   security policies and grants come with the dump; check them (step 5).
+2. **Copy out** of Cloud SQL. The nightly copies are already exports of the
+   four databases (`gs://clor-apps-511409-db-copies`, docs/BACKUP-AND-RESTORE.md).
+   For the real cutover make fresh ones after writes have stopped:
+   `gcloud sql export sql clor-pg gs://clor-apps-511409-db-copies/cutover/clor_main.sql.gz --database clor_main`,
+   and the same for `clor_payroll`, `clor_people`, `clor_platform`.
+3. **Send** the four files to a folder in the `TransferBucket`
+   (`gcloud storage cp` to the Mac, then `aws s3 cp`).
+4. **Restore** on the server (the only machine that can reach RDS), through
+   Systems Manager: `ADMIN_SECRET_ARN=<DatabaseAdminSecret> ./restore-copies.sh s3://<TransferBucket>/<folder>`
+   (`deploy/aws/restore-copies.sh`; `--replace` drops a rehearsal's databases
+   first). It makes the `clor_app` role, restores everything as that role, so
+   it owns the tables as on Cloud SQL, and prints tables, policies and size
+   per database. The exports carry no owners or grants; row-level security
+   policies come with them and are FORCEd, so the owner is still bound.
 5. **Check before any customer sees it:** `scripts/release-aws.sh --stage`
    builds the image, runs the migrations (none should be pending) and starts
    the API against RDS; then compare row counts of the largest tables in both
