@@ -186,6 +186,16 @@ Resources:
         Rules:
           - { Id: expire-copies, Status: Enabled, ExpirationInDays: 30 }
 
+  # The API's own log lines (docker-compose.yml, the app service). Ops opens
+  # them by request ID. Thirty days, as the lookup link asks for.
+  ApiLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: clor/api
+      RetentionInDays: 30
+
   # ---- The API server ----
   ApiRole:
     Type: AWS::IAM::Role
@@ -209,6 +219,9 @@ Resources:
               - Effect: Allow
                 Action: [s3:GetObject, s3:ListBucket]
                 Resource: [!GetAtt TransferBucket.Arn, !Sub '${TransferBucket.Arn}/*']
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource: !GetAtt ApiLogs.Arn # ends in :*, so it covers the streams
               # The database administrator password, for the one-time restore.
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue

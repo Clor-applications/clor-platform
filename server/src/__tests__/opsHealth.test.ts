@@ -124,6 +124,15 @@ describe('system health', () => {
     const r = (await request(app).get('/api/ops/request-lookup').query({ id }).set(ro.h).expect(200)).body;
     expect(r.logsUrl).toContain('console.cloud.google.com/logs/query');
     expect(decodeURIComponent(r.logsUrl)).toContain(`jsonPayload.requestId="${id}"`);
+    /* On AWS (LOGS_AWS_GROUP set) the link opens the API's CloudWatch log group, filtered to the ID. */
+    process.env.LOGS_AWS_GROUP = 'clor/api';
+    try {
+      const a = (await request(app).get('/api/ops/request-lookup').query({ id }).set(ro.h).expect(200)).body;
+      expect(a.logsUrl).toContain('ap-south-1.console.aws.amazon.com/cloudwatch/home?region=ap-south-1#logsV2:log-groups/log-group/clor$252Fapi/log-events');
+      expect(a.logsUrl).toContain(`$3FfilterPattern$3D$2522${id}$2522`);
+    } finally {
+      delete process.env.LOGS_AWS_GROUP;
+    }
     await request(app).get('/api/ops/request-lookup').query({ id: 'x"; drop' }).set(ro.h).expect(400);
     expect((await request(app).get('/api/ops/search').query({ q: id }).set(ro.h).expect(200)).body.requestId).toBe(id);
   });
