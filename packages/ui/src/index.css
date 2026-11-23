@@ -8617,7 +8617,10 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 
 /* Workforce employee record (People design v1 EMP-03..09) */
 .ui-record-section { background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); padding: 1rem 1.25rem; }
-.ui-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1.5rem; }
+/* Two columns where each has room for a label and its value (17rem), one where it does not: the record's Overview
+   column is narrow beside its tabs and side column, and two columns there broke a date or a phone over three lines.
+   Never more than two: a column is at least half the grid. */
+.ui-field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(17rem, calc(50% - 0.75rem)), 1fr)); gap: 0.75rem 1.5rem; }
 .ui-field-row { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 0.5rem; align-items: baseline; min-width: 0; }
 .ui-field-row dd { min-width: 0; overflow-wrap: anywhere; }
 .ui-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1rem; }
