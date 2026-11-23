@@ -175,6 +175,16 @@ Resources:
           {"rules":[{"rulePriority":1,"description":"keep the last 8 releases",
             "selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":8},
             "action":{"type":"expire"}}]}
+  ConsoleImageStore:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: clor/console
+      ImageScanningConfiguration: { ScanOnPush: true }
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"keep the last 5",
+            "selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},
+            "action":{"type":"expire"}}]}
   # Database copies on their way from Google Cloud, and nothing else.
   TransferBucket:
     Type: AWS::S3::Bucket
@@ -219,7 +229,15 @@ Resources:
               # Its own settings (deploy/aws/README.md, Secrets), and no others.
               - Effect: Allow
                 Action: [ssm:GetParametersByPath, ssm:GetParameters, ssm:GetParameter]
-                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/clor/prod*
+                Resource:
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/clor/prod*
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/clor/console*
+              # The Engineering Console (it runs on this server) reads when the
+              # database can be restored to. The image list it reads comes with
+              # the ECR read-only policy above.
+              - Effect: Allow
+                Action: rds:DescribeDBInstances
+                Resource: !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db:clor-pg'
               - Effect: Allow
                 Action: [s3:GetObject, s3:ListBucket]
                 Resource: [!GetAtt TransferBucket.Arn, !Sub '${TransferBucket.Arn}/*']
@@ -324,7 +342,7 @@ Resources:
                   - ecr:BatchGetImage
                   - ecr:GetDownloadUrlForLayer
                   - ecr:DescribeImages
-                Resource: !GetAtt ImageStore.Arn
+                Resource: [!GetAtt ImageStore.Arn, !GetAtt ConsoleImageStore.Arn]
               - Sid: SnapshotBeforeMigrations
                 Effect: Allow
                 Action: [rds:CreateDBSnapshot, rds:DeleteDBSnapshot, rds:DescribeDBSnapshots, rds:AddTagsToResource]

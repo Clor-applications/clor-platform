@@ -518,7 +518,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
       checked('migration', () => cloud.lastMigration(), 60_000),
       checked('pages:web', () => cloud.pages(config.cloudflare.webProject), 60_000),
       checked('pages:site', () => cloud.pages(config.cloudflare.siteProject), 60_000),
-      checked('staging', () => cloud.service(config.gcp.stagingService), 60_000),
+      config.gcp.stagingService ? checked('staging', () => cloud.service(config.gcp.stagingService), 60_000) : Promise.resolve(null),
       pulls(),
       waiting(),
       checked('security', () => github.runs('security.yml', { branch: 'main', perPage: 5 }), 120_000),
@@ -546,8 +546,11 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
     const sec = (security.value || []).find((x) => x.status === 'completed') || null;
     const red = (open.value || []).filter((p) => p.checks === 'RED').length;
     const pending = onlyReleaseRecord(wait.value) ? 0 : wait.value?.pulls.length || 0;
-    const stagingRev = staging.value?.revisions.find((x) => x.name === staging.value?.serving[0]?.revision);
-    const gcpConsole = `https://console.cloud.google.com/run/detail/${config.gcp.region}/${config.gcp.service}/revisions?project=${config.gcp.project}`;
+    const stagingRev = staging?.value?.revisions.find((x) => x.name === staging.value?.serving[0]?.revision);
+    const gcpConsole =
+      config.cloud === 'aws'
+        ? `https://${config.aws.region}.console.aws.amazon.com/ecr/repositories/private/${encodeURIComponent(config.aws.repository)}?region=${config.aws.region}`
+        : `https://console.cloud.google.com/run/detail/${config.gcp.region}/${config.gcp.service}/revisions?project=${config.gcp.project}`;
     const actions = `https://github.com/${config.github.owner}/${config.github.repo}/actions`;
 
     res.json({
@@ -561,7 +564,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
         notConnected({ ...row('security', 'Security checks', security, !sec ? 'warn' : sec.conclusion === 'success' ? 'ok' : 'bad', !sec ? 'Not run' : sec.conclusion === 'success' ? 'Passing' : 'Failing', 'Dependency audit and secret scan', sec?.url || actions), since: ago(sec?.updatedAt) }, ghOn, 'GitHub'),
         notConnected(row('waiting', 'Waiting to release', wait.ok ? t : wait, pending ? 'warn' : 'ok', pending ? `${pending} waiting` : 'Nothing waiting', t.value?.[0] ? `Since ${t.value[0].name}` : 'No release recorded yet'), ghOn, 'GitHub'),
         notConnected(row('pulls', 'Open pull requests', open, red ? 'bad' : 'ok', `${open.value?.length ?? 0} open`, red ? `${red} with failing checks` : 'None failing'), ghOn, 'GitHub'),
-        { ...row('staging', 'Staging', staging, 'ok', 'Running', staging.value?.serving[0] ? staging.value.serving[0].revision : 'No revision is serving'), since: ago(stagingRev?.createdAt) },
+        ...(staging ? [{ ...row('staging', 'Staging', staging, 'ok', 'Running', staging.value?.serving[0] ? staging.value.serving[0].revision : 'No revision is serving'), since: ago(stagingRev?.createdAt) }] : []),
       ],
     });
   }));
@@ -630,7 +633,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
       const why = mode === 'go' ? reason.safeParse(req.body?.reason) : null;
       if (why && !why.success) return res.status(400).json({ error: 'Say what this release is, in a few words.' });
       const s = await releaseState();
-      if (s.next === 'UNKNOWN' || !s.sha) return res.status(503).json({ error: 'GitHub or Google Cloud could not be reached. Nothing was started.' });
+      if (s.next === 'UNKNOWN' || !s.sha) return res.status(503).json({ error: 'GitHub or the cloud could not be reached. Nothing was started.' });
       if (s.busy) return res.status(409).json({ error: 'A release is already running. Wait for it to finish.' });
       if (!s.testsGreen) return res.status(409).json({ error: 'The full tests have not passed on this commit. Run them first.' });
       if (mode === 'go' && !s.stagedRev) return res.status(409).json({ error: 'This commit is not staged yet. Stage it first.' });
@@ -658,10 +661,10 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   }));
 
   guarded.post('/releases/rollback', ...onGitHub('ENGINEER'), wrap(async (req, res) => {
-    const parsed = z.object({ revision: z.string().regex(/^[a-z][a-z0-9-]{0,62}$/), reason }).safeParse(req.body);
+    const parsed = z.object({ revision: z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/), reason }).safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Pick a revision and say why.' });
     const svc = await apiService();
-    if (!svc.ok || !svc.value) return res.status(503).json({ error: 'Google Cloud could not be reached. Nothing was started.' });
+    if (!svc.ok || !svc.value) return res.status(503).json({ error: 'The cloud could not be reached. Nothing was started.' });
     if (!svc.value.revisions.some((x) => x.name === parsed.data.revision)) return res.status(404).json({ error: 'That revision does not exist.' });
     if (svc.value.serving[0]?.revision === parsed.data.revision && svc.value.serving[0].percent === 100) return res.status(409).json({ error: 'That revision is the one serving now.' });
     const what = { action: 'ROLLED_BACK', target: parsed.data.revision, reason: parsed.data.reason, detail: { from: svc.value.serving[0]?.revision || null } };
