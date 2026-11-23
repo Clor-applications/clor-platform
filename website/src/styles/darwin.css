@@ -194,6 +194,7 @@
   -webkit-mask-image: radial-gradient(closest-side, #000 78%, transparent);
   mask-image: radial-gradient(closest-side, #000 78%, transparent);
 }
+/* The photo (Unsplash, free licence; credit in the website README) in a rounded frame on the stripes. */
 .dx-hero-photo {
   position: relative;
   z-index: 1;
@@ -204,9 +205,6 @@
 .dx-hero-photo img {
   width: 100%;
   height: auto;
-  aspect-ratio: 5 / 4;
-  object-fit: cover;
-  object-position: 100% 50%;
 }
 .dx-hero-stat {
   position: absolute;
@@ -418,6 +416,13 @@
   .dx-card-art {
     margin-right: 48px;
     min-height: 160px;
+  }
+  /* On a phone the figure sits under the photo, not across it. */
+  .dx-hero-stat {
+    position: relative;
+    bottom: auto;
+    max-width: none;
+    margin: var(--s-4) 0 0;
   }
   .dx-lead {
     flex-direction: column;

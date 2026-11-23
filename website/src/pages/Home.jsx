@@ -764,7 +764,7 @@ export default function Home() {
           <div className="dx-hero-art" aria-hidden="true">
             <span className="dx-hero-disc" />
             <div className="dx-hero-photo">
-              <Photo name="people-hr" w={1400} h={788} alt="" lazy={false} />
+              <Photo name="hero-desk" w={1400} h={1167} alt="" lazy={false} />
             </div>
             <p className="dx-hero-stat">
               <strong className="num">4</strong>
