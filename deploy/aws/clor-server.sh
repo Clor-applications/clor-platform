@@ -64,7 +64,7 @@ case "${1:-}" in
     docker compose up -d --remove-orphans
     if ready 8080 36; then echo "now serving $IMAGE (was ${WAS:-nothing})"
     else
-      docker compose logs --tail 60 api >&2 || true
+      docker compose logs --tail 60 app >&2 || true
       if [ -n "$WAS" ]; then write_env "$WAS"; docker compose up -d; echo "$IMAGE did not come up; put $WAS back" >&2; fi
       exit 1
     fi

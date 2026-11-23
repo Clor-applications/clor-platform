@@ -2,7 +2,7 @@
 # Copied there by scripts/release-aws.sh at every release; do not edit on the box.
 #
 #   caddy   the only thing on ports 80 and 443; gets and renews its own certificate
-#   api     the same image Cloud Run ran (docker/api.cloudrun.Dockerfile)
+#   app     the API: the same image Cloud Run ran (docker/api.cloudrun.Dockerfile)
 #   ticker  the wake call for background jobs, every 10 minutes (was Cloud Scheduler)
 #
 # .env (written by clor-server.sh) names the image and the host:
@@ -26,7 +26,7 @@ services:
       driver: json-file
       options: { max-size: "20m", max-file: "5" }
 
-  api:
+  app:
     image: ${API_IMAGE:?set API_IMAGE in /opt/clor/.env}
     restart: unless-stopped
     # api.env: plain settings, in git. secrets.env: read from AWS Parameter
@@ -47,7 +47,7 @@ services:
     image: curlimages/curl:8.11.1
     restart: unless-stopped
     env_file: [secrets.env]
-    depends_on: [api]
+    depends_on: [app]
     # Timers inside the API also run here (the machine never sleeps); each job
     # takes a lease, so the wake call and the timers cannot run one twice.
     command:
@@ -58,7 +58,7 @@ services:
           sleep 600
           curl --silent --show-error --max-time 290 --output /dev/null -X POST \
             -H "x-jobs-token: $$JOBS_TOKEN" -H "x-clor-edge: $$EDGE_SECRET" \
-            http://api:8080/api/internal/jobs/tick || true
+            http://app:8080/api/internal/jobs/tick || true
         done
     logging: *logging
 

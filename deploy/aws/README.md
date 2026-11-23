@@ -135,7 +135,7 @@ and time it. Then for real, in a quiet hour:
 - Release: `scripts/release-aws.sh` (dry run), `--stage`, `--go`.
 - Roll back: `scripts/release-aws.sh --rollback <sha7> --go`.
 - Logs: Session Manager on `clor-api`, then
-  `cd /opt/clor && docker compose logs --tail 200 api`.
+  `cd /opt/clor && docker compose logs --tail 200 app`.
 - Restore the database: RDS console, `clor-pg`, Actions, "Restore to point in
   time" makes a second database; point `DB_HOST` at it.
 - Bigger server or database: change `ApiInstanceType` or `DbInstanceClass`

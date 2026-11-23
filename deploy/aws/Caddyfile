@@ -4,7 +4,7 @@
 {$ORIGIN_HOST} {
 	encode zstd gzip
 
-	reverse_proxy api:8080 {
+	reverse_proxy app:8080 {
 		# The Worker overwrites X-Forwarded-For with Cloudflare's verified
 		# client address. Caddy would replace it with the Worker's own address;
 		# instead keep it and append the Worker's, which is the same
