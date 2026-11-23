@@ -194,12 +194,13 @@
   -webkit-mask-image: radial-gradient(closest-side, #000 78%, transparent);
   mask-image: radial-gradient(closest-side, #000 78%, transparent);
 }
-/* The photo (Unsplash, free licence; credit in the website README) in a rounded frame on the stripes. */
+/* A vector drawing (unDraw, open licence; credit in the website README) on a pale card over the stripes. */
 .dx-hero-photo {
   position: relative;
   z-index: 1;
+  padding: var(--s-6) var(--s-6) var(--s-8);
   border-radius: 28px;
-  overflow: hidden;
+  background: linear-gradient(180deg, #fff, var(--dx-surface));
   box-shadow: var(--shadow-lift);
 }
 .dx-hero-photo img {
