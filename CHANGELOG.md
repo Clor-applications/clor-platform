@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-ad81ab7 - 2026-11-23
+
+API revision `clor-api-00164-6w4`. Previous release `rel-a7d05b9` (roll back there).
+
+- #440 API: faster pages - bigger DB pools, job timers take turns
+- #438 Release record: rel-a7d05b9
+- #436 Release record: rel-1aaf520
+
 ## rel-a7d05b9 - 2026-11-23
 
 API revision `clor-api-00162-dt9`. Previous release `rel-1aaf520` (roll back there).
