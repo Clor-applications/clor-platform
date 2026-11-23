@@ -1,0 +1,67 @@
+# The API server on AWS: what runs on the EC2 machine, in /opt/clor.
+# Copied there by scripts/release-aws.sh at every release; do not edit on the box.
+#
+#   caddy   the only thing on ports 80 and 443; gets and renews its own certificate
+#   api     the same image Cloud Run ran (docker/api.cloudrun.Dockerfile)
+#   ticker  the wake call for background jobs, every 10 minutes (was Cloud Scheduler)
+#
+# .env (written by clor-server.sh) names the image and the host:
+#   API_IMAGE=<account>.dkr.ecr.ap-south-1.amazonaws.com/clor/api:<sha7>
+#   ORIGIN_HOST=origin.clor.in
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      ORIGIN_HOST: ${ORIGIN_HOST:?set ORIGIN_HOST in /opt/clor/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates. Losing this volume means asking Let's Encrypt again.
+      - caddy-data:/data
+      - caddy-config:/config
+    logging: &logging
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+
+  api:
+    image: ${API_IMAGE:?set API_IMAGE in /opt/clor/.env}
+    restart: unless-stopped
+    # api.env: plain settings, in git. secrets.env: read from AWS Parameter
+    # Store by clor-server.sh, root-only, never in git.
+    env_file: [api.env, secrets.env]
+    environment:
+      # Shown in the logs and on the Ops health page as the running version.
+      K_REVISION: ${API_TAG:-unknown}
+    # For the health check from the machine itself; not reachable from outside.
+    ports:
+      - "127.0.0.1:8080:8080"
+    # Stops a leak from taking the whole machine (2 GB) down with it.
+    mem_limit: 1400m
+    stop_grace_period: 30s
+    logging: *logging
+
+  ticker:
+    image: curlimages/curl:8.11.1
+    restart: unless-stopped
+    env_file: [secrets.env]
+    depends_on: [api]
+    # Timers inside the API also run here (the machine never sleeps); each job
+    # takes a lease, so the wake call and the timers cannot run one twice.
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          sleep 600
+          curl --silent --show-error --max-time 290 --output /dev/null -X POST \
+            -H "x-jobs-token: $$JOBS_TOKEN" -H "x-clor-edge: $$EDGE_SECRET" \
+            http://api:8080/api/internal/jobs/tick || true
+        done
+    logging: *logging
+
+volumes:
+  caddy-data:
+  caddy-config:

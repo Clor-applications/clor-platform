@@ -1,0 +1,248 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  CLOR production on AWS (Mumbai): one always-on API server (EC2, Docker, Caddy)
+  and one managed PostgreSQL database (RDS). Reached through the api.clor.in
+  Cloudflare Worker, exactly as Cloud Run was. See deploy/aws/README.md.
+
+# What this costs, roughly, per month in ap-south-1 (check the AWS calculator):
+#   API server t4g.small ............ about $9
+#   Database db.t4g.small, 20 GB .... about $27
+#   Server disk 30 GB, public IPv4 .. about $7
+#   Backups, image store, secret .... about $2
+# About $45 a month: $1,000 of credits last about 22 months.
+# The two sizes are parameters; changing one is a few minutes of downtime.
+
+Parameters:
+  ApiInstanceType:
+    Type: String
+    Default: t4g.small
+    AllowedValues: [t4g.small, t4g.medium, t4g.large]
+    Description: The API server. 2 vCPU and 2 GB serves 150-200 people; t4g.medium doubles the memory.
+  DbInstanceClass:
+    Type: String
+    Default: db.t4g.small
+    AllowedValues: [db.t4g.micro, db.t4g.small, db.t4g.medium]
+    Description: The database. It is the busy part of CLOR, so the money goes here first.
+  DbEngineVersion:
+    Type: String
+    Default: '18'
+    Description: PostgreSQL major version. Must not be lower than the Cloud SQL one (18), or the copy cannot be restored.
+  DbStorageGb:
+    Type: Number
+    Default: 20
+    MinValue: 20
+  ApiAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
+    Description: Amazon Linux 2023 for ARM, newest at the time the stack is made.
+
+Resources:
+  # ---- Network: one small VPC, two public subnets (RDS wants two zones) ----
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: clor }]
+  Gateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: { VpcId: !Ref Vpc, InternetGatewayId: !Ref Gateway }
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags: [{ Key: Name, Value: clor-a }]
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags: [{ Key: Name, Value: clor-b }]
+  Routes:
+    Type: AWS::EC2::RouteTable
+    Properties: { VpcId: !Ref Vpc }
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties: { RouteTableId: !Ref Routes, DestinationCidrBlock: 0.0.0.0/0, GatewayId: !Ref Gateway }
+  SubnetARoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref SubnetA, RouteTableId: !Ref Routes }
+  SubnetBRoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref SubnetB, RouteTableId: !Ref Routes }
+
+  # ---- Who may talk to what ----
+  # The server answers on 80 and 443 only. There is no SSH port: commands reach
+  # it through AWS Systems Manager, which needs no open port and no key file.
+  # The API itself refuses any request that did not come through the Cloudflare
+  # Worker (EDGE_SECRET), so an open 443 exposes /ready and nothing else.
+  ApiSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CLOR API server - web ports only
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
+  # The database accepts connections from the API server and from nowhere else.
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CLOR database - the API server only
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref ApiSecurityGroup }
+
+  # ---- Database ----
+  DbSubnets:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: CLOR database subnets
+      SubnetIds: [!Ref SubnetA, !Ref SubnetB]
+  Database:
+    Type: AWS::RDS::DBInstance
+    # Deleting the stack keeps a final copy of the data, and a mistaken update
+    # that would replace the database keeps one too.
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: clor-pg
+      Engine: postgres
+      EngineVersion: !Ref DbEngineVersion
+      DBInstanceClass: !Ref DbInstanceClass
+      AllocatedStorage: !Ref DbStorageGb
+      MaxAllocatedStorage: 100
+      StorageType: gp3
+      StorageEncrypted: true
+      MasterUsername: clor_admin
+      # AWS makes and keeps the administrator password (Secrets Manager).
+      ManageMasterUserPassword: true
+      DBSubnetGroupName: !Ref DbSubnets
+      VPCSecurityGroups: [!Ref DbSecurityGroup]
+      PubliclyAccessible: false
+      MultiAZ: false
+      # A backup every night, kept 7 days, and restore to any minute in between.
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: 20:30-21:00 # 02:00 IST
+      PreferredMaintenanceWindow: sun:21:30-sun:22:30 # Monday 03:00 IST
+      AutoMinorVersionUpgrade: true
+      DeletionProtection: true
+      CopyTagsToSnapshot: true
+
+  # ---- Where images and database copies are kept ----
+  ImageStore:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: clor/api
+      ImageScanningConfiguration: { ScanOnPush: true }
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"keep the last 8 releases",
+            "selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":8},
+            "action":{"type":"expire"}}]}
+  # Database copies on their way from Google Cloud, and nothing else.
+  TransferBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true }
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      LifecycleConfiguration:
+        Rules:
+          - { Id: expire-copies, Status: Enabled, ExpirationInDays: 30 }
+
+  # ---- The API server ----
+  ApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - { Effect: Allow, Principal: { Service: ec2.amazonaws.com }, Action: sts:AssumeRole }
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+        - PolicyName: clor-api-server
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Its own settings (deploy/aws/README.md, Secrets), and no others.
+              - Effect: Allow
+                Action: [ssm:GetParametersByPath, ssm:GetParameters, ssm:GetParameter]
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/clor/prod*
+              - Effect: Allow
+                Action: [s3:GetObject, s3:ListBucket]
+                Resource: [!GetAtt TransferBucket.Arn, !Sub '${TransferBucket.Arn}/*']
+              # The database administrator password, for the one-time restore.
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !GetAtt Database.MasterUserSecret.SecretArn
+  ApiProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: { Roles: [!Ref ApiRole] }
+  ApiServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ApiAmi
+      InstanceType: !Ref ApiInstanceType
+      IamInstanceProfile: !Ref ApiProfile
+      SubnetId: !Ref SubnetA
+      SecurityGroupIds: [!Ref ApiSecurityGroup]
+      # "standard" credits: a burst never turns into a surprise bill.
+      CreditSpecification: { CPUCredits: standard }
+      MetadataOptions: { HttpTokens: required, HttpPutResponseHopLimit: 2 }
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: { VolumeSize: 30, VolumeType: gp3, Encrypted: true, DeleteOnTermination: true }
+      Tags: [{ Key: Name, Value: clor-api }]
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf install -y docker
+          systemctl enable --now docker
+          # The compose plugin is not in Amazon Linux's repository.
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          curl -fsSL "https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-aarch64" \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          dnf install -y amazon-ecr-credential-helper
+          mkdir -p /root/.docker
+          echo '{"credsStore":"ecr-login"}' > /root/.docker/config.json
+          # 2 GB of swap: a memory spike slows the server instead of killing the API.
+          fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+          echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          mkdir -p /opt/clor
+  ApiAddress:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachment
+    Properties: { Domain: vpc, InstanceId: !Ref ApiServer }
+
+Outputs:
+  ApiServerId:
+    Value: !Ref ApiServer
+  ApiPublicAddress:
+    Description: Point a DNS-only A record (origin.clor.in) at this.
+    Value: !GetAtt ApiAddress.PublicIp
+  DatabaseHost:
+    Value: !GetAtt Database.Endpoint.Address
+  DatabaseAdminSecret:
+    Value: !GetAtt Database.MasterUserSecret.SecretArn
+  ImageRepository:
+    Value: !GetAtt ImageStore.RepositoryUri
+  TransferBucket:
+    Value: !Ref TransferBucket

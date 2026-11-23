@@ -1,0 +1,24 @@
+# In front of the API on the AWS server. The api.clor.in Cloudflare Worker
+# (deploy/cloudflare/api-proxy) is the only real caller: it sends every request
+# here with the edge secret, and the API refuses anything without it.
+{$ORIGIN_HOST} {
+	encode zstd gzip
+
+	reverse_proxy api:8080 {
+		# The Worker overwrites X-Forwarded-For with Cloudflare's verified
+		# client address. Caddy would replace it with the Worker's own address;
+		# instead keep it and append the Worker's, which is the same
+		# "client, proxy" shape Cloud Run produced, so the API's two-hop
+		# `trust proxy` (server/src/app.ts) still resolves the real client.
+		header_up X-Forwarded-For "{http.request.header.X-Forwarded-For}, {remote_host}"
+		header_up X-Forwarded-Host {http.request.header.X-Forwarded-Host}
+
+		# During a release the API container restarts (a few seconds). A request
+		# that cannot connect waits and tries again instead of failing; nothing
+		# is sent twice, because a refused connection sent nothing.
+		lb_try_duration 30s
+		lb_try_interval 500ms
+	}
+
+	header -Server
+}
