@@ -41,7 +41,18 @@ services:
     # Stops a leak from taking the whole machine (2 GB) down with it.
     mem_limit: 1400m
     stop_grace_period: 30s
-    logging: *logging
+    # The API's logs go to CloudWatch (group clor/api, kept 30 days), where Ops
+    # opens them by request ID. non-blocking: if CloudWatch cannot be reached
+    # the API keeps serving and drops log lines instead of stalling. Docker
+    # keeps its own recent copy, so `docker compose logs app` still works.
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:-ap-south-1}
+        awslogs-group: clor/api
+        awslogs-stream: app
+        mode: non-blocking
+        max-buffer-size: 4m
 
   ticker:
     image: curlimages/curl:8.11.1

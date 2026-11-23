@@ -246,7 +246,7 @@ export function RequestLookup({ initial = '' }) {
   return (
     <Panel title="Look up a request ID">
       <form className="grid gap-3" onSubmit={open}>
-        <p className="ws-card-blurb">Every error a customer sees shows a request ID. Paste it here to open what the server recorded for it in Google Cloud logs (you sign in there with your CLOR Google account).</p>
+        <p className="ws-card-blurb">Every error a customer sees shows a request ID. Paste it here to open what the server recorded for it. The logs open in the AWS console; sign in there with the CLOR AWS account.</p>
         <div className="flex flex-wrap gap-2">
           <input className="ui-input ui-mono" style={{ flex: '1 1 18rem' }} aria-label="Request ID" placeholder="e.g. 6f1c2a9e-3b4d-4e5f-8a7b-1c2d3e4f5a6b" value={id} onChange={(e) => { setId(e.target.value); setError(''); }} />
           <button type="submit" className="ws-btn ws-btn--quiet" disabled={busy || id.trim().length < 8}>Open the logs</button>
