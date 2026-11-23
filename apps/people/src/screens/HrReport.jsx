@@ -13,6 +13,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { SlowNote } from '@ui/picks/round60';
 import { notify } from '@ui/components/ui/notify';
 import ReportChart from '../components/ReportChart';
+import ReportViews from '../components/ReportViews';
 import { hrReportCsv, listHrReports, runHrReport } from '../api/hrReports';
 import { withWomenShare } from './womenShare';
 import { ColumnName, RowsMore, noteRecentReport, printReport, reportHeaderLines, shapeRows, signedFigure, useRowShape, withHeaderLines } from '@ui/picks/round63';
@@ -33,6 +34,8 @@ const FILTERS = [
   ['gradeId', 'grades', 'Grade', 'Every grade'],
 ];
 const FILTER_KEYS = FILTERS.map(([k]) => k);
+/* What a saved view keeps: the dates and grouping the reader set, and the filters. */
+const VIEW_KEYS = ['from', 'to', 'by', ...FILTER_KEYS];
 
 /** A cell as the reader sees it: dates in the house format, a rate with its sign, nothing as a dash. */
 function shown(col, value) {
@@ -60,7 +63,9 @@ function DateField({ word, value, onChange }) {
 export default function HrReport({ params = {}, updateParams, openScreen, tenant, user }) {
   const p = params || {};
   const id = String(p.report || 'headcount');
-  const set = (patch) => updateParams?.(patch, { push: false });
+  /* Changing a date or filter leaves the saved view behind, so its name comes off the button. */
+  const set = (patch) => updateParams?.(p.view && !('view' in patch) ? { ...patch, view: null } : patch, { push: false });
+  const applyView = (v) => set({ ...Object.fromEntries(VIEW_KEYS.map((k) => [k, v.filters?.[k] || null])), view: v.id });
   const catalogue = useRequest(() => listHrReports(), []);
   const spec = catalogue.data?.reports?.find((r) => r.id === id) || null;
   const q = { from: p.from || '', to: p.to || '', by: p.by || '', departmentId: p.departmentId || '', branchId: p.branchId || '', employeeTypeId: p.employeeTypeId || '', gradeId: p.gradeId || '' };
@@ -124,6 +129,7 @@ export default function HrReport({ params = {}, updateParams, openScreen, tenant
         primary={<button type="button" className="ui-btn ui-btn-primary" disabled={exporting || !d?.rows?.length} onClick={exportCsv} title="Download these rows as a CSV file, which opens in Excel"><Download size={16} aria-hidden="true" /> {exporting ? 'Exporting…' : 'Export'}</button>}
         secondary={d?.rows?.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => printReport(() => shape.setShowAll(true))} title="Print or save as PDF: landscape, headings on every page"><Printer size={16} aria-hidden="true" /> Print</button> : null}
         toolbar={toolbar}
+        toolbarEnd={<ReportViews report={id} current={Object.fromEntries(VIEW_KEYS.filter((k) => p[k]).map((k) => [k, p[k]]))} activeId={p.view || ''} onApply={applyView} />}
       />
       {report.error && !d ? <ErrorState error={report.error} onRetry={report.reload} body={report.error?.status === 403 ? 'This report is not open to your role.' : undefined} />
         : !d ? <><SlowNote busy /><SkeletonCard lines={8} /></>
