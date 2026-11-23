@@ -35,6 +35,7 @@ vi.mock('@ui/timeOff/api', () => ({
 vi.mock('../api/workspace', () => ({ listRecords: vi.fn().mockResolvedValue([]) }));
 vi.mock('@ui/timeOff/MyDays', () => ({ HomeCheckIn: () => null }));
 vi.mock('./HomeSetup', () => ({ default: () => null }));
+vi.mock('./HomeMyLeave', () => ({ default: () => null }));
 
 it('counts the whole inbox in the greeting, with leave as the detail on the Inbox line', async () => {
   render(<PeopleOverview openScreen={vi.fn()} />);

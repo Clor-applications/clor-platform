@@ -77,14 +77,15 @@ function ownPreview(p, request) {
   };
 }
 
-export default function MyLeave() {
+export default function MyLeave({ params }) {
   /* null asks the server for the leave period today falls in; its answer names the year. */
   const [year, setYear] = useState(null);
   const [me, setMe] = useState(null);
   const [error, setError] = useState('');
   /* No employee file behind this sign-in is a state, not a failure: retrying will not change it. */
   const [unlinked, setUnlinked] = useState(false);
-  const [asking, setAsking] = useState(false);
+  /* People → Home's "Ask for leave" opens this screen with the form already open. */
+  const [asking, setAsking] = useState(params?.ask === '1');
   /* The waiting request being changed; the approved one I came back early from. */
   const [editing, setEditing] = useState(null);
   const [shortening, setShortening] = useState(null);
@@ -336,7 +337,7 @@ export default function MyLeave() {
         ) : null}
       </div>
 
-      {asking ? <AskLeave types={me.types} onClose={() => setAsking(false)} onDone={() => { setAsking(false); load(); }} /> : null}
+      {asking && me.types.length && canAct ? <AskLeave types={me.types} onClose={() => setAsking(false)} onDone={() => { setAsking(false); load(); }} /> : null}
       {editing ? <AskLeave types={me.types} rows={me.requests || []} request={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} /> : null}
       {shortening ? <CameBackEarly request={shortening} onClose={() => setShortening(null)} onDone={() => { setShortening(null); load(); }} /> : null}
       <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
