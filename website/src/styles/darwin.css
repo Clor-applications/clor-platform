@@ -1,0 +1,107 @@
+/* Switzer (Indian Type Foundry, Fontshare free licence), the variable file, kept with the site. */
+@font-face {
+  font-family: 'Switzer';
+  src: url('../fonts/switzer-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * The Darwinbox-style look (owner, 24 Nov 2026): pale blue grounds, deep navy
+ * text, soft blue hairlines, rounder shapes and blue-tinted shadows, taken
+ * from the design-system skill the owner supplied. CLOR's Blaze Orange stays
+ * the accent (buttons, links, focus); the skill's blue #0183FF is not used.
+ * Loaded after site.css and bands.css, so it wins on a tie. Delete this file
+ * and its import in App.jsx to get the earlier look back.
+ *
+ * Palette: #F2F9FF ground, #D6EBFF surface, #C4DCF7 border, #002B54 text,
+ * #FDDB5D highlight, #FFFFFF. Radii: 6, 12, 14, 21, 28, 100px. Spacing 4px grid.
+ */
+:root {
+  --dx-ground: #f2f9ff;
+  --dx-surface: #d6ebff;
+  --dx-border: #c4dcf7;
+  --dx-navy: #002b54;
+  --dx-sun: #fddb5d;
+
+  --bg: var(--dx-ground);
+  --surface: #ffffff;
+  --surface-2: var(--dx-surface);
+  --ink: var(--dx-navy);
+  /* Secondary text is the navy let down on the ground, not a new grey: 7.5:1 and 5.6:1 on #F2F9FF. */
+  --ink-2: color-mix(in srgb, var(--dx-navy) 78%, var(--dx-ground));
+  --ink-3: color-mix(in srgb, var(--dx-navy) 68%, var(--dx-ground));
+  --line: var(--dx-border);
+  --line-strong: color-mix(in srgb, var(--dx-navy) 30%, var(--dx-border));
+
+  --font-display: 'Switzer', system-ui, sans-serif;
+
+  --r-control: 12px;
+  --r-panel: 21px;
+  --r-pill: 100px;
+  --shadow-panel: rgba(0, 43, 84, 0.04) 0 2.767px 2.214px 0;
+  --shadow-lift: rgba(0, 43, 84, 0.04) 0 2.767px 2.214px 0, rgba(0, 43, 84, 0.06) 0 12.522px 10.017px 0,
+    rgba(0, 43, 84, 0.09) 0 41.778px 33.422px 0;
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-hover: 200ms;
+
+  --fx-ground: var(--dx-ground);
+  --fx-cool: var(--dx-surface);
+  --fx-mint: var(--dx-ground);
+  --fx-pill: var(--dx-surface);
+  --fx-edge: var(--dx-border);
+  --fx-shadow: var(--shadow-lift);
+  --navy: var(--dx-navy);
+  --fx-night: var(--dx-navy);
+  --fx-night-2: var(--dx-navy);
+}
+
+/* Type: tighter, heavier headings, as on the reference. */
+.h-hero,
+.h-1,
+.h-2 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Buttons are pills; the lift on hover is the reference's 0.3s transform. */
+.btn {
+  border-radius: var(--r-pill);
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.3s;
+}
+.btn--primary:hover,
+.btn--quiet:hover {
+  transform: translateY(-2px);
+}
+.btn:active {
+  transform: translateY(0);
+}
+.btn--quiet {
+  border-color: var(--dx-border);
+}
+.btn--quiet:hover {
+  background: var(--dx-surface);
+  border-color: var(--dx-border);
+}
+.btn[disabled],
+.btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+:focus-visible {
+  border-radius: 6px;
+}
+.btn:focus-visible {
+  border-radius: var(--r-pill);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .btn:hover {
+    transition: none;
+    transform: none;
+  }
+}

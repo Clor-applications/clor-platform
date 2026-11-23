@@ -129,7 +129,7 @@ also open self-service on phones.
 
 **Memorable thing:** calm and accurate. Trust is the product.
 
-**Mode per surface:** Operate (every app screen); Persuade (clor.in, owner's own text). clor.in shares the face (Figtree), the neutrals, the logo orange and the app colours; its layout and display sizes are its own.
+**Mode per surface:** Operate (every app screen); Persuade (clor.in, owner's own text). clor.in shares the logo orange and the app colours; since 24 Nov 2026 it has its own look (owner): pale blue grounds `#F2F9FF`, navy text `#002B54`, blue hairlines `#C4DCF7`, Switzer, pill buttons, 12px controls and 21px panels, all in `website/src/styles/darwin.css`. The apps are unchanged.
 
 **Key characteristics:**
 - White ground everywhere. Colour appears only where it means something.
@@ -320,3 +320,4 @@ The code still follows the old picks. Move it in this order, one PR each, and ch
 | 19 Nov 2026 | Kept the soft tag with a dot (owner, 19 Nov); no app-colour margin rule | A tag reads better than a bare dot now that tags are rare, and a margin rule would be a fifth job for the app colour |
 | 19 Nov 2026 | Books excluded | Books belongs to another developer |
 | 21 Nov 2026 | Logo orange `#FF5400` everywhere, clor.in on Figtree with the apps' colours, Ops forest `#015D47`, the grey rail recorded as the one ground exception, the same light accents on every Home | Owner's answers to the 21 Nov interaction audit |
+| 24 Nov 2026 | clor.in only: pale blue grounds, navy text, Switzer, pill buttons and rounder panels, orange kept as the accent | Owner supplied a reference design system and chose "that look, CLOR orange accent" |

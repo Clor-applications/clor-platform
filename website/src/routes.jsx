@@ -6,8 +6,8 @@ import Demo from './pages/Demo.jsx';
 import Product, { Products } from './pages/Product.jsx';
 import { About, Businesses, Contact, Firms, Integrations, Legal, NotFound, Resources, Security, ServiceStatus, Team } from './pages/Pages.jsx';
 import Pricing from './pages/Pricing.jsx';
-/* The one font file every page needs first (the same hashed file site.css loads), so text does not wait for the stylesheet. */
-import fontUrl from '@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2?url';
+/* The one font file every page needs first (the same hashed file darwin.css loads), so text does not wait for the stylesheet. */
+import fontUrl from './fonts/switzer-variable.woff2?url';
 
 /** Every page: its address, title, description and component. The sitemap is made from this list. */
 export const ROUTES = [
