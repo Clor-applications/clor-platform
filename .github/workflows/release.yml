@@ -1,8 +1,10 @@
 name: Release
 
 # A release of CLOR, run on GitHub's machines instead of one Mac. It runs
-# scripts/release.sh, the same script and the same steps as by hand
-# (DEPLOY.md), so there is one release path, not two.
+# scripts/release-aws.sh, the same script and the same steps as by hand
+# (deploy/aws/README.md), so there is one release path, not two. The API image
+# is built here: the AWS server is x86, like these machines, and too small to
+# build it itself.
 #
 # Started from the Engineering Console (console.clor.in, Releases) or from
 # this page by somebody who may write to the repository. Either way nothing
@@ -12,7 +14,7 @@ name: Release
 # can never reach these credentials.
 #
 # One-time setup of the environment, its variables and secrets:
-# docs/console/SETUP.md.
+# deploy/aws/README.md, "Releases from GitHub".
 
 on:
   workflow_dispatch:
@@ -88,7 +90,7 @@ jobs:
     permissions:
       contents: write        # the rel-<sha7> tag
       pull-requests: write   # the CHANGELOG.md pull request
-      id-token: write        # sign in to Google Cloud without a stored key
+      id-token: write        # sign in to AWS without a stored key
     env:
       MODE: ${{ inputs.mode }}
     steps:
@@ -106,13 +108,15 @@ jobs:
             server/package-lock.json
             website/package-lock.json
 
-      - name: Sign in to Google Cloud
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+      # The role in deploy/aws/clor.cloudformation.yaml (ReleaseRole): only a run
+      # in this environment can take it, and it can do what the release
+      # script does and no more.
+      - name: Sign in to AWS
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_RELEASE_SERVICE_ACCOUNT }}
-
-      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+          role-to-assume: ${{ vars.AWS_RELEASE_ROLE_ARN }}
+          aws-region: ap-south-1
+          role-session-name: release-${{ github.run_id }}
 
       - name: Install dependencies
         run: |
@@ -130,7 +134,7 @@ jobs:
           npm install --global "wrangler@$WRANGLER_VERSION"
 
       # Optional. Without it the connector is built unsigned and connectors at
-      # customers stay on the version they have (release.sh, step 1).
+      # customers stay on the version they have (release-aws.sh, step 1).
       - name: The connector signing key
         env:
           KEY: ${{ secrets.AGENT_SIGNING_KEY }}
@@ -150,7 +154,15 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          scripts/release.sh "--$MODE"
+          # Without a Cloudflare token here the web app and the website cannot
+          # be published from this run: release the API and say so, instead of
+          # failing after the API has already gone live.
+          SKIP=
+          if [ "$MODE" = go ] && [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            SKIP="--skip-web --skip-website"
+            echo "::warning::No CLOUDFLARE_API_TOKEN in the production environment: the API is released, the web app and the website are NOT published. Publish them from the Mac (deploy/aws/README.md)."
+          fi
+          scripts/release-aws.sh "--$MODE" $SKIP
 
       - name: Remove the signing key
         if: always()

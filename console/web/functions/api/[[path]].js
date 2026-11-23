@@ -1,14 +1,14 @@
 /**
- * console.clor.in/api/* -> the Console API on Cloud Run (asia-south1).
+ * console.clor.in/api/* -> the Console API on the AWS server (deploy/aws).
  *
- * The same arrangement as api.clor.in (deploy/cloudflare/api-proxy): Cloud Run
- * has no domain mapping in asia-south1, so Cloudflare forwards. Here it is a
+ * The same arrangement as api.clor.in (deploy/cloudflare/api-proxy):
+ * Cloudflare forwards to the server's own address. Here it is a
  * Pages Function on the Console's own address, so the page and its API are one
  * origin: the session cookie is first-party and nothing crosses sites.
  *
  * X-Forwarded-For is OVERWRITTEN with Cloudflare's verified client address.
  * x-console-edge carries CONSOLE_EDGE_SECRET; the API refuses requests without
- * it, which closes the direct run.app address.
+ * it, which closes the server's direct address.
  *
  * ORIGIN is in wrangler.toml; the secret is set once with
  *   wrangler pages secret put CONSOLE_EDGE_SECRET --project-name clor-console

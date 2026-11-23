@@ -276,6 +276,42 @@ only pills. Nothing is nested inside a card.
 - **Approvals:** tick and cross buttons in People, Payroll, Attendance and Workspace (owner's
   style). Books keeps a secondary Approve and a text Reject.
 
+## Reference products (People)
+
+When designing a People page, study these products first (owner's research, 24 Nov 2026). Take
+**structure, flow and features** from them: what is on the page, in what order, and how a task is
+finished. Never take their colours, fonts, tinted grounds, card styles or navigation; every rule
+above still applies, and where a reference disagrees with this file, this file wins.
+
+| People area | Study first |
+|---|---|
+| Home (HR dashboard) | HiBob, Factorial |
+| Employee directory | Rippling, BambooHR |
+| Employee profile | HiBob, BambooHR |
+| Attendance and shifts | Keka, Darwinbox |
+| Leave | Keka, Factorial |
+| Recruitment and onboarding | Personio, Rippling |
+| Performance and goals | HiBob, Darwinbox |
+| Organization structure | HiBob, Darwinbox |
+| Policies and workflows | Zoho People, Rippling |
+| Reports and analytics | Darwinbox, HiBob |
+| Tables, filters, forms | Linear, Rippling |
+| Settings, permissions, audit | Rippling, Zoho People |
+
+Overall weight: HiBob 35%, Rippling 25%, Keka 20%, Factorial 10%, Linear 10%.
+
+How the research's wishes map onto this file:
+
+- **Meaningful KPIs:** on Home and overview pages only, at most four figures, each with real data.
+  List pages keep the count line.
+- **Clear status indicators:** the soft tag with a dot and a word, on exception rows only (people
+  lists keep Active).
+- **Purposeful illustrations:** Home and first-run pages only. A list's empty state stays one line
+  and one button.
+- **No decorative cards:** a card must help finish a task, or it goes.
+- **Not adopted:** the split sidebar and the soft-mist ground. Navigation and the white ground
+  follow this file and the owner's 15 Nov and 23 Nov decisions.
+
 ## Do's and Don'ts
 
 - Do: give every screen one title of 24px and one primary action at top right.
@@ -321,3 +357,4 @@ The code still follows the old picks. Move it in this order, one PR each, and ch
 | 19 Nov 2026 | Books excluded | Books belongs to another developer |
 | 21 Nov 2026 | Logo orange `#FF5400` everywhere, clor.in on Figtree with the apps' colours, Ops forest `#015D47`, the grey rail recorded as the one ground exception, the same light accents on every Home | Owner's answers to the 21 Nov interaction audit |
 | 24 Nov 2026 | clor.in only: pale blue grounds, navy text, Switzer, pill buttons and rounder panels, orange kept as the accent | Owner supplied a reference design system and chose "that look, CLOR orange accent" |
+| 24 Nov 2026 | People reference products recorded (HiBob, Rippling, Keka, Factorial, Linear and others, per page); structure and features only. Split sidebar and soft-mist ground not adopted | Owner's research, with the choice left to Claude ("keep what is better for best user experience"): a white ground reads best for dense data, and one top-bar menu is simpler than two side menus |

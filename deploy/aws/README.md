@@ -59,10 +59,10 @@ Files in this folder: `clor.cloudformation.yaml` (everything AWS makes),
 `clor-server.sh` (runs on the server). The release script is
 `scripts/release-aws.sh`.
 
-Not moved by this work, and still pointing at Google Cloud:
-the Engineering Console (`clor-console`, reads Cloud Run and Cloud SQL status),
-the Ops health page's Google readings (`server/src/routes/opsHealth.ts`),
-the GitHub release and rollback workflows, and the monitoring alerts.
+Moved after the cutover: the Ops log lookup (CloudWatch, group `clor/api`),
+the release and rollback workflows, and the Engineering Console (below).
+Still on Google Cloud: the monitoring alerts, and the old services kept as
+the fallback.
 
 ## Setting it up (once)
 
@@ -77,7 +77,7 @@ the GitHub release and rollback workflows, and the monitoring alerts.
 3. **Create everything:**
 
    ```bash
-   aws cloudformation deploy --region ap-south-1 --stack-name clor --template-file deploy/aws/clor.cloudformation.yaml --capabilities CAPABILITY_IAM
+   aws cloudformation deploy --region ap-south-1 --stack-name clor --template-file deploy/aws/clor.cloudformation.yaml --capabilities CAPABILITY_NAMED_IAM
    ```
 
    About 15 minutes (the database is the slow part). Then read what it made:
@@ -144,6 +144,42 @@ and time it. Then for real, in a quiet hour:
    address again, and loses whatever was written on AWS in between. After the
    week, on the owner's word: delete `clor-api`, `clor-console`, `clor-pg`,
    `clor-pg-staging` (take a final export first) and close billing.
+
+## Releases from GitHub
+
+`.github/workflows/release.yml` and `rollback.yml` run `scripts/release-aws.sh`
+on GitHub's machines, which are x86 like the server, so the image is built
+there natively and no Mac is needed. They sign in to AWS as the role
+`clor-release` (the template's `ReleaseRole`), which only a run in this
+repository's `production` environment can take. A rollback runs in that
+environment too, so it needs the same approval.
+
+One-time setup, in GitHub, Settings, Environments:
+
+| Where | Name | Value |
+|---|---|---|
+| `production`, variable | `AWS_RELEASE_ROLE_ARN` | the stack's `ReleaseRoleArn` output |
+| repository variable | `WRANGLER_VERSION` | an exact version, e.g. the Mac's (`wrangler --version`) |
+| `production`, secrets | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | a token that may edit Cloudflare Pages; without it a release publishes the API only and says so |
+| `production`, secret (optional) | `AGENT_SIGNING_KEY` | the connector signing key |
+
+The environment: `main` only, and a required reviewer.
+
+## The Engineering Console
+
+`console.clor.in` (Cloudflare Pages, `console/web`) forwards `/api/*` to
+`https://console-origin.clor.in`, the compose service `console` on the same
+server (since 24 Nov 2026). Its database `clor_console` is on the same RDS
+instance, under its own user; its settings are in Parameter Store under
+`/clor/console/`. It reads AWS with the server's role: releases from the
+image store, the serving one and the last migration from `/opt/clor/state`
+(written by `clor-server.sh`), backups from RDS.
+
+- New Console API image: build `console/api` for `linux/amd64`, push it to
+  the `clor/console` repository, then on the server
+  `./clor-server.sh console <image>`. An API release does not touch it.
+- New Console page: `npm run console:build`, then `wrangler pages deploy
+  --branch main` in `console/web`.
 
 ## Day to day
 

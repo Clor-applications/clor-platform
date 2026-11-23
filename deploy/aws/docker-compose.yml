@@ -4,6 +4,9 @@
 #   caddy   the only thing on ports 80 and 443; gets and renews its own certificate
 #   app     the API: the same image Cloud Run ran (docker/api.cloudrun.Dockerfile)
 #   ticker  the wake call for background jobs, every 10 minutes (was Cloud Scheduler)
+#   console the Engineering Console's API (console/api), behind console.clor.in.
+#           Its own profile: started by `clor-server.sh console <image>`, and left
+#           alone by an API release.
 #
 # .env (written by clor-server.sh) names the image and the host:
 #   API_IMAGE=<account>.dkr.ecr.ap-south-1.amazonaws.com/clor/api:<sha7>
@@ -14,6 +17,7 @@ services:
     restart: unless-stopped
     environment:
       ORIGIN_HOST: ${ORIGIN_HOST:?set ORIGIN_HOST in /opt/clor/.env}
+      CONSOLE_ORIGIN_HOST: ${CONSOLE_ORIGIN_HOST:-console-origin.clor.in}
     ports:
       - "80:80"
       - "443:443"
@@ -41,7 +45,18 @@ services:
     # Stops a leak from taking the whole machine (2 GB) down with it.
     mem_limit: 1400m
     stop_grace_period: 30s
-    logging: *logging
+    # The API's logs go to CloudWatch (group clor/api, kept 30 days), where Ops
+    # opens them by request ID. non-blocking: if CloudWatch cannot be reached
+    # the API keeps serving and drops log lines instead of stalling. Docker
+    # keeps its own recent copy, so `docker compose logs app` still works.
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:-ap-south-1}
+        awslogs-group: clor/api
+        awslogs-stream: app
+        mode: non-blocking
+        max-buffer-size: 4m
 
   ticker:
     image: curlimages/curl:8.11.1
@@ -60,6 +75,27 @@ services:
             -H "x-jobs-token: $$JOBS_TOKEN" -H "x-clor-edge: $$EDGE_SECRET" \
             http://app:8080/api/internal/jobs/tick || true
         done
+    logging: *logging
+
+  console:
+    profiles: [console]
+    image: ${CONSOLE_IMAGE:-none}
+    restart: unless-stopped
+    # console.env: read from Parameter Store (/clor/console/*) by clor-server.sh.
+    env_file: [console.env]
+    environment:
+      NODE_ENV: production
+      PORT: "4010"
+      # Reads AWS, with the server's own role: the image store, the database's
+      # backups, and the two files the release script leaves in ./state.
+      CONSOLE_CLOUD: aws
+      CONSOLE_AWS_REGION: ${AWS_REGION:-ap-south-1}
+      CONSOLE_AWS_STATE_DIR: /state
+      CONSOLE_WEB_ORIGIN: https://console.clor.in
+      CONSOLE_API_ORIGIN: https://console.clor.in
+    volumes:
+      - ./state:/state:ro
+    mem_limit: 300m
     logging: *logging
 
 volumes:

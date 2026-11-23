@@ -129,16 +129,29 @@ opsHealthRouter.get('/ops/search', (req, res) =>
 
 /**
  * A request ID a customer read out (every error page shows one): where to
- * see what happened. The logs live in Google Cloud Logging; CLOR staff open
- * them there with their own Google sign-in, the console does not copy them.
+ * see what happened. The API's logs live in AWS CloudWatch (log group
+ * LOGS_AWS_GROUP, deploy/aws) since the move of 23 Nov 2026; CLOR staff open
+ * them there with the CLOR AWS sign-in, the console does not copy them.
+ * Without LOGS_AWS_GROUP the link is the Google Cloud Logging one, as it was
+ * on Cloud Run.
  */
+export function requestLogsUrl(id: string, env: NodeJS.ProcessEnv = process.env): string {
+  const group = String(env.LOGS_AWS_GROUP || '').trim();
+  if (group) {
+    const region = String(env.LOGS_AWS_REGION || env.AWS_REGION || 'ap-south-1').trim();
+    /* The CloudWatch console reads its own double encoding after the #: "/" is $252F, "?" $3F, "=" $3D, a quote $2522. */
+    const groupPart = encodeURIComponent(group).replace(/%/g, '$25');
+    return `https://${region}.console.aws.amazon.com/cloudwatch/home?region=${region}#logsV2:log-groups/log-group/${groupPart}/log-events$3FfilterPattern$3D$2522${id}$2522$26start$3D-2592000000`;
+  }
+  const project = env.GOOGLE_CLOUD_PROJECT || env.GCP_PROJECT || env.OPS_GCP_PROJECT || 'clor-apps-511409';
+  const query = `jsonPayload.requestId="${id}" OR trace:"${id}"`;
+  return `https://console.cloud.google.com/logs/query;query=${encodeURIComponent(query)};duration=P30D?project=${encodeURIComponent(project)}`;
+}
+
 opsHealthRouter.get('/ops/request-lookup', (req, res) => {
   const id = String(req.query.id || '').trim();
   if (!REQUEST_ID.test(id)) return res.status(400).json({ error: 'That does not look like a request ID. It is the code shown under an error, 8 to 80 letters, digits and dashes.' });
-  const project = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT || process.env.OPS_GCP_PROJECT || 'clor-apps-511409';
-  const query = `jsonPayload.requestId="${id}" OR trace:"${id}"`;
-  const logsUrl = `https://console.cloud.google.com/logs/query;query=${encodeURIComponent(query)};duration=P30D?project=${encodeURIComponent(project)}`;
-  res.json({ id, logsUrl });
+  res.json({ id, logsUrl: requestLogsUrl(id) });
 });
 
 /**

@@ -25,7 +25,11 @@ export interface Config {
   ownerClorEmails: string[];
   databaseUrl: string;
   github: { owner: string; repo: string; appId: string; privateKey: string; installationId: string; clientId: string; clientSecret: string };
+  /** Where the API runs: `aws` since 23 Nov 2026 (deploy/aws); `gcp` is Cloud Run, as before. */
+  cloud: 'aws' | 'gcp';
   gcp: { project: string; region: string; service: string; stagingService: string; migrateJob: string; sqlInstance: string };
+  /** `stateDir` holds serving.json and migration.json, written by deploy/aws/clor-server.sh on the server. */
+  aws: { region: string; repository: string; dbInstance: string; stateDir: string };
   cloudflare: { accountId: string; token: string; webProject: string; siteProject: string };
   /** Sign-in with a CLOR staff login. Off until the public key is set. */
   clor: { opsOrigin: string; grantPublicKey: string };
@@ -58,11 +62,19 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
       clientId: env.CONSOLE_GITHUB_CLIENT_ID || '',
       clientSecret: env.CONSOLE_GITHUB_CLIENT_SECRET || '',
     },
+    cloud: env.CONSOLE_CLOUD === 'aws' ? 'aws' : 'gcp',
+    aws: {
+      region: env.CONSOLE_AWS_REGION || 'ap-south-1',
+      repository: env.CONSOLE_AWS_REPOSITORY || 'clor/api',
+      dbInstance: env.CONSOLE_AWS_DB_INSTANCE || 'clor-pg',
+      stateDir: env.CONSOLE_AWS_STATE_DIR || '/state',
+    },
     gcp: {
       project: env.CONSOLE_GCP_PROJECT || 'clor-apps-511409',
       region: env.CONSOLE_GCP_REGION || 'asia-south1',
       service: env.CONSOLE_GCP_SERVICE || 'clor-api',
-      stagingService: env.CONSOLE_GCP_STAGING_SERVICE || 'clor-api-staging',
+      /* There is no staging on AWS: empty there, and the Overview leaves the row out. */
+      stagingService: env.CONSOLE_CLOUD === 'aws' ? '' : env.CONSOLE_GCP_STAGING_SERVICE || 'clor-api-staging',
       migrateJob: env.CONSOLE_GCP_MIGRATE_JOB || 'clor-api-migrate',
       sqlInstance: env.CONSOLE_GCP_SQL_INSTANCE || 'clor-pg',
     },
