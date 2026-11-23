@@ -77,7 +77,7 @@ function ownPreview(p, request) {
   };
 }
 
-export default function MyLeave({ params }) {
+export default function MyLeave({ params, updateParams }) {
   /* null asks the server for the leave period today falls in; its answer names the year. */
   const [year, setYear] = useState(null);
   const [me, setMe] = useState(null);
@@ -89,6 +89,8 @@ export default function MyLeave({ params }) {
   /* The waiting request being changed; the approved one I came back early from. */
   const [editing, setEditing] = useState(null);
   const [shortening, setShortening] = useState(null);
+  /* Closing the form takes `ask` out of the address, so a reload does not open it again. */
+  const closeAsk = () => { setAsking(false); if (params?.ask) updateParams?.({ ask: null }); };
   /* No asking, changing or cancelling for a sign-in the server would refuse (People audit gap 3). */
   const canAct = useCanActForSelf();
   const [explaining, setExplaining] = useState(null);
@@ -337,7 +339,7 @@ export default function MyLeave({ params }) {
         ) : null}
       </div>
 
-      {asking && me.types.length && canAct ? <AskLeave types={me.types} onClose={() => setAsking(false)} onDone={() => { setAsking(false); load(); }} /> : null}
+      {asking && me.types.length && canAct ? <AskLeave types={me.types} onClose={closeAsk} onDone={() => { closeAsk(); load(); }} /> : null}
       {editing ? <AskLeave types={me.types} rows={me.requests || []} request={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} /> : null}
       {shortening ? <CameBackEarly request={shortening} onClose={() => setShortening(null)} onDone={() => { setShortening(null); load(); }} /> : null}
       <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />

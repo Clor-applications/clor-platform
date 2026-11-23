@@ -15,9 +15,10 @@ import { getMyLeave } from '../../../attendance/src/api/attendance';
 const MAX_TYPES = 3;
 const shortName = (name) => String(name || 'Leave').replace(/ leave$/i, '');
 
-/** "Earned 12 · Casual 4 · Short 6 hours", the paid types with a balance, at most three. */
+/** "Earned 12 · Sick 6 · Casual 4", the paid types with a balance, biggest first, at most three. */
 export function balanceWords(types) {
-  const paid = (types || []).filter((t) => t.isPaid && t.available != null);
+  /* Biggest balance first: the server lists types by name, which put a three-day Bereavement ahead of Earned. */
+  const paid = (types || []).filter((t) => t.isPaid && t.available != null).sort((a, b) => Number(b.available) - Number(a.available));
   if (!paid.length) return '';
   const head = paid.slice(0, MAX_TYPES).map((t) => `${shortName(t.name)} ${amountFigure(t.available, t)}${isHourly(t) ? ' hours' : ''}`);
   const more = paid.length - head.length;
@@ -38,15 +39,15 @@ export default function HomeMyLeave({ openScreen }) {
   const waiting = (me.requests || []).filter((r) => r.status === 'PENDING').length;
   const ask = canAct;
   return (
-    <section className="ui-card p-4 flex flex-wrap items-center justify-between gap-3" aria-labelledby="home-my-leave-h">
-      <div className="min-w-0">
+    <section className="ui-card p-4 flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap" aria-labelledby="home-my-leave-h">
+      <div className="min-w-0 sm:flex-1">
         <h2 id="home-my-leave-h" className="ui-t-sec">Your leave</h2>
         <p className="ui-caption tabular-nums">
           {left ? `Days left: ${left}` : 'Every day you take is unpaid'}
           {waiting ? ` · ${waiting} ${waiting === 1 ? 'request waits' : 'requests wait'} for approval` : ''}
         </p>
       </div>
-      <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('myLeave', ask ? { ask: '1' } : undefined)}>
+      <button type="button" className="ui-btn ui-btn-secondary shrink-0" onClick={() => openScreen?.('myLeave', ask ? { ask: '1' } : undefined)}>
         <CalendarPlus size={16} aria-hidden="true" /> {ask ? 'Ask for leave' : 'My leave'}
       </button>
     </section>

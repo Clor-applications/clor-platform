@@ -20,8 +20,8 @@ const TYPES = [
   { id: 'm', name: 'Maternity Leave', isPaid: true, available: 182 },
 ];
 
-it('names the paid balances, three at most, and counts the rest', () => {
-  expect(balanceWords(TYPES)).toBe('Earned 12 · Casual 4 · Sick 6 and 1 more');
+it('names the paid balances, biggest first, three at most, and counts the rest', () => {
+  expect(balanceWords(TYPES)).toBe('Maternity 182 · Earned 12 · Sick 6 and 1 more');
   expect(balanceWords([{ name: 'Loss of Pay', isPaid: false }])).toBe('');
 });
 
