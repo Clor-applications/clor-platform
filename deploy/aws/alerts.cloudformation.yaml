@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  CLOR production alerts on AWS (Mumbai): e-mail when the API server or the
+  database is in trouble. A stack of its own, so making or changing an alert
+  never touches the server or the database (the main stack, clor). See
+  deploy/aws/README.md, "Alerts".
+
+# What this costs per month: eight alarms at about $0.10 each, one custom
+# metric at about $0.30, e-mail free. About $1.
+#
+# What it replaces: the Google Cloud alert policies that watched Cloud SQL,
+# Cloud Run 5xx and Cloud Scheduler, which watch nothing since 23 Nov 2026.
+# What it does not replace: the three outside checks that open
+# https://api.clor.in/health, app.clor.in and clor.in every five minutes.
+# Those still run on Google Cloud Monitoring and still work, because they
+# only open a public address.
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Description: Where alerts go. AWS sends this address one e-mail to confirm; nothing arrives until its link is opened.
+  ApiInstanceId:
+    Type: AWS::EC2::Instance::Id
+    Description: The API server (the main stack's instance).
+  DbInstanceId:
+    Type: String
+    Default: clor-pg
+    Description: The database's name in RDS.
+  ApiLogGroup:
+    Type: String
+    Default: clor/api
+    Description: The log group the API writes to.
+  DbConnectionsLimit:
+    Type: Number
+    Default: 80
+    Description: Alert above this many open database connections. A db.t4g.micro allows about 110; raise this with the database size.
+
+Resources:
+  Alerts:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: clor-alerts
+      Subscription:
+        - { Protocol: email, Endpoint: !Ref AlertEmail }
+
+  # ---- The API server ----
+  # AWS's own two checks of the machine: the hardware under it, and whether
+  # the machine answers. Either failing for ten minutes.
+  ServerDown:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: clor-server-down
+      AlarmDescription: The API server fails AWS's status checks. Customers cannot reach CLOR. Restart it from the EC2 console (Instance state, Reboot).
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed
+      Dimensions: [{ Name: InstanceId, Value: !Ref ApiInstanceId }]
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref Alerts]
+      OKActions: [!Ref Alerts]
+
+  ServerBusy:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: clor-server-busy
+      AlarmDescription: The API server's processor has been above 85% for 15 minutes. Pages will be slow. If it lasts, raise ApiInstanceType in the main stack.
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions: [{ Name: InstanceId, Value: !Ref ApiInstanceId }]
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Alerts]
+
+  # ---- The API itself, from its own log lines ----
+  # One JSON line per request (server/src/utils/log.ts); httpRequest.status is
+  # the answer's code.
+  Api5xxMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref ApiLogGroup
+      FilterPattern: '{ $.httpRequest.status >= 500 }'
+      MetricTransformations:
+        - MetricNamespace: CLOR
+          MetricName: Api5xx
+          MetricValue: '1'
+          DefaultValue: 0
+
+  ApiErrors:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: Api5xxMetric
+    Properties:
+      AlarmName: clor-api-errors
+      AlarmDescription: More than 5 requests failed with a server error in 5 minutes (the same line the Google alert drew). Look them up in Ops, Health, or in the log group clor/api.
+      Namespace: CLOR
+      MetricName: Api5xx
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Alerts]
+
+  # The job wake call asks the API every 10 minutes (the ticker service), and
+  # each call writes a log line. No line at all for 30 minutes means the API
+  # or the ticker has stopped: this stands in for "a scheduler job failed".
+  ApiSilent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: clor-api-silent
+      AlarmDescription: The API has written no log line for 30 minutes, though background jobs call it every 10. The API or its job caller has stopped. On the server, cd /opt/clor and run docker compose ps.
+      Namespace: AWS/Logs
+      MetricName: IncomingLogEvents
+      Dimensions: [{ Name: LogGroupName, Value: !Ref ApiLogGroup }]
+      Statistic: Sum
+      Period: 600
+      EvaluationPeriods: 3
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref Alerts]
+      OKActions: [!Ref Alerts]
+
+  # ---- The database ----
+  DbBusy:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: clor-db-busy
+      AlarmDescription: The database's processor has been above 85% for 15 minutes. If it lasts, raise DbInstanceClass in the main stack (micro to small).
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions: [{ Name: DBInstanceIdentifier, Value: !Ref DbInstanceId }]
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref Alerts]
+      OKActions: [!Ref Alerts]
+
+  DbDiskLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: clor-db-disk-low
+      AlarmDescription: The database has less than 3 GB of disk left. A full disk stops every save. Raise DbStorageGb in the main stack.
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions: [{ Name: DBInstanceIdentifier, Value: !Ref DbInstanceId }]
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3221225472
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Alerts]
+
+  DbMemoryLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: clor-db-memory-low
+      AlarmDescription: The database has had less than 100 MB of memory free for 15 minutes. It will slow down or restart. Raise DbInstanceClass in the main stack.
+      Namespace: AWS/RDS
+      MetricName: FreeableMemory
+      Dimensions: [{ Name: DBInstanceIdentifier, Value: !Ref DbInstanceId }]
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 104857600
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Alerts]
+
+  DbConnectionsHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: clor-db-connections-high
+      AlarmDescription: The database is close to the most connections it allows. Past that, requests fail. Raise DbInstanceClass in the main stack.
+      Namespace: AWS/RDS
+      MetricName: DatabaseConnections
+      Dimensions: [{ Name: DBInstanceIdentifier, Value: !Ref DbInstanceId }]
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: !Ref DbConnectionsLimit
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Alerts]
+
+Outputs:
+  AlertsTopicArn:
+    Value: !Ref Alerts
+    Description: Send any further alert here.
