@@ -297,7 +297,12 @@ overflow, truncation and maximum content (₹99,99,99,999.00; a 60-character nam
   32×32 with `aria-label`). Primary violet, hover ink. Secondary white with 1px ink border, hover slate-deep.
   Ghost borderless, hover slate-deepest. Danger red border and word, hover fills red, always confirms first.
   Press scales to .97. Disabled 45% opacity with the reason in `title` or help. Loading: square spinner replaces
-  the icon, width held, `aria-busy`. One primary per screen. Buttons name verb and object ("Approve leave").
+  the icon, width held, `aria-busy`. Done: a tick and the past-tense word ("Saved") for about 1.5s, announced,
+  then back to default. Expanded (a button that opens a menu, popover or section): slate-deep ground and the
+  chevron turned up (press) while open, `aria-expanded="true"`. Cooldown (Resend code, Send reminder, Resend
+  invite): disabled with the wait in words in the label ("Resend in 24s"), counting in whole seconds, announced
+  only when it is ready again. Errors show on the field and in the error summary, never on the button. Not used:
+  hold-to-confirm, drag and in-button progress fills (use the meter). One primary per screen. Buttons name verb and object ("Approve leave").
 - **Approve / reject:** tick and cross 32×32 buttons (every app, Books included). Tick hover fills primary; cross
   hover turns danger. Approve acts at once with an Undo toast; reject opens a reason drawer.
 - **Menu:** ink border, reveal; items 32px text-sm; danger item last after a hairline. Arrow keys, Enter, Esc
@@ -384,7 +389,9 @@ The full list with specimens is on the live kit page. In short:
 - **Console:** code sign-in, authenticator enrol, guard re-ask before risky actions, release row (promote / roll
   back with reason), pull row, confirm-with-reason dialog, member row, audit table. Console is a separate bundle: it
   takes the same tokens file, not the app components.
-- **People:** Home act-in-place card with Undo, directory row, profile header, field group with edit drawer, add
+- **People:** Home act-in-place card with Undo, Home pay-run status (the last three runs: month, state as a
+  word, total in ₹, links to the run; hidden to people without payroll access), overview attendance trend (a
+  monthly attendance-rate bar chart, current month in primary, data-table toggle), directory row, profile header, field group with edit drawer, add
   employee wizard, import wizard, org chart node, approvals inbox, audience picker, goal row, review form, candidate
   board, interview slot picker, offer sheet, helpdesk thread, policy reader.
 - **Payroll:** pay run stepper, run guards, run total, pay calendar strip, salary structure editor (formula in mono,
@@ -520,4 +527,5 @@ hue family, and check it in the browser. Steps 0 to 5 then become deleting the o
 | 24 Nov 2026 | Logo orange kept as artwork only | The brand mark stays; it is not a UI colour |
 | 24 Nov 2026 | Ink, success and warning are stand-ins until Motion's full palette is pulled | The pasted skill showed 20 of 37 colours |
 | 25 Nov 2026 | Twenty design laws mapped to rules; seven new rules (Zeigarnik, Tesler, serial position, progressive disclosure, goal-gradient, Parkinson, peak-end) | Owner asked to check the platform against the laws and add the missing ones |
+| 25 Nov 2026 | Button gains done, expanded and cooldown states; People Home gets pay-run status and the overview an attendance trend | Owner asked to check an HRM dashboard and a sixteen-state button reference against the platform; error, hold, drag and progress-fill states were left out on purpose |
 | 24 Nov 2026 | Kept from earlier: count line, exceptions-only tags, one primary per screen, tick/cross approvals, white work areas, light only, six People places | Product rules, not visual style; nothing in the skill contradicts them |
