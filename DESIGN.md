@@ -300,9 +300,10 @@ overflow, truncation and maximum content (₹99,99,99,999.00; a 60-character nam
   the icon, width held, `aria-busy`. Done: a tick and the past-tense word ("Saved") for about 1.5s, announced,
   then back to default. Expanded (a button that opens a menu, popover or section): slate-deep ground and the
   chevron turned up (press) while open, `aria-expanded="true"`. Cooldown (Resend code, Send reminder, Resend
-  invite): disabled with the wait in words in the label ("Resend in 24s"), counting in whole seconds, announced
-  only when it is ready again. Errors show on the field and in the error summary, never on the button. Not used:
-  hold-to-confirm, drag and in-button progress fills (use the meter). One primary per screen. Buttons name verb and object ("Approve leave").
+  invite): disabled, the wait said once in the label ("Resend in 30s"), no ticking count (figures never animate);
+  when the wait ends the label returns ("Resend code"), announced. Errors show on the field and in the error
+  summary, never on the button. Not used: hold-to-confirm, drag and in-button progress fills (use the meter). One
+  primary per screen. Buttons name verb and object ("Approve leave").
 - **Approve / reject:** tick and cross 32×32 buttons (every app, Books included). Tick hover fills primary; cross
   hover turns danger. Approve acts at once with an Undo toast; reject opens a reason drawer.
 - **Menu:** ink border, reveal; items 32px text-sm; danger item last after a hairline. Arrow keys, Enter, Esc
@@ -389,11 +390,13 @@ The full list with specimens is on the live kit page. In short:
 - **Console:** code sign-in, authenticator enrol, guard re-ask before risky actions, release row (promote / roll
   back with reason), pull row, confirm-with-reason dialog, member row, audit table. Console is a separate bundle: it
   takes the same tokens file, not the app components.
-- **People:** Home act-in-place card with Undo, Home pay-run status (the last three runs: month, state as a
-  word, total in ₹, links to the run; hidden to people without payroll access), overview attendance trend (a
-  monthly attendance-rate bar chart, current month in primary, data-table toggle), directory row, profile header, field group with edit drawer, add
-  employee wizard, import wizard, org chart node, approvals inbox, audience picker, goal row, review form, candidate
-  board, interview slot picker, offer sheet, helpdesk thread, policy reader.
+- **People:** Home act-in-place card with Undo, Home pay-run status (the last three runs: month, state as a word,
+  total in ₹, links to the run; hidden to people without payroll access), overview attendance trend (a monthly
+  attendance-rate bar chart, current month in primary, data-table toggle), Home headcount by department, Home
+  celebrations (birthdays and work anniversaries in the next 30 days, three rows, people who opted out left out),
+  directory row, profile header, field group with edit drawer, add employee wizard, import wizard, org chart node,
+  approvals inbox, audience picker, goal row, review form, candidate board, interview slot picker, offer sheet,
+  helpdesk thread, policy reader.
 - **Payroll:** pay run stepper, run guards, run total, pay calendar strip, salary structure editor (formula in mono,
   live sample), component row, payslip, statutory dues table, tax declaration form, settlement sheet, bank change
   approval, loan schedule, ledger mapping.
@@ -448,7 +451,7 @@ screen in review. Where a law and a rule seem to disagree, the rule wins. Laws m
 | Parkinson's law | **new.** Long jobs say how long they take before they start ("About 2 minutes for 142 people") and setup tasks may carry a due date. No countdowns or false urgency. |
 | Uniform connectedness | Lines tie related things: stepper rules, timeline hairline, the bulk bar over the picked rows. |
 | Paradox of the active user | People skip instructions, so the screen teaches: errors say how to fix, empty states have one button, defaults are sensible. No tours that must be read first. |
-| Cognitive load | One primary per screen, search at five or more options, two-line rows on phones, at most four figures. |
+| Cognitive load | One primary per screen, search at five or more options, two-line rows on phones, at most four figures in a Home or summary band. |
 | Default effect | Defaults are the safe, common choice: this month, this financial year, the company's main branch. Never default to a destructive or paid option. |
 | Peak-end rule | **new.** A finished job ends on a summary, not a blank list: pay run, month close, import, onboarding and approvals inbox end with one line of what was done in figures ("Nov pay run done · 142 paid · ₹38,40,000.00"), revealed once with the reveal motion, plus the next useful link. No confetti or looping animation; figures never animate. Errors at the end keep the last good data and offer Retry. |
 
@@ -526,6 +529,6 @@ hue family, and check it in the browser. Steps 0 to 5 then become deleting the o
 | 24 Nov 2026 | Square corners, no shadows, 1px ink border on floating layers | The skill detected no radius and no elevation |
 | 24 Nov 2026 | Logo orange kept as artwork only | The brand mark stays; it is not a UI colour |
 | 24 Nov 2026 | Ink, success and warning are stand-ins until Motion's full palette is pulled | The pasted skill showed 20 of 37 colours |
-| 25 Nov 2026 | Twenty design laws mapped to rules; seven new rules (Zeigarnik, Tesler, serial position, progressive disclosure, goal-gradient, Parkinson, peak-end) | Owner asked to check the platform against the laws and add the missing ones |
-| 25 Nov 2026 | Button gains done, expanded and cooldown states; People Home gets pay-run status and the overview an attendance trend | Owner asked to check an HRM dashboard and a sixteen-state button reference against the platform; error, hold, drag and progress-fill states were left out on purpose |
 | 24 Nov 2026 | Kept from earlier: count line, exceptions-only tags, one primary per screen, tick/cross approvals, white work areas, light only, six People places | Product rules, not visual style; nothing in the skill contradicts them |
+| 25 Nov 2026 | Twenty design laws mapped to rules; seven new rules (Zeigarnik, Tesler, serial position, progressive disclosure, goal-gradient, Parkinson, peak-end) | Owner asked to check the platform against the laws and add the missing ones |
+| 25 Nov 2026 | Button gains done, expanded and cooldown states; People Home gets pay-run status and an attendance trend (headcount by department and celebrations were already there) | Owner asked to check an HRM dashboard and a sixteen-state button reference against the platform; error, hold, drag and progress-fill states were left out on purpose; payroll trend belongs in Payroll |
