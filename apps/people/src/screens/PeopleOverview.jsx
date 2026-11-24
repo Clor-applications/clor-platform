@@ -561,7 +561,8 @@ export default function PeopleOverview({ openScreen }) {
             </Block>
           ) : null}
 
-          <HomeAttendanceTrend allowed={may('ATTENDANCE::Attendance Records::VIEW')} />
+          {/* Company-wide figures: a team-only role (a Team Manager) is refused them, so it is not asked (the shell's `wholeCompany` rule). */}
+          <HomeAttendanceTrend allowed={may('ATTENDANCE::Attendance Records::VIEW') && !(perms?.ownDocumentsOnly && !perms?.isAdmin)} />
           <HomePayRuns allowed={may('PAYROLL::Payroll Runs::VIEW')} />
         </div>
 
