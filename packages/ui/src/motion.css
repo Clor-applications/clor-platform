@@ -201,14 +201,16 @@
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-tab-indicator { transition: var(--mo-press); }
 
 /* You are here: the current place is violet and bold (a link is blue). */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-tabbar-item[aria-current='page'], .ui-split-mod[data-current], .ui-split-mod[aria-current]:not([aria-current='false'])),
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-split-mod[data-current] span {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-tabbar-item[aria-current='page'], .ui-split-mod[data-current], .ui-split-mod[aria-current]:not([aria-current='false']), .ui-split-item[aria-current='page']),
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-split-mod[data-current] span, .ui-split-item[aria-current='page'] > span) {
   color: rgb(var(--act)) !important;
   font-weight: 700;
 }
 
 /* Links */
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-link { color: rgb(var(--link)); }
+/* Copy sits on tinted bands where blue falls under 4.5:1: ink, underlined. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-copy-word { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-link:hover { color: rgb(var(--link-hover)); }
 
 /* ---------------------------------------------------------------- tables */
