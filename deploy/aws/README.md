@@ -61,8 +61,10 @@ Files in this folder: `clor.cloudformation.yaml` (everything AWS makes),
 
 Moved after the cutover: the Ops log lookup (CloudWatch, group `clor/api`),
 the release and rollback workflows, and the Engineering Console (below).
-Still on Google Cloud: the monitoring alerts, and the old services kept as
-the fallback.
+Still on Google Cloud: the three outside checks that open `api.clor.in/health`,
+`app.clor.in` and `clor.in` every five minutes (they only open a public
+address, so they still work), and the old services kept as the fallback. The
+alerts on the server and the database are on AWS (Alerts, below).
 
 ## Setting it up (once)
 
@@ -180,6 +182,41 @@ image store, the serving one and the last migration from `/opt/clor/state`
   `./clor-server.sh console <image>`. An API release does not touch it.
 - New Console page: `npm run console:build`, then `wrangler pages deploy
   --branch main` in `console/web`.
+
+## Alerts
+
+`deploy/aws/alerts.cloudformation.yaml` is a stack of its own, `clor-alerts`,
+so making or changing an alert never touches the server or the database. It
+sends an e-mail when:
+
+| Alert | Means |
+|---|---|
+| `clor-server-down` | the API server fails AWS's status checks for 10 minutes |
+| `clor-server-busy` | its processor is above 85% for 15 minutes |
+| `clor-api-errors` | more than 5 requests failed with a server error in 5 minutes |
+| `clor-api-silent` | the API wrote no log line for 30 minutes (jobs call it every 10) |
+| `clor-db-busy` | the database's processor is above 85% for 15 minutes |
+| `clor-db-disk-low` | the database has under 3 GB of disk left |
+| `clor-db-memory-low` | the database has under 100 MB of memory free for 15 minutes |
+| `clor-db-connections-high` | more than 80 connections are open (micro allows about 110) |
+
+About $1 a month. Make it, or change it, with:
+
+```
+aws cloudformation deploy --region ap-south-1 --stack-name clor-alerts \
+  --template-file deploy/aws/alerts.cloudformation.yaml \
+  --parameter-overrides AlertEmail=<address> \
+    ApiInstanceId=$(aws cloudformation describe-stack-resource --region ap-south-1 \
+      --stack-name clor --logical-resource-id ApiServer \
+      --query StackResourceDetail.PhysicalResourceId --output text)
+```
+
+AWS then sends the address one e-mail, "AWS Notification - Subscription
+Confirmation". Nothing arrives until its link is opened.
+
+Once it is confirmed, delete the Google alert policies that watch nothing any
+more: Cloud SQL down, API 5xx, and the Cloud Scheduler job. Keep the three
+outside checks and their policies.
 
 ## Day to day
 
