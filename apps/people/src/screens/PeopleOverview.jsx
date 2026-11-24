@@ -18,6 +18,7 @@ import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
 import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
 import HomeMyLeave from './HomeMyLeave';
+import { HomeAttendanceTrend, HomePayRuns } from './HomeTrends';
 import { ConnectionBar, DayTimeline, DecideInPlace, FigureLedger, HomeSkeleton, TeamsToday, TodayFeed, clockWords, useConnection } from './HomeToday';
 
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'neutral' }, info: { label: 'When you can', pill: 'neutral' } };
@@ -559,6 +560,9 @@ export default function PeopleOverview({ openScreen }) {
               </figure>
             </Block>
           ) : null}
+
+          <HomeAttendanceTrend allowed={may('ATTENDANCE::Attendance Records::VIEW')} />
+          <HomePayRuns allowed={may('PAYROLL::Payroll Runs::VIEW')} />
         </div>
 
         <aside className="people-home-side" aria-label="Today in the company">

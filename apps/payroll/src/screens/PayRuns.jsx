@@ -145,12 +145,13 @@ const EXPORT_COLUMNS = [
   { key: "status", label: "Status", value: (r) => STATUS_LABEL[r.status] || r.status },
 ];
 
-export default function PayRuns() {
+export default function PayRuns({ params } = {}) {
   const [runs, setRuns] = useState(null);
   const [periods, setPeriods] = useState([]);
   const [payGroups, setPayGroups] = useState([]);
   const [error, setError] = useState("");
-  const [openId, setOpenId] = useState(null);
+  /* Opened from a link elsewhere (People Home's pay-run status): that run, not the list. */
+  const [openId, setOpenId] = useState(() => params?.run || null);
   const [starting, setStarting] = useState(false);
   const [startKey, setStartKey] = useState(0);
   const [status, setStatus] = useState("");
