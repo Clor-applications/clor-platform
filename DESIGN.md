@@ -1,287 +1,405 @@
 ---
 # gstack: design-md-format=spec
 name: CLOR
-description: The calm register. White paper, black ink, tidy columns and one app colour with four jobs; calm, obviously accurate, never shouts.
+description: The Motion kit. White work areas on one pale hue per app, square corners, two weights, violet for the one action that matters, motion that snaps and reveals.
 colors:
-  surface: "#FFFFFF"
-  hover: "#F7F7F7"
-  hairline: "#E5E5E5"
-  field-border: "#D6D6D6"
-  input-border: "#949494"
-  rule: "#C8C8C8"
-  text: "#1C1B18"
-  text-muted: "#5C5A54"
-  text-subtle: "#6E6B64"
-  on-primary: "#FFFFFF"
-  primary-workspace: "#202329"
-  primary-people: "#A21CAF"
-  primary-payroll: "#006A9E"
-  primary-attendance: "#A85A00"
-  primary-ops: "#015D47"
-  rail: "#F3F3F0"
-  logo: "#FF5400"
-  logo-text: "#C95000"
-  success: "#166534"
-  success-bg: "#E6F1E9"
-  warning: "#8A5A00"
-  warning-bg: "#FBF1DC"
-  error: "#B42318"
-  error-bg: "#FCEBE9"
+  ground: "#FFFFFF"
+  ink: "#18181B"          # stand-in: replace from Motion's full 37-colour palette
+  ink-2: "#52525B"        # stand-in: replace from Motion's full 37-colour palette
+  primary: "#7C3AED"
+  link: "#2563EB"
+  danger: "#DC2626"
+  focus: "#6366F1"
+  red-soft: "#F87171"
+  violet-soft: "#A78BFA"
+  pink-deep: "#F8ECF0"
+  pink-deepest: "#F0E0E8"
+  lilac-deep: "#EFEDF3"
+  lilac-deepest: "#E6E3EC"
+  slate-deep: "#EEEFF3"
+  slate-deepest: "#E2E5EC"
+  rose-deep: "#F3EDED"
+  rose-deepest: "#ECE3E4"
+  stone-deep: "#F0F0EE"
+  stone-deepest: "#E8E8E6"
+  sand-deep: "#F6F0E4"
+  sand-deepest: "#F0E8D8"
+  mint-deep: "#ECF6F0"
+  mint-deepest: "#E0F0E8"
+  logo: "#FF5400"         # artwork only, never UI
 typography:
-  title:
-    fontFamily: Figtree
+  display:
+    fontFamily: TASA Orbiter
     fontWeight: 700
-    fontSize: 1.5rem
-    lineHeight: 2rem
-  section:
-    fontFamily: Figtree
-    fontWeight: 600
-    fontSize: 1.0625rem
-    lineHeight: 1.5rem
+    fontSize: 40px
+    lineHeight: 44px
+  heading:
+    fontFamily: TASA Orbiter
+    fontWeight: 700
+    fontSize: 34px
+    lineHeight: 44px
+  title:
+    fontFamily: TASA Orbiter
+    fontWeight: 700
+    fontSize: 30px
+    lineHeight: 36.65px
   body:
-    fontFamily: Figtree
+    fontFamily: TASA Orbiter
     fontWeight: 400
-    fontSize: 0.875rem
-    lineHeight: 1.25rem
-  secondary:
-    fontFamily: Figtree
+    fontSize: 15px
+    lineHeight: 23.25px
+  small:
+    fontFamily: TASA Orbiter
     fontWeight: 400
-    fontSize: 0.8125rem
-    lineHeight: 1.125rem
+    fontSize: 13px
+    lineHeight: 19.5px
   label:
-    fontFamily: Figtree
-    fontWeight: 600
-    fontSize: 0.75rem
-    lineHeight: 1rem
-    letterSpacing: 0
-  figure:
-    fontFamily: Figtree
-    fontWeight: 600
-    fontSize: 1.375rem
-    lineHeight: 1.75rem
-    fontFeature: tnum
+    fontFamily: TASA Orbiter
+    fontWeight: 700
+    fontSize: 11px
+    lineHeight: 16.5px
   mono:
-    fontFamily: JetBrains Mono
-    fontWeight: 500
-    fontSize: 0.8125rem
+    fontFamily: Geist Mono
+    fontWeight: 400
+    fontSize: 13px
 rounded:
-  control: 8px
-  box: 12px
-  full: 9999px
+  none: 0
+  round: 50%              # radio dot and the attendance clock button only
 spacing:
-  xs: 4px
-  sm: 8px
-  md: 12px
-  lg: 16px
-  xl: 24px
-  2xl: 32px
-  3xl: 48px
+  s1: 1px
+  s2: 4px
+  s3: 6px
+  s4: 8px
+  s5: 10px
+  s6: 12px
+  s7: 16px
+  s8: 18px
+  s9: 24px
+  s10: 28px
+  s11: 30px
+  s12: 32px
+  s13: 48px
+  s14: 71px
+  s15: 77px
+  s16: 96px
+  s17: 107px
+  s18: 144px
+motion:
+  press: "transform 0.14s cubic-bezier(0.16, 1, 0.3, 1)"
+  settle: "border-color 0.4s cubic-bezier(0.25, 0, 0, 1)"
+  fade: "opacity 0.15s"
+  tint: "color 0.15s, background 0.15s"
+  reveal: "clip-path 0.4s cubic-bezier(0.25, 0, 0, 1)"
+  banner: "0.7s cubic-bezier(0.65, 0, 0.35, 1) both sale-banner-in"
 components:
   button-primary:
-    backgroundColor: "{colors.primary-people}"
-    textColor: "{colors.on-primary}"
-    rounded: "{rounded.control}"
-    height: 36px
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.ground}"
+    hoverBackground: "{colors.ink}"
+    rounded: "{rounded.none}"
+    height: 32px
+    heightPhone: 48px
   button-secondary:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.text}"
-    borderColor: "{colors.field-border}"
-    rounded: "{rounded.control}"
-    height: 36px
+    backgroundColor: "{colors.ground}"
+    textColor: "{colors.ink}"
+    borderColor: "{colors.ink}"
+    rounded: "{rounded.none}"
+    height: 32px
+  button-ghost:
+    backgroundColor: transparent
+    hoverBackground: "{colors.slate-deepest}"
+    height: 32px
+  button-danger:
+    backgroundColor: "{colors.ground}"
+    textColor: "{colors.danger}"
+    borderColor: "{colors.danger}"
+    height: 32px
   input:
-    backgroundColor: "{colors.surface}"
-    borderColor: "{colors.input-border}"
-    rounded: "{rounded.control}"
-    height: 36px
+    backgroundColor: "{colors.ground}"
+    borderColor: "{colors.ink-2}"
+    focusBorder: "{colors.primary}"
+    rounded: "{rounded.none}"
+    height: 32px
+  table-head:
+    height: 32px
+    borderColor: "{colors.ink}"
   table-row:
-    height: 44px
-    borderColor: "{colors.hairline}"
-  table-header:
-    backgroundColor: "{colors.surface}"
-    borderColor: "{colors.rule}"
+    height: 48px
+    borderColor: "{colors.slate-deepest}"
   status-tag:
-    rounded: "{rounded.full}"
+    rounded: "{rounded.none}"
     height: 24px
   dialog:
-    backgroundColor: "{colors.surface}"
-    rounded: "{rounded.box}"
+    width: 440px
+    backgroundColor: "{colors.ground}"
+    borderColor: "{colors.ink}"
+    rounded: "{rounded.none}"
+  drawer:
+    width: 480px
+    borderColor: "{colors.ink}"
 ---
 
 # CLOR
 
-Preview: https://claude.ai/artifact/F7VgW5Qy25YSLJ3VU3BewC
+Live kit: https://claude.ai/artifact/4HBqVKjSN3X3irhatkpEKe (every component below, with its states, on one page).
 
-Written fresh on 19 Nov 2026. It replaces the 2,687-line file built from 67 picker rounds,
-whose rules contradicted each other; that file is kept as `DESIGN.legacy.md` for history only.
-Where `DESIGN.legacy.md`, `picks.css` or `legibility.css` disagree with this file, this file wins
-and the code is what moves. **Books is out of scope**: it keeps its own look (navy `#232A66`,
-orange `#FF6B00`, its split rail) as recorded in `DESIGN.legacy.md`, "Books (Accounting)".
+Adopted on 24 Nov 2026 by the owner: "forget all already available components and transitions, use best fit
+from this skill". The source is the Motion design-system skill (tokens extracted from motion.dev). It replaces the
+calm register of 19 Nov 2026 (still readable in git history before this commit) for **every surface: clor.in,
+Admin center, Ops, Console, People, Payroll, Attendance and Books**. `DESIGN.legacy.md`, `picks.css`,
+`legibility.css`, `rnd.css` and `website/src/styles/darwin.css` are now history; where they disagree with this
+file, this file wins and the code moves (see Migration).
+
+**Books:** included at the owner's request. Books belongs to another developer, so agree with them before a
+Books PR lands.
 
 ## Overview
 
-**Creative North Star:** the calm register. It should feel like a ledger the most careful clerk in
-the office has already checked: white paper, black ink, tidy columns, and nothing that shouts.
+**Product context:** Indian HR, payroll, attendance, accounting and company administration, sold mostly through CAs
+to growing and medium companies, alongside Keka, greytHR and Zoho. Dense data used all day at a desk; employees also
+use self-service on phones.
 
-**Product context:** Indian HR, payroll, attendance and company administration (Workspace, People,
-Payroll, Attendance, Ops), sold mostly through CAs to growing and medium companies, alongside
-Keka, greytHR and Zoho People. It is a dense data app that people use all day at a desk. Employees
-also open self-service on phones.
+**Character:** precise and developer-grade. White work areas, square edges, hairlines instead of shadows, one pale
+hue per app, and a violet that marks only the action that matters. Motion is quick and physical: buttons press,
+menus and drawers reveal with a clip-path wipe.
 
-**Memorable thing:** calm and accurate. Trust is the product.
-
-**Mode per surface:** Operate (every app screen); Persuade (clor.in, owner's own text). clor.in shares the logo orange and the app colours; since 24 Nov 2026 it has its own look (owner): pale blue grounds `#F2F9FF`, navy text `#002B54`, blue hairlines `#C4DCF7`, Switzer, pill buttons, 12px controls and 21px panels, all in `website/src/styles/darwin.css`. The apps are unchanged.
+**Memorable thing:** obviously accurate. Trust is the product.
 
 **Key characteristics:**
-- White ground everywhere. Colour appears only where it means something.
-- One title size, one row height, one control height across every app.
-- Money is the loudest thing on a money page: tabular, right aligned, with a bold total.
-- Totals are stated in a sentence, not in tiles.
-- Only exceptions carry a status tag.
+- Work areas are white. Each app's identity is a pale tint on its top bar and app header, never on lists or forms.
+- Square corners everywhere. No shadows. Floating layers have a 1px ink border.
+- Two weights only: 400 and 700.
+- Money is the loudest thing on a money page: tabular, right aligned, bold total over an ink rule.
+- Totals are a count line, not tiles. Only exceptions carry a status tag.
 
 ## Colors
 
-**Strategy:** restrained. Neutrals carry the page. Each app has one colour, and that colour has
-exactly four jobs: the primary button, links, the open menu item, and the focus ring. It is never
-a panel tint, a tile bar, a chart default or a heading colour.
+**Rule from the skill:** no colour outside the palette above. The logo orange `#FF5400` is artwork, not a UI colour.
 
-**Light or dark:** light only (owner, 15 Nov 2026). The use scene is office desks under bright light.
-There is no dark theme, and `test/palette.test.js` fails if one returns.
+**Surfaces: one hue family per app.** Each family has a deep tint (top bar, app header, the app's section bands
+on clor.in) and a deepest tint (that app's hairlines, pressed states, avatar ground).
 
-**Per app:** the shell sets `data-app` on `<html>`, and `rnd.css` maps `--act` to that app's
-primary token (graphite, magenta, deeper blue or amber). The Ops console sets `data-portal="ops"` and takes forest `#015D47` (owner left the pick to Claude, 21 Nov 2026), a blue-green that does not read as the status green. White text on each passes 4.5:1. Hover
-darkens by about 15%. The CLOR logo and the gate pages keep the logo orange whatever app was
-open last. The logo orange is `#FF5400` (owner, 21 Nov 2026), the same on clor.in. Orange fill
-is not a text colour (white on `#FF5400` is 3.2:1), so text uses `logo-text`.
+| App | Family | Deep | Deepest |
+|---|---|---|---|
+| People | pink | `#F8ECF0` | `#F0E0E8` |
+| Payroll | lilac | `#EFEDF3` | `#E6E3EC` |
+| Console, shared chrome | slate | `#EEEFF3` | `#E2E5EC` |
+| Books | rose | `#F3EDED` | `#ECE3E4` |
+| Admin center | stone | `#F0F0EE` | `#E8E8E6` |
+| Attendance, clor.in | sand | `#F6F0E4` | `#F0E8D8` |
+| Ops | mint | `#ECF6F0` | `#E0F0E8` |
 
-**Neutrals:** `hover` is feedback only, never a ground. The one exception is `rail`, the first sidebar's light grey `#F3F3F0` (owner, 19 Nov 2026), which tells the first menu from the second; every other ground stays white. `hairline` separates rows and regions.
-`field-border` edges secondary buttons and cards. `input-border` edges every text field, select and
-textarea: 3:1 on white, so a field is found without its label (WCAG 1.4.11; owner, 22 Nov 2026). `rule` sits under a table header and above a
-total. `text-subtle` is placeholder and disabled only, never information.
+Code: the shell sets `data-app` on `<html>`; one stylesheet maps `--app-deep` and `--app-deepest` from it.
 
-**Status:** done, waiting and problem are shared by every app. Each always carries a word and is
-never decoration. In Attendance, "waiting" amber sits next to the app's amber, so a waiting tag
-there always keeps its dot and word.
+**Accents and their only jobs** (contrast measured on white):
 
-**Light accents on Home pages (owner, 20–21 Nov 2026):** every app's Home or overview uses the
-same three light accents, so all apps look alike: a soft-tint icon tile on each card (mint, lilac,
-peach, butter or the info blue, by subject, never by app), a soft tag naming a task's subject, and a
-soft inset top edge in the warning or problem tint on a card that needs action. Each tint pairs with
-its own ink at 4.5:1 or more. They stay on Home and overview pages; lists, forms and documents keep
-the white ground.
+| Token | Value | Contrast | Jobs |
+|---|---|---|---|
+| primary | `#7C3AED` | 5.70:1 (4.5+ on every tint) | Primary button fill, selected tab underline, chosen chip, switch on, checked box, current step, the one series a chart is about |
+| link | `#2563EB` | 5.17:1 | Links and info notices. On white only (4.45–4.55 on tints) |
+| danger | `#DC2626` | 4.83:1 | Error text and borders, danger button, problem tag. Text on white only |
+| focus | `#6366F1` | 4.47:1 | 2px focus ring (needs 3:1). Never text |
+| red-soft, violet-soft | `#F87171`, `#A78BFA` | 2.7:1 | Chart fills, and links on the ink toast. Never text on a light ground |
 
-**Charts:** ink first, then series told apart by shape, dash and direct labels. The app colour
-marks only the series the page is about. Category colours appear only when the category is also
-written out (leave types in a legend).
+Primary is the same violet in every app; the hue family carries the app identity.
+
+**Status (shared by every app):** always a word, never colour alone.
+- Done: mint-deep ground, mint-deepest border, ink word.
+- Waiting: sand-deep ground, sand-deepest border, ink word.
+- Problem: white ground, danger border and word.
+
+**Open gap:** the skill as pasted shows 20 of 37 colours and has no ink, success or warning colour. `ink` and
+`ink-2` above are stand-ins. Replace them, and add success and warning inks if Motion has them, from the full
+palette before the token PR lands.
+
+**Light only.** No dark theme.
 
 ## Typography
 
-**Figtree** (variable, self-hosted through `@fontsource-variable/figtree`, OFL) for everything.
-**JetBrains Mono** (self-hosted, OFL) for identifiers only: GSTIN, PAN, IFSC, account, employee,
-invoice and voucher numbers, device IDs, API keys. Never for money and never for prose.
+**TASA Orbiter** for everything. **Geist Mono** for identifiers only: GSTIN, PAN, IFSC, UAN, account, employee,
+invoice and voucher numbers, HSN, device IDs, release tags, API keys. Never for money, never for prose.
 
-Six sizes, and any other size is a bug:
+Six sizes; any other size is a bug.
 
-| Role | Size | Use |
+| Token | Size / line | Use |
 |---|---|---|
-| title | 24/32, 700 | Page title, the same in every app |
-| section | 17/24, 600 | Section heading over a 2px ink rule |
-| body | 14/20, 400 | Prose, table cells, field values, menu items (500) |
-| secondary | 13/18, 400 | The email under a name, help under a heading |
-| label | 12/16, 600 | Column heads, field labels, tags, filter counts |
-| figure | 22/28, 600 | A key amount on an overview or a run total |
+| display (text-2xl) | 40 / 44, 700 | clor.in hero only |
+| heading (text-xl) | 34 / 44, 700 | clor.in section heads; app section heads on overview pages |
+| title (text-lg) | 30 / 36.65, 700 | Page title in every app; a key figure |
+| body (text-base) | 15 / 23.25, 400 | Prose, dialog titles (700), field values on phones |
+| small (text-sm) | 13 / 19.5, 400 | Table cells, buttons (700), fields, menus, count line |
+| label (text-xs) | 11 / 16.5, 700 | Field labels, column heads, tags, help and error text (400) |
 
-- Labels are sentence case. No uppercase, no tracking.
-- Money: tabular figures, right aligned, ₹ before the amount, two decimals, true minus. Zero in a
-  table is `—`, and a balance shows `₹0.00`. Indian grouping (₹1,12,000.00). Compact form (₹1.2L) only in
-  a count line.
+- Two weights per page: 400 and 700. No 500 or 600.
+- Labels are sentence case. No uppercase.
+- Money: tabular figures, right aligned, ₹ first, two decimals, true minus, Indian grouping (₹1,12,000.00). Zero
+  in a table is `—`; a balance shows `₹0.00`. Compact form (₹38.4L) only in a count line or a figure.
 - Dates in words: `9 Dec 2026`. Never ISO in the interface.
-- Weights per screen: 400, 600, and 700 for the title and totals.
+- Body and code are never centred.
 
 ## Layout
 
-- **Shell:** a full-width 56px top bar (logo, app name, search, account); below it a 216px white
-  menu with a hairline on its right, and the page. At or under 820px wide the menu becomes a sheet
-  and the page gutter drops to 16px.
-- **Page header:** title on the left, and under it the **count line** (one sentence of totals,
-  for example "142 people · 3 joining Monday · 2 need documents"). Clauses whose count is zero
-  are left out; a clause that needs action is a link. One primary button at top right, with
-  secondary buttons to its left.
-- **No figure tiles on list pages.** Overview pages may show at most four figures, each with real
-  data. A tile is never shown at zero, and tiles never carry coloured bars.
-- **Lists:** full width on the page ground under one rule. They have no card around them.
-  Filter chips with counts sit above the list. Pages hold 25, 50 or 100 rows.
-- **Forms:** two columns up to 720px, one on phones. Sections are a heading over a 2px ink rule,
-  never a box or a tinted band.
-- **Spacing:** 4px base. 12 inside a group, 16 between a header and its content, 24 between
-  groups and as the page gutter, 32 to 48 between major page regions.
-- **Phone (375):** tables with more than three columns turn each row into a two-line entry, name
-  on the left and the key amount or state on the right.
+- **Spacing:** 4px grid. Everyday gaps: 4, 8, 12, 16, 24, 32, 48, 96. Off-grid steps on the scale (1, 6, 10, 18,
+  28, 30) for hairlines and optical nudges only. No value off the scale.
+- **Shell:** 48px top bar on the app's deep tint: logo, app name, the app's places as tabs (People: Home · People ·
+  Time · Pay · Grow · Company), search (`/`), alerts, account. No side rail. Below 860px the places move to a 48px
+  bottom tab bar with safe-area padding.
+- **Page header:** title (30/36.65) on the left, the **count line** under it ("142 people · 3 joining Monday · 2 need
+  documents"; zero clauses dropped; action clauses are links), one primary button at top right, secondaries to its
+  left. Page gutter 24px desktop, 16px phone.
+- **Lists:** full width on white under one ink rule. No card around a list. Filter chips with counts above. Pages of
+  25, 50 or 100.
+- **Figures:** Home and overview pages only, at most four, never at zero, hairline box, no coloured bars.
+- **Forms:** two columns up to 720px, one on phones. Sections are a 15/23.25 700 heading over a 1px ink rule.
+- **Phone (375):** controls and rows 48px. Tables with more than three columns become two-line entries.
 
 ## Elevation & Depth
 
-The page is flat. Only floating layers cast a shadow: menus, popovers, dialogs and drawers, at
-`0 8px 24px rgba(28,27,24,.10), 0 1px 3px rgba(28,27,24,.08)`. A document (invoice, payslip)
-is the one object on the page that earns a hairline box with 12px corners.
-No glow, no glass, no tinted cards.
+None. The page is flat. Menus, popovers, dialogs and drawers float with a **1px ink border** and no shadow. The
+dialog scrim is ink at 32%. A document (payslip, invoice, offer) is the one in-page object that earns a box: 1px ink.
 
 ## Shapes
 
-Two radii. **8px** on anything clickable (buttons, fields, chips, menu items) and **12px** on
-anything that holds content (dialogs, drawers, documents, the empty-state block). Tags are the
-only pills. Nothing is nested inside a card.
+Square corners on everything, including buttons, fields, tags, chips, cards, dialogs and avatars. Two exceptions,
+both round by nature: the radio dot and the 160px attendance clock-in button.
+
+## Motion
+
+| Token | Value | Used for |
+|---|---|---|
+| press | `transform 0.14s cubic-bezier(0.16, 1, 0.3, 1)` | Button and card press (scale .97), tab underline grow, switch thumb, dialog rise (8px) |
+| settle | `border-color 0.4s cubic-bezier(0.25, 0, 0, 1)` | Field and button border on hover and focus |
+| fade | `opacity 0.15s` | Scrim, tooltip, dialog opacity |
+| tint | `color 0.15s, background 0.15s` | Hover fills, row hover, chip and link colour |
+| reveal | `clip-path 0.4s cubic-bezier(0.25, 0, 0, 1)` | Menu, listbox and popover open (wipe down), drawer (wipe from right), toast (wipe up) |
+| banner | `0.7s cubic-bezier(0.65, 0, 0.35, 1) both sale-banner-in` | clor.in announcement bar, once per visit (opens from the centre) |
+
+- Figures never animate. A total that counts up looks unsettled.
+- No ambient or looping animation; spinners and skeleton pulse are the only loops.
+- Everything stops under `prefers-reduced-motion`.
 
 ## Components
 
-- **Buttons:** 36px, or 32px for compact controls in toolbars and pagers, and 44px on phones.
-  - Primary: app colour fill, white word. There is one primary per screen.
-  - Secondary: white with a field border.
-  - Text button: no border, hover grey.
-  - Danger: white with red text, and it always asks first.
-  - Every button has a Lucide icon and a word, except a pure text button.
-  - Focus is a 3px ring of the app colour at 28%.
-  - Disabled is at 45% opacity and says why in a title or help line.
-- **Fields:** white with an input border (`#949494`), 36px, and the app colour on focus. The label (12/16, 600)
-  sits above the field and help or error text (12/16) below it. The error says what is wrong
-  and how to fix it ("A PAN has 10 characters. This one has 9."). Fields with 5 or more options
-  get a search box. Every free text field suggests matching existing values.
-- **Tables:**
-  - The header is white, with label-size column heads in muted ink and a 1px rule under it.
-  - Rows are at least 44px, with a hairline between rows and grey on hover.
-  - Numbers are right aligned, and a total row is bold over a rule.
-  - Row actions appear on hover; on touch screens they sit in a trailing menu.
-  - The selected row takes the hover grey plus a check, never the app colour.
-- **Status tags:**
-  - A tag is a soft pill 24px high, with a 6px dot and a word.
-  - It appears only when a row is an exception: waiting on someone, failed, missing, overdue. A
-    row in the expected state shows no tag.
-  - Exceptions sort first.
-  - Filters and exports always offer every status.
-- **Filter chips:** 32px. A chip holds a word and a count. The chosen chip takes the app colour
-  for its border and word.
-- **Tabs:** an underline in the app colour under the open tab, 14/20 at 600.
-- **Menu:**
-  - Items have a Fluent Emoji icon (flat, 16px) and a word, 36px high.
-  - The open item shows its word in the app colour at 600 on hover grey.
-  - Group names are label size, sentence case.
-- **Dialogs:**
-  - A dialog is 420px wide, with a 17/24 title that asks the question with its object
-    ("Approve leave for Rohan Deshpande?").
-  - Under the title, one line says what will change.
-  - The buttons sit on the right, with the action last, and the action is named by its verb
-    ("Approve leave", never "OK").
-- **Toasts:** white with a dark word and a green tick. They say what happened ("Leave approved").
-- **Empty states:** one line saying what will appear here and one button to add the first item.
-  No illustration on a list. The block is 12px rounded with a hairline.
-- **Loading:** skeleton rows the height of real rows. Never "Nothing selected" while data loads.
-- **Approvals:** tick and cross buttons in People, Payroll, Attendance and Workspace (owner's
-  style). Books keeps a secondary Approve and a text Reject.
+Every component defines default, hover, focus-visible, active, disabled, loading and error, and handles empty,
+overflow, truncation and maximum content (₹99,99,99,999.00; a 60-character name).
+
+### Shell and navigation
+- **App bar and places:** as Layout. Open place 700 ink with a 2px primary underline; `nav aria-label="Places"`,
+  `aria-current="page"`.
+- **Tabs:** text-sm; open tab 700 ink with a 2px primary underline that scales in (press). Arrow keys, Home, End,
+  roving tabindex; `tablist / tab / tabpanel`. Overflow scrolls sideways inside the strip.
+- **Command palette:** ⌘K; dialog with a 48px search and a listbox; recent items first; `combobox` + `listbox`.
+- **Back link and breadcrumb:** back link one level up from a record; breadcrumb only in settings trees deeper
+  than two levels.
+
+### Actions
+- **Button:** 32px (48 on phones), padding 16, text-sm 700, a Lucide 16px icon plus a word (icon-only buttons are
+  32×32 with `aria-label`). Primary violet, hover ink. Secondary white with 1px ink border, hover slate-deep.
+  Ghost borderless, hover slate-deepest. Danger red border and word, hover fills red, always confirms first.
+  Press scales to .97. Disabled 45% opacity with the reason in `title` or help. Loading: square spinner replaces
+  the icon, width held, `aria-busy`. One primary per screen. Buttons name verb and object ("Approve leave").
+- **Approve / reject:** tick and cross 32×32 buttons (every app, Books included). Tick hover fills primary; cross
+  hover turns danger. Approve acts at once with an Undo toast; reject opens a reason drawer.
+- **Menu:** ink border, reveal; items 32px text-sm; danger item last after a hairline. Arrow keys, Enter, Esc
+  returns focus, type-ahead; `menu / menuitem`, trigger `aria-haspopup aria-expanded`.
+- **Link:** link blue, underline offset 3px. Links go somewhere; buttons do something.
+
+### Inputs
+- **Text field:** 32px, 1px ink-2 border, hover ink, focus primary border plus focus ring; label text-xs 700 above;
+  help or error text-xs below. Error: danger border and a message that says what is wrong and how to fix it ("A PAN
+  has 10 characters. This one has 8."). Disabled: stone-deep ground, hairline border. Every free-text field suggests
+  matching existing values. `aria-invalid`, `aria-describedby`.
+- **Money:** ₹ prefix block on stone-deep, right aligned tabular, Indian grouping on blur.
+- **Identifier:** Geist Mono, uppercase as typed, length counter (GSTIN 15, PAN 10, IFSC 11, UAN 12).
+- **Phone:** +91 prefix block, `inputmode="tel"`. **Password:** show/hide ghost button, caps-lock warning.
+- **Textarea:** 80px minimum, grows; count shown near the limit.
+- **Select:** five or more options get a search box; opens with reveal; empty search offers "Add …" when allowed.
+  `combobox` + `listbox`.
+- **Checkbox and radio:** 16px; checked fills primary; mixed state on select-all.
+- **Switch:** 32×18 square track, thumb slides (press); only where the change takes effect at once. In a form with
+  Save, use a checkbox. `role="switch" aria-checked`.
+- **Date, range, week:** typed or picked, shown in words; range presets first (This month, Last month, This
+  quarter, This financial year); holidays marked in the calendar.
+- **File drop:** dashed ink-2 border; hover primary border on lilac-deep; lists file, size, remove.
+- **One-time code:** six 40×48 Geist Mono cells, paste fills all, auto-advance, `autocomplete="one-time-code"`.
+
+### Data display
+- **Table:** head 32px text-xs 700 ink-2 over a 1px ink rule; rows 48px with an app-deepest hairline; hover
+  slate-deep (tint); money right aligned; total row 700 over an ink rule. Checkbox column for selection; rows open
+  on Enter; sortable heads are buttons with `aria-sort`. Row actions on hover, a trailing ⋯ menu on touch.
+- **Status tag:** 24px, square, 6px square dot, text-xs 700. Only on exception rows (waiting, failed, missing,
+  overdue); exceptions sort first. Lists of people keep "Active". Filters and exports offer every status.
+- **Filter chips:** 32px, word plus a mono count; chosen chip has primary border and word; `aria-pressed`.
+- **Column filter:** popover under a head: values with counts, date range, amount range.
+- **Bulk bar:** ink bar at the list top when rows are picked: "4 picked · Approve 4 · Export · Clear".
+- **Pagination:** "1–25 of 142" plus Previous (ghost) and Next (secondary).
+- **Figure:** label text-xs over a 30/36.65 700 tabular value, hairline box.
+- **Meter:** 8px bar on slate-deepest, primary fill, danger past the limit, with the amount in words.
+- **Avatar:** 32px (48 on a profile header), square, initials on a deepest tint hashed from the person's ID.
+- **Timeline:** 8px square ink dots on a hairline; who, what and when in words.
+- **Chart:** bars and lines only. Ink axis, slate-deepest grid, text-xs ink-2 labels. The page's series is
+  primary; others violet-soft or red-soft with direct labels. A data-table toggle under every chart. No pies, 3D
+  or gradients.
+
+### Overlays
+- **Dialog:** 440px, ink border, 24px padding; title asks the question with its object ("Approve leave for Rohan
+  Deshpande?"); one line says what changes; buttons right, action last, named by its verb. Rises 8px (press) and
+  fades. Focus trapped, Esc closes, focus returns. `role="dialog" aria-modal="true"`.
+- **Drawer:** 480px (full width on phones), left ink border, wipes in from the right (reveal); sticky footer
+  actions; closing with changes asks to discard.
+- **Popover:** like the menu. **Tooltip:** ink ground, white text-xs, on hover and focus; never the only copy of
+  anything. **Toast:** ink bar bottom centre, wipes up (reveal), says what happened ("Leave approved"), Undo for 6s,
+  `role="status"`.
+
+### Feedback
+- **Notice:** 2px left rule plus a tint: info (link blue on slate-deep), warning (ink on sand-deep), problem (danger
+  on rose-deep, `role="alert"`). Merge several into one list rather than stacking.
+- **Empty state:** dashed hairline block, one line saying what appears here, one button to add the first. Filtered
+  empty: "No one matches 'Fin'. Clear filters." Illustrations only on Home and first-run pages.
+- **Loading:** skeleton rows at 48px with a 1.4s pulse. Never an empty message while data loads.
+- **Error:** problem notice with Retry; keep the last good data on screen.
+- **Error summary:** on submit, a problem notice listing each error as a link to its field; focus moves to it.
+- **Progress:** meter plus "Imported 120 of 400 rows" and Cancel, for imports and pay runs.
+
+### Documents and flows
+- **Document sheet:** payslip, invoice, offer letter, settlement. 1px ink box, header over an ink rule, mono
+  identifiers, tabular money, bold total. Prints black on white, A4, 16mm margins, "page x of y" footer.
+- **Stepper:** steps as 2px rules across the top: done ink, current primary and 700, later hairline. A done step
+  links back. `ol` with `aria-current="step"`.
+
+## Components per app
+
+The full list with specimens is on the live kit page. In short:
+
+- **clor.in:** announcement bar, site nav with products mega panel, hero, product window, logo strip, feature row,
+  steps, plan card (recommended plan gets a 2px primary top rule), monthly/yearly toggle, comparison table, quote,
+  FAQ accordion (reveal), demo form, closing band, footer.
+- **Admin center:** at-a-glance card, top actions list, setup checklist, app tile, seat meter row, member row,
+  invite form, permission matrix, location access table, plan change summary, invoice list and sheet, audit trail,
+  security switches, device row, support access grant.
+- **Ops:** customer header, switch board (reason required), reason drawer, approval queue (two-person rule), ticket
+  thread with internal notes on sand-deep, saved reply picker, health row, pricing editor, trial row, deal board,
+  alert feed, staff roles.
+- **Console:** code sign-in, authenticator enrol, guard re-ask before risky actions, release row (promote / roll
+  back with reason), pull row, confirm-with-reason dialog, member row, audit table. Console is a separate bundle: it
+  takes the same tokens file, not the app components.
+- **People:** Home act-in-place card with Undo, directory row, profile header, field group with edit drawer, add
+  employee wizard, import wizard, org chart node, approvals inbox, audience picker, goal row, review form, candidate
+  board, interview slot picker, offer sheet, helpdesk thread, policy reader.
+- **Payroll:** pay run stepper, run guards, run total, pay calendar strip, salary structure editor (formula in mono,
+  live sample), component row, payslip, statutory dues table, tax declaration form, settlement sheet, bank change
+  approval, loan schedule, ledger mapping.
+- **Attendance:** clock-in button (160px round), day register, month grid (letters P/A/L/W/H, not colour alone),
+  roster grid, week bars, punch evidence, geofence editor, device health row, unmatched punch matcher, month close,
+  leave balance, phone tab bar.
+- **Books:** voucher form with line-item grid, document number field, party picker, tax split row, knock-off table,
+  outstanding bills dialog, bank reconciliation pair, ledger statement, invoice print, e-way bill form, report grid,
+  import center.
 
 ## Reference products (People)
 
-When designing a People page, study these products first (owner's research, 24 Nov 2026). Take
-**structure, flow and features** from them: what is on the page, in what order, and how a task is
-finished. Never take their colours, fonts, tinted grounds, card styles or navigation; every rule
-above still applies, and where a reference disagrees with this file, this file wins.
+Take **structure, flow and features** only; never colours, fonts, grounds or card styles. Where a reference
+disagrees with this file, this file wins.
 
 | People area | Study first |
 |---|---|
@@ -298,63 +416,68 @@ above still applies, and where a reference disagrees with this file, this file w
 | Tables, filters, forms | Linear, Rippling |
 | Settings, permissions, audit | Rippling, Zoho People |
 
-Overall weight: HiBob 35%, Rippling 25%, Keka 20%, Factorial 10%, Linear 10%.
+## Accessibility
 
-How the research's wishes map onto this file:
-
-- **Meaningful KPIs:** on Home and overview pages only, at most four figures, each with real data.
-  List pages keep the count line.
-- **Clear status indicators:** the soft tag with a dot and a word, on exception rows only (people
-  lists keep Active).
-- **Purposeful illustrations:** Home and first-run pages only. A list's empty state stays one line
-  and one button.
-- **No decorative cards:** a card must help finish a task, or it goes.
-- **Not adopted:** the split sidebar and the soft-mist ground. Navigation and the white ground
-  follow this file and the owner's 15 Nov and 23 Nov decisions.
+- Text 4.5:1; controls, borders that identify a control, and focus 3:1 (WCAG 2.2 AA).
+- Focus always visible: 2px focus-colour outline, 2px offset.
+- Every control works by keyboard alone; every icon-only button has a label.
+- Touch targets 48px on phones.
+- State is never colour alone: tags carry words, calendar cells carry letters.
 
 ## Do's and Don'ts
 
-- Do: give every screen one title of 24px and one primary action at top right.
-- Do: write totals as a count line and drop the clauses that are zero.
-- Do: right-align every amount, in tabular figures with ₹ in front.
+- Do: one 30px title and one primary action per screen.
+- Do: write totals as a count line and drop the zero clauses.
+- Do: right-align every amount in tabular figures with ₹ in front.
 - Do: show a status tag only when something needs attention.
-- Do: name each page in its title exactly as the menu names it.
+- Do: name each page exactly as the menu names it.
+- Don't: use a colour outside the palette, or a size, gap or timing off the scale.
+- Don't: round a corner or cast a shadow.
+- Don't: use a third font weight.
+- Don't: tint a list, form or document ground; tints belong to the top bar, app header and Home cards.
 - Don't: put figure tiles above a list, or show a tile at 0.
-- Don't: use the app colour for anything but the primary button, links, the open menu item and focus.
-- Don't: tint a ground, a panel, a band or a header row. Grey is hover only.
 - Don't: put a card inside a card, or a box around a list.
+- Don't: ship a component without hover, focus-visible and disabled states.
 - Don't: greet by time of day, use uppercase labels, or show raw codes (APP_NOT_SUBSCRIBED) or ISO dates.
 
-## Motion
+## Definition of Done (per component)
 
-- **Approach:** minimal-functional.
-- **Easing:** ease-out for enter, exit and hover; ease-in-out for a drawer moving.
-- **Duration:** hover and focus 120ms; menus 150ms; dialogs and drawers 180ms.
-- **Numbers never animate.** A count that rolls up suggests the figure is not settled.
-- All motion stops under `prefers-reduced-motion`.
+- Default state renders in a smoke test.
+- Hover, focus-visible, active, disabled, loading and error each checked in the browser.
+- No raw values: every colour, size, gap and timing is a token from this file.
+- Works by keyboard alone.
+- No critical axe violations.
+- Checked at 375px and 1440px.
+- Empty, overflow and maximum content shown.
+- Purpose, when to use and when not to use written down, with at least one anti-pattern.
 
 ## Migration
 
-The code still follows the old picks. Move it in this order, one PR each, and check each step in the browser:
+The code still follows the calm register. Move it in this order, one PR each, checked in the browser, updating the
+tests that pin the old values (`test/design-rules.test.js`, `test/ui-rules.test.js`,
+`test/quiet-emphasis.test.js`, `test/people-colours.test.js`, `test/palette.test.js`) in the same PR:
 
-1. Tokens: `rnd.css` per-app `--act`, neutrals and status. Delete the conflicting rules from
-   `picks.css` (3px buttons, grey fields, glassy cards, solid tags, the 16px title) and fold
-   `legibility.css` into the six-size scale.
-2. Table: one 44px row, white header with a rule, and the `--list-head` band removed outside Books.
-3. Page header: the 24px title, the count line, and figure tiles removed from list pages (People
-   first: Leavers, Assets, Learning, Announcements, Events, Helpdesk).
-4. Status: exceptions-only tags, list by list (Payroll salary assignments first).
-5. Phone: two-line rows for wide tables.
+0. Close the palette gap: real ink, success and warning colours from Motion's full palette.
+1. Tokens: one tokens file (colours, hue families by `data-app`, type, spacing, motion) used by the apps, Console
+   and clor.in; self-host TASA Orbiter and Geist Mono; delete `picks.css`, `legibility.css` and the old per-app
+   colours in `rnd.css`.
+2. Shape and depth: radius 0 and no shadows everywhere; floating layers get the ink border.
+3. Controls: buttons, fields, chips, switches and tabs at 32px with the new states and motion.
+4. Table and page header: 48px rows, 32px head over an ink rule, 30px title and count line.
+5. Overlays and feedback: dialog, drawer, menu, toast and notices with reveal and press motion.
+6. Per app, in order: Admin center, People, Payroll, Attendance, Ops, Console, clor.in, then Books (after agreeing
+   with its developer).
+7. Phone: 48px controls and rows, bottom tab bar, two-line table rows.
 
 ## Decisions Log
 
 | Date | Decision | Rationale |
 |---|---|---|
-| 19 Nov 2026 | Fresh design system: "the calm register" | The old file had 67 picker rounds that contradicted each other, and a 238-page audit found mismatched titles, zero tiles and repeated tags. Written by /design-consultation from design knowledge, with one outside Claude voice. |
-| 19 Nov 2026 | Kept: per-app colours, white ground, light only, Figtree and JetBrains Mono, Fluent Emoji navigation | Owner's fixed constraints |
-| 19 Nov 2026 | Count line replaces figure tiles; status tags only on exceptions | The outside voice's departures, chosen by Claude at the owner's request ("select what is best") |
-| 19 Nov 2026 | Kept the soft tag with a dot (owner, 19 Nov); no app-colour margin rule | A tag reads better than a bare dot now that tags are rare, and a margin rule would be a fifth job for the app colour |
-| 19 Nov 2026 | Books excluded | Books belongs to another developer |
-| 21 Nov 2026 | Logo orange `#FF5400` everywhere, clor.in on Figtree with the apps' colours, Ops forest `#015D47`, the grey rail recorded as the one ground exception, the same light accents on every Home | Owner's answers to the 21 Nov interaction audit |
-| 24 Nov 2026 | clor.in only: pale blue grounds, navy text, Switzer, pill buttons and rounder panels, orange kept as the accent | Owner supplied a reference design system and chose "that look, CLOR orange accent" |
-| 24 Nov 2026 | People reference products recorded (HiBob, Rippling, Keka, Factorial, Linear and others, per page); structure and features only. Split sidebar and soft-mist ground not adopted | Owner's research, with the choice left to Claude ("keep what is better for best user experience"): a white ground reads best for dense data, and one top-bar menu is simpler than two side menus |
+| 19 Nov 2026 | The calm register (Figtree, per-app colours, 8/12px radii) | Replaced a 67-round file that contradicted itself |
+| 24 Nov 2026 | People reference products recorded; structure and features only | Owner's research |
+| 24 Nov 2026 | **The Motion kit replaces the calm register on every surface, Books and clor.in included** | Owner supplied the Motion design-system skill and said to forget the existing components and transitions and use the best fit from the skill |
+| 24 Nov 2026 | One violet primary in every app; app identity moves to a pale hue family | The skill has only three accents that pass AA as text; seven surface families map cleanly onto the apps |
+| 24 Nov 2026 | Square corners, no shadows, 1px ink border on floating layers | The skill detected no radius and no elevation |
+| 24 Nov 2026 | Logo orange kept as artwork only | The brand mark stays; it is not a UI colour |
+| 24 Nov 2026 | Ink, success and warning are stand-ins until Motion's full palette is pulled | The pasted skill showed 20 of 37 colours |
+| 24 Nov 2026 | Kept from earlier: count line, exceptions-only tags, one primary per screen, tick/cross approvals, white work areas, light only, six People places | Product rules, not visual style; nothing in the skill contradicts them |

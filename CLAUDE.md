@@ -12,59 +12,37 @@ API 4002); CI runs on GitHub's own machines since 14 Nov 2026 (the repository is
 
 ## Design System
 
-Always read `DESIGN.md` before making any visual or UI decision. Fonts, colors,
-spacing, radii, the type scale and the components are defined there. Ask the user
-before departing from it.
+Always read `DESIGN.md` before making any visual or UI decision. Fonts, colours,
+spacing, corners, motion and every component are defined there; the live kit page
+is linked at its top. Ask the user before departing from it.
 
-**The calm register (owner, 19 Nov 2026; fresh design system).** `DESIGN.md` was
-rewritten from scratch in the open format; the old 67-round file is
-`DESIGN.legacy.md`, kept for history and for Books' own section only. Outside Books it
-beats `picks.css`, `legibility.css` and anything in the legacy file; the code moves
-to it through the five migration PRs listed at the end of `DESIGN.md`. In short:
-six type sizes (title 24/32 700 in every app); one 44px table row with a white
-header; 36px controls; the app colour has four jobs only (primary button, links,
-the open menu item, focus); totals go in a **count line** under the title, never in
-figure tiles on a list page; status tags only on exception rows.
+**The Motion kit (owner, 24 Nov 2026).** The owner supplied the Motion
+design-system skill and said to forget the existing components and transitions.
+`DESIGN.md` was rewritten to it for **every surface: clor.in, Admin center, Ops,
+Console, People, Payroll, Attendance and Books** (agree Books PRs with its
+developer). It replaces the calm register (19 Nov), the per-app colours (15 Nov),
+Figtree, clor.in's pale-blue look and `DESIGN.legacy.md`. The code still follows the
+old system and moves through the migration PRs listed at the end of `DESIGN.md`. In
+short:
 
-**Brand (owner, 15 Nov 2026): the frontend redesign** (`frontend-redesign-2026-11-15.md`,
-Books included), with the owner's later choices of the same day: **each app has its own
-colours** (Workspace graphite `#202329`, People magenta `#A21CAF`, Payroll deeper blue
-`#006A9E`, Attendance amber `#A85A00`, Books navy `#232A66` with orange `#FF6B00` as its
-second colour, no red), set per `data-app` in `packages/ui/src/rnd.css` (Books in
-`index.css` under `[data-palette='indigo']`). The CLOR logo and gate pages stay Blaze
-orange. **Figtree** for everything (JetBrains Mono for identifiers only). Icons: Fluent
-Emoji (flat) for navigation (`@ui/components/ui/navEmoji`, local SVGs built by
-`scripts/build-emoji-icons.mjs`); Lucide line icons for small controls, buttons and app
-identity marks. See DESIGN.md.
-
-**White and light only (owner, 15 Nov 2026):** every ground is pure white `#FFFFFF`,
-in every app and in Books: no grey, cream or tinted page, panel, rail or header
-band. Grey `#F7F7F7` is hover feedback only; hairlines `#E5E5E5`. There is no dark
-theme. Gate pages (two-factor setup, no access, company setup, suspended, ended
-link) all use `packages/shell/GatePage.jsx`.
-
-Hard rules that come up most often:
-
-- **Tokens only, in app chrome.** No `bg-gray-*`, `text-gray-*`, `border-gray-*`
-  or any raw palette class. Every color comes from a CSS variable in
-  `packages/ui/src/index.css` / `rnd.css`, or the palette drifts screen by screen.
-  **Exception: printed documents.** `InvoicePreview.jsx`, `ExpenseVoucher.jsx`
-  and the invoice template renderer are black on white on purpose — a printed
-  invoice does not follow the app theme. Leave their raw classes alone.
-- **Two radii.** 8px on anything clickable, 12px on anything holding content.
-  `rounded-full` for pills only.
-- **Money is tabular.** Every displayed amount is in tabular figures
-  (`tabular-nums`, the money/mono utility classes), right-aligned, in Figtree.
-  Identifiers (GSTIN, PAN, invoice numbers) set in JetBrains Mono via `.ui-mono`;
-  never money.
-- **No card-in-card.** A list sits on the page ground under one hairline. A
-  document is a discrete object and earns a surface.
-- **One primary action per screen**, top right. In Books, row actions such as
-  Approve are secondary buttons and Reject is a text button; everywhere else
-  approvals are tick and cross buttons (owner's style pick, DESIGN.md).
-- **Colour has one job.** The app's primary only for the primary button, links and
-  "you are here" and focus; status colours only for
-  state, always with a label.
+- **Palette only.** No colour outside the Motion palette in `DESIGN.md`. One violet
+  primary `#7C3AED` in every app; each app's identity is a pale hue family on its top
+  bar and app header (People pink, Payroll lilac, Attendance and clor.in sand, Ops
+  mint, Admin stone, Console slate, Books rose). Work areas stay white. The logo
+  orange is artwork only. Ink, success and warning are stand-ins until the full
+  palette is pulled.
+- **TASA Orbiter** for everything, **Geist Mono** for identifiers only; six sizes
+  (11/13/15/30/34/40), two weights (400, 700).
+- **Square corners, no shadows.** Floating layers get a 1px ink border.
+- **4px grid**, 32px controls (48 on phones), 48px table rows.
+- **Motion:** press 0.14s snap, reveal 0.4s clip-path, fades 0.15s; figures never
+  animate; reduced motion stops everything.
+- **Money is tabular,** right aligned, ₹ first; never mono.
+- Kept product rules: count line instead of tiles on lists, status tags only on
+  exception rows, one primary action per screen, tick and cross approvals, no
+  card-in-card, light only.
+- **Printed documents** (`InvoicePreview.jsx`, `ExpenseVoucher.jsx`, the invoice
+  template renderer) stay black on white.
 
 In QA or review, flag any code that does not match `DESIGN.md`.
 
