@@ -47,16 +47,24 @@ describe('Motion kit layer', () => {
     }
   });
 
-  it('carries the kit: violet primary, square, flat, TASA Orbiter and Geist Mono', () => {
+  it('carries the kit: ink primary, selection violet, three radii, flat page, TASA Orbiter and Geist Mono', () => {
     expect(css).toMatch(/--act: 124 58 237;/);
-    expect(css).toMatch(/--radius: 0;/);
+    expect(css).toMatch(/--btn: 24 24 27;/);
+    expect(css).toMatch(/--radius: 0\.5rem;/);
+    expect(css).toMatch(/--radius-lg: 0\.75rem;/);
     expect(css).toMatch(/--shadow-card: none;/);
     expect(css).toMatch(/@import '@fontsource-variable\/tasa-orbiter';/);
     expect(css).toMatch(/@import '@fontsource-variable\/geist-mono';/);
     expect(css).toMatch(/--app-deep: 248 236 240;/);
   });
 
-  it('keeps radio dots round', () => {
-    expect(css).toMatch(/:not\(input\[type='radio'\]\)/);
+  it('never fills a button with violet or outlines one in ink (ink primary, 25 Nov 2026)', () => {
+    const rule = (sel) => css.slice(css.indexOf(sel)).match(/\{[^}]*\}/)[0];
+    expect(rule(":is(.ui-btn-primary, .ui-btn-brand) {")).toMatch(/background-color: rgb\(var\(--btn\)\)/);
+    expect(rule('.ui-btn-secondary {')).toMatch(/border: 1px solid rgb\(var\(--edge\)\)/);
+  });
+
+  it('keeps documents square', () => {
+    expect(css).toMatch(/\.ui-print-area \* \{ border-radius: 0 !important; \}/);
   });
 });

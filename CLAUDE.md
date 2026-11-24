@@ -25,16 +25,23 @@ Figtree, clor.in's pale-blue look and `DESIGN.legacy.md`. The code still follows
 old system and moves through the migration PRs listed at the end of `DESIGN.md`. In
 short:
 
-- **Palette only.** No colour outside the Motion palette in `DESIGN.md`. One violet
-  primary `#7C3AED` in every app; each app's identity is a pale hue family on its top
+- **Ink primary (owner, 25 Nov 2026).** The primary button is ink `#18181B`; violet
+  `#7C3AED` marks only what is chosen (tab, chip, switch, current place) and never
+  fills a button. Secondary buttons, fields and floating layers have light edges,
+  never a dark outline.
+- **Palette only.** No colour outside the palette in `DESIGN.md`. The same ink
+  button and selection violet in every app; each app's identity is a pale hue family on its top
   bar and app header (People pink, Payroll lilac, Attendance and clor.in sand, Ops
   mint, Admin stone, Console slate, Books rose). Work areas stay white. The logo
   orange is artwork only. Ink, success and warning are stand-ins until the full
   palette is pulled.
 - **TASA Orbiter** for everything, **Geist Mono** for identifiers only; six sizes
-  (11/13/15/30/34/40), two weights (400, 700).
-- **Square corners, no shadows.** Floating layers get a 1px ink border.
-- **4px grid**, 32px controls (48 on phones), 48px table rows.
+  (11/13/15/30/34/40), two text weights (400, 700), 600 on control labels only.
+- **Three radii:** 8px controls and cards, 12px dialogs and menus, full for tags,
+  chips and avatars. Documents stay square. The page is flat; only floating
+  layers (soft shadow over a hairline) and buttons (1px) cast a shadow.
+- **4px grid**, 36px buttons and fields (48 on phones), 48px table rows under a
+  banded head.
 - **Motion:** press 0.14s snap, reveal 0.4s clip-path, fades 0.15s; figures never
   animate; reduced motion stops everything.
 - **Money is tabular,** right aligned, ₹ first; never mono.
