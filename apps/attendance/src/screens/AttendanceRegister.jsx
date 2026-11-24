@@ -11,6 +11,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import { errorWords, monthText } from '@ui/utils/errorWords';
 import { countItems } from '../components/countItems';
 import { SelectField } from '@ui/components/ui/SelectField';
+import { getLastSelection, setLastSelection } from '@ui/utils/lastSelection';
 
 /**
  * The muster roll as a screen: one row per person, one mark per day, read
@@ -32,13 +33,20 @@ const COLUMNS = { name: (r) => `${r.name} ${r.code || ''}`.trim() };
 
 export default function AttendanceRegister() {
   const [month, setMonth] = useState(todayIst().slice(0, 7));
-  const [departmentId, setDepartmentId] = useState('');
+  /* A supervisor opens this for the same department every morning: the last one picked comes back, on this browser. */
+  const [departmentId, setDepartmentId] = useState(() => getLastSelection('department', 'attendanceRegister'));
+  const pickDepartment = (id) => { setDepartmentId(id); setLastSelection('department', 'attendanceRegister', id); };
   const [departments, setDepartments] = useState([]);
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    listReports().then((d) => setDepartments(d?.departments || [])).catch(() => {});
+    listReports().then((d) => {
+      const list = d?.departments || [];
+      setDepartments(list);
+      /* A remembered department that has since been removed must not leave the register empty. */
+      setDepartmentId((id) => (id && !list.some((x) => x.id === id) ? '' : id));
+    }).catch(() => {});
   }, []);
   /* No synchronous resets in the effect: the old month stays on screen until the new one arrives. */
   const load = useCallback(() => runReport('muster', { month, ...(departmentId ? { departmentId } : {}) }).then((r) => { setReport(r); setError(null); }).catch((e) => setError(errorWords(e, 'load the register'))), [month, departmentId]);
@@ -68,7 +76,7 @@ export default function AttendanceRegister() {
       headerExtras={
         <>
           <input type="month" className="ui-input ui-ctl-compact !w-auto" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
-          <SelectField className="ui-select ui-ctl-compact !w-auto" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} aria-label="Department">
+          <SelectField className="ui-select ui-ctl-compact !w-auto" value={departmentId} onChange={(e) => pickDepartment(e.target.value)} aria-label="Department">
             <option value="">All departments</option>
             {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </SelectField>

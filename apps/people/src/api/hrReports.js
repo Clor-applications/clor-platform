@@ -15,3 +15,11 @@ export const listHrReports = () => apiFetch(base(), opts);
 export const runHrReport = (id, q) => apiFetch(`${base()}/${encodeURIComponent(id)}${query(q)}`, opts);
 /** The rows on screen as CSV text. */
 export const hrReportCsv = (id, q) => apiFetch(`${base()}/${encodeURIComponent(id)}/export.csv${query(q)}`, { ...opts, asText: true });
+
+/* Saved views on a report (server: services/people/savedViews.ts): a name for the dates, grouping and filters on screen. */
+const viewsBase = () => `/orgs/${encodeURIComponent(orgId())}/people/saved-views`;
+const send = (path, method, body) => apiFetch(`${viewsBase()}${path}`, { ...opts, method, body });
+/** [{ id, name, filters, shared, mine }] */
+export const listReportViews = (report) => apiFetch(`${viewsBase()}?screen=${encodeURIComponent(`report:${report}`)}`, opts).then((r) => r?.views || []);
+export const saveReportView = (body) => send('', 'POST', body).then((r) => r?.view);
+export const deleteReportView = (id) => send(`/${encodeURIComponent(id)}`, 'DELETE');

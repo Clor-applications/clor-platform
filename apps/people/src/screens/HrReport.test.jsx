@@ -10,7 +10,7 @@ import ReportChart from '../components/ReportChart';
  * figures to the right, "fewer than 5" where the server hid a small number, and Export as the one action, sending
  * the filters on screen.
  */
-const api = vi.hoisted(() => ({ listHrReports: vi.fn(), runHrReport: vi.fn(), hrReportCsv: vi.fn() }));
+const api = vi.hoisted(() => ({ listHrReports: vi.fn(), runHrReport: vi.fn(), hrReportCsv: vi.fn(), listReportViews: vi.fn(), saveReportView: vi.fn(), deleteReportView: vi.fn() }));
 vi.mock('../api/hrReports', () => api);
 
 const CATALOGUE = {
@@ -41,6 +41,7 @@ beforeEach(() => {
   api.listHrReports.mockResolvedValue(CATALOGUE);
   api.runHrReport.mockImplementation((id) => Promise.resolve(id === 'gender' ? GENDER : HEADCOUNT));
   api.hrReportCsv.mockResolvedValue('Month,Sales\r\nJan 2025,4');
+  api.listReportViews.mockResolvedValue([]);
   URL.createObjectURL = vi.fn(() => 'blob:x');
   URL.revokeObjectURL = vi.fn();
 });
@@ -155,4 +156,28 @@ it('round 63: a person report shows 20 rows with the count, hides people with no
   const text = await blob.text();
   expect(text).toMatch(/^\uFEFF?Kave Foods\r\nProbation due\r\nPeriod: 1 Oct 2026 to 31 Oct 2026\r\nFilters: Department: Sales\r\nMade on .+ by Priya\r\n\r\nEmployee,Days left/);
   expect(screen.getByRole('button', { name: /Print/ }).className).toMatch(/ui-btn-secondary/);
+});
+
+it('saved views: one click sets the dates and filters a view keeps, and changing a filter leaves the view', async () => {
+  api.listReportViews.mockResolvedValue([{ id: 'v1', name: 'Sales by branch', filters: { departmentId: 'd1', by: 'branch' }, shared: false, mine: true }]);
+  const updateParams = vi.fn();
+  const { rerender } = render(<HrReport params={{ report: 'headcount' }} updateParams={updateParams} />);
+  await screen.findByRole('table', { name: 'Headcount over time' });
+  expect(api.listReportViews).toHaveBeenCalledWith('headcount');
+  fireEvent.click(screen.getByRole('button', { name: 'Saved views' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: /Sales by branch/ }));
+  expect(updateParams).toHaveBeenCalledWith({ from: null, to: null, by: 'branch', departmentId: 'd1', branchId: null, employeeTypeId: null, gradeId: null, view: 'v1' }, { push: false });
+  rerender(<HrReport params={{ report: 'headcount', departmentId: 'd1', by: 'branch', view: 'v1' }} updateParams={updateParams} />);
+  expect(await screen.findByRole('button', { name: 'Saved views, showing Sales by branch' })).toBeTruthy();
+});
+
+it('saves the filters on screen as a named view', async () => {
+  api.saveReportView.mockResolvedValue({ id: 'v2', name: 'Ops only', filters: { departmentId: 'd2' } });
+  render(<HrReport params={{ report: 'headcount', departmentId: 'd2' }} updateParams={vi.fn()} />);
+  await screen.findByRole('table', { name: 'Headcount over time' });
+  fireEvent.click(screen.getByRole('button', { name: 'Saved views' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: /Save current view/ }));
+  fireEvent.change(await screen.findByRole('textbox', { name: /Name/ }), { target: { value: 'Ops only' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await vi.waitFor(() => expect(api.saveReportView).toHaveBeenCalledWith({ screen: 'report:headcount', name: 'Ops only', shared: false, filters: { departmentId: 'd2' } }));
 });
