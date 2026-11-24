@@ -1,0 +1,257 @@
+/*
+ * The Motion kit (DESIGN.md, owner 24 Nov 2026), switched on app by app.
+ *
+ * DESIGN.md "Migration" step 6 moves the apps one at a time. This file is that switch: every rule is scoped to an
+ * app that has moved (People first), so the apps still on the calm register look exactly as before. When an app
+ * moves, add it to the scope; when every app has moved, the scope goes and the old layers (picks.css,
+ * legibility.css, the per-app colours in rnd.css) are deleted (steps 1 to 5).
+ *
+ * Loaded last (main.jsx). Selectors start with `:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)`: four never-matching ids, so
+ * these rules beat rnd.css (one id), picks.css (two) and legibility.css and people.css (three) on specificity rather than on load order alone.
+ *
+ * Look: white work areas, square corners, hairlines instead of shadows, a 1px ink border on floating layers, one
+ * violet for the action that matters, the app's pale hue only on its top bar. TASA Orbiter for everything, Geist
+ * Mono for identifiers. Two weights, 400 and 700. Press = scale .97 at .14s; menus and drawers reveal.
+ */
+
+@import '@fontsource-variable/tasa-orbiter';
+@import '@fontsource-variable/geist-mono';
+
+/* ---------------------------------------------------------------- tokens */
+
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] {
+  /* Hue family: People is pink. Deep on the top bar, deepest for its hairline and avatar ground. */
+  --app-deep: 248 236 240;      /* #F8ECF0 */
+  --app-deepest: 240 224 232;   /* #F0E0E8 */
+
+  /* Accents and their only jobs (DESIGN.md "Colors") */
+  --act: 124 58 237;            /* violet #7C3AED: primary fill, selected tab, chosen chip, switch on, checked box */
+  --act-hover: 24 24 27;        /* a primary button turns ink on hover */
+  --act-ink: 37 99 235;         /* the accent as text is a link: blue #2563EB, 5.2:1 (violet never sets text) */
+  --marker: 124 58 237;
+  --act-2: 167 139 250;         /* violet-soft: second chart series only */
+  --tint: 238 239 243;          /* slate deep: hover and the chosen row */
+  --hover: 238 239 243;
+  --heading-hover: 238 239 243;
+  --list-head-hover: 238 239 243;
+  --link: 37 99 235;            /* #2563EB links and info, on white */
+  --link-hover: 29 78 216;
+  --doc-link: 37 99 235;
+  --ring: 99 102 241;           /* #6366F1 focus ring, never text */
+  --info: 37 99 235;
+  --neg: 220 38 38;             /* #DC2626 */
+  --neg-hover: 185 28 28;
+
+  /* Ink (stand-ins until Motion's full palette is pulled, DESIGN.md step 0) */
+  --fg: 24 24 27;               /* #18181B */
+  --fg-heading: 24 24 27;
+  --fg-muted: 82 82 91;         /* #52525B, 7.7:1 */
+  --fg-subtle: 82 82 91;
+  --nav-fg: 24 24 27; --nav-fg-muted: 82 82 91; --nav-fg-subtle: 82 82 91;
+
+  /* Lines */
+  --border: 226 229 236;        /* slate deepest #E2E5EC: hairlines */
+  --panel-border: 226 229 236;
+  --rail-border: 226 229 236;
+  --kpi-line: 226 229 236;
+  --border-field: 226 229 236;
+  --border-input: 82 82 91;     /* a field's edge is ink-2 */
+  --border-strong: 24 24 27;    /* the rule under a table head is ink */
+
+  /* Shape and depth: square, flat */
+  --radius-btn: 0; --radius-input: 0; --radius-sm: 0; --radius: 0; --radius-lg: 0; --radius-xl: 0; --radius-kpi: 0;
+  --shadow-card: none; --shadow-pop: none; --shadow-lift: none;
+
+  /* Type */
+  --font-sans: 'TASA Orbiter Variable', 'TASA Orbiter', ui-sans-serif, system-ui, sans-serif;
+  --font-brand: 'TASA Orbiter Variable', 'TASA Orbiter', ui-sans-serif, system-ui, sans-serif;
+  --font-ident: 'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Motion */
+  --mo-press: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+  --mo-fade: 0.15s;
+  --mo-reveal: 0.4s cubic-bezier(0.25, 0, 0, 1);
+}
+
+/* ---------------------------------------------------------------- type */
+
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] body { font-family: var(--font-sans); color: rgb(var(--fg)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(code, kbd, .ui-mono, .font-mono) { font-family: var(--font-ident); }
+
+/* Page title 30/36.65 700; section 15/23 700. legibility.css pins titles with !important, so these answer in kind. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] #main-content :is(h1, h1[class], .ui-t-page, .ui-page-heading h1) {
+  font-family: var(--font-brand);
+  font-size: 1.875rem !important;
+  line-height: 2.290625rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-h2, .ws-h2, .ui-t-sec, .people-block-title, .people-glance-title),
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-record-section, .ui-form-part) > header:first-child .ui-t-sec,
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] #main-content :is(section > .flex .ui-t-sec, section > h2.ui-t-sec) {
+  font-family: var(--font-brand);
+  font-size: 0.9375rem !important;
+  line-height: 1.453125rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0;
+}
+
+/* Two weights only. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.font-semibold, .font-bold, b, strong, th) { font-weight: 700; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .font-medium { font-weight: 400; }
+
+/* ---------------------------------------------------------------- shape and depth */
+
+/* Square everywhere. Radio dots stay round: a square radio reads as a checkbox. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :where(*:not(input[type='radio']):not(.ui-radio)),
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :where(*:not(input[type='radio']):not(.ui-radio))::before,
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :where(*:not(input[type='radio']):not(.ui-radio))::after {
+  border-radius: 0 !important;
+}
+
+/* No elevation. Inset marks (the open menu item's stripe, today's row) are left alone: they are drawn with inset
+   shadows on other elements. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(
+  .ui-card, .ui-panel, .ui-kpi, .ui-popover, .ui-menu, .ui-dialog, .ui-modal-panel, .ui-drawer-sheet,
+  .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl, .shadow-pop, .shadow-lift, .shadow-hover
+) {
+  box-shadow: none !important;
+}
+
+/* Floating layers are told apart by a 1px ink border, not a shadow. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-popover, .ui-menu, .ui-dialog, .ui-modal-panel) {
+  border: 1px solid rgb(var(--fg)) !important;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-drawer-sheet { border-left: 1px solid rgb(var(--fg)) !important; }
+
+/* Content surfaces: a hairline, nothing else. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-card, .ui-panel, .ui-kpi) {
+  border-color: rgb(var(--border)) !important;
+}
+
+/* ---------------------------------------------------------------- shell */
+
+/* The app's identity: the pale hue on the top bar only. Work areas stay white. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-topbar {
+  background: rgb(var(--app-deep)) !important;
+  border-bottom: 1px solid rgb(var(--app-deepest)) !important;
+}
+/* The rail is chrome, not a work area: white beside the pale bar, one hairline. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-split-rail {
+  background: rgb(var(--surface)) !important;
+  border-right: 1px solid rgb(var(--border)) !important;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-topbar :is(.ui-global-search input, input[type='search']) {
+  background: rgb(var(--surface));
+}
+
+/* ---------------------------------------------------------------- controls (32px) */
+
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn {
+  min-height: 2rem;
+  padding: 0 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+  font-weight: 700;
+  transition: var(--mo-press), background-color var(--mo-fade), border-color var(--mo-fade), color var(--mo-fade);
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn:active:not(:disabled) { transform: scale(0.97); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-sm { min-height: 1.75rem; padding: 0 0.625rem; font-size: 0.75rem; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn:disabled { opacity: 0.45; }
+
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-btn-primary, .ui-btn-brand) {
+  background-color: rgb(var(--act)) !important;
+  border: 1px solid rgb(var(--act)) !important;
+  color: rgb(255 255 255) !important;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+  background-color: rgb(var(--fg)) !important;
+  border-color: rgb(var(--fg)) !important;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-secondary {
+  background-color: rgb(var(--surface)) !important;
+  border: 1px solid rgb(var(--fg)) !important;
+  color: rgb(var(--fg)) !important;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-secondary:hover:not(:disabled) { background-color: rgb(var(--tint)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-ghost:hover:not(:disabled) { background-color: rgb(var(--border)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-danger {
+  background-color: rgb(var(--surface)) !important;
+  border: 1px solid rgb(var(--neg)) !important;
+  color: rgb(var(--neg)) !important;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-danger:hover:not(:disabled) {
+  background-color: rgb(var(--neg)) !important;
+  color: rgb(255 255 255) !important;
+}
+
+/* Fields: 32px, ink-2 edge, ink on hover, violet edge and indigo ring on focus. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):not(textarea) { min-height: 2rem; height: 2rem; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select) {
+  font-size: 0.8125rem;
+  border-color: rgb(var(--border-input));
+  transition: border-color var(--mo-reveal);
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):hover:not(:disabled):not(:focus) { border-color: rgb(var(--fg)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):focus { border-color: rgb(var(--act)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select)[aria-invalid='true'] { border-color: rgb(var(--neg)); }
+
+/* Tabs: open tab ink and bold, a 2px violet underline. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { color: rgb(var(--fg)); font-weight: 700; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-tab-indicator { transition: var(--mo-press); }
+
+/* You are here: the current place is violet and bold (a link is blue). */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-tabbar-item[aria-current='page'], .ui-split-mod[data-current], .ui-split-mod[aria-current]:not([aria-current='false'])),
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-split-mod[data-current] span {
+  color: rgb(var(--act)) !important;
+  font-weight: 700;
+}
+
+/* Links */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-link { color: rgb(var(--link)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-link:hover { color: rgb(var(--link-hover)); }
+
+/* ---------------------------------------------------------------- tables */
+
+/* Head 32px, 11px 700 over an ink rule; rows 48px, 13px. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-table thead th {
+  height: 2rem;
+  font-size: 0.6875rem;
+  line-height: 1.03125rem;
+  font-weight: 700;
+  color: rgb(var(--fg-muted));
+  border-bottom: 1px solid rgb(var(--fg));
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-table tbody td {
+  height: 3rem;
+  font-size: 0.8125rem;
+  line-height: 1.21875rem;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-table tbody tr { transition: background-color var(--mo-fade); }
+
+/* ---------------------------------------------------------------- tags */
+
+/* A word in a box. Done = mint, waiting = sand, problem = white with a red edge; the dot is square. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-pill {
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  border: 1px solid rgb(var(--border));
+  background-color: rgb(var(--surface));
+  color: rgb(var(--fg));
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-pill-pos { background-color: rgb(236 246 240) !important; border-color: rgb(224 240 232) !important; color: rgb(var(--fg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-pill-warn { background-color: rgb(246 240 228) !important; border-color: rgb(240 232 216) !important; color: rgb(var(--fg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-pill-neg { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--neg)) !important; color: rgb(var(--neg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-pill-neutral, .ui-pill-info) { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--border)) !important; color: rgb(var(--fg)) !important; }
+
+/* ---------------------------------------------------------------- motion */
+
+/* Menus and popovers wipe open from the top. */
+@keyframes mo-reveal { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-menu, .ui-popover) { animation: mo-reveal var(--mo-reveal) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] * { transition-duration: 0s !important; animation-duration: 0s !important; }
+}
