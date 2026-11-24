@@ -92,8 +92,12 @@ on_server() { # on_server <level> <what it does> <script text>
   if [ "$level" = go ] && [ "$MODE" != go ]; then return 0; fi
   local params id status
   params=$(node -e 'process.stdout.write(JSON.stringify({commands:[process.argv[1]],executionTimeout:["1800"]}))' "$script")
+  # AWS takes a comment of at most 100 characters, and "what" can carry a whole image address.
+  # A command that could not be sent has no id: stop, or the wait below never ends
+  # (24 Nov 2026: a 102-character comment was refused and the release hung at step 4).
   id=$(aws ssm send-command --instance-ids "$SERVER" --document-name AWS-RunShellScript \
-        --comment "clor release: $what" --parameters "$params" --query Command.CommandId --output text)
+        --comment "$(printf '%.100s' "clor release: $what")" --parameters "$params" --query Command.CommandId --output text) || id=
+  case "$id" in ''|None) printf '     ! the command could not be sent to the server\n' >&2; return 1 ;; esac
   while :; do
     sleep 4
     status=$(aws ssm get-command-invocation --command-id "$id" --instance-id "$SERVER" --query Status --output text 2>/dev/null || echo Pending)
