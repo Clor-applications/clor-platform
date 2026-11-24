@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { CalendarClock } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import { CountLine } from '@ui/components/ui/CountLine';
+import { istDay, plusDaysIso, todayIst } from '@ui/utils/dates';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -29,6 +31,14 @@ export default function Interviews({ params = {} }) {
   const rows = req.data?.interviews || [];
   const hr = Boolean(req.data?.hr);
   const canSchedule = hr && allowed('PEOPLE::Recruitment::EDIT');
+  /* The count line (DESIGN.md "Page header"): today, the week ahead, and feedback still owed. Zero clauses drop out. */
+  const today = todayIst();
+  const weekAhead = plusDaysIso(7);
+  const figures = req.data ? [
+    when_ !== 'past' ? { key: 'today', label: 'today', value: rows.filter((r) => istDay(r.at) === today).length } : null,
+    when_ !== 'past' ? { key: 'week', label: 'in the next 7 days', value: rows.filter((r) => istDay(r.at) > today && istDay(r.at) <= weekAhead).length } : null,
+    { key: 'owed', label: hr && !mine ? 'with feedback owed' : 'feedback you owe', value: rows.filter((r) => r.owesFeedback).length, tone: 'warn' },
+  ].filter(Boolean) : null;
   /* A notice about one interview opens its candidate. It is looked up among all of mine, not only those
      coming up; one cancelled since (or no longer mine) says so instead of doing nothing. */
   const lookup = useRequest(() => (params?.id ? listInterviews({ when: 'all' }).catch(() => null) : Promise.resolve(null)), [params?.id]);
@@ -53,7 +63,7 @@ export default function Interviews({ params = {} }) {
       <ListHeader
         module="Hiring"
         title="Interviews"
-        description={hr ? 'Every interview set with a candidate, coming up first, and whose feedback is still owed.' : 'The interviews you are asked to sit on, coming up first, and the feedback you still owe.'}
+        strip={figures ? <CountLine label="Interview figures" items={figures} /> : null}
         primary={canSchedule ? { label: 'Schedule interview', icon: CalendarClock, onClick: () => setScheduling(true) } : null}
         secondary={canSchedule ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setQuestions(true)}>Interview questions</button> : null}
         toolbar={hr ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />Only mine</label> : null}
