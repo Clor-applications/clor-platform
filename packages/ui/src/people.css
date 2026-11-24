@@ -441,6 +441,12 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 /* A list under one hairline, a hairline under each row. */
 .people-list { border-top: 1px solid rgb(var(--border)); }
 .people-list > li { border-bottom: 1px solid rgb(var(--border)); }
+/* People Home pay-run status (HomeTrends.jsx): a 48px row per run, month, state as a word, net total right aligned. */
+.people-payrun { display: grid; grid-template-columns: minmax(0, 1fr) auto 9rem; align-items: center; gap: 0.75rem; width: 100%; min-height: 3rem; padding: 0 0.25rem; text-align: left; color: rgb(var(--fg)); }
+.people-payrun:hover { background: rgb(var(--hover, 247 247 247)); }
+.people-payrun:focus-visible { outline: 2px solid rgb(var(--ring, var(--act))); outline-offset: -2px; }
+.people-payrun-month { font-weight: 700; }
+.people-payrun-total { text-align: right; font-variant-numeric: tabular-nums; }
 .people-row { display: flex; align-items: center; gap: 0.875rem; width: 100%; min-height: 3.5rem; padding: 0.625rem 0.25rem; text-align: left; color: rgb(var(--fg)); }
 .people-row-action { transition: background-color 120ms var(--ease-out); }
 .people-row-action:hover { background: rgb(var(--hover)); }
@@ -947,3 +953,4 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
  */
 .ui-portal[data-brand='d'] .ui-pill-warn { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
 .ui-portal[data-brand='d'] nav[aria-label='Portal'] button[aria-current='page'] { box-shadow: inset 0 3px 0 rgb(var(--marker)); }
+
