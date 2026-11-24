@@ -514,6 +514,7 @@ carries the kit for the apps that have moved and nothing else (`test/motion-kit.
 | App | Moved | What changed |
 |---|---|---|
 | People | 24 Nov 2026 | Tokens (violet, ink, hairlines, pink top bar, TASA Orbiter, Geist Mono), square, flat, 1px ink border on menus and dialogs, 32px controls, 48px rows over an ink rule, 30px title, mint/sand/white tags, links blue, current place violet, press and reveal motion |
+| Admin center | 25 Nov 2026 | Same layer as People, stone top bar (`#F0F0EE`, hairline `#E8E8E6`); its own cards and tiles checked for colour outside the palette |
 
 To move the next app, add its `data-app` value to the scope in `motion.css` and to `MOVED` in the test, give it its
 hue family, and check it in the browser. Steps 0 to 5 then become deleting the old layers once every app has moved.

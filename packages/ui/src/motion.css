@@ -2,7 +2,7 @@
  * The Motion kit (DESIGN.md, owner 24 Nov 2026), switched on app by app.
  *
  * DESIGN.md "Migration" step 6 moves the apps one at a time. This file is that switch: every rule is scoped to an
- * app that has moved (People first), so the apps still on the calm register look exactly as before. When an app
+ * app that has moved (People 24 Nov, Admin center 25 Nov 2026), so the apps still on the calm register look exactly as before. When an app
  * moves, add it to the scope; when every app has moved, the scope goes and the old layers (picks.css,
  * legibility.css, the per-app colours in rnd.css) are deleted (steps 1 to 5).
  *
@@ -19,11 +19,7 @@
 
 /* ---------------------------------------------------------------- tokens */
 
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] {
-  /* Hue family: People is pink. Deep on the top bar, deepest for its hairline and avatar ground. */
-  --app-deep: 248 236 240;      /* #F8ECF0 */
-  --app-deepest: 240 224 232;   /* #F0E0E8 */
-
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) {
   /* Accents and their only jobs (DESIGN.md "Colors") */
   --act: 124 58 237;            /* violet #7C3AED: primary fill, selected tab, chosen chip, switch on, checked box */
   --act-hover: 24 24 27;        /* a primary button turns ink on hover */
@@ -73,22 +69,32 @@
   --mo-reveal: 0.4s cubic-bezier(0.25, 0, 0, 1);
 }
 
+/* Hue family per app (DESIGN.md "Colors"): deep on the top bar, deepest for its hairline and avatar ground. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] {
+  --app-deep: 248 236 240;      /* pink #F8ECF0 */
+  --app-deepest: 240 224 232;   /* #F0E0E8 */
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] {
+  --app-deep: 240 240 238;      /* stone #F0F0EE */
+  --app-deepest: 232 232 230;   /* #E8E8E6 */
+}
+
 /* ---------------------------------------------------------------- type */
 
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] body { font-family: var(--font-sans); color: rgb(var(--fg)); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(code, kbd, .ui-mono, .font-mono) { font-family: var(--font-ident); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) body { font-family: var(--font-sans); color: rgb(var(--fg)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(code, kbd, .ui-mono, .font-mono) { font-family: var(--font-ident); }
 
 /* Page title 30/36.65 700; section 15/23 700. legibility.css pins titles with !important, so these answer in kind. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] #main-content :is(h1, h1[class], .ui-t-page, .ui-page-heading h1) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) #main-content :is(h1, h1[class], .ui-t-page, .ui-page-heading h1) {
   font-family: var(--font-brand);
   font-size: 1.875rem !important;
   line-height: 2.290625rem !important;
   font-weight: 700 !important;
   letter-spacing: -0.01em !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-h2, .ws-h2, .ui-t-sec, .people-block-title, .people-glance-title),
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-record-section, .ui-form-part) > header:first-child .ui-t-sec,
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] #main-content :is(section > .flex .ui-t-sec, section > h2.ui-t-sec) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-h2, .ws-h2, .ui-t-sec, .people-block-title, .people-glance-title),
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-record-section, .ui-form-part) > header:first-child .ui-t-sec,
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) #main-content :is(section > .flex .ui-t-sec, section > h2.ui-t-sec) {
   font-family: var(--font-brand);
   font-size: 0.9375rem !important;
   line-height: 1.453125rem !important;
@@ -97,21 +103,21 @@
 }
 
 /* Two weights only. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.font-semibold, .font-bold, b, strong, th) { font-weight: 700; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .font-medium { font-weight: 400; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.font-semibold, .font-bold, b, strong, th) { font-weight: 700; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .font-medium { font-weight: 400; }
 
 /* ---------------------------------------------------------------- shape and depth */
 
 /* Square everywhere. Radio dots stay round: a square radio reads as a checkbox. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :where(*:not(input[type='radio']):not(.ui-radio)),
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :where(*:not(input[type='radio']):not(.ui-radio))::before,
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :where(*:not(input[type='radio']):not(.ui-radio))::after {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :where(*:not(input[type='radio']):not(.ui-radio)),
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :where(*:not(input[type='radio']):not(.ui-radio))::before,
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :where(*:not(input[type='radio']):not(.ui-radio))::after {
   border-radius: 0 !important;
 }
 
 /* No elevation. Inset marks (the open menu item's stripe, today's row) are left alone: they are drawn with inset
    shadows on other elements. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(
   .ui-card, .ui-panel, .ui-kpi, .ui-popover, .ui-menu, .ui-dialog, .ui-modal-panel, .ui-drawer-sheet,
   .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl, .shadow-pop, .shadow-lift, .shadow-hover
 ) {
@@ -119,35 +125,35 @@
 }
 
 /* Floating layers are told apart by a 1px ink border, not a shadow. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-popover, .ui-menu, .ui-dialog, .ui-modal-panel) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-popover, .ui-menu, .ui-dialog, .ui-modal-panel) {
   border: 1px solid rgb(var(--fg)) !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-drawer-sheet { border-left: 1px solid rgb(var(--fg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-drawer-sheet { border-left: 1px solid rgb(var(--fg)) !important; }
 
 /* Content surfaces: a hairline, nothing else. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-card, .ui-panel, .ui-kpi) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-card, .ui-panel, .ui-kpi) {
   border-color: rgb(var(--border)) !important;
 }
 
 /* ---------------------------------------------------------------- shell */
 
 /* The app's identity: the pale hue on the top bar only. Work areas stay white. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-topbar {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-topbar {
   background: rgb(var(--app-deep)) !important;
   border-bottom: 1px solid rgb(var(--app-deepest)) !important;
 }
 /* The rail is chrome, not a work area: white beside the pale bar, one hairline. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-split-rail {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-split-rail {
   background: rgb(var(--surface)) !important;
   border-right: 1px solid rgb(var(--border)) !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-topbar :is(.ui-global-search input, input[type='search']) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-topbar :is(.ui-global-search input, input[type='search']) {
   background: rgb(var(--surface));
 }
 
 /* ---------------------------------------------------------------- controls (32px) */
 
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn {
   min-height: 2rem;
   padding: 0 1rem;
   font-size: 0.8125rem;
@@ -155,68 +161,73 @@
   font-weight: 700;
   transition: var(--mo-press), background-color var(--mo-fade), border-color var(--mo-fade), color var(--mo-fade);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn:active:not(:disabled) { transform: scale(0.97); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-sm { min-height: 1.75rem; padding: 0 0.625rem; font-size: 0.75rem; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn:disabled { opacity: 0.45; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn:active:not(:disabled) { transform: scale(0.97); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-sm { min-height: 1.75rem; padding: 0 0.625rem; font-size: 0.75rem; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn:disabled { opacity: 0.45; }
 
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-btn-primary, .ui-btn-brand) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-btn-primary, .ui-btn-brand) {
   background-color: rgb(var(--act)) !important;
   border: 1px solid rgb(var(--act)) !important;
   color: rgb(255 255 255) !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
   background-color: rgb(var(--fg)) !important;
   border-color: rgb(var(--fg)) !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-secondary {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-secondary {
   background-color: rgb(var(--surface)) !important;
   border: 1px solid rgb(var(--fg)) !important;
   color: rgb(var(--fg)) !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-secondary:hover:not(:disabled) { background-color: rgb(var(--tint)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-ghost:hover:not(:disabled) { background-color: rgb(var(--border)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-danger {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-secondary:hover:not(:disabled) { background-color: rgb(var(--tint)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-ghost:hover:not(:disabled) { background-color: rgb(var(--border)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-danger {
   background-color: rgb(var(--surface)) !important;
   border: 1px solid rgb(var(--neg)) !important;
   color: rgb(var(--neg)) !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-danger:hover:not(:disabled) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-danger:hover:not(:disabled) {
   background-color: rgb(var(--neg)) !important;
   color: rgb(255 255 255) !important;
 }
 
 /* Fields: 32px, ink-2 edge, ink on hover, violet edge and indigo ring on focus. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):not(textarea) { min-height: 2rem; height: 2rem; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-input, .ui-select):not(textarea) { min-height: 2rem; height: 2rem; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-input, .ui-select) {
   font-size: 0.8125rem;
   border-color: rgb(var(--border-input));
   transition: border-color var(--mo-reveal);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):hover:not(:disabled):not(:focus) { border-color: rgb(var(--fg)); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):focus { border-color: rgb(var(--act)); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select)[aria-invalid='true'] { border-color: rgb(var(--neg)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-input, .ui-select):hover:not(:disabled):not(:focus) { border-color: rgb(var(--fg)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-input, .ui-select):focus { border-color: rgb(var(--act)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-input, .ui-select)[aria-invalid='true'] { border-color: rgb(var(--neg)); }
 
 /* Tabs: open tab ink and bold, a 2px violet underline. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { color: rgb(var(--fg)); font-weight: 700; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-tab-indicator { transition: var(--mo-press); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { color: rgb(var(--fg)); font-weight: 700; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-tab-indicator { transition: var(--mo-press); }
 
 /* You are here: the current place is violet and bold (a link is blue). */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-tabbar-item[aria-current='page'], .ui-split-mod[data-current], .ui-split-mod[aria-current]:not([aria-current='false']), .ui-split-item[aria-current='page']),
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-split-mod[data-current] span, .ui-split-item[aria-current='page'] > span) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-tabbar-item[aria-current='page'], .ui-split-mod[data-current], .ui-split-mod[aria-current]:not([aria-current='false']), .ui-split-item[aria-current='page']),
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-split-mod[data-current] span, .ui-split-item[aria-current='page'] > span) {
   color: rgb(var(--act)) !important;
   font-weight: 700;
 }
 
 /* Links */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-link { color: rgb(var(--link)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-link { color: rgb(var(--link)); }
+/* Switch thumbs are flat: a white square on the track, no drop shadow (Motion has no elevation). */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-switch-thumb { box-shadow: none !important; }
+/* Block links (People's "Calendar", "All pay runs"; Admin center's "Manage apps") are links: blue, ink on hover. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.people-more, .ws-link) { color: rgb(var(--link)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.people-more, .ws-link):hover { color: rgb(var(--fg)) !important; }
 /* Copy sits on tinted bands where blue falls under 4.5:1: ink, underlined. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-copy-word { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-link:hover { color: rgb(var(--link-hover)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-copy-word { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-link:hover { color: rgb(var(--link-hover)); }
 
 /* ---------------------------------------------------------------- tables */
 
 /* Head 32px, 11px 700 over an ink rule; rows 48px, 13px. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-table thead th {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-table thead th {
   height: 2rem;
   font-size: 0.6875rem;
   line-height: 1.03125rem;
@@ -224,17 +235,17 @@
   color: rgb(var(--fg-muted));
   border-bottom: 1px solid rgb(var(--fg));
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-table tbody td {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-table tbody td {
   height: 3rem;
   font-size: 0.8125rem;
   line-height: 1.21875rem;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-table tbody tr { transition: background-color var(--mo-fade); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-table tbody tr { transition: background-color var(--mo-fade); }
 
 /* ---------------------------------------------------------------- tags */
 
 /* A word in a box. Done = mint, waiting = sand, problem = white with a red edge; the dot is square. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-pill {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-pill {
   height: 1.5rem;
   padding: 0 0.5rem;
   font-size: 0.6875rem;
@@ -243,17 +254,17 @@
   background-color: rgb(var(--surface));
   color: rgb(var(--fg));
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-pill-pos { background-color: rgb(236 246 240) !important; border-color: rgb(224 240 232) !important; color: rgb(var(--fg)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-pill-warn { background-color: rgb(246 240 228) !important; border-color: rgb(240 232 216) !important; color: rgb(var(--fg)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-pill-neg { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--neg)) !important; color: rgb(var(--neg)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-pill-neutral, .ui-pill-info) { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--border)) !important; color: rgb(var(--fg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-pill-pos { background-color: rgb(236 246 240) !important; border-color: rgb(224 240 232) !important; color: rgb(var(--fg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-pill-warn { background-color: rgb(246 240 228) !important; border-color: rgb(240 232 216) !important; color: rgb(var(--fg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-pill-neg { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--neg)) !important; color: rgb(var(--neg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-pill-neutral, .ui-pill-info) { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--border)) !important; color: rgb(var(--fg)) !important; }
 
 /* ---------------------------------------------------------------- motion */
 
 /* Menus and popovers wipe open from the top. */
 @keyframes mo-reveal { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-menu, .ui-popover) { animation: mo-reveal var(--mo-reveal) both; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-menu, .ui-popover) { animation: mo-reveal var(--mo-reveal) both; }
 
 @media (prefers-reduced-motion: reduce) {
-  :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] * { transition-duration: 0s !important; animation-duration: 0s !important; }
+  :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) * { transition-duration: 0s !important; animation-duration: 0s !important; }
 }
