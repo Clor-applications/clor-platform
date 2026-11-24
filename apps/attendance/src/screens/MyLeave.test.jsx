@@ -40,3 +40,13 @@ it('with My attendance CREATE: Ask for leave and the holiday ticks are there', a
   expect(screen.getByRole('button', { name: /ask for leave/i })).toBeTruthy();
   expect(screen.getAllByRole('checkbox', { name: /^take .* off$/i }).length).toBeGreaterThan(0);
 });
+
+/* People → Home's "Ask for leave" (24 Nov 2026) opens this screen with the form already open; never for view only. */
+it('opened with ask=1: the form is open for someone who may ask, and stays shut for view only', async () => {
+  const may = render(<PermissionContext.Provider value={perms(['ATTENDANCE::My Attendance::VIEW', 'ATTENDANCE::My Attendance::CREATE'])}><MyLeave params={{ ask: '1' }} /></PermissionContext.Provider>);
+  expect(await screen.findByRole('dialog')).toBeTruthy();
+  may.unmount();
+  render(<PermissionContext.Provider value={perms(['ATTENDANCE::My Attendance::VIEW'])}><MyLeave params={{ ask: '1' }} /></PermissionContext.Provider>);
+  await waitFor(() => expect(screen.getByText('Christmas Eve')).toBeTruthy());
+  expect(screen.queryByRole('dialog')).toBeNull();
+});

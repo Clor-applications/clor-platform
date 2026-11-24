@@ -398,6 +398,9 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .people-home-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .people-home-secondary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .people-home-more { display: none; }
+/* The reader's own check-in and leave: two equal cards in a row, one above the other on a phone, gone when both are. */
+.people-home-self { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 0.75rem; }
+.people-home-self:empty { display: none; }
 @media (max-width: 639px) {
   .people-home-secondary { display: none; }
   .people-home-more { display: block; }

@@ -17,6 +17,7 @@ import { HomeCheckIn } from '@ui/timeOff/MyDays';
 import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
 import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
+import HomeMyLeave from './HomeMyLeave';
 import { ConnectionBar, DayTimeline, DecideInPlace, FigureLedger, HomeSkeleton, TeamsToday, TodayFeed, clockWords, useConnection } from './HomeToday';
 
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'neutral' }, info: { label: 'When you can', pill: 'neutral' } };
@@ -448,7 +449,11 @@ export default function PeopleOverview({ openScreen }) {
         </div>
       </header>
       <ConnectionBar online={conn.online} back={conn.back} onRetry={() => { if (navigator.onLine !== false) reloadAll(); }} />
-      <HomeCheckIn />
+      {/* The reader's own day and leave, side by side; each is left out for a sign-in with no employee file. */}
+      <div className="people-home-self">
+        <HomeCheckIn />
+        <HomeMyLeave openScreen={openScreen} />
+      </div>
       {failed.finalPay ? <CardFailed what="the final pay that is due" onRetry={loadFinalPay} /> : null}
       {finalPay.length ? (
         <section aria-label="Final pay due" className="space-y-2">
