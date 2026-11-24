@@ -1,4 +1,5 @@
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
+import { CountLine } from '@ui/components/ui/CountLine';
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
 import { FileText } from '@ui/components/ui/lineIcons';
@@ -17,7 +18,7 @@ import { PersonCell, crumbs } from '@ui/lifecycle/shared';
 import { listOffers, withdrawOffer } from './api';
 import { can } from './shared';
 import { wholeRupees as rupees } from '@ui/utils/money';
-import { istDay, todayIst } from '@ui/utils/dates';
+import { istDay, plusDaysIso, todayIst } from '@ui/utils/dates';
 
 /**
  * Joining & leaving → Offers (FEATURE-UI-AUDIT gap 7): every offer sent with
@@ -55,6 +56,16 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
   const counts = Object.fromEntries(VIEWS.map(([k]) => [k, all.filter((o) => inView(o, k)).length]));
   const rows = all.filter((o) => inView(o, view) && (!q || `${o.name} ${o.designation} ${o.email}`.toLowerCase().includes(q)));
   const shown = rows.slice((page - 1) * size, page * size);
+  /* The count line (DESIGN.md "Page header"): what the chips do not already say. Zero clauses drop out. */
+  const today = todayIst();
+  const weekAhead = plusDaysIso(7);
+  const month = today.slice(0, 7);
+  const dueSoon = all.filter((o) => o.status === 'SENT' && o.acceptBy && String(o.acceptBy).slice(0, 10) >= today && String(o.acceptBy).slice(0, 10) <= weekAhead).length;
+  const figures = req.data ? [
+    { key: 'month', label: 'sent this month', value: all.filter((o) => istDay(o.createdAt).slice(0, 7) === month).length },
+    { key: 'due', label: 'answer due in 7 days', value: dueSoon, tone: 'warn', onClick: () => set({ view: null, page: null }, true) },
+    { key: 'joining', label: 'accepted, joining in 30 days', value: all.filter((o) => o.status === 'ACCEPTED' && o.joiningDate && String(o.joiningDate).slice(0, 10) >= today && String(o.joiningDate).slice(0, 10) <= plusDaysIso(30)).length },
+  ] : null;
 
   const withdraw = async (o) => {
     if (!(await confirmDialog({ title: `Withdraw the offer to ${o.name}?`, message: 'The accept link stops working at once. The letter stays on their record.', confirmLabel: 'Withdraw' }))) return;
@@ -85,7 +96,7 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
       <ListHeader
         breadcrumb={crumbs()}
         title="Offers"
-        description="Every offer sent with an accept link, and where each one stands."
+        strip={figures ? <CountLine label="Offer figures" items={figures} /> : null}
         primary={canWithdraw ? { label: 'Make an offer', icon: FileText, onClick: () => setPicking(true) } : null}
         toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null, page: null })} placeholder="Search name, designation or email" label="Search offers" className="w-full sm:w-72" />}
         tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' ? counts[k] : 0 }))}
