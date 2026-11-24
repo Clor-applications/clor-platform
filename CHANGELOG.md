@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-e2bbc92 - 2026-11-24
+
+API revision `aws:e2bbc92`. Previous release `rel-ad81ab7` (roll back there).
+
+- #453 Release script: server command label within AWS's 100 characters
+- #452 AWS alerts: e-mail when the server or the database is in trouble
+- #451 Employee record: detail values no longer break over three lines
+- #450 Employees: filters in force above the list; optional Work email column
+- #448 People Home: your own leave, with Ask for leave
+- #449 clor.in: pale blue and navy look with Switzer, orange kept as the accent
+- #446 DESIGN.md: reference products for People pages
+- #447 Engineering Console reads AWS and runs on the AWS server
+- #445 Release and roll back from GitHub's machines, on AWS
+- #444 Ops: Look up a request ID opens the API's logs on AWS
+- #442 AWS: server and database setup, release script, cutover steps
+- #441 Release record: rel-ad81ab7
+
 ## rel-ad81ab7 - 2026-11-23
 
 API revision `clor-api-00164-6w4`. Previous release `rel-a7d05b9` (roll back there).
