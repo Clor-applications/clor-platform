@@ -470,6 +470,16 @@ tests that pin the old values (`test/design-rules.test.js`, `test/ui-rules.test.
    with its developer).
 7. Phone: 48px controls and rows, bottom tab bar, two-line table rows.
 
+**Progress.** The owner asked for People first (24 Nov 2026), ahead of the shared steps. `packages/ui/src/motion.css`
+carries the kit for the apps that have moved and nothing else (`test/motion-kit.test.js` keeps it scoped):
+
+| App | Moved | What changed |
+|---|---|---|
+| People | 24 Nov 2026 | Tokens (violet, ink, hairlines, pink top bar, TASA Orbiter, Geist Mono), square, flat, 1px ink border on menus and dialogs, 32px controls, 48px rows over an ink rule, 30px title, mint/sand/white tags, links blue, current place violet, press and reveal motion |
+
+To move the next app, add its `data-app` value to the scope in `motion.css` and to `MOVED` in the test, give it its
+hue family, and check it in the browser. Steps 0 to 5 then become deleting the old layers once every app has moved.
+
 ## Decisions Log
 
 | Date | Decision | Rationale |
