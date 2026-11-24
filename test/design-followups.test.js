@@ -17,9 +17,12 @@ const adminHome = readFileSync('apps/admin/src/screens/AdminHome.jsx', 'utf8');
 const wsOverviewCss = readFileSync('apps/admin/src/screens/ws-overview.css', 'utf8');
 
 describe('People Employees, figures after the list', () => {
-  it('does not put the figure strip above the table', () => {
-    expect(directory).not.toMatch(/\bstrip=\{/);
+  it('puts only the one-line count line above the table, the breakdown after it', () => {
+    /* Calm register: the count line under the title is allowed; tiles and charts stay in the fold after the list. */
+    expect(directory).toMatch(/strip=\{firstRun \|\| tab !== 'directory' \? null : <MetricStrip /);
+    expect(directory).toMatch(/return <CountLine label="Workforce counts"/);
     expect(directory).toMatch(/<summary>Show figures<\/summary>/);
+    expect(directory.indexOf('<Breakdown')).toBeGreaterThan(directory.indexOf('<DataTable'));
     expect(directory.indexOf('Show figures')).toBeGreaterThan(directory.indexOf('<DataTable'));
   });
 

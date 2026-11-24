@@ -1,7 +1,7 @@
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useEffect, useState } from 'react';
 import { saveRecordList } from '@ui/picks/round62';
-import { CalendarClock, CalendarDays, Smartphone, UserPlus, UserRoundX, Users } from 'lucide-react';
+import { CalendarClock, CalendarDays, Smartphone, UserPlus, Users } from 'lucide-react';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from './suggestions';
 import { Download, Filter, Pencil, Plus, Trash2, Upload, X } from '@ui/components/ui/lineIcons';
@@ -9,7 +9,7 @@ import { BarPanel } from '../components/Core';
 import { CountLine } from '@ui/components/ui/CountLine';
 import { getOverview } from '@ui/personnel/api';
 
-import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import ListHeader, { FilterTabs, ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import { screenHref } from '@ui/picks/round57';
 import DataTable, { ColumnSettings } from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
@@ -125,6 +125,8 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   useEffect(() => { listAllEmployees({ sort: 'name' }).then((r) => { const here = (r?.employees || []).filter((e) => e.status !== 'LEFT'); setEveryone({ rows: here, total: Number(r?.total || here.length) }); setManagers(here.map((e) => ({ id: e.id, name: e.code ? `${e.name} (${e.code})` : e.name }))); }).catch(() => {}); }, []);
 
   const openRecord = (r, recordTab = 'overview') => openScreen?.('employee', { id: r.id, tab: recordTab });
+  /* Under the name: the email when the Employee ID has its own column (DESIGN.md "secondary"), else the ID. */
+  const codeShown = !(prefs.hidden || []).includes('code');
   const columns = [
     { key: 'name', label: 'Employee', sortable: true, always: true, render: (r) => (
       <span className="pc-who">
@@ -132,7 +134,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         <span className="pc-who-text">
           {/* Round 29 pick "callname" C: lists show the full legal name only, as on papers. */}
           <span className="pc-who-name">{r.name}</span>
-          <span className="pc-who-sub">{r.code || r.workEmail || r.email || ''}</span>
+          <span className="pc-who-sub">{codeShown ? (r.workEmail || r.email || r.code || '') : (r.code || r.workEmail || r.email || '')}</span>
         </span>
       </span>
     ) },
@@ -224,6 +226,15 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     (p.lfrom || p.lto) && { k: 'left', label: `Left ${p.lfrom ? formatDate(p.lfrom) : 'any time'} – ${p.lto ? formatDate(p.lto) : 'now'}` },
   ].filter(Boolean);
 
+  /* Status chips with counts above the list (template 24 Nov 2026): a chip at zero is left out, All always shows. */
+  const tally = counts.data;
+  const statusChips = !tally ? [] : [
+    { key: '', label: 'All', count: Number(tally.active || 0) + Number(tally.onNotice || 0) + Number(tally.suspended || 0) },
+    tally.leavingsHidden ? null : { key: 'ON_NOTICE', label: 'On notice', count: Number(tally.onNotice || 0) },
+    { key: 'SUSPENDED', label: 'Suspended', count: Number(tally.suspended || 0) },
+    tally.leavingsHidden ? null : { key: 'LEFT', label: 'Left', count: Number(tally.left || 0) },
+  ].filter((t) => t && (t.key === '' || t.count));
+
   /* Nobody here yet, nobody joining and nobody gone (PEOPLE-52): no figures, tabs or search over an empty list, the way in instead. */
   const firstRun = Boolean(counts.data) && !Number(counts.data.total) && !Number(counts.data.joining) && !Number(counts.data.left) && !p.q && !filtersOn && tab === 'directory';
 
@@ -232,7 +243,9 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       <ListHeader
         title="Employees"
         count={!firstRun && list.data && (tab === 'directory' || tab === 'team') ? total : null}
-        description={firstRun ? 'No one here yet. Add your team to start using leave, attendance and payroll.' : 'Everyone who works here, with where they sit and where they stand.'}
+        description={firstRun ? 'No one here yet. Add your team to start using leave, attendance and payroll.' : null}
+        /* The count line sits under the title (DESIGN.md "Page header"); the breakdown by department stays in the fold after the list. */
+        strip={firstRun || tab !== 'directory' ? null : <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />}
         secondary={firstRun ? null : <>
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
           {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary" disabled={exporting} onClick={() => setExportOpen(true)}><Download size={16} aria-hidden="true" /> Export</button> : null}
@@ -251,6 +264,9 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       />
       <Banners openScreen={openScreen} />
       {tab === 'team' && !firstRun ? <MyTeamPanel onFilter={(f) => set({ ...f, page: null }, true)} openScreen={openScreen} /> : null}
+      {['directory', 'team'].includes(tab) && !firstRun && statusChips.length > 1 ? (
+        <FilterTabs label="Status" tabs={statusChips} value={['ON_NOTICE', 'SUSPENDED', 'LEFT'].includes(p.status) ? p.status : p.status ? null : ''} onChange={(k) => set({ status: k || null, page: null }, true)} />
+      ) : null}
       {/* The filters in force sit above the list they narrow, so they are seen without scrolling past it (24 Nov 2026; they were under the table). */}
       {['directory', 'team'].includes(tab) && chips.length ? (
         <div className="flex flex-wrap items-center gap-1.5" aria-label="Filters in force">
@@ -326,7 +342,6 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         <details className="ui-phone-filters ui-figures-fold">
           <summary>Show figures</summary>
           <div className="pc-directory-top">
-            <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
             <Breakdown counts={counts.data} everyone={everyone} types={lists.types} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
           </div>
         </details>
@@ -405,15 +420,15 @@ function ExportDrawer({ counts, filtered, onClose, onExport }) {
 }
 
 function MetricStrip({ counts, onPick }) {
-  if (!counts) return <div className="pc-kpis" aria-busy="true"><span className="ui-skel ui-skel-text" /></div>;
+  if (!counts) return null;
   const n = (v) => Number(v || 0);
   /* The owner's picture (PEOPLE-02): who works here now, who is coming, who came this month, who is leaving. The
      company may keep leavings from this reader (Company choices): then no notice tile. */
   const items = [
     { key: 'total', label: 'Working now', cat: 1, Icon: Users, value: n(counts.total), note: `${n(counts.onLeave)} on leave today`, onClick: () => onPick({ working: 'now' }) },
+    { key: 'onLeave', label: 'On leave today', value: n(counts.onLeave) },
     { key: 'joining', label: 'Joining', cat: 4, Icon: CalendarClock, value: n(counts.joining), note: 'Joining date still to come', onClick: () => onPick({ from: tomorrowIst() }) },
     { key: 'joinedMonth', label: 'Joined this month', cat: 3, Icon: UserPlus, value: n(counts.joinedThisMonth), note: counts.monthStart ? `Since ${formatDate(counts.monthStart)}` : null, onClick: () => onPick({ status: 'ALL', from: counts.monthStart, to: todayIst() }) },
-    counts.leavingsHidden ? null : { key: 'onNotice', label: 'On notice', cat: 2, Icon: UserRoundX, value: n(counts.onNotice), note: counts.leftThisMonth != null ? `${n(counts.leftThisMonth)} left this month` : null, onClick: () => onPick({ status: 'ON_NOTICE' }) },
   ];
   return <CountLine label="Workforce counts" items={items} />;
 }
