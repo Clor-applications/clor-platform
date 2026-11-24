@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 
 const css = readFileSync('packages/ui/src/motion.css', 'utf8');
 const main = readFileSync('main.jsx', 'utf8');
-const MOVED = ['people'];
+const MOVED = ['people', 'admin'];
 const PREFIX = ":root:not(#mo):not(#mo2):not(#mo3):not(#mo4)";
 
 /* Every selector of every style rule, with comments, @import, @keyframes bodies and @media wrappers set aside. */
@@ -42,8 +42,12 @@ describe('Motion kit layer', () => {
     expect(list.length).toBeGreaterThan(20);
     for (const s of list) {
       expect(s.startsWith(PREFIX), s).toBe(true);
-      const app = s.slice(PREFIX.length).match(/^\[data-app='([a-z]+)'\]/);
-      expect(app && MOVED.includes(app[1]), s).toBe(true);
+      const rest = s.slice(PREFIX.length);
+      /* One app ([data-app='x']) or the moved set (:is([data-app='x'], …)): every app named must have moved. */
+      const scope = rest.match(/^\[data-app='[a-z]+'\]/)?.[0] || rest.match(/^:is\((\[data-app='[a-z]+'\](?:,\s*)?)+\)/)?.[0];
+      expect(Boolean(scope), s).toBe(true);
+      const apps = [...scope.matchAll(/data-app='([a-z]+)'/g)].map((m) => m[1]);
+      expect(apps.every((a) => MOVED.includes(a)), s).toBe(true);
     }
   });
 
