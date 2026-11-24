@@ -1,0 +1,536 @@
+/* Switzer (Indian Type Foundry, Fontshare free licence), the variable file, kept with the site. */
+@font-face {
+  font-family: 'Switzer';
+  src: url('../fonts/switzer-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * The Darwinbox-style look (owner, 24 Nov 2026): pale blue grounds, deep navy
+ * text, soft blue hairlines, rounder shapes and blue-tinted shadows, taken
+ * from the design-system skill the owner supplied. CLOR's Blaze Orange stays
+ * the accent (buttons, links, focus); the skill's blue #0183FF is not used.
+ * Loaded after site.css and bands.css, so it wins on a tie. Delete this file
+ * and its import in App.jsx to get the earlier look back.
+ *
+ * Palette: #F2F9FF ground, #D6EBFF surface, #C4DCF7 border, #002B54 text,
+ * #FDDB5D highlight, #FFFFFF. Radii: 6, 12, 14, 21, 28, 100px. Spacing 4px grid.
+ */
+:root {
+  --dx-ground: #f2f9ff;
+  --dx-surface: #d6ebff;
+  --dx-border: #c4dcf7;
+  --dx-navy: #002b54;
+  --dx-sun: #fddb5d;
+
+  --bg: var(--dx-ground);
+  --surface: #ffffff;
+  --surface-2: var(--dx-surface);
+  --ink: var(--dx-navy);
+  /* Secondary text is the navy let down on the ground, not a new grey: 7.5:1 and 5.6:1 on #F2F9FF. */
+  --ink-2: color-mix(in srgb, var(--dx-navy) 78%, var(--dx-ground));
+  --ink-3: color-mix(in srgb, var(--dx-navy) 68%, var(--dx-ground));
+  --line: var(--dx-border);
+  --line-strong: color-mix(in srgb, var(--dx-navy) 30%, var(--dx-border));
+
+  --font-display: 'Switzer', system-ui, sans-serif;
+
+  --r-control: 12px;
+  --r-panel: 21px;
+  --r-pill: 100px;
+  --shadow-panel: rgba(0, 43, 84, 0.04) 0 2.767px 2.214px 0;
+  --shadow-lift: rgba(0, 43, 84, 0.04) 0 2.767px 2.214px 0, rgba(0, 43, 84, 0.06) 0 12.522px 10.017px 0,
+    rgba(0, 43, 84, 0.09) 0 41.778px 33.422px 0;
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-hover: 200ms;
+
+  --fx-ground: var(--dx-ground);
+  --fx-cool: var(--dx-surface);
+  --fx-mint: var(--dx-ground);
+  --fx-pill: var(--dx-surface);
+  --fx-edge: var(--dx-border);
+  --fx-shadow: var(--shadow-lift);
+  --navy: var(--dx-navy);
+  --fx-night: var(--dx-navy);
+  --fx-night-2: var(--dx-navy);
+}
+
+/* Type: tighter, heavier headings, as on the reference. */
+.h-hero,
+.h-1,
+.h-2 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Buttons are pills; the lift on hover is the reference's 0.3s transform. */
+.btn {
+  border-radius: var(--r-pill);
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.3s;
+}
+.btn--primary:hover,
+.btn--quiet:hover {
+  transform: translateY(-2px);
+}
+.btn:active {
+  transform: translateY(0);
+}
+.btn--quiet {
+  border-color: var(--dx-border);
+}
+.btn--quiet:hover {
+  background: var(--dx-surface);
+  border-color: var(--dx-border);
+}
+.btn[disabled],
+.btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+:focus-visible {
+  border-radius: 6px;
+}
+.btn:focus-visible {
+  border-radius: var(--r-pill);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .btn:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------ home: hero */
+/* A flat navy field; the headline's first words heavy and the rest light. */
+.fx-hero {
+  background: var(--dx-navy);
+  border-top: 0;
+}
+.fx-hero-in {
+  min-height: clamp(480px, 44vw, 600px);
+}
+.fx-hero h1 {
+  font-size: clamp(2.25rem, 1.2rem + 3vw, 3.5rem);
+  font-weight: 300;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  max-width: 16ch;
+}
+.fx-hero h1 strong {
+  display: block;
+  font-weight: 800;
+}
+.fx-hero-lede {
+  color: color-mix(in srgb, #fff 82%, var(--dx-navy));
+}
+.fx-hero-note {
+  color: color-mix(in srgb, #fff 70%, var(--dx-navy));
+}
+.fx-hero-note a + span {
+  margin-inline: var(--s-2);
+}
+
+/* One pill: the email field with the button set into its right end. */
+.dx-lead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-6);
+  max-width: 520px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, #fff 45%, var(--dx-navy));
+  border-radius: var(--r-pill);
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.dx-lead:hover {
+  border-color: #fff;
+}
+.dx-lead:focus-within {
+  border-color: #fff;
+  background: color-mix(in srgb, #fff 8%, var(--dx-navy));
+}
+.dx-lead input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 var(--s-5);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: #fff;
+  font-size: var(--t-md);
+}
+.dx-lead input::placeholder {
+  color: color-mix(in srgb, #fff 70%, var(--dx-navy));
+}
+.dx-lead input:focus-visible {
+  outline: 2px solid #ffb08a;
+  outline-offset: -2px;
+  border-radius: var(--r-pill);
+}
+.dx-lead .btn {
+  flex: none;
+  min-height: 48px;
+}
+
+/* The picture: a striped disc behind a photo, with one figure on glass. */
+.dx-hero-art {
+  position: relative;
+  justify-self: end;
+  width: min(100%, 560px);
+  padding: 40px 0 40px 40px;
+}
+.dx-hero-disc {
+  position: absolute;
+  inset: -72px -120px -72px -24px;
+  border-radius: 50%;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, #fff 12%, var(--dx-navy)) 0 28px, transparent 28px 56px);
+  -webkit-mask-image: radial-gradient(closest-side, #000 78%, transparent);
+  mask-image: radial-gradient(closest-side, #000 78%, transparent);
+}
+/* A 3D character (Unsplash, free licence; credit in the website README), cut out and standing on the
+   stripes. The pale glow keeps the navy suit apart from the navy ground. */
+.dx-hero-photo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+}
+.dx-hero-photo::before {
+  content: '';
+  position: absolute;
+  inset: 4% 8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--dx-surface) 46%, transparent), transparent);
+}
+.dx-hero-photo img {
+  position: relative;
+  width: auto;
+  height: min(600px, 62vh);
+  min-height: 420px;
+  filter: drop-shadow(0 18px 28px rgb(0 12 30 / 0.45));
+}
+.dx-hero-stat {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  max-width: 300px;
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid color-mix(in srgb, #fff 55%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--dx-navy) 62%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: #fff;
+  font-size: var(--t-sm);
+  line-height: 1.4;
+}
+.dx-hero-stat strong {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+/* ------------------------------------------------- home: the product suite */
+.dx-suite {
+  background: #fff;
+}
+.dx-suite-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.dx-suite-h {
+  font-size: clamp(2rem, 1.2rem + 2.4vw, 3rem);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  max-width: 22ch;
+}
+.dx-suite-sub {
+  margin-top: var(--s-4);
+  color: var(--ink-2);
+  font-size: var(--t-lg);
+}
+.dx-suite-head .fx-tabs {
+  margin-top: var(--s-6);
+  justify-content: center;
+}
+.dx-grid {
+  list-style: none;
+  margin: var(--s-7) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-6);
+}
+.dx-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 440px;
+  padding: 40px 40px 0;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--dx-ground), var(--dx-surface));
+  overflow: hidden;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.dx-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lift);
+}
+.dx-card:has(a:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.dx-card h3 {
+  font-size: var(--t-xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.dx-card h3 a {
+  text-decoration: none;
+  outline: 0;
+}
+/* The name's link covers the card. */
+.dx-card h3 a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+.dx-card > p {
+  margin-top: var(--s-2);
+  max-width: 32ch;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.dx-card .status {
+  align-self: flex-start;
+  margin-top: var(--s-3);
+}
+/* The screen stands on the card's floor, clear of the arrow's corner. */
+.dx-card-art {
+  flex: 1;
+  margin: var(--s-6) 40px 0 0;
+  max-height: 240px;
+  border-radius: 14px 14px 0 0;
+  background: #fff;
+  box-shadow: var(--shadow-lift);
+  overflow: hidden;
+}
+.dx-card-art > * {
+  width: 100%;
+  zoom: 0.8;
+}
+/* A product still to come has no screen yet: its words stand on the card itself. */
+.dx-card-art--words {
+  background: none;
+  box-shadow: none;
+}
+.dx-card-art--words > * {
+  zoom: 1;
+}
+.dx-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.dx-chips li {
+  padding: 6px var(--s-3);
+  border-radius: var(--r-pill);
+  background: #fff;
+  border: 1px solid var(--dx-border);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+/* The arrow sits in a corner cut out of the card, rounded where it meets it. */
+.dx-card-go {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  padding: 12px 0 0 12px;
+  border-top-left-radius: 28px;
+  background: #fff;
+  color: var(--accent-text);
+}
+.dx-card-go::before,
+.dx-card-go::after {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background: radial-gradient(circle at 0 0, transparent 27.5px, #fff 28px);
+}
+.dx-card-go::before {
+  right: 0;
+  top: -28px;
+}
+.dx-card-go::after {
+  left: -28px;
+  bottom: 0;
+}
+.dx-card-go svg {
+  transition: transform 0.3s;
+}
+.dx-card:hover .dx-card-go svg {
+  transform: translateX(4px);
+}
+.dx-suite-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-6);
+  margin-top: var(--s-7);
+}
+
+@media (max-width: 1080px) {
+  .dx-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .dx-hero-art {
+    justify-self: center;
+    padding: 24px 0 24px 24px;
+  }
+}
+@media (max-width: 640px) {
+  .dx-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dx-card {
+    min-height: 0;
+    padding: 24px 24px 0;
+  }
+  .dx-card-art {
+    margin-right: 48px;
+    min-height: 160px;
+  }
+  /* On a phone the figure sits under the photo, not across it. */
+  .dx-hero-stat {
+    position: relative;
+    bottom: auto;
+    max-width: none;
+    margin: var(--s-4) 0 0;
+  }
+  .dx-lead {
+    flex-direction: column;
+    align-items: stretch;
+    border-radius: 28px;
+    padding: var(--s-2);
+  }
+  .dx-lead input {
+    text-align: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dx-card,
+  .dx-card-go svg {
+    transition: none;
+  }
+  .dx-card:hover {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The other card groups on Home, in the product cards' shape (owner, 24 Nov 2026):
+   28px corners, the pale blue wash, no coloured stripe and one colour per row.
+   --------------------------------------------------------------------------- */
+.fx-card,
+.fx-card[data-p] {
+  padding: 12px;
+  border: 0;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--dx-ground), var(--dx-surface));
+  box-shadow: none;
+  transition:
+    transform var(--dur-hover) var(--ease),
+    box-shadow var(--dur-hover) var(--ease);
+}
+.fx-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lift);
+}
+.fx-card-pic {
+  border-radius: 18px;
+}
+.fx-card-body {
+  padding: var(--s-5) var(--s-4) var(--s-4);
+}
+.fx-card-body h3 {
+  font-weight: 700;
+  color: var(--dx-navy);
+}
+.fx-card[data-p] .fx-go-chip {
+  background: var(--accent-fill, var(--accent));
+}
+/* On the pale band the cards need a white ground to read as cards. */
+#highlights {
+  background: #fff;
+}
+
+.fx-frame {
+  padding: 12px;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: var(--shadow-lift);
+}
+.fx-frame img {
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+}
+
+.fx .setup .setup-step {
+  padding: 12px;
+  border: 0;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--dx-ground), var(--dx-surface));
+  box-shadow: none;
+}
+.fx .setup .setup-step:nth-child(n) .setup-art {
+  border-radius: 18px;
+  background: #fff;
+}
+.fx .setup .setup-copy::before {
+  color: var(--dx-navy);
+}
+.fx .setup .setup-copy .tile {
+  border-color: var(--dx-ground);
+  background: var(--dx-navy);
+  box-shadow: none;
+}
+.fx .section:has(.setup) {
+  background: #fff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-card:hover {
+    transform: none;
+  }
+}
+@media (min-width: 901px) {
+  .fx-sol {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+}

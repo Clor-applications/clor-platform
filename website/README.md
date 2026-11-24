@@ -12,6 +12,7 @@ npm run preview   # http://localhost:5191, the built site
 ```
 
 - Content and product status: `src/site.js`, `src/content.js`. Pages: `src/pages`. Routes and page titles: `src/routes.jsx`.
-- Design: light only, white ground, tokens at the top of `src/styles/site.css`; one face, Figtree (the apps' face); Blaze Orange (#FF5400) is kept for primary actions, the current-page marker and the focus ring, and #BA3900 for orange words.
+- Design: light only. Pale blue ground (#F2F9FF), navy text (#002B54), blue hairlines (#C4DCF7), pill buttons, 12px controls, 21px panels; one face, Switzer (file in `src/fonts`, Fontshare free licence). Blaze Orange (#FF5400) is kept for primary actions, the current-page marker and the focus ring. The look lives in `src/styles/darwin.css`, loaded after `site.css` and `bands.css`; the older tokens sit at the top of `src/styles/site.css`.
 - Home leads with Books, then Payroll, People and Attendance, each beside its screen drawn in code with sample data (`src/components/Windows.jsx`). No animation; pictures wait for the new illustration style.
 - Before publishing: `CONTENT_CHECKLIST.md`.
+- Home hero picture `public/people/hero-3d-*.webp`: a 3D character by Julien Tromeur from Unsplash (photo Ni5whKlGzI8), free under the Unsplash License, cut out of its white ground with ImageMagick.
