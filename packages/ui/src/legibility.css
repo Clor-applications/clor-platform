@@ -365,16 +365,12 @@
 }
 /* List rows arrive together, not one after another (the stagger ran on every load, 93 call sites). */
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(.ui-rows > tr, .ui-stagger > *) { animation: none !important; }
-/* Data draws at its final size: bars, the hero meter, the week bars, the waking border. */
+/* Data draws at its final size: bars, the hero meter, the week bars. */
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(
-  .ui-bar-fill, .ui-today-hero-meter > span, .ui-week-bar > span, .ui-wake, .ui-wake-group > *
+  .ui-bar-fill, .ui-today-hero-meter > span, .ui-week-bar > span
 ) { animation: none !important; }
-/* Decorative loops stop: orbs, floating tiles, the hero drift and breathing bar, the sign-in backdrop.
-   The new-row highlight plays once, briefly, instead of fading for six seconds. */
-:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(
-  .ui-ambient::before, .ui-ambient::after, .ui-float, .ui-float-late, .ui-hero-ground::before, .ui-hero-ground::after,
-  .ui-hero-bar, .ui-auth-scene-fill
-) { animation: none !important; }
+/* The decorative loops (orbs, floating tiles, hero drift, breathing bars, sign-in backdrop) are
+   deleted from index.css, not stopped here. The new-row highlight plays once, briefly. */
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(tr.is-new > td, li.is-new) { animation-duration: 1.2s !important; }
 /* No layout properties animate: the tab line slides by transform (RecordTabs), and a leaving row just goes. */
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-tab-indicator { transition: transform var(--dur-menu) var(--ease-out) !important; }

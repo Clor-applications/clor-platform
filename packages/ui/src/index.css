@@ -1642,71 +1642,7 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
 }
-/* Ambient drift: two soft orbs of brand light wandering very slowly. The
-   travel is small and the cycle long, so it reads as atmosphere, not motion. */
-@keyframes ui-orb-a {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50%      { transform: translate3d(3.5rem, -2.5rem, 0) scale(1.1); }
-}
-@keyframes ui-orb-b {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50%      { transform: translate3d(-3rem, 2rem, 0) scale(0.94); }
-}
-/* Gentle hover for illustration elements — a breath, not a bounce. */
-@keyframes ui-hover-float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-8px); }
-}
-
 @layer components {
-  /* --- ambient background ---
-     A decorative light layer painted OVER the app background, never replacing
-     it: the base colour stays --app-bg in both themes. Two blurred orbs in the
-     brand hue drift on a 26–32s cycle. pointer-events: none, aria-hidden at
-     the call site, and the global reduced-motion block freezes them. */
-  .ui-ambient {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
-  .ui-ambient::before,
-  .ui-ambient::after {
-    content: '';
-    position: absolute;
-    border-radius: 9999px;
-    filter: blur(64px);
-    will-change: transform;
-  }
-  .ui-ambient::before {
-    width: 34rem;
-    height: 34rem;
-    top: -10rem;
-    right: -8rem;
-    background: radial-gradient(closest-side, rgb(var(--brand) / 0.14), transparent 70%);
-    animation: ui-orb-a 26s ease-in-out infinite;
-  }
-  .ui-ambient::after {
-    width: 28rem;
-    height: 28rem;
-    bottom: -9rem;
-    left: -7rem;
-    background: radial-gradient(closest-side, rgb(var(--accent) / 0.1), transparent 70%);
-    animation: ui-orb-b 32s ease-in-out infinite;
-  }
-  /* Inside the working app the same layer at a third of the strength: present
-     when you look for it, invisible when you are reading numbers. */
-  .ui-ambient-quiet::before {
-    background: radial-gradient(closest-side, rgb(var(--brand) / 0.05), transparent 70%);
-  }
-  .ui-ambient-quiet::after {
-    background: radial-gradient(closest-side, rgb(var(--accent) / 0.04), transparent 70%);
-  }
-  /* Fixed variant for the app shell, so the glow stays put while lists scroll. */
-  .ui-ambient-fixed {
-    position: fixed;
-  }
-
   /* --- 3D tilt ---
      The wrapper eases the spring-back; while the pointer moves, useTilt sets
      an inline transform that overrides the transition target. preserve-3d
@@ -1722,13 +1658,6 @@
   @media (prefers-reduced-motion: reduce) {
     .ui-tilt3d { transition: none; }
     .ui-depth-1, .ui-depth-2 { transform: none; }
-  }
-
-  .ui-float {
-    animation: ui-hover-float 7s ease-in-out infinite;
-  }
-  .ui-float-late {
-    animation: ui-hover-float 9s ease-in-out 1.8s infinite;
   }
 
   /* Content arriving: 320ms, decelerating, because it is coming to rest. */
@@ -2460,30 +2389,6 @@
     font-family: 'Figtree Variable', 'Figtree', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
-  }
-
-  /* --- border wake --------------------------------------------------------
-     An overview is the one screen that is *about* its numbers being current,
-     so its surfaces settle in: the border warms to the brand for a moment as
-     the figures land, then cools back to the ordinary hairline. Once, on
-     mount, staggered down the page. No loop, because a border that keeps
-     pulsing is a notification nobody asked for.
-  --------------------------------------------------------------------------- */
-  @keyframes ui-border-wake {
-    0%   { border-color: rgb(var(--brand) / 0.55); }
-    45%  { border-color: rgb(var(--brand) / 0.35); }
-    100% { border-color: rgb(var(--border)); }
-  }
-  .ui-wake { animation: ui-border-wake 1100ms var(--ease-out) both; }
-  .ui-wake-group > *  { animation: ui-border-wake 1100ms var(--ease-out) both; }
-  .ui-wake-group > *:nth-child(2) { animation-delay: 70ms; }
-  .ui-wake-group > *:nth-child(3) { animation-delay: 140ms; }
-  .ui-wake-group > *:nth-child(4) { animation-delay: 210ms; }
-  .ui-wake-group > *:nth-child(5) { animation-delay: 280ms; }
-  .ui-wake-group > *:nth-child(n+6) { animation-delay: 350ms; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .ui-wake, .ui-wake-group > * { animation: none; }
   }
 
   /* --- KPI strip ----------------------------------------------------------
@@ -4653,7 +4558,7 @@
 /* ------------------------------------------------------------------ *
  * The dashboard hero's ground.
  *
- * Two very soft pine fields drifting behind the greeting. They are the page's
+ * Two very soft pine fields, still, behind the greeting. They are the page's
  * only decoration and they earn it by solving a real problem: a near-black
  * green on a flat white page has nothing to sit on, so the avatar and the
  * primary button read as stuck to the screen rather than placed in it.
@@ -4692,7 +4597,6 @@
     top: -10%;
     bottom: 22%;
     background: radial-gradient(closest-side, rgb(var(--brand) / 0.13), transparent 100%);
-    animation: ui-hero-drift-a 38s ease-in-out infinite alternate;
   }
 
   .ui-hero-ground::after {
@@ -4701,124 +4605,10 @@
     top: 4%;
     bottom: 10%;
     background: radial-gradient(closest-side, rgb(var(--brand) / 0.09), transparent 100%);
-    animation: ui-hero-drift-b 46s ease-in-out infinite alternate;
   }
 
   /* Dark mode needs less: the accent already separates from the ground, so
      the fields drop to a trace that only stops the header being a flat plane. */
-}
-
-/* Slow enough that nobody watching sees movement — they see the page having
-   settled differently since they last looked. */
-@keyframes ui-hero-drift-a {
-  from { transform: translate3d(0, 0, 0) scale(1); }
-  to   { transform: translate3d(3%, 4%, 0) scale(1.12); }
-}
-
-@keyframes ui-hero-drift-b {
-  from { transform: translate3d(0, 0, 0) scale(1.1); }
-  to   { transform: translate3d(-4%, -3%, 0) scale(1); }
-}
-
-/* Off, not slowed. The wash is the point; the drift never carried anything. */
-@media (prefers-reduced-motion: reduce) {
-  .ui-hero-ground::before,
-  .ui-hero-ground::after {
-    animation: none;
-  }
-}
-
-
-/* ------------------------------------------------------------------ *
- * The gutters beside the greeting: breathing bars.
- *
- * Five bars each side, rising and settling out of step. The obvious risk with
- * bars next to a dashboard is that they read as a figure somebody should be
- * able to click, so the defence is built in rather than bolted on: every bar
- * is always moving. Nothing holds a height long enough to be read as a
- * measurement, none of them carries an axis, a label or a hit area, and the
- * whole thing is aria-hidden.
- *
- * Fades toward the centre so it frames the greeting rather than crowding it,
- * and it is gone below 1280px where the space does not exist.
- *
- * Class names are written out in the JSX, never interpolated: Tailwind
- * tree-shakes `@layer components` rules whose selector never appears literally
- * in the source, which silently dropped one whole side of an earlier attempt.
- * ------------------------------------------------------------------ */
-@layer components {
-  .ui-hero-bars {
-    position: absolute;
-    /* Anchored to the composition rather than centred on the section: the
-       bars run from just under the avatar down to the foot of the search
-       field, so they flank the whole block instead of only the greeting.
-       Percentages, so they keep that relationship as the hero grows and
-       shrinks with the length of the insight line. */
-    top: 5%;
-    bottom: 27%;
-    width: 150px;
-    z-index: var(--z-below);
-    display: none;
-    align-items: flex-end;
-    gap: 9px;
-    pointer-events: none;
-  }
-
-  .ui-hero-bars-l {
-    left: 5%;
-    -webkit-mask-image: linear-gradient(to right, #000 20%, transparent);
-    mask-image: linear-gradient(to right, #000 20%, transparent);
-  }
-
-  .ui-hero-bars-r {
-    right: 5%;
-    flex-direction: row-reverse;
-    -webkit-mask-image: linear-gradient(to left, #000 20%, transparent);
-    mask-image: linear-gradient(to left, #000 20%, transparent);
-  }
-
-  @media (min-width: 1280px) {
-    .ui-hero-bars {
-      display: flex;
-    }
-  }
-
-  .ui-hero-bar {
-    flex: 1;
-    border-radius: 4px 4px 0 0;
-    transform-origin: bottom;
-    /* Flat, not a vertical gradient.
-       Porting this in I "improved" it into a gradient fading to 0.08 at the
-       top, on the theory that dissolving beat a hard cap. On the real page it
-       just made the bars look washed out and half-rendered — the sample that
-       was actually approved is a solid fill, and solid is what gives them
-       enough body to read as an object rather than a smudge. */
-    background: rgb(var(--brand) / 0.22);
-    animation: ui-hero-breathe 9s ease-in-out infinite alternate;
-  }
-
-  /* Heights and delays are fixed rather than random so the two sides are the
-     same object mirrored, not two different ones. */
-  .ui-hero-bar:nth-child(1) { height: 38%; animation-delay: 0s; }
-  .ui-hero-bar:nth-child(2) { height: 64%; animation-delay: 0.7s; }
-  .ui-hero-bar:nth-child(3) { height: 46%; animation-delay: 1.4s; }
-  .ui-hero-bar:nth-child(4) { height: 82%; animation-delay: 2.1s; }
-  .ui-hero-bar:nth-child(5) { height: 56%; animation-delay: 2.8s; }
-}
-
-@keyframes ui-hero-breathe {
-  from { transform: scaleY(0.72); opacity: 0.6; }
-  to   { transform: scaleY(1); opacity: 1; }
-}
-
-/* Reduced motion parks them mid-breath. Still not a figure — no axis, no
-   label, no scale — just a shape that has stopped. */
-@media (prefers-reduced-motion: reduce) {
-  .ui-hero-bar {
-    animation: none;
-    transform: scaleY(0.85);
-    opacity: 0.8;
-  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -9159,7 +8949,7 @@ button.ui-side-alert { cursor: pointer; }
   object-fit: contain;
   object-position: 0% 0%;
 }
-/* Behind it, a soft blurred copy fills whatever space the picture leaves, slowly drifting. */
+/* Behind it, a soft blurred copy fills whatever space the picture leaves. It holds still (DESIGN.md Motion: no ambient loops). */
 .ui-auth-scene-fill {
   position: absolute;
   inset: -40px;
@@ -9168,11 +8958,6 @@ button.ui-side-alert { cursor: pointer; }
   object-fit: cover;
   filter: blur(28px) saturate(110%);
   opacity: 0.9;
-  animation: ui-auth-drift 26s ease-in-out infinite alternate;
-}
-@keyframes ui-auth-drift {
-  from { transform: scale(1); }
-  to { transform: scale(1.08); }
 }
 .ui-auth-form-logo {
   margin-bottom: 28px;
