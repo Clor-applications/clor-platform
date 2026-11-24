@@ -453,3 +453,84 @@
     transform: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The other card groups on Home, in the product cards' shape (owner, 24 Nov 2026):
+   28px corners, the pale blue wash, no coloured stripe and one colour per row.
+   --------------------------------------------------------------------------- */
+.fx-card,
+.fx-card[data-p] {
+  padding: 12px;
+  border: 0;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--dx-ground), var(--dx-surface));
+  box-shadow: none;
+  transition:
+    transform var(--dur-hover) var(--ease),
+    box-shadow var(--dur-hover) var(--ease);
+}
+.fx-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lift);
+}
+.fx-card-pic {
+  border-radius: 18px;
+}
+.fx-card-body {
+  padding: var(--s-5) var(--s-4) var(--s-4);
+}
+.fx-card-body h3 {
+  font-weight: 700;
+  color: var(--dx-navy);
+}
+.fx-card[data-p] .fx-go-chip {
+  background: var(--accent-fill, var(--accent));
+}
+/* On the pale band the cards need a white ground to read as cards. */
+#highlights {
+  background: #fff;
+}
+
+.fx-frame {
+  padding: 12px;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: var(--shadow-lift);
+}
+.fx-frame img {
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+}
+
+.fx .setup .setup-step {
+  padding: 12px;
+  border: 0;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--dx-ground), var(--dx-surface));
+  box-shadow: none;
+}
+.fx .setup .setup-step:nth-child(n) .setup-art {
+  border-radius: 18px;
+  background: #fff;
+}
+.fx .setup .setup-copy::before {
+  color: var(--dx-navy);
+}
+.fx .setup .setup-copy .tile {
+  border-color: var(--dx-ground);
+  background: var(--dx-navy);
+  box-shadow: none;
+}
+.fx .section:has(.setup) {
+  background: #fff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-card:hover {
+    transform: none;
+  }
+}
+@media (min-width: 901px) {
+  .fx-sol {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+}
