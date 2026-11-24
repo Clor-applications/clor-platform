@@ -194,18 +194,27 @@
   -webkit-mask-image: radial-gradient(closest-side, #000 78%, transparent);
   mask-image: radial-gradient(closest-side, #000 78%, transparent);
 }
-/* A 3D character (Unsplash, free licence; credit in the website README) on a white card over the stripes. */
+/* A 3D character (Unsplash, free licence; credit in the website README), cut out and standing on the
+   stripes. The pale glow keeps the navy suit apart from the navy ground. */
 .dx-hero-photo {
   position: relative;
   z-index: 1;
-  border-radius: 28px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: var(--shadow-lift);
+  display: flex;
+  justify-content: center;
+}
+.dx-hero-photo::before {
+  content: '';
+  position: absolute;
+  inset: 4% 8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--dx-surface) 46%, transparent), transparent);
 }
 .dx-hero-photo img {
-  width: 100%;
-  height: auto;
+  position: relative;
+  width: auto;
+  height: min(600px, 62vh);
+  min-height: 420px;
+  filter: drop-shadow(0 18px 28px rgb(0 12 30 / 0.45));
 }
 .dx-hero-stat {
   position: absolute;
