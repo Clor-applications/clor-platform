@@ -3,6 +3,8 @@ import React, { useMemo, useState } from 'react';
 import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { Plus } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import { CountLine } from '@ui/components/ui/CountLine';
+import { plusDaysIso } from '@ui/utils/dates';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -37,6 +39,14 @@ export default function Plans({ params = {} }) {
   const req = useRequest(() => listPlans({ status }), [status]);
   const today = todayIst();
   const rows = exceptionsFirst(req.data?.plans || [], (p) => isException(p, today));
+  /* The count line (DESIGN.md "Page header"), on Running only: running, overdue, ending in the next 14 days. */
+  const soon = plusDaysIso(14);
+  const live = rows.filter((p) => ['ACTIVE', 'EXTENDED'].includes(p.status));
+  const figures = req.data && !status ? [
+    { key: 'running', label: 'running', value: live.length },
+    { key: 'overdue', label: 'past the end date', value: live.filter((p) => overdue(p, today)).length, tone: 'neg' },
+    { key: 'soon', label: 'ending in 14 days', value: live.filter((p) => p.endDate >= today && p.endDate <= soon).length },
+  ] : null;
   /* A plan is HR's or a manager's: New plan only for them, picking from the whole company or their own team. */
   const canStart = Boolean(req.data?.hr || req.data?.reports?.length);
   const columns = [
@@ -56,7 +66,7 @@ export default function Plans({ params = {} }) {
       <ListHeader
         module="Performance"
         title="Improvement plans"
-        description="Plans agreed with someone whose work needs to change: why, what is expected, and by when."
+        strip={figures ? <CountLine label="Plan figures" items={figures} /> : null}
         primary={canStart ? { label: 'New plan', icon: Plus, onClick: () => setCreating(true) } : null}
         tabs={tabItems(TABS)}
         tab={status}

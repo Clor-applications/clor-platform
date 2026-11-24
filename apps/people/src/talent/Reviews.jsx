@@ -4,6 +4,7 @@ import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
 import { ArrowLeft, Plus } from '@ui/components/ui/lineIcons';
 import { PageHeader, SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import { CountLine } from '@ui/components/ui/CountLine';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -37,6 +38,18 @@ const NEXT = {
 const cycleTag = (c) => <ExceptionTag label={c.status === 'CALIBRATING' ? CYCLE_STATUS.CALIBRATING[0] : ''} normal={CYCLE_STATUS[c.status]?.[0] || c.status} pill={CYCLE_STATUS[c.status]?.[1]} />;
 const of = (counts, n) => <span className="tabular-nums">{counts}<span className="ui-muted"> / {n}</span></span>;
 
+/* The count line (DESIGN.md "Page header"): cycles running, cycles waiting on HR, and reviews still to write. */
+const reviewFigures = (cycles) => {
+  const live = cycles.filter((c) => c.status === 'OPEN' || c.status === 'CALIBRATING');
+  const left = (k) => live.reduce((a, c) => a + Math.max(0, Number(c.counts.people || 0) - Number(c.counts[k] || 0)), 0);
+  return [
+    { key: 'open', label: cycles.filter((c) => c.status === 'OPEN').length === 1 ? 'cycle open' : 'cycles open', value: cycles.filter((c) => c.status === 'OPEN').length },
+    { key: 'calibrating', label: 'in calibration', value: cycles.filter((c) => c.status === 'CALIBRATING').length, tone: 'warn' },
+    { key: 'self', label: 'self-reviews to write', value: left('self') },
+    { key: 'manager', label: 'manager reviews to write', value: left('manager') },
+  ];
+};
+
 export default function Reviews({ params = {} }) {
   const [open, setOpen] = useParamState(params?.id);
   const [creating, setCreating] = useState(false);
@@ -58,7 +71,7 @@ export default function Reviews({ params = {} }) {
       <ListHeader
         module="Performance"
         title="Reviews"
-        description="Review cycles: a period, everyone working in it, and how far the self, manager and final reviews have got."
+        strip={req.data ? <CountLine label="Review figures" items={reviewFigures(cycles)} /> : null}
         primary={hr ? { label: 'New cycle', icon: Plus, onClick: () => setCreating(true) } : null}
       />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (

@@ -26,6 +26,7 @@ import {
 import { money } from './words';
 import RecordClaimDrawer from './RecordClaimDrawer';
 import { todayIst as today } from '@ui/utils/dates';
+import { CountLine } from '@ui/components/ui/CountLine';
 
 /**
  * People › Expenses (WORKFLOW-GAP-RESEARCH 4.1, 4.2): what HR or the owner
@@ -54,13 +55,19 @@ export default function Expenses({ params = {}, updateParams }) {
   const [recording, setRecording] = useState(null);
   const toPay = useRequest(() => listClaims('TO_PAY'), []);
 
+  /* The count line (DESIGN.md "Page header"): what waits to be paid, in claims and in rupees. Zero clauses drop out. */
+  const waiting = toPay.data || [];
+  const figures = toPay.data ? [
+    { key: 'claims', label: waiting.length === 1 ? 'claim to pay' : 'claims to pay', value: waiting.length, tone: 'warn', onClick: tab === 'pay' ? undefined : () => set({ tab: null, page: null, q: null }, true) },
+    { key: 'sum', label: 'to pay in all', value: waiting.length ? money(waiting.reduce((a, c) => a + Number(c.toPay || 0), 0)) : 0 },
+  ] : null;
   const exportBooks = () => downloadCsv('books').catch((e) => notify.error(errorWords(e, 'download the file')));
   return (
     <div className="space-y-6">
       <ListHeader
         section="Pay & benefits"
         title="Expenses"
-        description="Claims approved in the Inbox, waiting to be paid or to go into Books, and the advances given out."
+        strip={figures ? <CountLine label="Expense figures" items={figures} /> : null}
         primary={mayPay ? { label: 'Record a claim', icon: Plus, onClick: () => setRecording({ step: 'person' }) } : null}
         secondary={<>
           {mayPay ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setCategoriesOpen(true)}>Categories and limits</button> : null}
