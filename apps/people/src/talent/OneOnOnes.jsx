@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import { CountLine } from '@ui/components/ui/CountLine';
+import { plusDaysIso } from '@ui/utils/dates';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -28,13 +30,21 @@ export default function OneOnOnes() {
     { key: 'notes', label: 'Talked about', render: (r) => <span className="block max-w-[28rem] line-clamp-2" title={r.notes || ''}>{r.notes || '—'}</span> },
     { key: 'actions', label: 'Agreed', render: (r) => <span className="block max-w-[24rem] line-clamp-2" title={r.actions || ''}>{r.actions || '—'}</span> },
   ];
+  /* The count line (DESIGN.md "Page header"): held in the last 30 days, and who in your team has had none since. */
+  const monthAgo = plusDaysIso(-30);
+  const recent = rows.filter((r) => r.mine && String(r.date).slice(0, 10) >= monthAgo);
+  const seen = new Set(recent.map((r) => r.employee?.id || r.employeeId));
+  const figures = req.data ? [
+    { key: 'recent', label: 'in the last 30 days', value: recent.length },
+    person ? null : { key: 'none', label: 'in your team without one in 30 days', value: reports.filter((p) => !seen.has(p.id)).length, tone: 'warn' },
+  ].filter(Boolean) : null;
   const blank = { employeeId: person || (reports.length === 1 ? reports[0].id : '') };
   return (
     <div className="space-y-6">
       <ListHeader
         module="Performance"
         title="One-on-ones"
-        description="What you talked about with each person in your team, and what you both agreed."
+        strip={figures ? <CountLine label="One-on-one figures" items={figures} /> : null}
         primary={reports.length ? { label: 'New one-on-one', icon: Plus, onClick: () => setEditing(blank) } : null}
         toolbar={reports.length > 1 ? <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone' }, ...reports.map((p) => ({ value: p.id, label: p.name }))]} /></div> : null}
       />
