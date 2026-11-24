@@ -417,6 +417,34 @@ disagrees with this file, this file wins.
 | Tables, filters, forms | Linear, Rippling |
 | Settings, permissions, audit | Rippling, Zoho People |
 
+## Design laws
+
+Twenty laws of UX, each tied to the rule in this file that carries it out (owner, 25 Nov 2026). Use them to check a
+screen in review. Where a law and a rule seem to disagree, the rule wins. Laws marked **new** add a rule.
+
+| Law | How CLOR carries it out |
+|---|---|
+| Aesthetic-usability effect | Precision is the look: square, flat, white, aligned figures. Not a licence to decorate. |
+| Law of proximity | 4px grid; a label sits 4px from its field, 24px between groups; form sections are a heading over an ink rule. |
+| Von Restorff effect | Violet marks the one action that matters; status tags only on exception rows. If two things stand out, neither does. |
+| Zeigarnik effect | **new.** Unfinished work is shown where it was left: a draft employee, a pay run halfway through, an import stopped. Home and the list show one "Continue …" row with the step it stopped at ("Pay run for Nov · step 3 of 5 · Continue"). Never nag with badges. |
+| Tesler's law | **new.** The system takes the complexity the user would otherwise carry: tax splits, state codes from a GSTIN, pro-rata, holidays, PF and ESI ceilings are worked out, not typed. Show the working on request, never ask for it. |
+| Law of Prägnanz | Six sizes, two weights, square shapes, no shadows: each screen reads as a few simple blocks. |
+| Serial position effect | **new.** In menus, tabs and lists of actions, the most used item goes first and the danger or exit item last. Home is always the first place; the account menu ends with Sign out. |
+| Progressive disclosure | **new.** Forms show what most people fill; rarely used fields sit under one "More details" toggle or in a drawer. Settings deeper than two levels get a breadcrumb. Never hide a required field. |
+| Law of common region | A boundary means "these belong together": the 1px ink box only on documents and floating layers; no card inside a card, no box around a list. |
+| Goal-gradient effect | **new.** Every multi-step job shows how far along it is: stepper for flows, "4 of 7 done" on setup checklists, "Imported 120 of 400 rows" on progress. Done steps are counted from the start, never reset. |
+| Law of similarity | Same thing, same look everywhere: one violet primary, three status looks, one button set in every app. |
+| Recognition over recall | Every text field suggests existing values; ⌘K shows recent items first; dates in words; pickers over typed codes. |
+| Pareto principle | The count line and exceptions-first sorting put the 20% that needs attention at the top. |
+| Occam's razor | When two layouts work, pick the one with fewer parts. Remove before adding. |
+| Parkinson's law | **new.** Long jobs say how long they take before they start ("About 2 minutes for 142 people") and setup tasks may carry a due date. No countdowns or false urgency. |
+| Uniform connectedness | Lines tie related things: stepper rules, timeline hairline, the bulk bar over the picked rows. |
+| Paradox of the active user | People skip instructions, so the screen teaches: errors say how to fix, empty states have one button, defaults are sensible. No tours that must be read first. |
+| Cognitive load | One primary per screen, search at five or more options, two-line rows on phones, at most four figures. |
+| Default effect | Defaults are the safe, common choice: this month, this financial year, the company's main branch. Never default to a destructive or paid option. |
+| Peak-end rule | **new.** A finished job ends on a summary, not a blank list: pay run, month close, import, onboarding and approvals inbox end with one line of what was done in figures ("Nov pay run done · 142 paid · ₹38,40,000.00"), revealed once with the reveal motion, plus the next useful link. No confetti or looping animation; figures never animate. Errors at the end keep the last good data and offer Retry. |
+
 ## Accessibility
 
 - Text 4.5:1; controls, borders that identify a control, and focus 3:1 (WCAG 2.2 AA).
@@ -491,4 +519,5 @@ hue family, and check it in the browser. Steps 0 to 5 then become deleting the o
 | 24 Nov 2026 | Square corners, no shadows, 1px ink border on floating layers | The skill detected no radius and no elevation |
 | 24 Nov 2026 | Logo orange kept as artwork only | The brand mark stays; it is not a UI colour |
 | 24 Nov 2026 | Ink, success and warning are stand-ins until Motion's full palette is pulled | The pasted skill showed 20 of 37 colours |
+| 25 Nov 2026 | Twenty design laws mapped to rules; seven new rules (Zeigarnik, Tesler, serial position, progressive disclosure, goal-gradient, Parkinson, peak-end) | Owner asked to check the platform against the laws and add the missing ones |
 | 24 Nov 2026 | Kept from earlier: count line, exceptions-only tags, one primary per screen, tick/cross approvals, white work areas, light only, six People places | Product rules, not visual style; nothing in the skill contradicts them |
