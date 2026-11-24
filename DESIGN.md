@@ -340,6 +340,7 @@ overflow, truncation and maximum content (₹99,99,99,999.00; a 60-character nam
 - **Chart:** bars and lines only. Ink axis, slate-deepest grid, text-xs ink-2 labels. The page's series is
   primary; others violet-soft or red-soft with direct labels. A data-table toggle under every chart. No pies, 3D
   or gradients.
+  Draw them with `LineChart` and `BarChart` from `packages/ui/src/components/charts/kit` (24 Nov 2026).
 
 ### Overlays
 - **Dialog:** 440px, ink border, 24px padding; title asks the question with its object ("Approve leave for Rohan

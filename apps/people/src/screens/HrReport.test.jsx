@@ -53,7 +53,11 @@ it('draws the report full page: filters, one chart, the table, and Export as the
   /* Figures are tabular and to the right. */
   for (const td of table.querySelectorAll('tbody td')) expect(td.className).toMatch(/text-right/);
   for (const td of table.querySelectorAll('tbody td')) expect(td.className).toMatch(/tabular-nums/);
-  expect(screen.getByRole('img', { name: /Headcount over time\. Jan 2025: Sales 4, Ops 4; Feb 2025: Sales 5, Ops 3/ })).toBeTruthy();
+  /* The chart, and its figures in a table a screen reader reads. */
+  expect(screen.getByRole('img', { name: /Headcount over time/ })).toBeTruthy();
+  const figures = screen.getByRole('table', { name: 'Chart figures: Headcount over time', hidden: true });
+  expect(figures.textContent).toContain('Jan 2025');
+  expect(figures.textContent).toMatch(/Sales.*Ops/);
   /* One primary action; a list on the page ground. */
   expect(container.querySelectorAll('.ui-btn-primary').length).toBe(1);
   expect(screen.getByRole('button', { name: /Export/ }).className).toMatch(/ui-btn-primary/);
@@ -96,24 +100,27 @@ it('says so when nothing matches, offers to clear the filters, and has nothing t
   expect(updateParams).toHaveBeenCalledWith({ departmentId: null, branchId: null, employeeTypeId: null, gradeId: null }, { push: false });
 });
 
-it('a chart carries three colours at most: a fourth series is the grey “Other”', () => {
+it('a chart carries three tones at most: a fourth series is the faint grey “Other”', () => {
   const chart = { kind: 'stacked', categories: ['Jan'], series: [{ label: 'A', values: [4] }, { label: 'B', values: [3] }, { label: 'C', values: [2] }, { label: 'Other', values: [1], other: true }, { label: 'Stray', values: [1] }] };
   const { container } = render(<ReportChart chart={chart} label="Test" />);
-  const colours = [...container.querySelectorAll('.people-chart-stack > span')].map((s) => s.style.getPropertyValue('--dept'));
-  expect(colours).toEqual(['var(--dept-1)', 'var(--dept-2)', 'var(--dept-3)', 'var(--dept-0)', 'var(--dept-0)']);
-  expect(new Set(colours.filter((c) => c !== 'var(--dept-0)')).size).toBeLessThanOrEqual(3);
+  const fills = [...container.querySelectorAll('svg.ck-plot rect')].map((r) => r.getAttribute('fill')).filter((f) => f !== 'transparent');
+  expect(fills).toEqual(['rgb(var(--fg))', 'rgb(var(--fg-muted))', 'rgb(var(--border-input))', 'rgb(var(--border-strong))', 'rgb(var(--border-strong))']);
+  /* Three tones for named series, plus the one grey every "Other" shares. */
+  expect(new Set(fills).size).toBeLessThanOrEqual(4);
   /* No colour of its own in the component: tokens only. */
   expect(container.innerHTML).not.toMatch(/#[0-9a-f]{3,6}\b|rgb\(\d/i);
 });
 
-it('a line chart (absence rate by month): one line a series, the months under it, said in words with its unit', () => {
+it('a line chart (absence rate by month): one line a series, the months under it, every figure with its unit', () => {
   const chart = { kind: 'line', unit: '%', categories: ['Jan 2025', 'Feb 2025', 'Mar 2025'], series: [{ label: 'Absence rate', values: [2.5, 4, 1.2] }] };
   const { container } = render(<ReportChart chart={chart} label="Absence rate" />);
-  const lines = container.querySelectorAll('.people-chart-line polyline');
+  const lines = container.querySelectorAll('svg.ck-plot path[fill="none"]');
   expect(lines).toHaveLength(1);
-  expect(lines[0].getAttribute('points').split(' ')).toHaveLength(3);
-  expect(screen.getByRole('img').getAttribute('aria-label')).toContain('Feb 2025: Absence rate 4%');
-  expect([...container.querySelectorAll('.people-chart-axis span')].map((s) => s.textContent)).toEqual(['Jan 2025', 'Feb 2025', 'Mar 2025']);
+  expect(lines[0].getAttribute('d').match(/[ML]/g)).toHaveLength(3);
+  expect(screen.getByRole('img', { name: /Absence rate/ })).toBeTruthy();
+  /* The figures, with the unit, in the table a screen reader reads. */
+  expect(screen.getByRole('cell', { name: '4%', hidden: true })).toBeTruthy();
+  expect([...container.querySelectorAll('svg.ck-plot text.ck-axis')].map((t) => t.textContent)).toEqual(expect.arrayContaining(['Jan 2025', 'Mar 2025']));
   expect(container.innerHTML).not.toMatch(/#[0-9a-f]{3,6}\b|rgb\(\d/i);
 });
 

@@ -1,8 +1,8 @@
 import { enumWords } from '@ui/utils/errorWords';
 import React, { useMemo } from 'react';
-import { BarList, ChartPanel, Columns, Delta, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
-import JoinLeaveBars from '@ui/timeOff/JoinLeaveBars';
-import YearOnYearLine, { shiftYear } from '@ui/timeOff/YearOnYearLine';
+import { ChartPanel, Delta, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { shiftYear } from '@ui/timeOff/YearOnYearLine';
+import { BarChart, LineChart } from '@ui/components/charts/kit';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -39,6 +39,10 @@ function SectionFailed({ title, req, chart = false }) {
       <ErrorState error={req.error} onRetry={req.reload} compact />
     </section>
   );
+}
+/** A ranked list of counts as kit bars: rows [{ key, label, value }]. */
+export function RankBars({ rows, label }) {
+  return <BarChart horizontal label={label} categories={rows.map((r) => r.label)} series={[{ name: label, values: rows.map((r) => r.value) }]} />;
 }
 const pct = (v) => (v === null || v === undefined ? '—' : `${v.toFixed(1)}%`);
 const REASONS = { RESIGNED: 'Resigned', TERMINATED: 'Let go', RETIRED: 'Retired', ABSCONDED: 'Absconded', CONTRACT_ENDED: 'Contract ended', DECEASED: 'Passed away', NOT_SAID: 'Not said' };
@@ -142,7 +146,7 @@ function TenurePanel() {
     <>
       {rows.some((x) => x.value) ? (
         <ChartPanel title="How long people have stayed" note={notes.length ? `Working today · ${notes.join(' · ')}` : 'Working today'}>
-          <BarList one label="People working today by years since joining" rows={rows} />
+          <RankBars label="People working today by years since joining" rows={rows} />
         </ChartPanel>
       ) : null}
       {/* Round 45 picks: age mix and team size per manager, from the same list. */}
@@ -164,9 +168,22 @@ function YearOnYearPanel({ period, months }) {
   const byMonth = new Map(before.map((m) => [m.month, m.headcountAtEnd]));
   if (!before.some((m) => m.headcountAtEnd)) return null;
   const rows = months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], now: m.headcountAtEnd, before: byMonth.get(shiftYear(`${m.month}-01`).slice(0, 7)) ?? null }));
+  const lastNow = rows.at(-1)?.now;
+  const lastBefore = [...rows].reverse().find((r) => r.before != null)?.before;
+  const diff = lastNow != null && lastBefore != null ? lastNow - lastBefore : null;
+  const change = diff == null ? null : diff === 0 ? 'Same as a year before' : `${diff > 0 ? '+' : '\u2212'}${Math.abs(diff)} on a year before`;
   return (
-    <ChartPanel title="This year against last year" note="Headcount at the end of each month" className="pt-chart-wide">
-      <YearOnYearLine label="Headcount at the end of each month" rows={rows} nowLabel="This period" beforeLabel="A year before" />
+    <ChartPanel title="This year against last year" note={change ? `Headcount at the end of each month · ${change}` : 'Headcount at the end of each month'} className="pt-chart-wide">
+      {/* The kit's line pair (24 Nov 2026) keeps round 30's "yoy" A: this period solid in the app colour, a year before dashed behind it. */}
+      <LineChart
+        label="Headcount at the end of each month"
+        categories={rows.map((r) => r.label)}
+        series={[
+          { name: 'This period', values: rows.map((r) => r.now), focus: true },
+          { name: 'A year before', values: rows.map((r) => r.before), color: 'rgb(var(--fg-muted))', dash: '6 4' },
+        ]}
+        height={200}
+      />
     </ChartPanel>
   );
 }
@@ -213,14 +230,22 @@ export default function PeopleReports({ params = {}, updateParams }) {
         {t && months.length && (t.headcountAtEnd || t.joiners || t.leavers) ? (
           <div className="pt-charts">
             <ChartPanel title="Headcount, end of month" note="People employed">
-              <Columns label="Headcount at the end of each month" rows={months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], value: m.headcountAtEnd }))} />
+              <BarChart labels label="Headcount at the end of each month" categories={months.map((m) => MONTHS[Number(m.month.slice(5, 7)) - 1])} series={[{ name: 'Headcount', values: months.map((m) => m.headcountAtEnd) }]} highlight={months.length - 1} height={200} />
             </ChartPanel>
             <ChartPanel title="Why people left">
-              {reasons.length ? <BarList label="Leavers by reason" rows={reasons.sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ key: k, label: REASONS[k] || enumWords(k), value: n }))} /> : <p className="pt-foot">Nobody left in this period.</p>}
+              {reasons.length ? <RankBars label="Leavers by reason" rows={reasons.sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ key: k, label: REASONS[k] || enumWords(k), value: n }))} /> : <p className="pt-foot">Nobody left in this period.</p>}
             </ChartPanel>
             {t.joiners || t.leavers ? (
               <ChartPanel title="Joined and left" note="Up joined · down left" className="pt-chart-wide">
-                <JoinLeaveBars rows={months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], joiners: m.joiners, leavers: m.leavers }))} />
+                {/* Round 22 pick "joinleave" A on the kit: joined up from the zero line, left down, each figure written. */}
+                <BarChart
+                  stacked
+                  labels
+                  label="Joiners and leavers each month"
+                  categories={months.map((m) => MONTHS[Number(m.month.slice(5, 7)) - 1])}
+                  series={[{ name: 'Joined', values: months.map((m) => m.joiners) }, { name: 'Left', values: months.map((m) => m.leavers), down: true }]}
+                  height={220}
+                />
               </ChartPanel>
             ) : null}
             <TenurePanel />
