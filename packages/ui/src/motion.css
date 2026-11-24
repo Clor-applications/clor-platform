@@ -215,6 +215,11 @@
 
 /* Links */
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-link { color: rgb(var(--link)); }
+/* Switch thumbs are flat: a white square on the track, no drop shadow (Motion has no elevation). */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-switch-thumb { box-shadow: none !important; }
+/* Block links (People's "Calendar", "All pay runs"; Admin center's "Manage apps") are links: blue, ink on hover. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.people-more, .ws-link) { color: rgb(var(--link)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.people-more, .ws-link):hover { color: rgb(var(--fg)) !important; }
 /* Copy sits on tinted bands where blue falls under 4.5:1: ink, underlined. */
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-copy-word { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-link:hover { color: rgb(var(--link-hover)); }
