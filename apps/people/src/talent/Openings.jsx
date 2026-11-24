@@ -17,7 +17,8 @@ import { structure } from '../workforce/api';
 import { listBranches } from '../organization/api';
 import { createOpening, deleteOpening, getJobDescription, getOpening, listCandidates, listOpenings, setApplyLink, setOpeningStatus, updateOpening } from '../api/talent';
 import { ReferralBlock } from './ReferralSettings';
-import { BarList, ChartPanel, CountLine, TILE_ICON } from '@ui/timeOff/Figures';
+import { ChartPanel, CountLine, TILE_ICON } from '@ui/timeOff/Figures';
+import { BarChart } from '@ui/components/charts/kit';
 import { FormError, Footer, OPENING_STATUS, Pill, ReasonDrawer, SHEET, day, staffOptions, tabItems, useParamState, usePerm, useStaff, usedValues } from './shared';
 
 /**
@@ -119,7 +120,7 @@ export default function Openings({ params = {}, openScreen }) {
       />
       {flow && flow.some((x) => x.value) ? (
         <ChartPanel title="Pipeline, every opening">
-          <BarList label="Candidates at each stage" one rows={flow} />
+          <BarChart horizontal label="Candidates at each stage" categories={flow.map((r) => r.label)} series={[{ name: 'Candidates', values: flow.map((r) => r.value) }]} />
         </ChartPanel>
       ) : null}
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (

@@ -1,5 +1,6 @@
 import React from 'react';
-import { BarList, ChartPanel } from '@ui/timeOff/Figures';
+import { ChartPanel } from '@ui/timeOff/Figures';
+import { BarChart } from '@ui/components/charts/kit';
 import { todayIst } from '@ui/utils/dates';
 
 /**
@@ -61,7 +62,7 @@ export function AgePanel({ employees }) {
   if (!rows.some((r) => r.value)) return null;
   return (
     <ChartPanel title="Age mix" note={noDate ? `Working today · ${noDate} without a date of birth left out` : 'Working today'}>
-      <BarList one label="People working today by age" rows={rows} />
+      <BarChart horizontal label="People working today by age" categories={rows.map((r) => r.label)} series={[{ name: 'People', values: rows.map((r) => r.value) }]} />
     </ChartPanel>
   );
 }
