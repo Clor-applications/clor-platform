@@ -1,12 +1,17 @@
 ---
 # gstack: design-md-format=spec
 name: CLOR
-description: The Motion kit. White work areas on one pale hue per app, square corners, two weights, violet for the one action that matters, motion that snaps and reveals.
+description: The Motion kit, ink primary. White work areas on one pale hue per app, soft corners, an ink button for the one action that matters, violet for what is chosen, motion that snaps and reveals.
 colors:
   ground: "#FFFFFF"
   ink: "#18181B"          # stand-in: replace from Motion's full 37-colour palette
   ink-2: "#52525B"        # stand-in: replace from Motion's full 37-colour palette
-  primary: "#7C3AED"
+  action: "#18181B"        # primary button fill (ink primary, 25 Nov 2026)
+  action-hover: "#3F3F46"
+  primary: "#7C3AED"       # selection and current state, never a button fill
+  edge: "#D5D8E0"          # secondary button and chip edge
+  edge-field: "#8D92A0"    # field edge, 3.1:1 on white
+  band: "#F7F7F9"          # table head band, row hover
   link: "#2563EB"
   danger: "#DC2626"
   focus: "#6366F1"
@@ -63,8 +68,10 @@ typography:
     fontWeight: 400
     fontSize: 13px
 rounded:
-  none: 0
-  round: 50%              # radio dot and the attendance clock button only
+  none: 0                 # printed and on-screen documents only
+  control: 8px            # buttons, fields, selects, cards, figures
+  layer: 12px             # dialogs, drawers, menus, popovers
+  full: 9999px            # tags, chips, avatars, radio dot, switch, clock button
 spacing:
   s1: 1px
   s2: 4px
@@ -93,50 +100,53 @@ motion:
   banner: "0.7s cubic-bezier(0.65, 0, 0.35, 1) both sale-banner-in"
 components:
   button-primary:
-    backgroundColor: "{colors.primary}"
+    backgroundColor: "{colors.action}"
     textColor: "{colors.ground}"
-    hoverBackground: "{colors.ink}"
-    rounded: "{rounded.none}"
-    height: 32px
+    hoverBackground: "{colors.action-hover}"
+    rounded: "{rounded.control}"
+    height: 36px
     heightPhone: 48px
   button-secondary:
     backgroundColor: "{colors.ground}"
     textColor: "{colors.ink}"
-    borderColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    height: 32px
+    borderColor: "{colors.edge}"
+    rounded: "{rounded.control}"
+    height: 36px
   button-ghost:
     backgroundColor: transparent
-    hoverBackground: "{colors.slate-deepest}"
-    height: 32px
+    hoverBackground: "{colors.slate-deep}"
+    rounded: "{rounded.control}"
+    height: 36px
   button-danger:
     backgroundColor: "{colors.ground}"
     textColor: "{colors.danger}"
-    borderColor: "{colors.danger}"
-    height: 32px
+    borderColor: "{colors.edge}"
+    rounded: "{rounded.control}"
+    height: 36px
   input:
     backgroundColor: "{colors.ground}"
-    borderColor: "{colors.ink-2}"
+    borderColor: "{colors.edge-field}"
     focusBorder: "{colors.primary}"
-    rounded: "{rounded.none}"
-    height: 32px
+    rounded: "{rounded.control}"
+    height: 36px
   table-head:
     height: 32px
-    borderColor: "{colors.ink}"
+    backgroundColor: "{colors.band}"
+    borderColor: "{colors.slate-deepest}"
   table-row:
     height: 48px
     borderColor: "{colors.slate-deepest}"
   status-tag:
-    rounded: "{rounded.none}"
+    rounded: "{rounded.full}"
     height: 24px
   dialog:
     width: 440px
     backgroundColor: "{colors.ground}"
-    borderColor: "{colors.ink}"
-    rounded: "{rounded.none}"
+    borderColor: "{colors.slate-deepest}"
+    rounded: "{rounded.layer}"
   drawer:
     width: 480px
-    borderColor: "{colors.ink}"
+    borderColor: "{colors.slate-deepest}"
 ---
 
 # CLOR
@@ -150,6 +160,12 @@ Admin center, Ops, Console, People, Payroll, Attendance and Books**. `DESIGN.leg
 `legibility.css`, `rnd.css` and `website/src/styles/darwin.css` are now history; where they disagree with this
 file, this file wins and the code moves (see Migration).
 
+**Ink primary (owner, 25 Nov 2026).** After a benchmark of the kit against the public design systems of admin, HR
+and payroll products (https://claude.ai/artifact/5HLqLxjN8BSYA6qNS3w6N1) the owner chose "D, ink primary": the
+primary button is ink, violet marks what is chosen, corners are soft, edges are light, and floating layers carry a
+soft shadow. Palette families, type, sizes, grid, motion and every product rule are unchanged. The live kit page
+above still shows the square version until it is redrawn.
+
 **Books:** included at the owner's request. Books belongs to another developer, so agree with them before a
 Books PR lands.
 
@@ -159,16 +175,17 @@ Books PR lands.
 to growing and medium companies, alongside Keka, greytHR and Zoho. Dense data used all day at a desk; employees also
 use self-service on phones.
 
-**Character:** precise and developer-grade. White work areas, square edges, hairlines instead of shadows, one pale
-hue per app, and a violet that marks only the action that matters. Motion is quick and physical: buttons press,
+**Character:** precise and quiet. White work areas, soft corners, light hairlines, one pale hue per app, an ink
+button for the action that matters and a violet that marks only what is chosen. Motion is quick and physical: buttons press,
 menus and drawers reveal with a clip-path wipe.
 
 **Memorable thing:** obviously accurate. Trust is the product.
 
 **Key characteristics:**
 - Work areas are white. Each app's identity is a pale tint on its top bar and app header, never on lists or forms.
-- Square corners everywhere. No shadows. Floating layers have a 1px ink border.
-- Two weights only: 400 and 700.
+- Soft corners: 8px on controls, 12px on floating layers, pills for tags and chips. Documents stay square.
+- The page is flat. Only floating layers cast a shadow, over a hairline.
+- Two text weights, 400 and 700; control labels are 600.
 - Money is the loudest thing on a money page: tabular, right aligned, bold total over an ink rule.
 - Totals are a count line, not tiles. Only exceptions carry a status tag.
 
@@ -195,13 +212,17 @@ Code: the shell sets `data-app` on `<html>`; one stylesheet maps `--app-deep` an
 
 | Token | Value | Contrast | Jobs |
 |---|---|---|---|
-| primary | `#7C3AED` | 5.70:1 (4.5+ on every tint) | Primary button fill, selected tab underline, chosen chip, switch on, checked box, current step, the one series a chart is about |
+| action | `#18181B` | 17.7:1 | Primary button fill (hover `#3F3F46`). Nothing else |
+| primary | `#7C3AED` | 5.70:1 (4.5+ on every tint) | Selected tab underline, chosen chip, switch on, checked box, current step, current place, the one series a chart is about. Never a button fill |
 | link | `#2563EB` | 5.17:1 | Links and info notices. On white only (4.45–4.55 on tints) |
 | danger | `#DC2626` | 4.83:1 | Error text and borders, danger button, problem tag. Text on white only |
 | focus | `#6366F1` | 4.47:1 | 2px focus ring (needs 3:1). Never text |
 | red-soft, violet-soft | `#F87171`, `#A78BFA` | 2.7:1 | Chart fills, and links on the ink toast. Never text on a light ground |
 
-Primary is the same violet in every app; the hue family carries the app identity.
+The primary button is ink and the selection violet is the same in every app; the hue family carries the app identity.
+
+**Neutral edges (added 25 Nov 2026):** `edge #D5D8E0` on secondary buttons and chips, `edge-field #8D92A0` on fields
+(3.1:1, so the field is found without its label), `band #F7F7F9` under table heads and on row hover.
 
 **Status (shared by every app):** always a word, never colour alone.
 - Done: mint-deep ground, mint-deepest border, ink word.
@@ -230,7 +251,7 @@ Six sizes; any other size is a bug.
 | small (text-sm) | 13 / 19.5, 400 | Table cells, buttons (700), fields, menus, count line |
 | label (text-xs) | 11 / 16.5, 700 | Field labels, column heads, tags, help and error text (400) |
 
-- Two weights per page: 400 and 700. No 500 or 600.
+- Two text weights per page: 400 and 700. Button, chip and tab labels are 600; nothing else is.
 - Labels are sentence case. No uppercase.
 - Money: tabular figures, right aligned, ₹ first, two decimals, true minus, Indian grouping (₹1,12,000.00). Zero
   in a table is `—`; a balance shows `₹0.00`. Compact form (₹38.4L) only in a count line or a figure.
@@ -247,7 +268,7 @@ Six sizes; any other size is a bug.
 - **Page header:** title (30/36.65) on the left, the **count line** under it ("142 people · 3 joining Monday · 2 need
   documents"; zero clauses dropped; action clauses are links), one primary button at top right, secondaries to its
   left. Page gutter 24px desktop, 16px phone.
-- **Lists:** full width on white under one ink rule. No card around a list. Filter chips with counts above. Pages of
+- **Lists:** full width on white under a banded head. No card around a list. Filter chips with counts above. Pages of
   25, 50 or 100.
 - **Figures:** Home and overview pages only, at most four, never at zero, hairline box, no coloured bars.
 - **Forms:** two columns up to 720px, one on phones. Sections are a 15/23.25 700 heading over a 1px ink rule.
@@ -255,13 +276,17 @@ Six sizes; any other size is a bug.
 
 ## Elevation & Depth
 
-None. The page is flat. Menus, popovers, dialogs and drawers float with a **1px ink border** and no shadow. The
+The page is flat: cards, figures and lists have a hairline and no shadow. Menus, popovers, dialogs and drawers
+float with a **slate-deepest hairline and one soft shadow** (`0 12px 32px rgb(24 24 27 / .12), 0 2px 6px rgb(24 24 27
+/ .06)`). Buttons carry a 1px shadow (`0 1px 1px rgb(24 24 27 / .05)`); the primary adds an inset top highlight. The
 dialog scrim is ink at 32%. A document (payslip, invoice, offer) is the one in-page object that earns a box: 1px ink.
 
 ## Shapes
 
-Square corners on everything, including buttons, fields, tags, chips, cards, dialogs and avatars. Two exceptions,
-both round by nature: the radio dot and the 160px attendance clock-in button.
+Three radii. **8px** on buttons, fields, selects, cards and figures. **12px** on dialogs, drawers, menus and
+popovers. **Full** on tags, chips, avatars, the switch, the radio dot and the 160px attendance clock-in button. A
+nested corner is the outer radius minus the gap. **Documents stay square**: payslip, invoice, offer and anything in
+a print area.
 
 ## Motion
 
@@ -293,10 +318,11 @@ overflow, truncation and maximum content (₹99,99,99,999.00; a 60-character nam
   than two levels.
 
 ### Actions
-- **Button:** 32px (48 on phones), padding 16, text-sm 700, a Lucide 16px icon plus a word (icon-only buttons are
-  32×32 with `aria-label`). Primary violet, hover ink. Secondary white with 1px ink border, hover slate-deep.
-  Ghost borderless, hover slate-deepest. Danger red border and word, hover fills red, always confirms first.
-  Press scales to .97. Disabled 45% opacity with the reason in `title` or help. Loading: square spinner replaces
+- **Button:** 36px (48 on phones; 28px small inside table rows and toolbars), 8px corners, padding 16, text-sm
+  600, a Lucide 16px icon plus a word (icon-only buttons are 36×36 with `aria-label`). Primary ink with an inset
+  top highlight, hover `#3F3F46`. Secondary white with a 1px edge and a 1px shadow, hover band. Ghost borderless,
+  hover slate-deep. Danger red word on white with the same light edge, hover fills red, always confirms first.
+  Press scales to .97. Disabled 45% opacity with the reason in `title` or help. Loading: a spinner replaces
   the icon, width held, `aria-busy`. Done: a tick and the past-tense word ("Saved") for about 1.5s, announced,
   then back to default. Expanded (a button that opens a menu, popover or section): slate-deep ground and the
   chevron turned up (press) while open, `aria-expanded="true"`. Cooldown (Resend code, Send reminder, Resend
@@ -304,14 +330,14 @@ overflow, truncation and maximum content (₹99,99,99,999.00; a 60-character nam
   when the wait ends the label returns ("Resend code"), announced. Errors show on the field and in the error
   summary, never on the button. Not used: hold-to-confirm, drag and in-button progress fills (use the meter). One
   primary per screen. Buttons name verb and object ("Approve leave").
-- **Approve / reject:** tick and cross 32×32 buttons (every app, Books included). Tick hover fills primary; cross
+- **Approve / reject:** tick and cross 32×32 buttons (every app, Books included). Tick hover fills ink; cross
   hover turns danger. Approve acts at once with an Undo toast; reject opens a reason drawer.
-- **Menu:** ink border, reveal; items 32px text-sm; danger item last after a hairline. Arrow keys, Enter, Esc
+- **Menu:** hairline and soft shadow, 12px corners, reveal; items 32px text-sm; danger item last after a hairline. Arrow keys, Enter, Esc
   returns focus, type-ahead; `menu / menuitem`, trigger `aria-haspopup aria-expanded`.
 - **Link:** link blue, underline offset 3px. Links go somewhere; buttons do something.
 
 ### Inputs
-- **Text field:** 32px, 1px ink-2 border, hover ink, focus primary border plus focus ring; label text-xs 700 above;
+- **Text field:** 36px, 8px corners, 1px edge-field border, hover ink-2, focus primary border plus focus ring; label text-xs 700 above;
   help or error text-xs below. Error: danger border and a message that says what is wrong and how to fix it ("A PAN
   has 10 characters. This one has 8."). Disabled: stone-deep ground, hairline border. Every free-text field suggests
   matching existing values. `aria-invalid`, `aria-describedby`.
@@ -322,7 +348,7 @@ overflow, truncation and maximum content (₹99,99,99,999.00; a 60-character nam
 - **Select:** five or more options get a search box; opens with reveal; empty search offers "Add …" when allowed.
   `combobox` + `listbox`.
 - **Checkbox and radio:** 16px; checked fills primary; mixed state on select-all.
-- **Switch:** 32×18 square track, thumb slides (press); only where the change takes effect at once. In a form with
+- **Switch:** 32×18 pill track, thumb slides (press); only where the change takes effect at once. In a form with
   Save, use a checkbox. `role="switch" aria-checked`.
 - **Date, range, week:** typed or picked, shown in words; range presets first (This month, Last month, This
   quarter, This financial year); holidays marked in the calendar.
@@ -330,29 +356,29 @@ overflow, truncation and maximum content (₹99,99,99,999.00; a 60-character nam
 - **One-time code:** six 40×48 Geist Mono cells, paste fills all, auto-advance, `autocomplete="one-time-code"`.
 
 ### Data display
-- **Table:** head 32px text-xs 700 ink-2 over a 1px ink rule; rows 48px with an app-deepest hairline; hover
-  slate-deep (tint); money right aligned; total row 700 over an ink rule. Checkbox column for selection; rows open
+- **Table:** head 32px text-xs 700 ink-2 on the band over a hairline; rows 48px with an app-deepest hairline;
+  hover band (tint); money right aligned; total row 700 over an ink rule. Checkbox column for selection; rows open
   on Enter; sortable heads are buttons with `aria-sort`. Row actions on hover, a trailing ⋯ menu on touch.
-- **Status tag:** 24px, square, 6px square dot, text-xs 700. Only on exception rows (waiting, failed, missing,
+- **Status tag:** 24px, pill, 6px round dot, text-xs 700. Only on exception rows (waiting, failed, missing,
   overdue); exceptions sort first. Lists of people keep "Active". Filters and exports offer every status.
-- **Filter chips:** 32px, word plus a mono count; chosen chip has primary border and word; `aria-pressed`.
+- **Filter chips:** 32px, pill, word plus a mono count; chosen chip has primary border and word; `aria-pressed`.
 - **Column filter:** popover under a head: values with counts, date range, amount range.
 - **Bulk bar:** ink bar at the list top when rows are picked: "4 picked · Approve 4 · Export · Clear".
 - **Pagination:** "1–25 of 142" plus Previous (ghost) and Next (secondary).
 - **Figure:** label text-xs over a 30/36.65 700 tabular value, hairline box.
 - **Meter:** 8px bar on slate-deepest, primary fill, danger past the limit, with the amount in words.
-- **Avatar:** 32px (48 on a profile header), square, initials on a deepest tint hashed from the person's ID.
-- **Timeline:** 8px square ink dots on a hairline; who, what and when in words.
+- **Avatar:** 32px (48 on a profile header), round, initials on a deepest tint hashed from the person's ID.
+- **Timeline:** 8px round ink dots on a hairline; who, what and when in words.
 - **Chart:** bars and lines only. Ink axis, slate-deepest grid, text-xs ink-2 labels. The page's series is
   primary; others violet-soft or red-soft with direct labels. A data-table toggle under every chart. No pies, 3D
   or gradients.
   Draw them with `LineChart` and `BarChart` from `packages/ui/src/components/charts/kit` (24 Nov 2026).
 
 ### Overlays
-- **Dialog:** 440px, ink border, 24px padding; title asks the question with its object ("Approve leave for Rohan
+- **Dialog:** 440px, 12px corners, hairline and soft shadow, 24px padding; title asks the question with its object ("Approve leave for Rohan
   Deshpande?"); one line says what changes; buttons right, action last, named by its verb. Rises 8px (press) and
   fades. Focus trapped, Esc closes, focus returns. `role="dialog" aria-modal="true"`.
-- **Drawer:** 480px (full width on phones), left ink border, wipes in from the right (reveal); sticky footer
+- **Drawer:** 480px (full width on phones), left hairline and soft shadow, wipes in from the right (reveal); sticky footer
   actions; closing with changes asks to discard.
 - **Popover:** like the menu. **Tooltip:** ink ground, white text-xs, on hover and focus; never the only copy of
   anything. **Toast:** ink bar bottom centre, wipes up (reveal), says what happened ("Leave approved"), Undo for 6s,
@@ -379,7 +405,7 @@ overflow, truncation and maximum content (₹99,99,99,999.00; a 60-character nam
 The full list with specimens is on the live kit page. In short:
 
 - **clor.in:** announcement bar, site nav with products mega panel, hero, product window, logo strip, feature row,
-  steps, plan card (recommended plan gets a 2px primary top rule), monthly/yearly toggle, comparison table, quote,
+  steps, plan card (recommended plan gets the ink button; the others get secondary), monthly/yearly toggle, comparison table, quote,
   FAQ accordion (reveal), demo form, closing band, footer.
 - **Admin center:** at-a-glance card, top actions list, setup checklist, app tile, seat meter row, member row,
   invite form, permission matrix, location access table, plan change summary, invoice list and sheet, audit trail,
@@ -434,17 +460,17 @@ screen in review. Where a law and a rule seem to disagree, the rule wins. Laws m
 
 | Law | How CLOR carries it out |
 |---|---|
-| Aesthetic-usability effect | Precision is the look: square, flat, white, aligned figures. Not a licence to decorate. |
+| Aesthetic-usability effect | Precision is the look: flat, white, light edges, aligned figures. Not a licence to decorate. |
 | Law of proximity | 4px grid; a label sits 4px from its field, 24px between groups; form sections are a heading over an ink rule. |
-| Von Restorff effect | Violet marks the one action that matters; status tags only on exception rows. If two things stand out, neither does. |
+| Von Restorff effect | The ink button marks the one action that matters; violet marks what is chosen; status tags only on exception rows. If two things stand out, neither does. |
 | Zeigarnik effect | **new.** Unfinished work is shown where it was left: a draft employee, a pay run halfway through, an import stopped. Home and the list show one "Continue …" row with the step it stopped at ("Pay run for Nov · step 3 of 5 · Continue"). Never nag with badges. |
 | Tesler's law | **new.** The system takes the complexity the user would otherwise carry: tax splits, state codes from a GSTIN, pro-rata, holidays, PF and ESI ceilings are worked out, not typed. Show the working on request, never ask for it. |
-| Law of Prägnanz | Six sizes, two weights, square shapes, no shadows: each screen reads as a few simple blocks. |
+| Law of Prägnanz | Six sizes, two text weights, three radii, a flat page: each screen reads as a few simple blocks. |
 | Serial position effect | **new.** In menus, tabs and lists of actions, the most used item goes first and the danger or exit item last. Home is always the first place; the account menu ends with Sign out. |
 | Progressive disclosure | **new.** Forms show what most people fill; rarely used fields sit under one "More details" toggle or in a drawer. Settings deeper than two levels get a breadcrumb. Never hide a required field. |
 | Law of common region | A boundary means "these belong together": the 1px ink box only on documents and floating layers; no card inside a card, no box around a list. |
 | Goal-gradient effect | **new.** Every multi-step job shows how far along it is: stepper for flows, "4 of 7 done" on setup checklists, "Imported 120 of 400 rows" on progress. Done steps are counted from the start, never reset. |
-| Law of similarity | Same thing, same look everywhere: one violet primary, three status looks, one button set in every app. |
+| Law of similarity | Same thing, same look everywhere: one ink primary, one selection violet, three status looks, one button set in every app. |
 | Recognition over recall | Every text field suggests existing values; ⌘K shows recent items first; dates in words; pickers over typed codes. |
 | Pareto principle | The count line and exceptions-first sorting put the 20% that needs attention at the top. |
 | Occam's razor | When two layouts work, pick the one with fewer parts. Remove before adding. |
@@ -471,8 +497,9 @@ screen in review. Where a law and a rule seem to disagree, the rule wins. Laws m
 - Do: show a status tag only when something needs attention.
 - Do: name each page exactly as the menu names it.
 - Don't: use a colour outside the palette, or a size, gap or timing off the scale.
-- Don't: round a corner or cast a shadow.
-- Don't: use a third font weight.
+- Don't: use a radius other than 8, 12 or full, or round a document.
+- Don't: put a shadow on anything that does not float, or a dark border on a button, field or floating layer.
+- Don't: fill a button with violet, or use 600 outside a control label.
 - Don't: tint a list, form or document ground; tints belong to the top bar, app header and Home cards.
 - Don't: put figure tiles above a list, or show a tile at 0.
 - Don't: put a card inside a card, or a box around a list.
@@ -500,9 +527,9 @@ tests that pin the old values (`test/design-rules.test.js`, `test/ui-rules.test.
 1. Tokens: one tokens file (colours, hue families by `data-app`, type, spacing, motion) used by the apps, Console
    and clor.in; self-host TASA Orbiter and Geist Mono; delete `picks.css`, `legibility.css` and the old per-app
    colours in `rnd.css`.
-2. Shape and depth: radius 0 and no shadows everywhere; floating layers get the ink border.
-3. Controls: buttons, fields, chips, switches and tabs at 32px with the new states and motion.
-4. Table and page header: 48px rows, 32px head over an ink rule, 30px title and count line.
+2. Shape and depth: the three radii everywhere; shadow only on floating layers and buttons.
+3. Controls: buttons and fields at 36px, chips and tabs at 32px, with the new states and motion.
+4. Table and page header: 48px rows, 32px head on the band, 30px title and count line.
 5. Overlays and feedback: dialog, drawer, menu, toast and notices with reveal and press motion.
 6. Per app, in order: Admin center, People, Payroll, Attendance, Ops, Console, clor.in, then Books (after agreeing
    with its developer).
@@ -513,7 +540,7 @@ carries the kit for the apps that have moved and nothing else (`test/motion-kit.
 
 | App | Moved | What changed |
 |---|---|---|
-| People | 24 Nov 2026 | Tokens (violet, ink, hairlines, pink top bar, TASA Orbiter, Geist Mono), square, flat, 1px ink border on menus and dialogs, 32px controls, 48px rows over an ink rule, 30px title, mint/sand/white tags, links blue, current place violet, press and reveal motion |
+| People | 24 Nov 2026; ink primary 25 Nov 2026 | Tokens (ink action, selection violet, hairlines, pink top bar, TASA Orbiter, Geist Mono), 8/12/full radii, flat page with a soft shadow on menus and dialogs, 36px buttons and fields, 48px rows under a banded head, 30px title, mint/sand/white pill tags, links blue, current place violet, press and reveal motion |
 
 To move the next app, add its `data-app` value to the scope in `motion.css` and to `MOVED` in the test, give it its
 hue family, and check it in the browser. Steps 0 to 5 then become deleting the old layers once every app has moved.
@@ -532,3 +559,4 @@ hue family, and check it in the browser. Steps 0 to 5 then become deleting the o
 | 24 Nov 2026 | Kept from earlier: count line, exceptions-only tags, one primary per screen, tick/cross approvals, white work areas, light only, six People places | Product rules, not visual style; nothing in the skill contradicts them |
 | 25 Nov 2026 | Twenty design laws mapped to rules; seven new rules (Zeigarnik, Tesler, serial position, progressive disclosure, goal-gradient, Parkinson, peak-end) | Owner asked to check the platform against the laws and add the missing ones |
 | 25 Nov 2026 | Button gains done, expanded and cooldown states; People Home gets pay-run status and an attendance trend (headcount by department and celebrations were already there) | Owner asked to check an HRM dashboard and a sixteen-state button reference against the platform; error, hold, drag and progress-fill states were left out on purpose; payroll trend belongs in Payroll |
+| 25 Nov 2026 | **Ink primary (option D): ink primary button, violet for selection only, 8/12/full radii, light edges, soft shadow on floating layers, 36px buttons and fields, 600 control labels, banded table head** | Owner was not satisfied with the buttons; a benchmark of 14 admin, HR and payroll design systems found no dark-outlined secondary button and no square HR product; owner picked D over the softened violet option |

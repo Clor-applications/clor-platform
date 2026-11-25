@@ -9,9 +9,10 @@
  * Loaded last (main.jsx). Selectors start with `:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)`: four never-matching ids, so
  * these rules beat rnd.css (one id), picks.css (two) and legibility.css and people.css (three) on specificity rather than on load order alone.
  *
- * Look: white work areas, square corners, hairlines instead of shadows, a 1px ink border on floating layers, one
- * violet for the action that matters, the app's pale hue only on its top bar. TASA Orbiter for everything, Geist
- * Mono for identifiers. Two weights, 400 and 700. Press = scale .97 at .14s; menus and drawers reveal.
+ * Look (ink primary, owner 25 Nov 2026): white work areas, 8px controls, 12px floating layers, pill tags, light
+ * edges, a soft shadow only on what floats, an ink button for the action that matters, violet for what is chosen,
+ * the app's pale hue only on its top bar. TASA Orbiter for everything, Geist Mono for identifiers. Text weights 400
+ * and 700, control labels 600. Press = scale .97 at .14s; menus and drawers reveal.
  */
 
 @import '@fontsource-variable/tasa-orbiter';
@@ -25,8 +26,12 @@
   --app-deepest: 240 224 232;   /* #F0E0E8 */
 
   /* Accents and their only jobs (DESIGN.md "Colors") */
-  --act: 124 58 237;            /* violet #7C3AED: primary fill, selected tab, chosen chip, switch on, checked box */
-  --act-hover: 24 24 27;        /* a primary button turns ink on hover */
+  --act: 124 58 237;            /* violet #7C3AED: selected tab, chosen chip, switch on, checked box; never a button */
+  --btn: 24 24 27;              /* ink #18181B: the primary button */
+  --btn-hover: 63 63 70;        /* #3F3F46 */
+  --act-hover: 63 63 70;
+  --edge: 213 216 224;          /* #D5D8E0: secondary button and chip edge */
+  --band: 247 247 249;          /* #F7F7F9: table head band, row hover */
   --act-ink: 37 99 235;         /* the accent as text is a link: blue #2563EB, 5.2:1 (violet never sets text) */
   --marker: 124 58 237;
   --act-2: 167 139 250;         /* violet-soft: second chart series only */
@@ -55,12 +60,15 @@
   --rail-border: 226 229 236;
   --kpi-line: 226 229 236;
   --border-field: 226 229 236;
-  --border-input: 82 82 91;     /* a field's edge is ink-2 */
-  --border-strong: 24 24 27;    /* the rule under a table head is ink */
+  --border-input: 141 146 160;  /* a field's edge #8D92A0, 3.1:1 */
+  --border-strong: 24 24 27;    /* the rule over a total row is ink */
 
-  /* Shape and depth: square, flat */
-  --radius-btn: 0; --radius-input: 0; --radius-sm: 0; --radius: 0; --radius-lg: 0; --radius-xl: 0; --radius-kpi: 0;
-  --shadow-card: none; --shadow-pop: none; --shadow-lift: none;
+  /* Shape and depth: 8px controls and cards, 12px floating layers; the page is flat, floating layers are not */
+  --radius-btn: 0.5rem; --radius-input: 0.5rem; --radius-sm: 0.5rem; --radius: 0.5rem; --radius-kpi: 0.5rem;
+  --radius-lg: 0.75rem; --radius-xl: 0.75rem;
+  --shadow-card: none; --shadow-lift: none;
+  --shadow-pop: 0 12px 32px rgb(24 24 27 / 0.12), 0 2px 6px rgb(24 24 27 / 0.06);
+  --shadow-btn: 0 1px 1px rgb(24 24 27 / 0.05);
 
   /* Type */
   --font-sans: 'TASA Orbiter Variable', 'TASA Orbiter', ui-sans-serif, system-ui, sans-serif;
@@ -102,27 +110,21 @@
 
 /* ---------------------------------------------------------------- shape and depth */
 
-/* Square everywhere. Radio dots stay round: a square radio reads as a checkbox. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :where(*:not(input[type='radio']):not(.ui-radio)),
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :where(*:not(input[type='radio']):not(.ui-radio))::before,
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :where(*:not(input[type='radio']):not(.ui-radio))::after {
-  border-radius: 0 !important;
+/* Floating layers: 12px corners, a hairline and one soft shadow. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-popover, .ui-menu, .ui-dialog, .ui-modal-panel) {
+  border: 1px solid rgb(var(--border)) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-pop) !important;
 }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-drawer-sheet { border-left: 1px solid rgb(var(--border)) !important; box-shadow: var(--shadow-pop) !important; }
 
-/* No elevation. Inset marks (the open menu item's stripe, today's row) are left alone: they are drawn with inset
-   shadows on other elements. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(
-  .ui-card, .ui-panel, .ui-kpi, .ui-popover, .ui-menu, .ui-dialog, .ui-modal-panel, .ui-drawer-sheet,
-  .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl, .shadow-pop, .shadow-lift, .shadow-hover
-) {
+/* The page itself is flat. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-card, .ui-panel, .ui-kpi, .shadow, .shadow-sm, .shadow-md, .shadow-hover) {
   box-shadow: none !important;
 }
 
-/* Floating layers are told apart by a 1px ink border, not a shadow. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-popover, .ui-menu, .ui-dialog, .ui-modal-panel) {
-  border: 1px solid rgb(var(--fg)) !important;
-}
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-drawer-sheet { border-left: 1px solid rgb(var(--fg)) !important; }
+/* Documents stay square: a payslip or invoice is paper. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-print-area, :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-print-area * { border-radius: 0 !important; }
 
 /* Content surfaces: a hairline, nothing else. */
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-card, .ui-panel, .ui-kpi) {
@@ -145,14 +147,15 @@
   background: rgb(var(--surface));
 }
 
-/* ---------------------------------------------------------------- controls (32px) */
+/* ---------------------------------------------------------------- controls (36px) */
 
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn {
-  min-height: 2rem;
+  min-height: 2.25rem;
   padding: 0 1rem;
   font-size: 0.8125rem;
   line-height: 1.21875rem;
-  font-weight: 700;
+  font-weight: 600;
+  border-radius: var(--radius-btn);
   transition: var(--mo-press), background-color var(--mo-fade), border-color var(--mo-fade), color var(--mo-fade);
 }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn:active:not(:disabled) { transform: scale(0.97); }
@@ -160,44 +163,48 @@
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn:disabled { opacity: 0.45; }
 
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-btn-primary, .ui-btn-brand) {
-  background-color: rgb(var(--act)) !important;
-  border: 1px solid rgb(var(--act)) !important;
+  background-color: rgb(var(--btn)) !important;
+  border: 1px solid rgb(var(--btn)) !important;
   color: rgb(255 255 255) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 1px 2px rgb(24 24 27 / 0.3);
 }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
-  background-color: rgb(var(--fg)) !important;
-  border-color: rgb(var(--fg)) !important;
+  background-color: rgb(var(--btn-hover)) !important;
+  border-color: rgb(var(--btn-hover)) !important;
 }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-secondary {
   background-color: rgb(var(--surface)) !important;
-  border: 1px solid rgb(var(--fg)) !important;
+  border: 1px solid rgb(var(--edge)) !important;
   color: rgb(var(--fg)) !important;
+  box-shadow: var(--shadow-btn);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-secondary:hover:not(:disabled) { background-color: rgb(var(--tint)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-ghost:hover:not(:disabled) { background-color: rgb(var(--border)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-secondary:hover:not(:disabled) { background-color: rgb(var(--band)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-ghost:hover:not(:disabled) { background-color: rgb(var(--tint)) !important; }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-danger {
   background-color: rgb(var(--surface)) !important;
-  border: 1px solid rgb(var(--neg)) !important;
+  border: 1px solid rgb(var(--edge)) !important;
   color: rgb(var(--neg)) !important;
+  box-shadow: var(--shadow-btn);
 }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-btn-danger:hover:not(:disabled) {
   background-color: rgb(var(--neg)) !important;
+  border-color: rgb(var(--neg)) !important;
   color: rgb(255 255 255) !important;
 }
 
-/* Fields: 32px, ink-2 edge, ink on hover, violet edge and indigo ring on focus. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):not(textarea) { min-height: 2rem; height: 2rem; }
+/* Fields: 36px, mid grey edge, ink-2 on hover, violet edge and indigo ring on focus. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):not(textarea) { min-height: 2.25rem; height: 2.25rem; }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select) {
   font-size: 0.8125rem;
   border-color: rgb(var(--border-input));
   transition: border-color var(--mo-reveal);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):hover:not(:disabled):not(:focus) { border-color: rgb(var(--fg)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):hover:not(:disabled):not(:focus) { border-color: rgb(var(--fg-muted)); }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select):focus { border-color: rgb(var(--act)); }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-input, .ui-select)[aria-invalid='true'] { border-color: rgb(var(--neg)); }
 
 /* Tabs: open tab ink and bold, a 2px violet underline. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { color: rgb(var(--fg)); font-weight: 700; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { color: rgb(var(--fg)); font-weight: 600; }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-tab-indicator { transition: var(--mo-press); }
 
 /* You are here: the current place is violet and bold (a link is blue). */
@@ -215,14 +222,15 @@
 
 /* ---------------------------------------------------------------- tables */
 
-/* Head 32px, 11px 700 over an ink rule; rows 48px, 13px. */
+/* Head 32px, 11px 700 on the band over a hairline; rows 48px, 13px. */
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-table thead th {
   height: 2rem;
   font-size: 0.6875rem;
   line-height: 1.03125rem;
   font-weight: 700;
   color: rgb(var(--fg-muted));
-  border-bottom: 1px solid rgb(var(--fg));
+  background-color: rgb(var(--band));
+  border-bottom: 1px solid rgb(var(--border));
 }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-table tbody td {
   height: 3rem;
@@ -233,12 +241,13 @@
 
 /* ---------------------------------------------------------------- tags */
 
-/* A word in a box. Done = mint, waiting = sand, problem = white with a red edge; the dot is square. */
+/* A word in a pill. Done = mint, waiting = sand, problem = white with a red edge. */
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-pill {
   height: 1.5rem;
   padding: 0 0.5rem;
   font-size: 0.6875rem;
   font-weight: 700;
+  border-radius: 999px;
   border: 1px solid rgb(var(--border));
   background-color: rgb(var(--surface));
   color: rgb(var(--fg));
