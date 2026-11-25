@@ -1,13 +1,14 @@
 /*
  * The Motion kit is switched on app by app (DESIGN.md "Migration" step 6). motion.css must only ever reach an app that
- * has moved, so the apps still on the calm register look exactly as before. People moved first (24 Nov 2026).
+ * has moved, so the apps still on the calm register look exactly as before. People moved first (24 Nov 2026), Admin
+ * center second (25 Nov 2026).
  */
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 
 const css = readFileSync('packages/ui/src/motion.css', 'utf8');
 const main = readFileSync('main.jsx', 'utf8');
-const MOVED = ['people'];
+const MOVED = ['people', 'admin'];
 const PREFIX = ":root:not(#mo):not(#mo2):not(#mo3):not(#mo4)";
 
 /* Every selector of every style rule, with comments, @import, @keyframes bodies and @media wrappers set aside. */
@@ -42,8 +43,10 @@ describe('Motion kit layer', () => {
     expect(list.length).toBeGreaterThan(20);
     for (const s of list) {
       expect(s.startsWith(PREFIX), s).toBe(true);
-      const app = s.slice(PREFIX.length).match(/^\[data-app='([a-z]+)'\]/);
-      expect(app && MOVED.includes(app[1]), s).toBe(true);
+      const rest = s.slice(PREFIX.length);
+      const scope = rest.match(/^:is\(([^)]*)\)/) || rest.match(/^(\[data-app='[a-z]+'\])/);
+      const apps = scope ? [...scope[1].matchAll(/\[data-app='([a-z]+)'\]/g)].map((m) => m[1]) : [];
+      expect(apps.length > 0 && apps.every((a) => MOVED.includes(a)), s).toBe(true);
     }
   });
 
