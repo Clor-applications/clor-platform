@@ -100,10 +100,7 @@ test.describe('Attendance rules', () => {
     await markDays(w, 'imran', days, '09:45', '19:00');
 
     await suresh.goto();
-    await suresh.open('Settings');
-    await suresh.main.getByRole('button', { name: /^Attendance rules/ }).click();
-    await expect(suresh.title).toHaveText('Attendance rules');
-    await suresh.settle();
+    await suresh.openSetting('Attendance rules');
     const marks = suresh.main.getByRole('group', { name: 'Late marks and early exits' });
     /* Late marks cost pay, so they start off. */
     await expect(marks.getByRole('checkbox', { name: 'On', exact: true })).not.toBeChecked();
@@ -174,10 +171,7 @@ test.describe('Attendance rules', () => {
   test('R3: night work without consent, in warn mode: the shift is saved and she is listed', { tag: ['@R3', '@rules'] }, async ({ asOwner: suresh, w }) => {
     /* The company chooses "save it and warn" over refusing the shift. */
     await suresh.goto();
-    await suresh.open('Settings');
-    await suresh.main.getByRole('button', { name: /^Attendance rules/ }).click();
-    await expect(suresh.title).toHaveText('Attendance rules');
-    await suresh.settle();
+    await suresh.openSetting('Attendance rules');
     const night = suresh.main.getByRole('group', { name: 'Night work for women' });
     await expect(night.getByRole('checkbox', { name: 'On', exact: true })).toBeChecked();
     const mode = night.getByLabel('Without consent');

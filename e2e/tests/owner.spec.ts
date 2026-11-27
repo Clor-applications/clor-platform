@@ -32,9 +32,10 @@ test.describe('Suresh owns the account', () => {
   });
 
   test('A3: Kavya has HR access and Rahul team-manager access, and each sees exactly that', { tag: ['@A3', '@smoke'] }, async ({ asOwner: suresh, asHR: kavya, asManager: rahul }) => {
-    /* Settings → Users & security opens Workspace; Access → Users lists who holds which role. */
+    /* Open the access category, then inspect each company user's assigned role. */
     await suresh.goto();
     await suresh.open('Settings');
+    await suresh.main.getByRole('button', { name: /^Access(?:\s|$)/ }).click();
     await suresh.main.getByRole('button', { name: /^Users & security/ }).click();
     /* Workspace opens: in place locally (?app=admin), on staging on the front door's own host (app.), where the address carries no app=. */
     await expect(suresh.page.locator('html')).toHaveAttribute('data-app', 'admin');
@@ -49,16 +50,14 @@ test.describe('Suresh owns the account', () => {
     /* Kavya: everyone, and may add people. */
     await kavya.goto();
     await kavya.open('Employees');
-    /* The figures sit behind "Show figures" so the list comes first (FINDING-018). */
-    await kavya.main.getByText('Show figures', { exact: true }).click();
+    await kavya.main.getByText('Workforce figures', { exact: true }).click();
     await expect(kavya.main.getByRole('button', { name: /working now/i })).toContainText('12');
     await expect(kavya.main.getByRole('button', { name: 'Add employee', exact: true })).toBeVisible();
 
     /* Rahul: himself and his four, nothing to add, no company settings. */
     await rahul.goto();
     await rahul.open('Employees');
-    /* The figures sit behind "Show figures" so the list comes first (FINDING-018). */
-    await rahul.main.getByText('Show figures', { exact: true }).click();
+    await rahul.main.getByText('Workforce figures', { exact: true }).click();
     await expect(rahul.main.getByRole('button', { name: /working now/i })).toContainText('5');
     await expect(rahul.main.getByRole('tab', { name: /My team/ })).toContainText('4');
     await expect(rahul.main.getByRole('button', { name: 'Add employee', exact: true })).toHaveCount(0);
