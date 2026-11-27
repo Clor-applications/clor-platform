@@ -14,7 +14,7 @@ const { buildApp } = await import('../app.js');
 const { IMPORT_TEMPLATES, exampleRow, importTemplate, templateCsv } = await import('../services/importTemplates.js');
 const { importRow } = await import('../routes/people.js');
 
-/* The reader the import screens use (packages/ui/src/utils/csv.js); plain JavaScript, loaded by path so the server's types stay out of it. */
+// Exercise the browser reader with its installed web dependencies, just as an upload does.
 const here = path.dirname(fileURLToPath(import.meta.url));
 const csvReader = pathToFileURL(path.resolve(here, '../../../packages/ui/src/utils/csv.js')).href;
 const { parseCsv } = (await import(/* @vite-ignore */ csvReader)) as { parseCsv: (text: string, o?: { skipComments?: boolean }) => { headers: string[]; rows: Record<string, string>[] } };

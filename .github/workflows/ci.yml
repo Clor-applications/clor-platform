@@ -184,6 +184,9 @@ jobs:
 
       - uses: ./.github/actions/postgres
 
+      - name: Install web dependencies for cross-app tests
+        run: npm ci --omit=dev --ignore-scripts
+
       - name: Install server deps
         run: npm ci
         working-directory: server
@@ -258,6 +261,10 @@ jobs:
           echo "all=$([ -n "$schema" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
           echo "Tests for this change: ${tests:-none}"
           echo "Schema or test setup changed: ${schema:-no}"
+
+      - name: Install web dependencies for cross-app tests
+        if: steps.changed.outputs.tests != '' || steps.changed.outputs.all == 'yes'
+        run: npm ci --omit=dev --ignore-scripts
 
       - name: Install server deps
         if: steps.changed.outputs.tests != '' || steps.changed.outputs.all == 'yes'

@@ -27,6 +27,11 @@ const bodies = new Map(tests.map((f) => [f, readFileSync(join(testsDir, f), 'utf
 
 const picked = new Set();
 for (const changed of process.argv.slice(2)) {
+  // Import round-trip tests load shared browser utilities directly by repository path.
+  if (changed.startsWith('packages/ui/')) {
+    for (const [file, body] of bodies) if (body.includes(changed)) picked.add(file);
+    continue;
+  }
   if (!changed.startsWith('server/src/') || !existsSync(join(root, changed))) continue;
   const rel = changed.slice('server/src/'.length);
   if (rel.startsWith('__tests__/')) {
