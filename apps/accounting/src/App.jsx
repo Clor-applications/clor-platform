@@ -1199,6 +1199,7 @@ const AppShell = () => {
   const [active, setActive] = useState(() => {
     try {
       const open = String(new URLSearchParams(window.location.search).get('open') || '').trim();
+      if (open === 'journalEntries') return open;
       if (open && (open === 'settings' || isSettingsKey(open) || ['invoices', 'bills', 'receipts', 'approvals', 'expenses'].includes(open))) {
         window.history.replaceState(null, '', window.location.pathname);
         return open;
