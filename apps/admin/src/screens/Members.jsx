@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { ArrowUpRight, Plus, Search, ShieldAlert, UserX } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
 import { requestOpenScreen } from '@platform/context';
@@ -35,7 +36,7 @@ const EMPTY_ICON = emoji('busts-in-silhouette');
 
 const ROLE_LABEL = { OWNER: 'Owner', ADMIN: 'Administrator', BILLING_ADMIN: 'Billing admin', MEMBER: 'Member' };
 const APP_LABEL = { accounting: 'Books', payroll: 'Payroll', people: 'People', attendance: 'Attendance' };
-const STATUS = { ACTIVE: { tone: 'ok', label: 'Active' }, SUSPENDED: { tone: 'danger', label: 'Suspended' }, INVITED: { tone: 'neutral', label: 'Invited' } };
+const STATUS = { ACTIVE: { tone: 'ok', label: 'Active' }, SUSPENDED: { tone: 'danger', label: 'Suspended' }, INVITED: { tone: 'warn', label: 'Invited' } };
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never');
 
 /** The directory rows that pass the filters. */
@@ -79,6 +80,10 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
     risk: RISKS.includes(params?.risk) ? params.risk : '',
     auth: '',
   }));
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
+  const hasFilters = Object.values(filters).some(Boolean);
+  const clearFilters = () => setFilters({ q: '', status: '', companyId: '', app: '', role: '', risk: '', auth: '' });
   const [openId, setOpenId] = useState('');
   const [detail, setDetail] = useState(null);
   const [detailCompany, setDetailCompany] = useState('');
@@ -120,6 +125,8 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
   }, [wanted, data]);
 
   const rows = useMemo(() => (data ? filterMembers(data.members, filters) : []), [data, filters]);
+  const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
+  useResetPage(setPage, [filters, perPage]);
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
   const pick = (k) => (v) => setFilters((f) => ({ ...f, [k]: v }));
 
@@ -214,7 +221,10 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
           <FilterSelect label="Access" ariaLabel="Account role" value={filters.role} onChange={pick('role')} options={[['', 'All'], ...Object.entries(ROLE_LABEL)]} />
           <FilterSelect label="Status" value={filters.status} onChange={pick('status')} width="11rem" options={[['', 'All'], ['ACTIVE', 'Active'], ['SUSPENDED', 'Suspended']]} />
           <FilterSelect label="Authenticator" value={filters.auth} onChange={pick('auth')} options={[['', 'All'], ['none', 'No authenticator'], ['on', 'Has authenticator']]} />
+          {hasFilters ? <button type="button" className="ws-link" onClick={clearFilters}>Clear filters</button> : null}
         </div>
+
+        {data && hasFilters ? <p role="status" className="ui-caption">{rows.length.toLocaleString('en-IN')} of {data.members.length.toLocaleString('en-IN')} members match</p> : null}
 
         {/* An action's result shows where it was taken: inside the panel while one is open, here otherwise. */}
         {!openId && notice ? <p role="status" className="text-sm">{notice}</p> : null}
@@ -229,72 +239,78 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
             {data.members.length ? 'Nobody matches these filters.' : 'Nobody is in the account yet.'}
           </Empty>
         ) : (
-          <div className="ws-table-wrap">
-            <table className="ws-table ws-members">
-              <caption className="sr-only">Members of this account</caption>
-              <thead>
-                <tr>
-                  <th>Person</th>
-                  <th>Access</th>
-                  <th>Roles</th>
-                  <th>Sign-in</th>
-                  <th>Status</th>
-                  <th><span className="sr-only">Open</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((m) => {
-                  const roles = [];
-                  for (const c of m.companies) {
-                    for (const r of c.roles || []) {
-                      const name = typeof r === 'string' ? r : r?.name;
-                      if (name && !roles.some((x) => x.name === name)) roles.push({ name, app: c.apps.length === 1 ? c.apps[0] : null });
+          <div>
+            <div className="ws-table-wrap">
+              <table className="ws-table ws-members">
+                <caption className="sr-only">Members of this account</caption>
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Access</th>
+                    <th>Roles</th>
+                    <th>Sign-in</th>
+                    <th>Status</th>
+                    <th><span className="sr-only">Open</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((m) => {
+                    const roles = [];
+                    for (const c of m.companies) {
+                      for (const r of c.roles || []) {
+                        const name = typeof r === 'string' ? r : r?.name;
+                        if (name && !roles.some((x) => x.name === name)) roles.push({ name, app: c.apps.length === 1 ? c.apps[0] : null });
+                      }
                     }
-                  }
-                  const st = STATUS[m.status] || { tone: 'neutral', label: m.status };
-                  return (
-                    <tr key={m.userId} data-selected={openId === m.userId || undefined} onClick={() => openMember(m.userId)} style={{ cursor: 'pointer' }}>
-                      <td>
-                        <span className="flex items-center gap-3" style={{ minWidth: 0 }}>
-                          <Avatar name={m.name || m.email} size="lg" ink={m.accountRole === 'OWNER'} />
-                          <button type="button" className="ws-member-name" onClick={(e) => { e.stopPropagation(); openMember(m.userId); }}>
-                            <span className="ws-cell-main">{m.name || m.email}</span>
-                            <span className="ws-cell-sub">{m.email}</span>
-                          </button>
-                        </span>
-                      </td>
-                      <td>
-                        <span className="ws-cell-main" style={{ fontWeight: 500 }}>{ROLE_LABEL[m.accountRole] || m.accountRole}</span>
-                        <span className="ws-cell-sub">
-                          {!m.companies.length ? 'In no company' : companyCount && m.companies.length >= companyCount ? (companyCount === 1 ? 'The company' : `All ${companyCount} companies`) : `${m.companies.length} of ${companyCount || m.companies.length} companies`}
-                        </span>
-                      </td>
-                      <td style={{ whiteSpace: 'normal' }}>
-                        {m.accountRole === 'OWNER' && !roles.length ? (
-                          <span className="ws-tag ws-tag--workspace">Full access</span>
-                        ) : roles.length ? (
-                          <span className="ws-tags">
-                            {roles.slice(0, 3).map((r) => (r.app ? <AppTag key={r.name} app={r.app}>{r.name}</AppTag> : <span key={r.name} className="ws-tag ws-tag--workspace">{r.name}</span>))}
-                            {roles.length > 3 ? <span className="ws-cell-sub">+{roles.length - 3} more</span> : null}
+                    const st = STATUS[m.status] || { tone: 'neutral', label: m.status };
+                    return (
+                      <tr key={m.userId} data-selected={openId === m.userId || undefined} onClick={() => openMember(m.userId)} style={{ cursor: 'pointer' }}>
+                        <td>
+                          <span className="flex items-center gap-3" style={{ minWidth: 0 }}>
+                            <Avatar name={m.name || m.email} size="lg" ink={m.accountRole === 'OWNER'} />
+                            <button type="button" className="ws-member-name" onClick={(e) => { e.stopPropagation(); openMember(m.userId); }}>
+                              <span className="ws-cell-main">{m.name || m.email}</span>
+                              <span className="ws-cell-sub">{m.email}</span>
+                            </button>
                           </span>
-                        ) : (
-                          /* Signs in but opens nothing: amber, as on Company users' "Without a role". */
-                          <span className="ws-state" data-tone="warn">No role</span>
-                        )}
-                      </td>
-                      {/* Who signs in with an authenticator and when they last did: it was only inside each person's panel. */}
-                      <td>
-                        <span className="ws-cell-main">{m.authenticator ? 'Authenticator on' : 'No authenticator'}</span>
-                        {/* Round 60 lastsignin A: Today, 3 days ago, Never, to spot seats nobody uses. */}
-                        <span className="ws-cell-sub">{lastSignedInLine(m.lastSignInAt)}</span>
-                      </td>
-                      <td><StatusPill tone={st.tone}>{st.label}</StatusPill></td>
-                      <td className="num"><ArrowUpRight size={16} aria-hidden="true" className="ws-chev" /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td>
+                          <span className="ws-cell-main" style={{ fontWeight: 500 }}>{ROLE_LABEL[m.accountRole] || m.accountRole}</span>
+                          <span className="ws-cell-sub">
+                            {!m.companies.length ? 'In no company' : companyCount && m.companies.length >= companyCount ? (companyCount === 1 ? 'The company' : `All ${companyCount} companies`) : `${m.companies.length} of ${companyCount || m.companies.length} companies`}
+                          </span>
+                        </td>
+                        <td style={{ whiteSpace: 'normal' }}>
+                          {m.accountRole === 'OWNER' && !roles.length ? (
+                            <span className="ws-tag ws-tag--workspace">Full access</span>
+                          ) : roles.length ? (
+                            <span className="ws-tags">
+                              {roles.slice(0, 3).map((r) => (r.app ? <AppTag key={r.name} app={r.app}>{r.name}</AppTag> : <span key={r.name} className="ws-tag ws-tag--workspace">{r.name}</span>))}
+                              {roles.length > 3 ? <span className="ws-cell-sub">+{roles.length - 3} more</span> : null}
+                            </span>
+                          ) : (
+                            /* Signs in but opens nothing: amber, as on Company users' "Without a role". */
+                            <span className="ws-state" data-tone="warn">No role</span>
+                          )}
+                        </td>
+                        {/* Who signs in with an authenticator and when they last did: it was only inside each person's panel. */}
+                        <td>
+                          <span className="ws-cell-main">{m.authenticator ? 'Authenticator on' : 'No authenticator'}</span>
+                          {/* Round 60 lastsignin A: Today, 3 days ago, Never, to spot seats nobody uses. */}
+                          <span className="ws-cell-sub">{lastSignedInLine(m.lastSignInAt)}</span>
+                        </td>
+                        <td><StatusPill tone={st.tone}>{st.label}</StatusPill></td>
+                        <td className="num"><ArrowUpRight size={16} aria-hidden="true" className="ws-chev" /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {rows.length > 25 ? (
+              <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount}
+                onPage={setPage} onPerPage={setPerPage} noun="members" pageSizes={[25, 50, 100]} />
+            ) : null}
           </div>
         )}
       </div>

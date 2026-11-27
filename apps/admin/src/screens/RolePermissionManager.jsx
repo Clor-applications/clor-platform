@@ -62,7 +62,8 @@ export const RolePermissionManager = () => {
         const [cat, roleRes] = await Promise.all([getPermissionCatalog(), listRoles(platformOrgId())]);
         if (cancelled) return;
         const list = Array.isArray(roleRes?.roles) ? roleRes.roles : [];
-        setCatalog(cat || { modules: [], presets: [] });
+        if (!Array.isArray(cat?.modules) || !Array.isArray(cat?.presets)) throw new Error('The permission catalogue is unavailable.');
+        setCatalog(cat);
         setRoles(list);
         setRoleId((prev) => prev || String(list[0]?.id || ''));
       } catch (e) {

@@ -19,6 +19,8 @@ vi.mock('@platform/admin/account', () => ({
   memberDirectory: (...a) => api.memberDirectory(...a),
   listTickets: (...a) => api.listTickets(...a),
 }));
+vi.mock('@platform/admin/security', () => ({ getPolicy: async () => ({}) }));
+vi.mock('@platform/admin/outsideAccess', () => ({ listOutsideAccess: async () => ({ outsideAccess: [] }) }));
 vi.mock('@platform/admin/admin', () => ({ getAccountOverview: (...a) => api.getAccountOverview(...a) }));
 vi.mock('@platform/operator', () => ({ operator: { contactEmail: 'info@clor.in' } }));
 const http = vi.hoisted(() => ({ apiFetch: vi.fn() }));
@@ -153,7 +155,7 @@ describe('Home', () => {
     const first = (await attention.findAllByRole('listitem'))[0];
     expect(first).toHaveTextContent('1 CLOR invoice overdue');
     expect(first).toHaveTextContent('₹1,180');
-    expect(first).toHaveTextContent('Urgent');
+    expect(within(first).getByText('Overdue', { exact: true })).toHaveClass('ws-pill--danger');
     expect(attention.getByText('Your trial ends in 5 days')).toBeInTheDocument();
     fireEvent.click(attention.getByRole('button', { name: /CLOR invoice overdue/ }));
     expect(openScreen).toHaveBeenCalledWith('billing');
@@ -285,4 +287,18 @@ describe('seatWords', () => {
     expect(seatWords({ used: 7, bought: 5 })).toBe('2 over the seats bought');
     expect(seatWords({ used: 3, bought: null })).toBe('No seat limit');
   });
+});
+
+it('reports an unavailable invitation check and retries just that source', async () => {
+  http.apiFetch.mockResolvedValue({});
+  api.listInvitations.mockRejectedValueOnce(new Error('Service unavailable')).mockResolvedValueOnce({ invitations: [] });
+  render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} />);
+  const actions = within(screen.getByRole('region', { name: 'Top actions' }));
+  expect(await actions.findByText('Could not check invitations.')).toBeInTheDocument();
+  expect(screen.getByText('Invitation status unavailable')).toBeInTheDocument();
+  expect(screen.queryByText('Everyone invited has joined')).toBeNull();
+  fireEvent.click(actions.getByRole('button', { name: /try again/i }));
+  expect(await screen.findByText('Everyone invited has joined')).toBeInTheDocument();
+  expect(api.getAccountMe).toHaveBeenCalledTimes(1);
+  expect(api.listInvitations).toHaveBeenCalledTimes(2);
 });
