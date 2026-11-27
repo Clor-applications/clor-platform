@@ -81,7 +81,7 @@ test.describe('Kavya runs HR', () => {
     await expect(kavya.title).toContainText(`Ravi ${last}`);
     await kavya.open('Employees');
     await kavya.main.getByRole('searchbox', { name: 'Search employees' }).fill(last);
-    await expect(kavya.main.getByRole('link', { name: new RegExp(`^Ravi ${last}`) })).toHaveCount(1);
+    await expect(kavya.employeeLink(`Ravi ${last}`)).toHaveCount(1);
   });
 
   test('H2: a duplicate employee ID or email is stopped, in plain words', { tag: ['@H2'] }, async ({ asHR: kavya, w }, testInfo) => {
@@ -173,8 +173,8 @@ test.describe('Kavya runs HR', () => {
     await expect(dialog).toBeHidden();
 
     /* Today she is still in Production under Rahul; Job changes shows both, from and to, dated. */
-    await expect(kavya.main.getByRole('list', { name: 'Summary' })).toContainText('Production');
-    await expect(kavya.main.getByRole('list', { name: 'Summary' })).toContainText('Rahul Menon');
+    await expect(kavya.main.getByRole('region', { name: 'Summary' })).toContainText('Production');
+    await expect(kavya.main.getByRole('region', { name: 'Summary' })).toContainText('Rahul Menon');
     await kavya.open('Job changes');
     await expect(kavya.row('Priya Sharma', 'Department')).toContainText(/Production → Sales/);
     await expect(kavya.row('Priya Sharma', 'Department')).toContainText(shortDate(from));

@@ -230,12 +230,19 @@ export class PeopleWeb {
     return this.page.getByRole('dialog').getByRole('button', { name: 'Approve', exact: true }).first();
   }
 
+  /** Desktop rows and phone cards both contain the employee's full name as link text. */
+  employeeLink(name: string): Locator {
+    const directory = this.main.getByRole('table', { name: 'Employees', exact: true })
+      .or(this.main.getByRole('list', { name: 'Employees', exact: true }));
+    return directory.getByRole('link').filter({ has: this.page.getByText(name, { exact: true }) });
+  }
+
   /** Employees → a person's record, found the way HR finds one: by searching the name. */
   async openEmployee(name: string) {
     await this.open('Employees');
     await this.main.getByRole('searchbox', { name: 'Search employees' }).fill(name);
     /* Wait for the list to narrow to that person before clicking, so the click lands on the row that stays. */
-    const hit = this.main.getByRole('link', { name: new RegExp(`^${name}\\b`) });
+    const hit = this.employeeLink(name);
     await expect(hit).toHaveCount(1);
     /* The search is written to the address a moment later; a click before that is overwritten by it. */
     await expect(this.page).toHaveURL(/[?&]s\.q=/);

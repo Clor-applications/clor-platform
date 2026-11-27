@@ -80,7 +80,7 @@ test.describe('Suresh owns the account', () => {
 
     /* Search, the address, and Back: still nothing of Asha's. */
     await vels.main.getByRole('searchbox', { name: 'Search employees' }).fill('Priya');
-    await expect(vels.main.getByRole('link', { name: /^Priya Sharma/ })).toHaveCount(0);
+    await expect(vels.employeeLink('Priya Sharma')).toHaveCount(0);
     await suresh.page.goto(`/o/${w.vels.code}/?app=people&open=employee&s.id=${w.people.priya.id}`);
     await expect(vels.main).toContainText(/not available|not found/i);
     await expect(vels.main).not.toContainText('Priya Sharma');
@@ -138,17 +138,16 @@ test.describe('Suresh owns the account', () => {
     await people.main.getByLabel('Last name').fill('Rao');
     await people.main.getByLabel('Work email').fill(me.email);
     await people.main.getByLabel('Work email').press('Tab');
-    await people.main.getByRole('button', { name: 'Continue' }).click();
+    await people.main.getByRole('form', { name: 'Personal', exact: true }).getByRole('button', { name: 'Continue' }).click();
     await people.main.getByLabel('Joining date').fill('01/04/2024');
-    await people.main.getByRole('button', { name: 'Continue' }).click();
-    await people.main.getByRole('button', { name: 'Continue' }).click();
+    await people.main.getByRole('form', { name: 'Employment', exact: true }).getByRole('button', { name: 'Continue' }).click();
+    await people.main.getByRole('form', { name: 'Organisation', exact: true }).getByRole('button', { name: 'Continue' }).click();
     await expect(people.main.getByRole('form', { name: 'Review' })).toContainText(me.email);
     await people.main.getByRole('button', { name: 'Create employee' }).click();
     await expect(people.title).toContainText('Lalitha Rao');
 
     /* A leave type of her own, from the usual ones. */
-    await people.open('Settings');
-    await people.main.getByRole('button', { name: /^Leave policy/ }).click();
+    await people.openSetting('Leave policy');
     await expect(people.title).toHaveText('Leave policy');
     await people.main.getByRole('button', { name: 'Casual Leave', exact: true }).click();
     const typeForm = people.page.getByRole('dialog').last();
