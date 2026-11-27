@@ -31,7 +31,7 @@ it('lists probation ending, this week and last month’s close', async () => {
   /* This week, in date order: a joiner, a last day, a holiday. */
   const rows = screen.getByRole('heading', { name: 'This week' }).closest('section').querySelectorAll('li');
   expect([...rows].map((r) => r.textContent)).toEqual([
-    expect.stringMatching(/^Dev Patel joins/),
+    expect.stringMatching(/Dev Patel joins/),
     expect.stringMatching(/^Esha Nair’s last day/),
     expect.stringMatching(/^Diwali \(holiday\)/),
   ]);

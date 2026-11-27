@@ -61,7 +61,7 @@ export default function IdMapping({ openScreen, menuLabel }) {
       <PageHeader
         entity="reader"
         title={menuLabel || 'Employee ID mapping'}
-        description="Reader IDs against employees: what matches nobody, who has left but is still on a reader, who has no ID."
+        introduction="Reader IDs against employees: what matches nobody, who has left but is still on a reader, who has no ID."
         /* The four counts as a count line, not tiles (DESIGN.md "Page header"; design audit step 2). */
         counts={data ? [
           { key: 'unmatched', label: 'unknown IDs with punches', value: data.counts.unmatched, tone: 'neg' },

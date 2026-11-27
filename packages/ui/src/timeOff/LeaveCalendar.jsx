@@ -1,3 +1,6 @@
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import SearchField from '@ui/components/ui/SearchField';
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
@@ -49,24 +52,15 @@ const offTest = (week) => {
 
 /** "Ananya Iyer" → "Ananya I.": a month cell has room for a first name and an initial. */
 const shortName = (n) => { const [first, ...rest] = String(n || '').trim().split(/\s+/); return rest.length ? `${first} ${rest[rest.length - 1][0]}.` : first; };
-/** The month as weeks from Monday, with the days of the months either side to fill the first and last week. */
-const weeksOf = (month) => {
-  const days = daysIn(month);
-  const lead = (weekday(days[0]) + 6) % 7;
-  const cells = [...Array.from({ length: lead }, (_, i) => shiftDay(days[0], i - lead)), ...days];
-  while (cells.length % 7) cells.push(shiftDay(cells[cells.length - 1], 1));
-  return Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
-};
-const shiftDay = (iso, by) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + by); return d.toISOString().slice(0, 10); };
-const WEEK_HEAD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SHOWN_IN_CELL = 3;
 
 /* Which half of a half day, said in the label too: a hover title is no help on a phone or to a screen reader (#80 QA). */
 const halfWords = (h) => (h === 'FIRST' ? ', first half' : h === 'SECOND' ? ', second half' : h ? ', half day' : '');
 
-export default function LeaveCalendar() {
+export default function LeaveCalendar({ peopleTimePage } = {}) {
   const today = todayIst();
   const [month, setMonth] = useState(today.slice(0, 7));
+  const [query, setQuery] = useState('');
   const [dept, setDept] = useState('');
   /*
    * By person first (owner, 19 Nov 2026, DESIGN.md "Pick conflicts resolved": rounds 5 and 17 over round 8): one row a
@@ -103,15 +97,16 @@ export default function LeaveCalendar() {
       if (!byPerson.has(w.employeeId)) byPerson.set(w.employeeId, { id: w.employeeId, name: w.employeeName, department: w.department, leave: [], working: [] });
       byPerson.get(w.employeeId).working.push(w);
     }
-    return [...byPerson.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [requests, working, dept]);
+    return [...byPerson.values()].filter((person) => [person.name, person.department].some((text) =>
+      text?.toLowerCase().includes(query.toLowerCase()))).sort((a, b) => a.name.localeCompare(b.name));
+  }, [requests, working, dept, query]);
   const workingKinds = [...new Set((working || []).map((w) => w.kind))].filter((k) => WORKING[k]);
   const awayOn = (date) => people.filter((p) => p.leave.some((r) => r.fromDate <= date && date <= r.toDate && r.status === 'APPROVED')).length;
   const legend = useMemo(() => {
     const m = new Map();
     for (const r of requests || []) {
-      const key = isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeId;
-      if (!m.has(key)) m.set(key, { key, name: isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName, row: r });
+      const key = isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeId || r.leaveTypeName || 'leave';
+      if (!m.has(key)) m.set(key, { key, name: isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName || 'Leave', row: r });
     }
     return [...m.values()].sort((a, b) => (a.key === PRIVATE_LABEL) - (b.key === PRIVATE_LABEL) || a.name.localeCompare(b.name));
   }, [requests]);
@@ -125,7 +120,8 @@ export default function LeaveCalendar() {
       <ListHeader
         breadcrumb={homeCrumbs()}
         title="Leave calendar"
-        description="Who is away on each day of the month, with holidays and weekly offs shaded."
+        description={peopleTimePage ? undefined : "Who is away on each day of the month, with holidays and weekly offs shaded."}
+        secondary={peopleTimePage && <SearchField value={query} onSearch={setQuery} placeholder="Search calendar" label="Search calendar" className="w-full sm:w-64" />}
         toolbar={<>
           <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
             <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shift(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
@@ -148,7 +144,7 @@ export default function LeaveCalendar() {
       {/* The month is always drawn (People plan 8 Nov 2026, §3 rule 4): with nobody away it still shows its weekends and holidays. */}
       {req.error && !requests ? <ErrorState error={req.error} onRetry={req.reload} /> : !requests ? <SkeletonCard lines={6} /> : (
         <section className="space-y-3" aria-label={`Leave in ${title(month)}`}>
-          {clashes.length ? (
+          {!query && clashes.length ? (
             <ul className="space-y-1 text-sm" aria-label="Away the same day">
               {clashes.map((c) => (
                 <li key={`${c.date}:${c.group || ''}`} className="flex flex-wrap items-center gap-2">
@@ -159,7 +155,7 @@ export default function LeaveCalendar() {
               ))}
             </ul>
           ) : null}
-          {view === 'month' ? (
+          {query && !people.length ? <p className="ui-muted py-3" role="status">No matching employees.</p> : view === 'month' ? (
             <MonthGrid month={month} today={today} people={people} isOffDay={isOffDay} holidayOn={holidayOn} clashOn={clashOn} />
           ) : (
             <PersonRows month={month} today={today} days={days} people={people} shaded={shaded} holidayOn={holidayOn} clashOn={clashOn} awayOn={awayOn} dept={dept} />
@@ -185,23 +181,22 @@ export default function LeaveCalendar() {
 
 /** The month as a calendar: weeks from Monday, the people away each day under the date, holidays in amber. */
 function MonthGrid({ month, today, people, isOffDay, holidayOn, clashOn }) {
-  const weeks = weeksOf(month);
   const awayOnDay = (d) => people.flatMap((p) => [
     ...p.leave.filter((r) => r.fromDate <= d && d <= r.toDate).map((r) => ({ key: r.id, p, r })),
     ...p.working.filter((w) => w.fromDate <= d && d <= w.toDate).map((w) => ({ key: `w:${w.id}`, p, w })),
   ]);
   const empty = !people.length;
   return (
-    <div className="pt-month" role="table" aria-label={`Leave in ${title(month)}`}>
-      <div className="pt-month-row pt-month-head" role="row">{WEEK_HEAD.map((d) => <span key={d} role="columnheader">{d}</span>)}</div>
-      {weeks.map((week) => (
-        <div key={week[0]} className="pt-month-row" role="row">
-          {week.map((d) => {
+    <div className="pt-full-calendar">
+      <FullCalendar key={month} plugins={[dayGridPlugin]} initialView="dayGridMonth" initialDate={month + '-01'}
+        timeZone="UTC" now={today} headerToolbar={false} firstDay={1} fixedWeekCount={false} height="auto"
+        dayCellContent={({ date }) => {
+            const d = date.toISOString().slice(0, 10);
             const inMonth = d.startsWith(month);
             const away = inMonth ? awayOnDay(d) : [];
             const holiday = inMonth ? holidayOn.get(d) : null;
             return (
-              <div key={d} role="cell" className={`pt-day ${inMonth ? '' : 'is-out'} ${inMonth && isOffDay(d) ? 'is-off' : ''}`} aria-label={inMonth ? `${formatDate(d)}${holiday ? `, ${holiday}` : ''}${away.length ? `, ${away.length} away` : ''}` : undefined}>
+              <div key={d} className={`pt-day ${inMonth ? '' : 'is-out'} ${inMonth && isOffDay(d) ? 'is-off' : ''}`} aria-label={inMonth ? `${formatDate(d)}${holiday ? `, ${holiday}` : ''}${away.length ? `, ${away.length} away` : ''}` : undefined}>
                 <span className="pt-day-n">{d === today ? <span className="pt-today-mark" aria-current="date">{Number(d.slice(8))}</span> : Number(d.slice(8))}{clashOn.has(d) ? <span className="ui-pill ui-pill-warn ml-auto" title="Two or more of one department away">{away.length} away</span> : null}</span>
                 {holiday ? <span className="pt-cal-holiday">{holiday}</span> : null}
                 {away.slice(0, SHOWN_IN_CELL).map(({ key, p, r, w }) => (r ? (
@@ -220,9 +215,7 @@ function MonthGrid({ month, today, people, isOffDay, holidayOn, clashOn }) {
                 {away.length > SHOWN_IN_CELL ? <span className="ui-caption">+{away.length - SHOWN_IN_CELL} more</span> : null}
               </div>
             );
-          })}
-        </div>
-      ))}
+          }} />
       {empty ? <p className="pt-month-empty" role="status">Nobody is away or working elsewhere in {title(month)}. Approved leave shows on its days here.</p> : null}
     </div>
   );

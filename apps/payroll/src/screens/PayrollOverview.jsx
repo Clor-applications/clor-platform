@@ -1,3 +1,5 @@
+import { payRunStatusTone } from '../components/payRunStatus';
+import { DashboardStats } from '@ui/components/ui/DashboardBoard';
 import React, { useCallback, useEffect, useState } from 'react';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { AlertTriangle, ArrowRight } from '@ui/components/ui/lineIcons';
@@ -12,8 +14,6 @@ import StatutoryDues from '../components/StatutoryDues';
 import { MonthTodo } from '../components/round59';
 import { MinimumWageReminder } from '../components/MinimumWagesSection';
 import { errorWords } from '@ui/utils/errorWords';
-import { FormPart } from '@ui/components/ui/FormPart';
-import { Figures } from '../components/Figure';
 import Notice from '../components/Notice';
 import { ViewSwitch } from '@ui/components/ui/FigureViews';
 
@@ -71,23 +71,30 @@ const percentChange = (from, to) => {
   return Math.round(((b - a) / a) * 1000) / 10;
 };
 
-export default function PayrollOverview({ onOpen = () => {} }) {
+export default function PayrollOverview({ onOpen, openScreen = onOpen }) {
   const [overview, setOverview] = useState(null);
   const [setup, setSetup] = useState(null);
+  const [setupError, setSetupError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const loadSetup = useCallback(async () => {
+    setSetupError('');
+    try {
+      const readiness = await getPayrollSetup();
+      if (!readiness) {
+        setSetupError('Payroll readiness could not be checked.');
+        return;
+      }
+      setSetup(readiness);
+    } catch (e) {
+      setSetupError(errorWords(e, 'check payroll readiness'));
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
-      const [state, readiness] = await Promise.all([
-        getPayrollOverview(),
-        /* Setup is a nicety here, not a dependency: an overview that fails to
-           load because a checklist could not be fetched is worse than one
-           without the checklist. */
-        getPayrollSetup().catch(() => null),
-      ]);
-      setOverview(state);
-      setSetup(readiness);
+      setOverview(await getPayrollOverview());
       setError('');
     } catch (e) {
       setError(errorWords(e, 'load Payroll'));
@@ -98,7 +105,8 @@ export default function PayrollOverview({ onOpen = () => {} }) {
 
   useEffect(() => {
     load();
-  }, [load]);
+    loadSetup();
+  }, [load, loadSetup]);
 
   if (loading) return <SkeletonCard lines={6} />;
 
@@ -106,7 +114,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
     return (
       <div className="space-y-3">
         <PageHeader entity="payroll" title="Overview" description="Where this month is, and what is in the way." />
-        <div className="px-5 lg:px-7 pb-8 space-y-4">
+        <div className="pb-8 space-y-4">
         <LoadFailed message={error} onRetry={load} />
         </div>
       </div>
@@ -120,6 +128,13 @@ export default function PayrollOverview({ onOpen = () => {} }) {
   /* While setup is unfinished, finishing it is the one thing to do here (UX-13):
      a "Run payroll" that cannot run is not offered as the main action. */
   const notReady = Boolean(setup && !setup.ready);
+  const canStart = Boolean(currentPeriod && setup?.ready && !setupError);
+  const continueRun = currentRun?.id ? () => openScreen?.('runs', { runId: currentRun.id }) : null;
+  let primary = null;
+  if (continueRun) primary = { label: 'Open this payroll', open: continueRun };
+  else if (notReady) primary = { label: 'Finish setting up', open: () => openScreen?.('setup') };
+  else if (!currentPeriod) primary = { label: 'Open Pay calendar', open: () => openScreen?.('periods') };
+  else if (canStart) primary = { label: 'Run payroll', open: () => openScreen?.('runs', { startPeriod: currentPeriod.id }) };
 
   return (
     <div className="space-y-3">
@@ -145,20 +160,15 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           { key: 'loans', label: `${pending.loans === 1 ? 'loan' : 'loans'} running${pending.loanOutstanding ? ` (${money(pending.loanOutstanding)} owed)` : ''}`, value: pending.loans },
           { key: 'revisions', label: `${pending.revisions === 1 ? 'revision' : 'revisions'} not yet in effect`, value: pending.revisions },
         ]}
-        actions={
-          notReady && !currentRun ? (
-            <button type="button" className="ui-btn ui-btn-primary !ps-4 !pe-3.5" onClick={() => onOpen('payrollSetup')}>
-              Finish setting up <ArrowRight size={16} aria-hidden="true" />
-            </button>
-          ) : (
-            <button type="button" className="ui-btn ui-btn-primary !ps-4 !pe-3.5" onClick={() => onOpen('payrollRuns')}>
-              {currentRun ? 'Open this payroll' : 'Run payroll'} <ArrowRight size={16} aria-hidden="true" />
-            </button>
-          )
-        }
+        actions={primary ? (
+          <button type="button" className="ui-btn ui-btn-primary" onClick={primary.open}>
+            {primary.label} <ArrowRight size={16} aria-hidden="true" />
+          </button>
+        ) : null}
       />
-      <div className="px-5 lg:px-7 pb-8 space-y-4">
-      {currentPeriod ? <PayCalendarStrip period={currentPeriod} run={currentRun} /> : null}
+      <div className="pb-8 space-y-4">
+      <LoadFailed message={setupError} onRetry={loadSetup} />
+      {!setup && !setupError && currentPeriod && !currentRun ? <p className="ui-caption" role="status">Checking payroll readiness…</p> : null}
       {/* Round 66: minimum wage rates due for their April or October revision. */}
       <MinimumWageReminder />
 
@@ -178,7 +188,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           action={
             /* The header's primary already says "Finish setting up" unless a run is open: one button for one job. */
             currentRun ? (
-              <button type="button" className="ui-btn ui-btn-secondary shrink-0 !ps-4 !pe-3.5" onClick={() => onOpen('payrollSetup')}>
+              <button type="button" className="ui-btn ui-btn-secondary shrink-0 !ps-4 !pe-3.5" onClick={() => openScreen?.('setup')}>
                 Finish setting up <ArrowRight size={16} aria-hidden="true" />
               </button>
             ) : null
@@ -196,59 +206,35 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           title="No open period in the pay calendar"
           description="A pay run is for a month. Add one under Settings → Pay calendar."
           describe
-          action={
-            <button type="button" className="ui-btn ui-btn-primary" onClick={() => onOpen('periods')}>
-              Open Pay calendar
-            </button>
-          }
         />
       ) : null}
 
-      {/* This month, first, because it is the question. */}
-      {currentRun ? (
-        /* A heading over a rule, not a box; the stage is said in words, not a tag (it is never an exception). */
-        <FormPart
-          id="this-month"
-          title={currentRun.number}
-          description={currentRun.stage}
-          action={
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => onOpen('payrollRuns')}>
-              Open
-            </button>
-          }
-        >
-          <Figures
-            label="This month's payroll"
-            items={[
-              { label: 'People', value: String(currentRun.employeeCount), raw: currentRun.employeeCount },
-              { label: 'Gross', value: moneyCell(currentRun.gross, { zero: true }), raw: currentRun.gross },
-              { label: 'Net pay', value: moneyCell(currentRun.net, { zero: true }), raw: currentRun.net },
-              { label: 'Company pays', value: moneyCell(currentRun.employerCost, { zero: true }), raw: currentRun.employerCost },
-            ]}
-          />
-        </FormPart>
-      ) : currentPeriod ? (
-        <FormPart
-          id="this-month"
-          title={`${currentPeriod.name} has not been run`}
-          description={`${people.inPayroll} ${people.inPayroll === 1 ? 'person is' : 'people are'} in payroll and waiting to be paid.${notReady ? ' It can run once setup is finished.' : ''}`}
-          action={
-            /* The header carries the main action; this one only repeats it, quietly. */
-            <button
-              type="button"
-              className="ui-btn ui-btn-secondary"
-              onClick={() => onOpen('payrollRuns')}
-              disabled={notReady}
-              title={notReady ? 'Finish setting up payroll first' : undefined}
-            >
-              Run payroll
-            </button>
-          }
-        />
+      {currentPeriod || currentRun ? (
+        <div className="dashboard-board">
+          <section className="dashboard-panel" data-featured aria-labelledby="this-month">
+            <h2 className="dashboard-panel-title" id="this-month">{currentPeriod?.name || currentRun.number}</h2>
+            {currentRun ? (
+              <>
+                <p className="dashboard-panel-meta flex flex-wrap items-center gap-2"><span>{currentRun.number}</span><span className={`ui-pill ui-pill-${payRunStatusTone(currentRun.status)}`}>{currentRun.stage}</span></p>
+                <DashboardStats label="Current pay run" items={[
+                  { key: 'net', label: 'Net pay', value: moneyCell(currentRun.net, { zero: true }) },
+                  { key: 'people', label: 'People', value: currentRun.employeeCount },
+                  { key: 'gross', label: 'Gross pay', value: moneyCell(currentRun.gross, { zero: true }) },
+                  { key: 'cost', label: 'Company pays', value: moneyCell(currentRun.employerCost, { zero: true }) },
+                ]} />
+              </>
+            ) : (
+              <p className="dashboard-panel-meta">{people.inPayroll} {people.inPayroll === 1 ? 'person is' : 'people are'} waiting to be paid this period.</p>
+            )}
+          </section>
+          {currentPeriod ? (
+            <div className="dashboard-panel">
+              <MonthTodo period={currentPeriod} run={currentRun} onOpen={currentRun || canStart ? openScreen : undefined} />
+            </div>
+          ) : null}
+        </div>
       ) : null}
-
-      {/* Round 59 monthflow C: the month as a short to-do list. */}
-      <MonthTodo period={currentPeriod} run={currentRun} onOpen={onOpen} />
+      {currentPeriod ? <PayCalendarStrip period={currentPeriod} run={currentRun} /> : null}
 
       {/* What is in the way, in the order somebody would act on it. */}
       {blockers.length ? (

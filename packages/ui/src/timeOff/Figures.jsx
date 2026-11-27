@@ -1,3 +1,4 @@
+import { ResponsiveContainer, BarChart, Bar, XAxis, LabelList } from 'recharts';
 import React from 'react';
 import {
   BookOpen, Briefcase, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, Clock, Coins, Gift, MessagesSquare,
@@ -100,19 +101,16 @@ export function BarList({ rows, label, one = false, max = null, suffix = '' }) {
 
 /** Vertical bars from zero, one series in the first categorical colour, each with its figure on top. */
 export function Columns({ rows, label }) {
-  const top = Math.max(0, ...rows.map((r) => Number(r.value) || 0));
   return (
-    <div className="pt-cols" role="img" aria-label={`${label}: ${rows.map((r) => `${r.label} ${r.text ?? r.value}`).join(', ')}`}>
-      {rows.map((r) => {
-        const v = Math.max(0, Number(r.value) || 0);
-        return (
-          <div key={r.key || r.label} className="pt-col">
-            <span className="pt-col-value">{r.text ?? v}</span>
-            <span className="pt-col-track"><span className="pt-col-bar" style={{ height: `${top > 0 ? (v / top) * 100 : 0}%` }} /></span>
-            <span className="pt-col-label">{r.label}</span>
-          </div>
-        );
-      })}
+    <div role="img" aria-label={`${label}: ${rows.map((r) => `${r.label} ${r.text ?? r.value}`).join(', ')}`} style={{ minWidth: 0, height: 144 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={rows} margin={{ top: 22, left: 12, right: 12 }}>
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: 'rgb(var(--fg-subtle))', fontSize: 12 }} />
+          <Bar dataKey="value" fill="var(--cat-1, #2671cb)" maxBarSize={36} radius={[3, 3, 0, 0]} isAnimationActive={false}>
+            <LabelList dataKey={(r) => r.text ?? r.value} position="top" fill="rgb(var(--fg))" fontSize={12} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

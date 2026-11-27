@@ -89,7 +89,8 @@ const EXPORT_COLUMNS = [
   { key: 'status', label: 'Status', value: (r) => STATUS[r.status]?.label || r.status },
 ];
 
-export default function SalaryRevisions({ params } = {}) {
+export default function SalaryRevisions({ params, ListShell = DocumentListShell, Records } = {}) {
+  const inPeople = ListShell !== DocumentListShell;
   const [all, setAll] = useState(null);
   const [people, setPeople] = useState([]);
   const [structures, setStructures] = useState([]);
@@ -129,6 +130,8 @@ export default function SalaryRevisions({ params } = {}) {
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
 
+  const exportRevisions = (records, format = 'csv') => runListExport({ format, title: 'Salary revisions', fileName: 'Salary revisions', label: 'revision/revisions', columns: EXPORT_COLUMNS, rows: records });
+
   if (openId) {
     return (
       <RevisionDetail
@@ -144,11 +147,23 @@ export default function SalaryRevisions({ params } = {}) {
   const canStart = people.length > 0 && structures.length > 0;
   const start = () => setStarting(true);
 
+  const empty = inTab.length ? (
+    <EmptyState kind="filtered" totalCount={inTab.length} title="No revisions match" description="Nothing in this tab matches the search or the column filters." />
+  ) : !canStart && !(all || []).length ? (
+    <EmptyState icon={TrendingUp} title="Nothing to revise yet" description="A revision moves somebody from one salary to another. Add people and an active salary structure first." />
+  ) : (
+    <EmptyState
+      icon={TrendingUp}
+      title={EMPTY_TITLES[status] || 'No revisions yet'}
+      description="Propose a raise and see what it does to net pay, to deductions and to what the company spends, before anybody agrees to it."
+      routes={canStart && !status ? [{ label: 'New revision', description: 'The impact shows as you type.', onSelect: start }] : undefined}
+    />
+  );
   return (
-    <DocumentListShell
+    <ListShell
       entity="salaryRevision"
       title="Salary revisions"
-      description="Raises, with what each one does to net pay and to the company's cost before anybody agrees to it."
+      description={inPeople ? undefined : "Raises, with what each one does to net pay and to the company's cost before anybody agrees to it."}
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search revisions…', label: 'Search revisions' }}
@@ -156,7 +171,7 @@ export default function SalaryRevisions({ params } = {}) {
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (!format) return;
-        runListExport({ format, title: 'Salary revisions', fileName: 'Salary revisions', label: 'revision/revisions', columns: EXPORT_COLUMNS, rows });
+        exportRevisions(rows, format);
       }}
       primary={
         <button type="button" className="ui-btn ui-btn-primary" onClick={start} disabled={!canStart || starting}>
@@ -164,8 +179,8 @@ export default function SalaryRevisions({ params } = {}) {
         </button>
       }
       countLine={countItems([
-        { label: 'To decide', value: counts.OPEN || 0, count: true, tone: 'outstanding', onSelect: () => setStatus('OPEN') },
-        { label: 'Approved', value: counts.APPROVED || 0, count: true, tone: 'sent', onSelect: () => setStatus('APPROVED') },
+        !inPeople && { label: 'To decide', value: counts.OPEN || 0, count: true, tone: 'outstanding', onSelect: () => setStatus('OPEN') },
+        !inPeople && { label: 'Approved', value: counts.APPROVED || 0, count: true, tone: 'sent', onSelect: () => setStatus('APPROVED') },
         { label: 'Yearly raise', value: figures.rise, whole: true, tone: 'partial' },
         { label: 'Average raise', value: `${figures.avg}%`, count: true, tone: 'paid' },
       ])}
@@ -193,14 +208,17 @@ export default function SalaryRevisions({ params } = {}) {
       <LoadFailed message={error} onRetry={load} />
       {!all ? (
         error ? null : <SkeletonCard lines={4} />
+      ) : Records ? (
+        <Records rows={rows} onOpen={(r) => setOpenId(r.id)} filters={filters} exportRows={exportRevisions}
+          scope={JSON.stringify([status, search.query, filters.filters])} empty={empty} />
       ) : (
         <div className="ui-table-scroll">
           <table className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="employee" state={filters} />
-                <th scope="col" className="ui-col-h-right">From</th>
-                <th scope="col" className="ui-col-h-right">To</th>
+                <th scope="col" className="ui-col-h-right">{inPeople ? 'Current annual CTC' : 'From'}</th>
+                <th scope="col" className="ui-col-h-right">{inPeople ? 'Proposed annual CTC' : 'To'}</th>
                 <th scope="col" className="ui-col-h-right">Raise</th>
                 <th scope="col" className="ui-col-h-center">In effect from</th>
                 <th scope="col" className="ui-col-grow">Reason</th>
@@ -211,25 +229,14 @@ export default function SalaryRevisions({ params } = {}) {
               {!rows.length ? (
                 <tr>
                   <td colSpan={7}>
-                    {inTab.length ? (
-                      <EmptyState kind="filtered" totalCount={inTab.length} title="No revisions match" description="Nothing in this tab matches the search or the column filters." />
-                    ) : !canStart && !(all || []).length ? (
-                      <EmptyState icon={TrendingUp} title="Nothing to revise yet" description="A revision moves somebody from one salary to another. Add people and an active salary structure first." />
-                    ) : (
-                      <EmptyState
-                        icon={TrendingUp}
-                        title={EMPTY_TITLES[status] || 'No revisions yet'}
-                        description="Propose a raise and see what it does to net pay, to deductions and to what the company spends, before anybody agrees to it."
-                        routes={canStart && !status ? [{ label: 'New revision', description: 'The impact shows as you type.', onSelect: start }] : undefined}
-                      />
-                    )}
+                    {empty}
                   </td>
                 </tr>
               ) : (
                 rows.map((r) => (
                   <tr key={r.id} className="ui-row-click" onClick={() => setOpenId(r.id)}>
                     <td className="ui-col-entity" data-phone="name">
-                      {r.employeeName}
+                      <button type="button" className="font-semibold" onClick={(e) => { e.stopPropagation(); setOpenId(r.id); }}>{r.employeeName}</button>
                       {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
                     </td>
                     <td className="ui-col-amount">{moneyCell(r.currentAnnualCtc)}</td>
@@ -238,7 +245,7 @@ export default function SalaryRevisions({ params } = {}) {
                     <td className="ui-col-date ui-col-h-center" data-phone="sub">{dateWords(r.effectiveFrom)}</td>
                     <td className="ui-col-meta ui-col-grow whitespace-normal">{r.reason || '—'}</td>
                     <td className="ui-col-h-center" data-phone="tag">
-                      <ExceptionTag label={r.status === 'APPLIED' ? '' : STATUS[r.status]?.label || r.status} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} />
+                      <ExceptionTag label={!inPeople && r.status === 'APPLIED' ? '' : STATUS[r.status]?.label || r.status} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} />
                     </td>
                   </tr>
                 ))
@@ -247,7 +254,7 @@ export default function SalaryRevisions({ params } = {}) {
           </table>
         </div>
       )}
-    </DocumentListShell>
+    </ListShell>
   );
 }
 

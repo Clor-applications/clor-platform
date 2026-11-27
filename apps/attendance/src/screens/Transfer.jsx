@@ -93,7 +93,7 @@ export default function Transfer() {
       <PageHeader
         entity="employee"
         title="Transfers"
-        description="Move people to another department, area, position or contractor in one go."
+        introduction="Move people to another department, area, position or contractor in one go."
         actions={
           <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !picked.size || !target} aria-busy={saving || undefined} onClick={move}>
             <ArrowRightLeft size={16} aria-hidden="true" /> {saving ? 'Moving…' : `Move ${picked.size || ''}`}

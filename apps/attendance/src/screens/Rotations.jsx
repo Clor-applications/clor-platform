@@ -75,7 +75,7 @@ export default function Rotations() {
     <DocumentListShell
       entity="shift"
       title="Shift rotations"
-      description="Repeating shift patterns. Each step lasts a week (or a day); crews on the same pattern can start at different steps."
+      introduction="Repeating shift patterns. Each step lasts a week (or a day); crews on the same pattern can start at different steps."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search rotations…', label: 'Search rotations' }}

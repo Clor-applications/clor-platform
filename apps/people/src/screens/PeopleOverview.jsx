@@ -1,9 +1,11 @@
+import '@ui/components/ui/DashboardBoard.css';
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Cake, CalendarDays, ChevronRight, CircleAlert, Medal, Megaphone, MessagesSquare, Pin, Plus } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, CalendarDays, ChevronRight, CircleAlert, Clock, Hourglass, LogOut, Plus, Users } from 'lucide-react';
+import { DashboardHeader, DashboardBlock as Block, DashboardFigures } from './PeopleDashboard';
+import { useChangeMessage, usePeopleUpdates } from './usePeopleUpdates';
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
-import { MoreButton } from '@ui/components/list/ListPageParts';
 import { getOverview, getPeopleHome, listEmployees, summaryOpened } from '@ui/personnel/api';
 import { listLeaveRequests, swatchOf } from '@ui/timeOff/api';
 import { listRecords } from '../api/workspace';
@@ -18,8 +20,9 @@ import { FinalPayBanner, FinalPayList } from '@ui/lifecycle/LeavingExtras';
 import { finalPayList } from '../api/engagement';
 import HomeSetup from './HomeSetup';
 import HomeMyLeave from './HomeMyLeave';
-import { ConnectionBar, DayTimeline, DecideInPlace, FigureLedger, HomeSkeleton, TeamsToday, TodayFeed, clockWords, useConnection } from './HomeToday';
+import { ConnectionBar, DayTimeline, DecideInPlace, HomeSkeleton, TeamsToday, TodayFeed, clockWords, useConnection } from './HomeToday';
 
+const TEAM_FIGURE_ICONS = { headcount: Users, in: Clock, out: CalendarDays, probation: Hourglass, notice: LogOut };
 const TONE = { urgent: { label: 'Now', pill: 'neg' }, soon: { label: 'This week', pill: 'neutral' }, info: { label: 'When you can', pill: 'neutral' } };
 /** Headcount by department draws the categorical series, never past eight; the rest is one grey "Other" (R&D brand, 14 Nov 2026). */
 const CHART_COLOURS = 8;
@@ -62,6 +65,15 @@ const eventDay = (iso) => {
   const d = new Date(`${iso}T00:00:00`);
   return { day: d.getDate(), month: d.toLocaleDateString('en-IN', { month: 'short' }), weekday: d.toLocaleDateString('en-IN', { weekday: 'long' }) };
 };
+function eventEmoji(event) {
+  const selected = symbolOf(event.details?.symbol)?.emoji;
+  if (selected) return selected;
+  if (/orientation|onboard|welcome/i.test(event.title)) return '👋';
+  if (/town hall|all.hands/i.test(event.title)) return '🎤';
+  if (/workshop|training/i.test(event.title)) return '📚';
+  if (/fun friday|celebration/i.test(event.title)) return '🎉';
+  return '📅';
+}
 const ago = (iso) => {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
   return days <= 0 ? 'Today' : days === 1 ? 'Yesterday' : days < 7 ? `${days} days ago` : shortDate(iso);
@@ -86,17 +98,23 @@ function CardFailed({ what, onRetry, role = 'status' }) {
  * One card's request: the answer into its state, or the failure into `failed`. A refusal (403) is an answer, not a
  * failure: a module switched off or a list this reader may not open is simply empty for them, as before.
  */
-function loadCard(key, request, set, setFailed, inFlight) {
+function loadCard(key, request, set, setFailed, inFlight, background = false) {
   /* One request per card at a time: a second Retry before the first answers asks nothing again. */
   if (inFlight.has(key)) return Promise.resolve();
   inFlight.add(key);
   setFailed((f) => (f[key] ? { ...f, [key]: false } : f));
-  set(null);
+  if (!background) set(null);
   return request().then(set, (e) => {
     if (Number(e?.status) === 403) return set([]);
     setFailed((f) => ({ ...f, [key]: true }));
     return undefined;
   }).finally(() => inFlight.delete(key));
+}
+
+async function loadUpdateRecords(kind) {
+  const records = await listRecords(kind);
+  if (!Array.isArray(records)) throw new Error('The records response was incomplete');
+  return records;
 }
 
 /*
@@ -108,7 +126,7 @@ export function HomeGlance({ glance, go }) {
   if (!glance) return null;
   const { probation, week, monthClose, teamWeek } = glance;
   const weekRows = week ? [
-    ...week.joining.map((p) => ({ key: `j-${p.id}`, on: p.on, text: <><b>{p.name}</b> joins</>, open: go('employee', { id: p.id }) })),
+    ...week.joining.map((p) => ({ key: `j-${p.id}`, on: p.on, text: <><span className="people-inline-emoji" aria-hidden="true">👋</span><b>{p.name}</b> joins</>, open: go('employee', { id: p.id }) })),
     ...week.leaving.map((p) => ({ key: `l-${p.id}`, on: p.on, text: <><b>{p.name}</b>’s last day</>, open: go('employee', { id: p.id }) })),
     ...week.holidays.map((h) => ({ key: `h-${h.date}-${h.name}`, on: h.date, text: <><b>{h.name}</b>{h.optional ? ' (optional holiday)' : ' (holiday)'}</>, open: go('holidays') })),
   ].sort((a, b) => a.on.localeCompare(b.on)) : [];
@@ -129,7 +147,7 @@ export function HomeGlance({ glance, go }) {
           {glance.waiting ? (
             <li key="open">
               <button type="button" className="people-glance-row" onClick={go('approvals')}>
-                <span className="min-w-0 flex-1 truncate"><b className="tabular-nums">{glance.waiting.toLocaleString('en-IN')}</b> {glance.waiting === 1 ? 'request waits' : 'requests wait'} for you</span>
+                <span className="min-w-0 flex-1 truncate"><b className="tabular-nums">{glance.waiting.toLocaleString('en-IN')}</b> {glance.waiting === 1 ? 'item needs' : 'items need'} your action</span>
                 <span className="people-glance-when">Open Inbox</span>
               </button>
             </li>
@@ -152,7 +170,7 @@ export function HomeGlance({ glance, go }) {
       <section key="probation" className="people-glance-block" aria-labelledby="glance-probation">
         <header className="people-glance-head">
           <h2 id="glance-probation" className="people-glance-title">Probation ending</h2>
-          <button type="button" className="people-more" onClick={go('employees', { prob: 'on' })}>All <ChevronRight size={14} aria-hidden="true" /></button>
+          <button type="button" className="people-more" onClick={go('employees', { prob: 'on' })}>All <ChevronRight size={16} strokeWidth={2} absoluteStrokeWidth aria-hidden="true" /></button>
         </header>
         <ul className="people-glance-list">
           {probation.map((p) => (
@@ -244,24 +262,16 @@ function LeavePill({ request }) {
   );
 }
 
-/* A block on the page ground: a title, one link on the right, then its list under one hairline. */
-function Block({ id, title, action = null, children, label }) {
-  return (
-    <section aria-labelledby={id} aria-label={label}>
-      <header className="people-block-head">
-        <h2 id={id} className="people-block-title">{title}</h2>
-        {action}
-      </header>
-      {children}
-    </section>
-  );
+
+
+function describeHomeChange(before, after) {
+  const changes = [];
+  if (after.waiting !== before.waiting) changes.push(`${plural(after.waiting, 'item')} waiting`);
+  if (after.today?.inCount != null && after.today.inCount !== before.today?.inCount) changes.push(`${after.today.inCount} checked in`);
+  return changes.join(' · ');
 }
 
-/**
- * People → Home (PEOPLE-01, R&D redesign 14 Nov 2026). The day as the title, one primary (Add an employee), four
- * KPI tiles, then two columns: what needs you and the company by department; who is out today, celebrations,
- * news and what is coming. Lists sit on the page ground under one hairline; only the chart earns the soft panel.
- */
+/* Daily People workspace: decisions and availability first, then team figures and updates. */
 export default function PeopleOverview({ openScreen }) {
   const [data, setData] = useState(null);
   /* People → Home's own answer: to-dos, the waiting number, probation, this week, last month's close. */
@@ -279,8 +289,15 @@ export default function PeopleOverview({ openScreen }) {
   const perms = usePermissions();
   const may = (key) => can(perms, key);
   /* Connection lost: the figures stay, marked with when they were fresh; back online, every card asks again. */
+  const loadOverview = () => {
+    setError('');
+    return getOverview()
+      .then(setData)
+      .catch((e) => setError(errorWords(e, 'load the overview')));
+  };
   const reloadAll = () => {
-    getOverview().then(setData, () => {});
+    if (data) getOverview().then(setData, () => {});
+    else loadOverview();
     loadTodos();
     loadPeople();
     loadLeave();
@@ -292,12 +309,14 @@ export default function PeopleOverview({ openScreen }) {
   /* The setup list replaces "All caught up" while it is showing (HomeSetup). */
   const [setupShowing, setSetupShowing] = useState(false);
   const onSetup = useCallback((d) => setSetupShowing(Boolean(d?.setup?.show)), []);
-  const loadTodos = () => loadCard('todos', getPeopleHome, setHome, setFailed, inFlight);
-  const loadLeave = () => loadCard('leave', listLeaveRequests, setLeave, setFailed, inFlight);
+  const loadTodos = (background = false) => loadCard('todos', getPeopleHome, setHome, setFailed, inFlight, background === true);
+  const loadLeave = (background = false) => loadCard('leave', listLeaveRequests, setLeave, setFailed, inFlight, background === true);
   const loadPeople = () => loadCard('people', () => listEmployees({ limit: 500 }).then((r) => (r?.employees || []).filter((p) => p.status !== 'LEFT')), setPeople, setFailed, inFlight);
-  const loadNews = () => loadCard('news', () => listRecords('announcements'), setNews, setFailed, inFlight);
-  const loadEvents = () => loadCard('events', () => listRecords('events'), setEvents, setFailed, inFlight);
+  const loadNews = () => loadCard('news', () => loadUpdateRecords('announcements'), setNews, setFailed, inFlight);
+  const loadEvents = () => loadCard('events', () => loadUpdateRecords('events'), setEvents, setFailed, inFlight);
   const loadFinalPay = () => loadCard('finalPay', finalPayList, (v) => setFinalPay(v || []), setFailed, inFlight);
+  usePeopleUpdates(() => { loadTodos(true); loadLeave(true); });
+  const activity = useChangeMessage(home && !Array.isArray(home) ? home : null, describeHomeChange);
   /* "Waiting for you" reads three lists; its Retry asks again only for those that failed. */
   const retryWaiting = () => {
     if (failed.todos) loadTodos();
@@ -305,9 +324,7 @@ export default function PeopleOverview({ openScreen }) {
   };
 
   useEffect(() => {
-    getOverview()
-      .then(setData)
-      .catch((e) => setError(errorWords(e, 'load the overview')));
+    loadOverview();
     loadTodos();
     loadPeople();
     loadLeave();
@@ -346,7 +363,12 @@ export default function PeopleOverview({ openScreen }) {
     return [...bdays, ...annivs].sort((a, b) => a.days - b.days || a.name.localeCompare(b.name));
   }, [data, people]);
 
-  if (error) return <div className="people-empty" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</div>;
+  if (error) return (
+    <div className="people-empty flex flex-wrap items-center gap-2" role="alert">
+      <span>{error}</span>
+      <button type="button" className="people-chip" onClick={loadOverview}>Retry</button>
+    </div>
+  );
   if (!data) return <HomeSkeleton />;
 
   const today = isoToday();
@@ -354,21 +376,25 @@ export default function PeopleOverview({ openScreen }) {
   /*
    * Everything waiting in the one Approvals inbox, as the inbox counts it (help desk included): the same number the
    * rail badge and the Inbox's Waiting tab show (People plan, 8 Nov 2026). Leave stays the detail line.
-   * Until it loads, leave alone; unknown (null) while it failed, never a confident nought.
+   * The leave list can arrive first. It is not an Inbox total.
    */
-  const waiting = glance ? glance.waiting : todos ? 0 : failed.todos ? null : pending.length;
+  const waiting = glance ? glance.waiting : todos ? 0 : null;
   const waitFailed = Boolean(failed.todos || failed.leave);
   /* The two lines that make up the waiting number: requests in the Inbox, and the tasks on my name (Inbox › My tasks). */
   const myTaskLine = (todos || []).find((t) => t.key === 'myTasks') || null;
   const requestsWaiting = Math.max(0, (waiting || 0) - (myTaskLine?.count || 0));
-  const outToday = (leave || []).filter((r) => r.status === 'APPROVED' && r.fromDate <= today && r.toDate >= today);
+  const outToday = [...new Map((leave || [])
+    .filter((r) => r.status === 'APPROVED' && r.fromDate <= today && r.toDate >= today)
+    .map((r) => [r.employeeId || r.id, r])).values()];
   const onNotice = data.byStatus.ON_NOTICE || 0;
   /* What the Inbox holds is the one line above; the rest of Home's to-dos are tasks. Probation has its own figure. */
   const otherTodos = (todos || []).filter((t) => t.screen !== 'approvals' && t.screen !== 'leaveRequests' && t.key !== 'probation' && t.key !== 'myTasks');
-  const deptOf = new Map((people || []).map((p) => [p.id, p.department]));
-  const posts = (news || []).filter((n) => n.status === 'PUBLISHED').slice(0, 3);
+  const posts = (news || [])
+    .filter((n) => n.status === 'PUBLISHED')
+    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+    .slice(0, 3);
   const upcoming = (events || [])
-    .filter((e) => e.status === 'SCHEDULED' && (e.details?.endDate || e.details?.startDate || '') >= today)
+    .filter((e) => e.status === 'SCHEDULED' && isDay(e.details?.startDate) && (e.details.endDate || e.details.startDate) >= today)
     .sort((a, b) => String(a.details?.startDate).localeCompare(String(b.details?.startDate)))
     .slice(0, 4);
   /* Probation ending in 30 days or past and undecided: the to-do's count (in this reader's scope), the list for the dates. */
@@ -381,79 +407,95 @@ export default function PeopleOverview({ openScreen }) {
   /* Leave this reader may decide, oldest start first; Home shows three, the Inbox has the rest. */
   const decidable = may('ATTENDANCE::Leave Requests::APPROVE') ? pending : [];
   const onDecided = () => { loadTodos(); loadLeave(); };
-  const toAttendance = () => requestOpenApp('attendance', 'today');
-  const showLeavings = !data.leavingsHidden;
   const probationValue = todos ? Math.max(probationDue, probationOver) : null;
   const probationSub = failed.todos ? 'Could not load' : !todos ? 'Checking' : probationOver ? `${plural(probationOver, 'person', 'people')} past their date` : nextProbation ? `Next ends ${shortDate(nextProbation.endsOn)}` : '';
-  const outSub = leave ? `${data.headcount - outToday.length} of ${data.headcount} at work` : failed.leave ? 'Could not load leave' : 'Loading leave';
-  const joinedSub = joined ? `+${joined} joined in ${monthName()}` : `None joined in ${monthName()}`;
-  const dayOn = Boolean(today_ && today_.inCount > 0);
-  /* With the day from Attendance the hero is who is in; without it, headcount. */
-  const hero = dayOn
-    ? {
-        label: 'In today',
-        value: today_.inCount,
-        words: `of ${plural(today_.expected, 'person', 'people')} ${today_.inCount === 1 ? 'is' : 'are'} in`,
-        pill: `${Math.round((today_.inCount / Math.max(1, today_.expected)) * 100)}%${today_.late ? ` · ${today_.late} late` : ''}`,
-        tone: today_.late ? 'warn' : undefined,
-      }
-    : { label: 'Headcount', value: data.headcount, words: Number(data.headcount) === 1 ? 'person works here' : 'people work here', pill: joined ? `+${joined} in ${monthName()}` : null };
-  const base = dayOn ? Math.max(1, today_.expected) : Math.max(1, Number(data.headcount) || 0);
-  const notYet = dayOn ? Math.max(0, today_.expected - today_.inCount - (today_.onLeave ?? outToday.length)) : 0;
-  const ledger = [
-    ...(dayOn
-      ? [
-          { key: 'onTime', label: 'In on time', sub: today_.shiftStart ? `By ${today_.shiftStart}` : 'No late mark', value: today_.inCount - today_.late, share: (today_.inCount - today_.late) / base, tone: 'pos', onClick: toAttendance },
-          { key: 'late', label: 'Came in late', sub: 'After the shift start', value: today_.late, share: today_.late / base, tone: 'warn', onClick: toAttendance },
-          { key: 'notYet', label: 'Not in yet', sub: 'No punch today', value: notYet, share: notYet / base, onClick: toAttendance },
-        ]
-      : []),
-    { key: 'out', label: 'Out on leave', sub: outSub, value: leave ? outToday.length : null, share: leave ? outToday.length / base : null, tone: 'info', onClick: go('leaveCalendar') },
-    ...(dayOn ? [{ key: 'headcount', label: 'Headcount', sub: joinedSub, value: data.headcount, always: true, onClick: go('employees') }] : []),
-    { key: 'probation', label: 'Probation due', sub: probationSub, value: probationValue, share: probationValue != null ? probationValue / base : null, tone: probationDue > 0 ? 'warn' : undefined, onClick: go('employees', { prob: 'on' }) },
-    ...(showLeavings ? [{ key: 'notice', label: 'On notice', sub: data.leftThisMonth ? `${plural(data.leftThisMonth, 'person', 'people')} left in ${monthName()}` : '', value: Number(onNotice) || 0, share: (Number(onNotice) || 0) / base, onClick: go('employees') }] : []),
+  const attendanceExpected = Number.isFinite(today_?.expected) && today_.expected > 0 ? today_.expected : null;
+  const figures = [
+    { key: 'headcount', label: 'Headcount', value: data.headcount, detail: joined ? `${plural(joined, 'new joiner')} in ${monthName()}` : 'Active employees', action: 'Open directory', onClick: may('PEOPLE::Employees::VIEW') ? go('employees') : null },
+    ...(today_ && Number.isFinite(today_.inCount) ? [{
+      key: 'in', label: 'Checked in today', value: today_.inCount,
+      detail: attendanceExpected ? `of ${attendanceExpected.toLocaleString('en-IN')} expected` : '',
+      max: attendanceExpected,
+    }] : []),
+    { key: 'out', label: 'On leave today', value: leave ? outToday.length : null, detail: failed.leave ? 'Could not load' : !leave ? 'Checking' : '', status: outToday.length ? { label: 'Approved', tone: 'pos' } : null, action: 'View leave calendar', onClick: may('ATTENDANCE::Leave Requests::VIEW') ? go('leaveCalendar') : null },
+    ...(probationValue > 0 || failed.todos ? [{ key: 'probation', label: 'Probation due', value: probationValue, detail: probationSub, status: probationOver && !failed.todos ? { label: 'Overdue', tone: 'neg' } : null, action: 'Review probation', onClick: go('employees', { prob: 'on' }) }] : []),
+    ...(!data.leavingsHidden && onNotice > 0 ? [{
+      key: 'notice', label: 'On notice', value: onNotice, detail: 'Serving their notice period',
+      action: 'View employees', onClick: may('PEOPLE::Employees::VIEW') ? go('employees', { status: 'ON_NOTICE' }) : null,
+    }] : []),
   ];
+  const waitingForYou = (
+    <Block id="todo-h" title="Waiting for you">
+      {/* Leave decided in place, with a short undo (owner, 22 Nov 2026, replacing "approvals live only in the Inbox"); the Inbox line below keeps the full count. */}
+      {decidable.length && conn.online ? <DecideInPlace requests={decidable} onDecided={onDecided} /> : null}
+      {waiting ? (
+        <ul className="people-list people-work-list">
+          {requestsWaiting ? (
+            <li className="people-work-item">
+              <div className="people-work-item-label">
+                <span className="people-work-count tabular-nums">{requestsWaiting}</span>
+                <div className="min-w-0">
+                  <h3 className="people-row-title">Requests to review</h3>
+                  {pending.length > 0 && <p className="ui-caption">{`${plural(pending.length, 'leave request')} · next starts ${dayDate(pending[0].fromDate)}`}</p>}
+                </div>
+              </div>
+              <button type="button" className="people-arrow-link" onClick={go('approvals', { tab: 'waiting' })}>Review requests <ArrowRight size={16} strokeWidth={2} absoluteStrokeWidth aria-hidden="true" /></button>
+            </li>
+          ) : null}
+          {myTaskLine ? (
+            <li className="people-work-item">
+              <div className="people-work-item-label">
+                <span className="people-work-count tabular-nums">{myTaskLine.count}</span>
+                <div className="min-w-0">
+                  <h3 className="people-row-title">Tasks assigned to you</h3>
+                </div>
+              </div>
+              <button type="button" className="people-arrow-link" onClick={go('approvals', { tab: 'tasks' })}>View my tasks <ArrowRight size={16} strokeWidth={2} absoluteStrokeWidth aria-hidden="true" /></button>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+      {waitFailed ? <CardFailed what={failed.todos ? 'what waits for you' : 'the leave waiting for you'} onRetry={retryWaiting} role="alert" /> : null}
+      {failed.todos ? null : !todos ? (
+        <div role="status" aria-label="Loading requests and tasks"><SkeletonCard lines={2} /></div>
+      ) : !waiting && !waitFailed ? (
+        <p className="people-empty people-list">{setupShowing ? 'Start with the setup steps below.' : 'All caught up'}</p>
+      ) : null}
+    </Block>
+  );
+
+  const canOpenInbox = may('PEOPLE::Requests::VIEW');
+  const inboxCount = canOpenInbox && waiting > 0 ? waiting : 0;
+  const destinations = [
+    canOpenInbox && { key: 'approvals', label: 'Inbox', accessibleName: inboxCount ? `Inbox, ${plural(inboxCount, 'item')} ${inboxCount === 1 ? 'needs' : 'need'} your action` : undefined },
+    may('ATTENDANCE::Leave Requests::VIEW') && { key: 'leaveCalendar', label: 'Leave calendar' },
+    may('PEOPLE::Employees::VIEW') && { key: 'employees', label: 'Employee directory' },
+    may('ATTENDANCE::My Attendance::VIEW') && { key: 'myRequests', label: 'My requests' },
+  ].filter(Boolean);
 
   return (
-    <div className="people-home">
-      <header className="people-home-head">
-        <div className="min-w-0">
-          {/* Titled by the day, not a time-of-day greeting (8 Nov 2026). */}
-          <h1 className="ui-t-page">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</h1>
-          <p className="people-home-sub">
-            {!conn.online ? <span className="people-home-offline block">Offline. Showing what we had at {clockWords(conn.since)}.</span> : null}
-            {waiting === null ? <>Could not check what needs your action</> : !todos && !leave ? <>Checking what needs your action</> : waiting ? <><strong>{plural(waiting, 'item')}</strong> {waiting === 1 ? 'needs' : 'need'} your action</> : <>Nothing needs your action</>}
-            {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
-          </p>
-        </div>
-        {/* One primary, top right; the shortcuts beside it are secondary, and fold behind More on a phone. */}
-        <div className="people-home-actions">
-          <div className="people-home-secondary">
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={go('leaveRequests')}><CalendarDays size={16} aria-hidden="true" /> Leave requests</button>
-            {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('helpdesk')}><MessagesSquare size={16} aria-hidden="true" /> Help desk</button> : null}
-            {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('announcements')}><Megaphone size={16} aria-hidden="true" /> Announce</button> : null}
-          </div>
-          {may('PEOPLE::Employees::CREATE') ? (
-            <button type="button" className="ui-btn ui-btn-primary" onClick={go('employeeNew')}><Plus size={16} aria-hidden="true" /> Add an employee</button>
-          ) : null}
-          <div className="people-home-more">
-            <MoreButton
-              items={[
-                { key: 'leaveRequests', label: 'Leave requests', Icon: CalendarDays },
-                may('PEOPLE::HR Cases::VIEW') ? { key: 'helpdesk', label: 'Help desk', Icon: MessagesSquare } : null,
-                may('PEOPLE::Announcements::CREATE') ? { key: 'announcements', label: 'Announce', Icon: Megaphone } : null,
-              ]}
-              onSelect={(key) => openScreen?.(key)}
-            />
-          </div>
-        </div>
-      </header>
+    <div className="people-home people-home--daily people-home--overview">
+      <DashboardHeader title={<time dateTime={today}>{dayDate(today)}</time>}
+        action={may('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={go('employeeNew')}><Plus size={16} strokeWidth={2} absoluteStrokeWidth aria-hidden="true" /> Add employee</button> : null}>
+        {destinations.length ? (
+          <nav className="people-brief-links" aria-label="People destinations">
+            {destinations.map(({ key, label, accessibleName }) => (
+              <a key={key} className="people-arrow-link" href={`?app=people&open=${key}`} aria-label={accessibleName} onClick={(event) => {
+                if (!openScreen || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+                event.preventDefault();
+                go(key)();
+              }}>
+                {label}<ArrowUpRight size={16} strokeWidth={2} absoluteStrokeWidth aria-hidden="true" />
+              </a>
+            ))}
+          </nav>
+        ) : null}
+      </DashboardHeader>
+      {activity && conn.online && !failed.todos ? (
+        <p className="people-home-change" role="status"><time dateTime={activity.at.toISOString()}>{clockWords(activity.at)}</time> {activity.text}</p>
+      ) : null}
       <ConnectionBar online={conn.online} back={conn.back} onRetry={() => { if (navigator.onLine !== false) reloadAll(); }} />
-      {/* The reader's own day and leave, side by side; each is left out for a sign-in with no employee file. */}
-      <div className="people-home-self">
-        <HomeCheckIn />
-        <HomeMyLeave openScreen={openScreen} />
-      </div>
+      {!conn.online ? <p className="people-home-offline">Last updated at {clockWords(conn.since)}.</p> : null}
       {failed.finalPay ? <CardFailed what="the final pay that is due" onRetry={loadFinalPay} /> : null}
       {finalPay.length ? (
         <section aria-label="Final pay due" className="space-y-2">
@@ -464,54 +506,44 @@ export default function PeopleOverview({ openScreen }) {
         </section>
       ) : null}
 
-      {/* One big figure and a ledger under it, in place of the four tiles (owner, 22 Nov 2026, style G). */}
-      <FigureLedger label="Today in numbers" hero={hero} rows={ledger} />
-
-      <div className="people-home-grid">
-        <div className="people-home-main">
-          {/*
-           * Approvals live in the Inbox, not on Home (owner, 8 Nov 2026). The block adds up to the subtitle's number, no
-           * more (People plan 8 Nov 2026, §3 rule 1): the requests in the Inbox on one line, the tasks on my name on another.
-           */}
-          <Block id="todo-h" title="Waiting for you">
-            {/* Leave decided in place, with a short undo (owner, 22 Nov 2026, replacing "approvals live only in the Inbox"); the Inbox line below keeps the full count. */}
-            {decidable.length && conn.online ? <DecideInPlace requests={decidable} onDecided={onDecided} /> : null}
-            {waiting ? (
-              <ul className="people-list">
-                {requestsWaiting ? (
-                  <li>
-                    <button type="button" onClick={go('approvals')} className="people-row people-row-action">
-                      <span className="people-row-count" data-tone="warn">{requestsWaiting}</span>
+      <section className="people-home-work" aria-label="Your work">
+        <div className="people-home-queue">{waitingForYou}</div>
+        <section className="people-home-personal" aria-labelledby="people-home-personal-title">
+          <h2 className="people-home-section-title" id="people-home-personal-title">My time today</h2>
+          <div className="people-home-self">
+            <HomeCheckIn primary={!requestsWaiting && !myTaskLine} />
+            <HomeMyLeave openScreen={openScreen} />
+          </div>
+        </section>
+        <Block id="events-h" className="people-home-events" title="Upcoming events" action={may('PEOPLE::Events::VIEW') ? <button type="button" className="people-more" onClick={go('events')}>All events</button> : null}>
+          {upcoming.length ? (
+            <ul className="people-list">
+              {upcoming.map((e) => {
+                const d = eventDay(e.details.startDate);
+                return (
+                  <li key={e.id}>
+                    <button type="button" className="people-row people-row-action" onClick={go('events')}>
+                      <span className="people-date"><b>{d.day}</b><span>{d.month}</span></span>
+                      <span className="people-event-emoji" aria-hidden="true">{eventEmoji(e)}</span>
                       <span className="min-w-0 flex-1">
-                        <span className="people-row-title">{requestsWaiting === 1 ? '1 request waits' : `${requestsWaiting} requests wait`} for you</span>
-                        <span className="ui-caption block">{pending.length ? `${plural(pending.length, 'leave request')} among them, next starts ${dayDate(pending[0].fromDate)}` : 'Leave, attendance and other requests'}</span>
+                        <span className="people-row-title">{e.title}</span>
+                        <span className="ui-caption block">{d.weekday}{e.details?.location ? `, ${e.details.location}` : ''}</span>
                       </span>
-                      <span className="people-more">Review <ArrowRight size={14} aria-hidden="true" /></span>
                     </button>
                   </li>
-                ) : null}
-                {myTaskLine ? (
-                  <li>
-                    <button type="button" onClick={go('approvals', { tab: 'tasks' })} className="people-row people-row-action">
-                      <span className="people-row-count" data-tone="warn">{myTaskLine.count}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="people-row-title">{myTaskLine.count === 1 ? '1 task is' : `${myTaskLine.count} tasks are`} on your name</span>
-                        <span className="ui-caption block">Joining, leaving and other plan steps given to you</span>
-                      </span>
-                      <span className="people-more">My tasks <ArrowRight size={14} aria-hidden="true" /></span>
-                    </button>
-                  </li>
-                ) : null}
-              </ul>
-            ) : null}
-            {waitFailed ? <CardFailed what={failed.todos ? 'what waits for you' : 'the leave waiting for you'} onRetry={retryWaiting} role="alert" /> : null}
-            {failed.todos ? null : !todos ? (
-              <SkeletonCard lines={2} />
-            ) : !waiting && !waitFailed ? (
-              <p className="people-empty people-list">{setupShowing ? 'Nothing waits for you yet. Start with the steps below.' : <><strong>All caught up</strong>. Nothing needs your answer right now.</>}</p>
-            ) : null}
-          </Block>
+                );
+              })}
+            </ul>
+          ) : failed.events ? <CardFailed what="events" onRetry={loadEvents} /> : (
+            (events ? <p className="people-empty people-list">No events planned. A Fun Friday is a good start.</p> : <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>)
+          )}
+        </Block>
+      </section>
 
+      <DashboardFigures id="team-overview-heading" title="Team overview" figures={figures} icons={TEAM_FIGURE_ICONS} />
+
+      <div className="people-home-layout">
+        <div className="people-home-primary">
           {/* HR's other to-dos: not answers anyone waits on, so not in the waiting number; each opens the screen that fixes it. */}
           {otherTodos.length ? (
             <Block id="attention-h" title="Needs attention">
@@ -527,13 +559,36 @@ export default function PeopleOverview({ openScreen }) {
                         </span>
                         <span className="ui-caption block">{t.detail}</span>
                       </span>
-                      <span className="people-more">Open <ArrowRight size={14} aria-hidden="true" /></span>
+                      <span className="people-more">Open <ArrowRight size={16} strokeWidth={2} absoluteStrokeWidth aria-hidden="true" /></span>
                     </button>
                   </li>
                 ))}
               </ul>
             </Block>
           ) : null}
+
+          <Block id="news-h" title="Announcements" className="people-home-news" action={may('PEOPLE::Announcements::CREATE') ? <button type="button" className="people-more" onClick={go('announcements')}>Post one</button> : null}>
+            {posts.length ? (
+              <ul className="people-news-grid">
+                {posts.map((n) => (
+                  <li key={n.id} data-audience={n.details?.audienceKind && n.details.audienceKind !== 'ALL' ? 'targeted' : undefined}>
+                    <button type="button" className="people-row people-row-action items-start" onClick={go('announcements')}>
+                      <span className="people-news-icon" aria-hidden="true">
+                        {symbolOf(n.details?.symbol)?.emoji || '📢'}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="people-row-title">{n.title}</span>
+                        <span className="people-row-body">{n.details?.body?.replace(/(\*\*|__|^[-*] )/gm, '')}</span>
+                        <span className="ui-caption block">{ago(n.updatedAt)}{n.details?.audienceKind && n.details.audienceKind !== 'ALL' ? ` · For ${n.details.audience}` : n.details?.audience ? ` · For ${n.details.audience.toLowerCase()}` : ''}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : failed.news ? <CardFailed what="announcements" onRetry={loadNews} /> : (
+              (news ? <p className="people-empty people-list">No announcements yet.</p> : <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>)
+            )}
+          </Block>
 
           {today_ ? <DayTimeline today={today_} onOpen={() => requestOpenApp('attendance', 'today')} /> : null}
           {today_ ? <TodayFeed today={today_} openPerson={openPerson} /> : null}
@@ -561,17 +616,18 @@ export default function PeopleOverview({ openScreen }) {
           ) : null}
         </div>
 
-        <aside className="people-home-side" aria-label="Today in the company">
-          <Block id="out-h" title="Who’s out today" action={<button type="button" className="people-more" onClick={go('leaveCalendar')}>Calendar</button>}>
+        <aside className="people-home-rail" aria-label="Team and calendar">
+          <Block id="out-h" className="people-home-away" title="Who’s out today" action={<button type="button" className="people-more" onClick={go('leaveCalendar')}>Calendar</button>}>
             {outToday.length ? (
               <ul className="people-list">
                 {outToday.map((r) => (
                   <li key={r.id}>
                     <button type="button" className="people-row people-row-action" onClick={openPerson(r.employeeId)}>
                       <Face person={{ name: r.employeeName, photoUrl: r.photoUrl }} size={36} colour={colourOf(r.department)} />
-                      <span className="min-w-0 flex-1">
-                        <span className="people-row-title truncate">{r.employeeName}</span>
-                        <span className="ui-caption block truncate">{r.department ? `${r.department} · ` : ''}back {backOn(r.toDate)}</span>
+                      <span className="people-away-details min-w-0">
+                        <span className="people-row-title">{r.employeeName}</span>
+                        {r.department ? <span className="ui-caption block">{r.department}</span> : null}
+                        <span className="ui-caption block">Back {backOn(r.toDate)}</span>
                       </span>
                       <LeavePill request={r} />
                     </button>
@@ -579,95 +635,36 @@ export default function PeopleOverview({ openScreen }) {
                 ))}
               </ul>
             ) : failed.leave ? <CardFailed what="who is out today" onRetry={loadLeave} /> : (
-              <p className="people-empty people-list">{leave ? 'Everyone is in today.' : 'Loading leave…'}</p>
+              <p className="people-empty people-list">{leave ? 'No approved leave today.' : 'Loading leave…'}</p>
             )}
           </Block>
-
-          <Block id="celebrate-h" title="Celebrations" action={<span className="ui-caption">Next 30 days</span>}>
-            {celebrations.length || joined ? (
+          {joined > 0 ? (
+            <Block id="joiners-h" title="New joiners" className="people-home-welcome" action={<span className="ui-caption">This month</span>}>
+              <button type="button" className="people-welcome-link" onClick={go('employees', { from: `${today.slice(0, 7)}-01`, to: today })}>
+                <span className="people-welcome-emoji" aria-hidden="true">👋</span>
+                <span className="min-w-0"><strong>{plural(joined, 'new joiner')}</strong><span className="ui-caption block">{data.joinedThisMonth.slice(0, 3).map((person) => person.name).join(', ')}{joined > 3 ? ` +${joined - 3} more` : ''}</span></span>
+                <ArrowRight size={16} strokeWidth={2} absoluteStrokeWidth aria-hidden="true" />
+              </button>
+            </Block>
+          ) : null}
+          <Block id="celebrate-h" title="Celebrations" className="people-home-celebrations" action={<span className="ui-caption">Next 30 days</span>}>
+            {celebrations.length ? (
               <ul className="people-list">
-                {data.joinedThisMonth.slice(0, 1).map((j) => (
-                  <li key={`new-${j.id}`}>
-                    <button type="button" className="people-row people-row-action" onClick={go('employees')}>
-                      <span className="people-faces" aria-hidden="true">
-                        {data.joinedThisMonth.slice(0, 3).map((x) => <Face key={x.id} person={x} size={32} colour={colourOf(deptOf.get(x.id))} />)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="people-row-title truncate">{plural(joined, 'new joiner')}</span>
-                        <span className="ui-caption block truncate">{data.joinedThisMonth.map((x) => x.name.split(' ')[0]).join(', ')}</span>
-                      </span>
-                      <span className="people-when">Welcome</span>
-                    </button>
-                  </li>
-                ))}
                 {celebrations.slice(0, 3).map((c) => (
                   <li key={`${c.kind}-${c.id}`}>
                     <button type="button" className="people-row people-row-action" onClick={openPerson(c.id)}>
-                      <span className="people-celebrate-face">
-                        <Face person={c} size={36} colour={colourOf(deptOf.get(c.id))} />
-                        <span className="people-celebrate-badge" data-kind={c.kind}>{c.kind === 'birthday' ? <Cake size={10} aria-hidden="true" /> : <Medal size={10} aria-hidden="true" />}</span>
-                      </span>
+                      <span className="people-celebration-emoji" aria-hidden="true">{c.kind === 'birthday' ? '🎂' : '🏆'}</span>
                       <span className="min-w-0 flex-1">
-                        <span className="people-row-title truncate">{c.name}</span>
-                        <span className="ui-caption block truncate">{c.kind === 'birthday' ? 'Birthday' : `${plural(c.years, 'year')} at the company`}</span>
+                        <span className="people-row-title">{c.name}</span>
+                        <span className="ui-caption block">{c.kind === 'birthday' ? 'Birthday' : `${plural(c.years, 'year')} at the company`}</span>
                       </span>
                       <span className="people-when">{whenLabel(c.days, c.date)}</span>
                     </button>
                   </li>
                 ))}
               </ul>
-            ) : failed.people ? null : (
-              <p className="people-empty people-list">Nothing to celebrate in the next 30 days.</p>
-            )}
-            {/* Work anniversaries come from the directory: when it failed, say so rather than leave them out. */}
+            ) : failed.people ? null : <p className="people-empty people-list">Nothing to celebrate in the next 30 days.</p>}
             {failed.people ? <CardFailed what="work anniversaries" onRetry={loadPeople} /> : null}
-          </Block>
-
-          <Block id="news-h" title="Announcements" action={may('PEOPLE::Announcements::CREATE') ? <button type="button" className="people-more" onClick={go('announcements')}>Post one</button> : null}>
-            {posts.length ? (
-              <ul className="people-list">
-                {posts.map((n, i) => (
-                  <li key={n.id}>
-                    <button type="button" className="people-row people-row-action items-start" onClick={go('announcements')}>
-                      <span className="people-news-icon">
-                        {symbolOf(n.details?.symbol) ? <span aria-hidden="true">{symbolOf(n.details.symbol).emoji}</span> : i === 0 ? <Pin size={16} aria-hidden="true" /> : <Megaphone size={16} aria-hidden="true" />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="people-row-title">{n.title}</span>
-                        <span className="people-row-body">{n.details?.body}</span>
-                        <span className="ui-caption block">{ago(n.updatedAt)}{n.details?.audienceKind && n.details.audienceKind !== 'ALL' ? ` · For ${n.details.audience}` : n.details?.audience ? ` · For ${n.details.audience.toLowerCase()}` : ''}</span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : failed.news ? <CardFailed what="announcements" onRetry={loadNews} /> : (
-              (news ? <p className="people-empty people-list">Nothing posted yet. Share news, a policy change or a welcome.</p> : <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>)
-            )}
-          </Block>
-
-          <Block id="events-h" title="Coming up" action={may('PEOPLE::Events::VIEW') ? <button type="button" className="people-more" onClick={go('events')}>All events</button> : null}>
-            {upcoming.length ? (
-              <ul className="people-list">
-                {upcoming.map((e) => {
-                  const d = eventDay(e.details.startDate);
-                  const fun = /fun friday/i.test(e.title);
-                  return (
-                    <li key={e.id}>
-                      <button type="button" className="people-row people-row-action" onClick={go('events')}>
-                        <span className="people-date"><b>{d.day}</b><span>{d.month}</span></span>
-                        <span className="min-w-0 flex-1">
-                          <span className="people-row-title truncate">{symbolOf(e.details?.symbol) ? <span className="mr-1.5" aria-hidden="true">{symbolOf(e.details.symbol).emoji}</span> : null}{fun ? `Fun Friday: ${e.title.replace(/^fun friday:\s*/i, '')}` : e.title}</span>
-                          <span className="ui-caption block truncate">{d.weekday}{e.details?.location ? `, ${e.details.location}` : ''}</span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : failed.events ? <CardFailed what="events" onRetry={loadEvents} /> : (
-              (events ? <p className="people-empty people-list">No events planned. A Fun Friday is a good start.</p> : <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>)
-            )}
           </Block>
         </aside>
       </div>

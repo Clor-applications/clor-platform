@@ -9,7 +9,7 @@
  * split, so the focus half keeps working on touch. Books keeps its own CSS untouched.
  */
 import autoprefixer from 'autoprefixer';
-import tailwindcss from 'tailwindcss';
+import tailwindcss from '@tailwindcss/postcss';
 
 const SKIP =/[\\/]apps[\\/]accounting[\\/]/;
 

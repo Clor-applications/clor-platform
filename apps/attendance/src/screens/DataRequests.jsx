@@ -117,7 +117,8 @@ export default function DataRequests() {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Data requests', fileName: 'Data requests', label: 'request/requests', columns: EXPORT_COLUMNS, rows: rows });
       }}
-      description="What employees asked about their personal data, and your answers. Employees are told to expect an answer within 30 days; the DPDP Rules allow at most 90 for a grievance."
+      introduction="What employees asked about their personal data, and your answers."
+      description="Employees are told to expect an answer within 30 days; the DPDP Rules allow at most 90 for a grievance."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search requests…', label: 'Search data requests' }}

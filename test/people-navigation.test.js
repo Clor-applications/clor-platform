@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 import { peopleApp } from '../apps/people/manifest.jsx';
-import { moduleForScreen, resolveModules } from '../packages/shell/splitNav.js';
+import { moduleForScreen, peopleBreadcrumbs, resolveModules } from '../packages/shell/splitNav.js';
 
 /**
  * People (founder, 22 Oct 2026): the sidebar holds the day's work; what is
@@ -13,9 +13,25 @@ describe('People navigation', () => {
   const modules = resolveModules(peopleApp, peopleApp.nav);
   const inModules = new Set(modules.flatMap((m) => m.items.map((i) => i.key)));
 
+  it('uses the visible section for each breadcrumb and respects access to Reports', () => {
+    function trail(screen, nav = peopleApp.nav) {
+      return peopleBreadcrumbs({
+        landing: 'overview', screen, item: nav.find(n => n.key === screen),
+        module: moduleForScreen(resolveModules(peopleApp, nav), screen, nav), nav,
+      });
+    }
+    expect(trail('leaveRegister').map(c => c.label)).toEqual(['People', 'Reports']);
+    expect(trail('leaveRegister', peopleApp.nav.filter(n => n.key !== 'reportsHome')).at(-1).label).toBe('Time');
+    expect(trail('employeeImport').at(-1)).toEqual({ key: 'employees', label: 'Employees' });
+    expect(trail('departments').at(-1)).toEqual({ key: 'settings', label: 'Settings' });
+    for (const key of inModules) {
+      for (const crumb of trail(key)) expect(peopleApp.screens[crumb.key], key).toBeTruthy();
+    }
+  });
+
   /* The R&D hand-off (14 Nov 2026): the rail by section, each section's pages in the panel. */
-  it('puts the hand-off’s eight sections on the rail, Settings last', () => {
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Employees', 'Leave & attendance', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
+  it('puts the hand-off’s sections on the rail, Settings last', () => {
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Employees', 'Leave & attendance', 'Hiring', 'Performance', 'Engage', 'Reports', 'Insights', 'Settings']);
     expect(modules.some((m) => m.key === 'organization')).toBe(false);
     for (const k of ['joiners', 'offers', 'lifecycleChanges', 'leavers', 'checklists', 'orgChart', 'assets']) expect(moduleForScreen(modules, k, peopleApp.nav)?.label, k).toBe('Employees');
     expect(peopleApp.nav.some((i) => i.key === 'lifecycle')).toBe(false);
@@ -31,11 +47,13 @@ describe('People navigation', () => {
       ['Me', ['My leave', 'My attendance', 'My requests']],
     ]);
     expect(groupsOf('employees')).toEqual([
+      ['', ['Employees overview']],
       ['Directory', ['Employees', 'Org chart', 'Documents']],
       ['Joining & leaving', ['Joining', 'Offers', 'Job changes', 'Leaving', 'Tasks', 'Assets']],
       ['Pay & benefits', ['Salary revisions', 'Benefits', 'Expenses']],
     ]);
     expect(groupsOf('leave')).toEqual([
+      ['', ['Time overview']],
       ['Leave', ['Leave requests', 'Leave calendar', 'Leave balances', 'Leave register', "Who's away"]],
       ['Attendance', ['Daily attendance', 'All attendance records', 'Days to check', 'Attendance corrections', 'Overtime & comp-off', 'Late marks', 'Absent without leave', 'Night work']],
       /* Shifts, readers and the month's close are People's too (owner, 11 Nov 2026). */
@@ -49,8 +67,9 @@ describe('People navigation', () => {
     expect(groupsOf('workplace')).toEqual([['', ['Announcements', 'Events', 'Help desk', 'Confidential cases', 'Policies']]]);
     expect(groupsOf('reports')).toEqual([
       /* The reports home first (platform audit, 11 Nov 2026): every report in plain groups; one report opens from it, off the menu. */
-      ['', ['All reports', 'Headcount & attrition', 'Data check', 'Compliance calendar']],
-      ['Time', ['Monthly attendance', 'Daily attendance register', 'All attendance reports', 'Requests report']],
+      ['', ['All reports', 'Headcount & attrition']],
+      ['Time', ['Monthly attendance', 'Daily attendance register', 'All attendance reports', 'Leave register']],
+      ['Requests', ['Requests report']],
       ['Statutory', ['Statutory registers']],
     ]);
   });
@@ -72,7 +91,7 @@ describe('People navigation', () => {
     expect(keywordsOf('reports')).toContain('people report');
     expect(inModules.has('hrReport')).toBe(false);
     expect(parentOf.hrReport).toBe('reportsHome');
-    expect(moduleForScreen(modules, 'hrReport', peopleApp.nav)?.label).toBe('Insights');
+    expect(moduleForScreen(modules, 'hrReport', peopleApp.nav)?.label).toBe('Reports');
     expect(keywordsOf('orgChart')).toContain('organisation');
   });
 
@@ -170,8 +189,8 @@ describe('People navigation in simple mode', () => {
 
   it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
     const modules = resolveModules(peopleApp, simple);
-    expect(modules.map((m) => m.label)).toEqual(['Home', 'Employees', 'Leave & attendance', 'Hiring', 'Performance', 'Engage', 'Insights', 'Settings']);
-    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(['Leave requests', 'Leave calendar', 'Leave balances', 'Leave register', "Who's away", 'Daily attendance', 'All attendance records', 'Days to check', 'Attendance corrections', 'Overtime & comp-off', 'Late marks', 'Absent without leave', 'Night work', 'Shift calendar', 'Shifts', 'Who is on which shift', 'Temporary shifts', 'Shift swaps', 'Readers', 'Reader health', 'Punches', 'Punches with no employee', 'Ready for payroll?', 'Employee confirmations', 'Month close', 'My leave', 'My attendance']);
+    expect(modules.map((m) => m.label)).toEqual(['Home', 'Employees', 'Leave & attendance', 'Hiring', 'Performance', 'Engage', 'Reports', 'Insights', 'Settings']);
+    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(['Time overview', 'Leave requests', 'Leave calendar', 'Leave balances', 'Leave register', "Who's away", 'Daily attendance', 'All attendance records', 'Days to check', 'Attendance corrections', 'Overtime & comp-off', 'Late marks', 'Absent without leave', 'Night work', 'Shift calendar', 'Shifts', 'Who is on which shift', 'Temporary shifts', 'Shift swaps', 'Readers', 'Reader health', 'Punches', 'Punches with no employee', 'Ready for payroll?', 'Employee confirmations', 'Month close', 'My leave', 'My attendance']);
   });
 
   it('shows everything when simple mode is off, or when the company’s switches are not known yet', () => {

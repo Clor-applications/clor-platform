@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@ui/api/ledger', () => ({
+  getDocumentPostings: vi.fn(),
   getJournalEntries: vi.fn(async () => ({ entries: [{
     id: 'server-import-1', entryNo: 'JE-0042', date: '2026-10-31',
     narration: 'Imported cash receipt', sourceDocType: 'IMPORT_JOURNAL', status: 'POSTED',
@@ -14,7 +15,7 @@ vi.mock('@ui/api/ledger', () => ({
 }));
 vi.mock('@ui/utils/journalSync', () => ({ reverseJournalOnLedger: vi.fn(async () => ({ reversed: true })) }));
 
-import { getJournalEntries } from '@ui/api/ledger';
+import { getDocumentPostings, getJournalEntries } from '@ui/api/ledger';
 import JournalEntriesList from './JournalEntriesList';
 
 const company = { id: 1, name: 'Test Company' };
@@ -44,6 +45,23 @@ describe('Manual Journals', () => {
     await userEvent.click(screen.getByText('JE-0042'));
     expect(screen.getByText('Imported cash receipt')).toBeInTheDocument();
     expect(screen.getByText('Raj Mart')).toBeInTheDocument();
+  });
+
+  it('opens the exact posted voucher linked from a payroll run', async () => {
+    const previous = window.location.href;
+    try {
+      window.history.replaceState(null, '', '?open=journalEntries&drawer=pay-post&payrollRun=run-11');
+      vi.mocked(getDocumentPostings).mockResolvedValueOnce([
+        { id: 'another-post', entryNo: 'JV-900', lines: [] },
+        { id: 'pay-post', entryNo: 'JV-901', date: '2026-11-26', narration: 'November salaries', lines: [] },
+      ]);
+      render(<JournalEntriesList db={db} setDb={vi.fn()} currentCompany={company} />);
+      expect(await screen.findByText('November salaries')).toBeInTheDocument();
+      expect(getDocumentPostings).toHaveBeenCalledWith('PAYROLL_RUN', 'run-11');
+      expect(screen.queryByText('JV-900')).not.toBeInTheDocument();
+    } finally {
+      window.history.replaceState(null, '', previous);
+    }
   });
 
   it('filters journal numbers from the table header', async () => {

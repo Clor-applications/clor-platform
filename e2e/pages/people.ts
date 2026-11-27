@@ -68,9 +68,9 @@ export const MENU: Record<string, string> = {
   'Help desk': 'Engage',
   Policies: 'Engage',
   'Confidential cases': 'Engage',
-  'Headcount & attrition': 'Insights',
-  'Requests report': 'Insights',
-  'Statutory registers': 'Insights',
+  'Headcount & attrition': 'Reports',
+  'Requests report': 'Reports',
+  'Statutory registers': 'Reports',
   Settings: 'Settings',
 };
 
@@ -146,7 +146,16 @@ export class PeopleWeb {
         if (!(await list.isVisible())) await button.click();
         await expect(list).toBeVisible({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
-      await list.getByRole('button', { name: itemName(ITEM[label] || label) }).click();
+      const destination = list.getByRole('button', { name: itemName(ITEM[label] || label) });
+      if (!(await destination.isVisible())) {
+        // Employees and Time group their pages into expandable sections.
+        const groups = list.getByRole('button', { expanded: false });
+        for (const name of await groups.allTextContents()) {
+          await list.getByRole('button', { name: name.trim(), exact: true }).click();
+          if (await destination.isVisible()) break;
+        }
+      }
+      await destination.click();
     }
     if (this.isPhone && (await this.page.getByRole('dialog', { name: 'People navigation' }).isVisible())) await this.page.keyboard.press('Escape');
     await expect(this.title).toHaveText(titleLike(opts.title || ITEM[label] || label));
@@ -157,6 +166,7 @@ export class PeopleWeb {
   /** A page under Settings (Departments, Delegates, Compliance calendar…): the Settings page, then its row. */
   async openSetting(label: string) {
     await this.open('Settings');
+    await this.main.getByRole('searchbox', { name: 'Search all settings' }).fill(label);
     await this.main.getByRole('button', { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`) }).click();
     await expect(this.title).toHaveText(titleLike(label));
     await this.settle();
@@ -220,12 +230,19 @@ export class PeopleWeb {
     return this.page.getByRole('dialog').getByRole('button', { name: 'Approve', exact: true }).first();
   }
 
+  /** Desktop rows and phone cards both contain the employee's full name as link text. */
+  employeeLink(name: string): Locator {
+    const directory = this.main.getByRole('table', { name: 'Employees', exact: true })
+      .or(this.main.getByRole('list', { name: 'Employees', exact: true }));
+    return directory.getByRole('link').filter({ has: this.page.getByText(name, { exact: true }) });
+  }
+
   /** Employees → a person's record, found the way HR finds one: by searching the name. */
   async openEmployee(name: string) {
     await this.open('Employees');
     await this.main.getByRole('searchbox', { name: 'Search employees' }).fill(name);
     /* Wait for the list to narrow to that person before clicking, so the click lands on the row that stays. */
-    const hit = this.main.getByRole('link', { name: new RegExp(`^${name}\\b`) });
+    const hit = this.employeeLink(name);
     await expect(hit).toHaveCount(1);
     /* The search is written to the address a moment later; a click before that is overwritten by it. */
     await expect(this.page).toHaveURL(/[?&]s\.q=/);

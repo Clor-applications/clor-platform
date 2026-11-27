@@ -77,7 +77,8 @@ export default function SiteCheck() {
       <PageHeader
         entity="location"
         title="Punch area check"
-        description="Stand where staff will punch and see whether this spot is inside a punch area. Nothing is recorded."
+        introduction="Stand where staff will punch and see whether this spot is inside a punch area."
+        description="Nothing is recorded."
         actions={
           <button type="button" className="ui-btn ui-btn-primary" onClick={start} disabled={locating}>
             <LocateFixed size={16} aria-hidden="true" /> {position ? 'Check again' : 'Use my location'}

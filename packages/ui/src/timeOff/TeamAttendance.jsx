@@ -1,3 +1,4 @@
+import { CountLine } from '@ui/components/ui/CountLine';
 import React, { useMemo, useState } from 'react';
 import { ArrowUpRight, ChevronLeft, ChevronRight, Download } from '@ui/components/ui/lineIcons';
 
@@ -6,6 +7,7 @@ import { usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState, SegmentedControl } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import SearchField from '@ui/components/ui/SearchField';
 import ErrorState from '@ui/components/ui/ErrorState';
 import DatePicker from '@ui/components/ui/DatePicker';
@@ -80,7 +82,7 @@ function DayLine({ day, isToday }) {
 
 const noteOf = (day) => (day && !day.leaveRequestId && day.status !== 'ON_LEAVE' ? day.note || '' : '');
 
-export default function TeamAttendance() {
+export default function TeamAttendance({ peopleTimePage } = {}) {
   const today = todayIst();
   const [view, setView] = useState('day');
   const [date, setDate] = useState(today);
@@ -205,12 +207,23 @@ export default function TeamAttendance() {
   const lateBy = Object.entries(rows.filter((r) => r.day?.lateMinutes).reduce((m, r) => { const k = r.departmentName || r.department || 'No department'; m[k] = (m[k] || 0) + 1; return m; }, {}))
     .sort((a, b) => b[1] - a[1]).slice(0, 8).map(([label, value]) => ({ label, value }));
 
+  const ListTable = peopleTimePage ? ReviewTable : DataTable;
+  const trends = view === 'day' && !loading && weekRows && rows.length ? (
+        <div className="pt-charts">
+          <ChartPanel title="Present, last 7 days" note="% of everyone employed">
+            {weekRows.some((r) => r.value > 0) ? <Columns label="Present each day, per cent" rows={weekRows} /> : <p className="pt-foot">Nobody marked present this week.</p>}
+          </ChartPanel>
+          <ChartPanel title="Late arrivals by department">
+            {lateBy.length ? <BarList label="Late arrivals by department" rows={lateBy} /> : <p className="pt-foot">Nobody was late on {formatDate(date)}.</p>}
+          </ChartPanel>
+        </div>
+      ) : null;
   return (
     <div className="space-y-6">
       <ListHeader
         breadcrumb={homeCrumbs()}
         title="Daily attendance"
-        description={hasAttendance.data === false ? 'Everyone’s days from leave, holidays and their own check-ins.' : 'Everyone’s days from leave, holidays, their own check-ins and the readers.'}
+        description={peopleTimePage ? undefined : hasAttendance.data === false ? 'Everyone’s days from leave, holidays and their own check-ins.' : 'Everyone’s days from leave, holidays, their own check-ins and the readers.'}
         secondary={<>
           {view === 'month' && !loading ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportMonth}><Download size={16} aria-hidden="true" /> Export</button> : null}
           {hasAttendance.data ? <a className="ui-btn ui-btn-secondary" href="?app=attendance&open=records">Shifts & readers <ArrowUpRight size={16} aria-hidden="true" /></a> : null}
@@ -226,27 +239,19 @@ export default function TeamAttendance() {
               <button type="button" className="ui-icon-btn" aria-label="Next month" disabled={month >= today.slice(0, 7)} onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
             </div>
           )}
-          <SearchField value={search.query} onSearch={search.setQuery} placeholder="Search name, employee ID or department" label="Search attendance" className="w-full sm:w-80" />
+          <SearchField value={search.query} onSearch={search.setQuery} placeholder={peopleTimePage ? 'Search employees' : 'Search name, employee ID or department'} label="Search attendance" className="w-full sm:w-80" />
         </>}
-        strip={view === 'day' && !loading ? <StatTiles label={`The day at a glance, ${formatDate(date)}`} items={tiles} /> : null}
+        headingSummary={peopleTimePage && view === 'day' && !loading ? <CountLine label="Daily attendance figures" items={tiles} /> : null}
+        strip={!peopleTimePage && view === 'day' && !loading ? <StatTiles label={`The day at a glance, ${formatDate(date)}`} items={tiles} /> : null}
         tabs={view === 'day' ? TABS.map(([k, l]) => ({ key: k || 'all', label: l, count: k ? counts[k] : 0, tone: k === 'NONE' ? 'warn' : undefined })) : null}
         tab={status || 'all'}
         onTab={(k) => setStatus(k === 'all' ? '' : k)}
       />
 
-      {view === 'day' && !loading && weekRows && rows.length ? (
-        <div className="pt-charts">
-          <ChartPanel title="Present, last 7 days" note="% of everyone employed">
-            {weekRows.some((r) => r.value > 0) ? <Columns label="Present each day, per cent" rows={weekRows} /> : <p className="pt-foot">Nobody marked present this week.</p>}
-          </ChartPanel>
-          <ChartPanel title="Late arrivals by department">
-            {lateBy.length ? <BarList label="Late arrivals by department" rows={lateBy} /> : <p className="pt-foot">Nobody was late on {formatDate(date)}.</p>}
-          </ChartPanel>
-        </div>
-      ) : null}
+      {!peopleTimePage && trends}
 
       {error && loading ? <ErrorState error={error} onRetry={() => { people.reload(); records.reload(); }} /> : view === 'day' ? (
-        <DataTable
+        <ListTable key={JSON.stringify([date, status, page, size, search.query])} mobileSelectAll={peopleTimePage}
           label={`Attendance on ${date}`}
           columns={columns}
           rows={pageRows}
@@ -316,6 +321,7 @@ export default function TeamAttendance() {
           ) : payable.error ? <p className="ui-caption">Unpaid days could not be worked out: {String(payable.error?.message || payable.error)}</p> : null}
         </section>
       )}
+      {peopleTimePage && trends && <details className="time-register-trends"><summary>Attendance trends</summary>{trends}</details>}
     </div>
   );
 }

@@ -68,3 +68,45 @@ it('tabs answer a click with their key, and the segmented switch is a radio grou
   fireEvent.click(within(group).getByRole('radio', { name: 'Month' }));
   expect(onView).toHaveBeenCalledWith('month');
 });
+
+it('moves focus and activates the next status with the keyboard', () => {
+  const onChange = vi.fn();
+  render(<FilterTabs label="Decision status" tabs={[{ key: 'open', label: 'Open' }, { key: 'done', label: 'Done' }]} value="open" onChange={onChange} />);
+  const [open, done] = within(screen.getByRole('tablist', { name: 'Decision status' })).getAllByRole('tab');
+  open.focus();
+  fireEvent.keyDown(open, { key: 'ArrowRight' });
+  expect(document.activeElement).toBe(done);
+  expect(onChange).toHaveBeenLastCalledWith('done');
+  fireEvent.keyDown(done, { key: 'Home' });
+  expect(document.activeElement).toBe(open);
+  expect(onChange).toHaveBeenLastCalledWith('open');
+});
+
+it('keeps Columns beside search for one People register and local to each table for a comparison', async () => {
+  const { PeoplePageLayout, usePeoplePageLayout } = await import('./PeoplePageLayout');
+  const { default: DataTable } = await import('../ui/DataTable');
+  function Page({ compare }) {
+    const layout = usePeoplePageLayout();
+    const table = (label) => <DataTable label={label} columns={[{ key: 'name', label: 'Name' }]} rows={[{ id: '1', name: 'Test' }]} />;
+    return <PeoplePageLayout.Provider value={layout}>
+      <ListHeader title="Employees" toolbar={<input aria-label="Search employees" />} />
+      {table('Current employees')}
+      {compare && table('Former employees')}
+    </PeoplePageLayout.Provider>;
+  }
+  const prior = document.documentElement.dataset.app;
+  document.documentElement.dataset.app = 'people';
+  try {
+    const { rerender } = render(<Page compare={false} />);
+    const toolbar = screen.getByRole('textbox', { name: 'Search employees' }).closest('.ui-list-toolbar');
+    expect(within(toolbar).getByRole('button', { name: 'Columns' })).toBeTruthy();
+    rerender(<Page compare />);
+    expect(within(toolbar).queryByRole('button', { name: 'Columns' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Columns' })).toHaveLength(2);
+    rerender(<Page compare={false} />);
+    expect(within(toolbar).getByRole('button', { name: 'Columns' })).toBeTruthy();
+  } finally {
+    if (prior) document.documentElement.dataset.app = prior;
+    else delete document.documentElement.dataset.app;
+  }
+});

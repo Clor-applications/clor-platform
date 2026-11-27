@@ -88,7 +88,7 @@ describe('Attendance requests', () => {
     await user.click(screen.getByRole('button', { name: /Reject/ }));
     expect(await screen.findByText('Say why. They see this with the decision.')).toBeInTheDocument();
     expect(api.decideRequest).not.toHaveBeenCalled();
-    await user.type(screen.getByLabelText('Note to them'), 'The month is full');
+    await user.type(screen.getByRole('textbox', { name: 'Decision note' }), 'The month is full');
     await user.click(screen.getByRole('button', { name: /Reject/ }));
     await waitFor(() => expect(api.decideRequest).toHaveBeenCalledWith('r1', false, 'The month is full'));
   });

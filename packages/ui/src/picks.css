@@ -394,7 +394,7 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) tbody td { height: 2.75rem; padding-top: 0.75rem; padding-bottom: 0.75rem; }
 
 /* ---- Long lists: the header stays while the rows scroll under it ---- */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-table-scroll > .ui-table thead th { position: sticky; top: 0; z-index: var(--z-sticky, 2); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']):not([data-app='people']) .ui-table-scroll > .ui-table thead th { position: sticky; top: 0; z-index: var(--z-sticky, 2); }
 
 /* ---- Ticking rows: tick boxes show on hover, on a ticked row, or once any row is ticked.
         Touch screens have no hover, so they always show there. ---- */
@@ -410,9 +410,11 @@
 }
 
 /* ---- Org chart: face over name (stacked, compact cards keep the face beside the name) ---- */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .oc-card:not(.is-compact) .oc-card-main { flex-direction: column; justify-content: center; gap: 0.5rem; padding-top: 1rem; text-align: center; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .oc-card:not(.is-compact) .oc-avatar { width: 3rem; height: 3rem; font-size: 1rem; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .oc-card:not(.is-compact) .oc-text { align-items: center; max-width: 100%; }
+@media (min-width: 768px), print {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .oc-card:not(.is-compact) .oc-card-main { flex-direction: column; justify-content: center; gap: 0.5rem; padding-top: 1rem; text-align: center; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .oc-card:not(.is-compact) .oc-avatar { width: 3rem; height: 3rem; font-size: 1rem; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .oc-card:not(.is-compact) .oc-text { align-items: center; max-width: 100%; }
+}
 
 /* ---- Labels on a record: a coloured dot and the word (the label's own colour) ---- */
 .ui-tag { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.8125rem; font-weight: 500; color: rgb(var(--fg)); white-space: nowrap; }
@@ -442,7 +444,7 @@
 
 /* ---- After ticking rows: a white bar under a hairline that stays on top while the list
    scrolls. The app colour keeps its four jobs (DESIGN.md), so the bar is not filled with it. ---- */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulkbar { position: sticky; top: 0; z-index: var(--z-sticky, 2); background: rgb(var(--surface)); border: 1px solid rgb(var(--border-field)); color: rgb(var(--fg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulkbar:not(.ui-selection-float) { position: sticky; top: 0; z-index: var(--z-sticky, 2); background: rgb(var(--surface)); border: 1px solid rgb(var(--border-field)); color: rgb(var(--fg)); }
 
 /* ---- Steps in a long form: dots, the current one long and named ---- */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .pc-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; }

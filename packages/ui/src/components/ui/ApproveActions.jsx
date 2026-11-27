@@ -13,7 +13,7 @@ import { Check, X } from './lineIcons';
  * spinner on the tick and holds both buttons while the request is out. Clicks stop at the
  * buttons, so a row that opens on click does not open as well.
  */
-export function ApproveActions({ what = '', onApprove, onReject, busy = false, disabled = false, approveTitle = 'Approve', rejectTitle = 'Reject', className = '' }) {
+export function ApproveActions({ what = '', onApprove, onReject, busy = false, disabled = false, showLabels = false, approveTitle = 'Approve', rejectTitle = 'Reject', className = '' }) {
   const object = what ? ` ${what}` : '';
   const off = busy || disabled;
   const stop = (fn) => (e) => { e.stopPropagation(); fn?.(e); };
@@ -22,11 +22,13 @@ export function ApproveActions({ what = '', onApprove, onReject, busy = false, d
       {onApprove ? (
         <button type="button" className="ui-decide-btn is-yes" disabled={off} aria-busy={busy || undefined} aria-label={`Approve${object}`} title={approveTitle} onClick={stop(onApprove)}>
           {busy ? <span className="ui-spinner" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
+          {showLabels && 'Approve'}
         </button>
       ) : null}
       {onReject ? (
         <button type="button" className="ui-decide-btn is-no" disabled={off} aria-label={`Reject${object}`} title={rejectTitle} onClick={stop(onReject)}>
           <X size={16} aria-hidden="true" />
+          {showLabels && 'Reject'}
         </button>
       ) : null}
     </span>

@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 
 import { EmptyState, PageHeader } from '../ui/Primitives';
+import { usePeoplePageSlot } from './PeoplePageLayout';
+import { CountLine } from '../ui/CountLine';
 import { useTabIndicator } from '../ui/RecordTabs';
 
 /**
@@ -26,9 +28,12 @@ export default function ListHeader({
   description = null,
   /** A figures strip whose numbers the tabs do not already carry (Employees); never one that repeats them. */
   strip = null,
+  headingCounts = null,
+  headingSummary = null,
   primary = null,
   secondary = null,
   toolbar = null,
+  toolbarInHeading = false,
   toolbarEnd = null,
   tabs = null,
   tab = null,
@@ -46,19 +51,26 @@ export default function ListHeader({
       {primary.label}
     </button>
   );
-  const actions = secondary || primaryNode ? <>{secondary}{primaryNode}</> : null;
+  const headingTools = toolbarInHeading && toolbar ? <div className="time-heading-tools">{toolbar}</div> : null;
+  const actions = headingTools || secondary || primaryNode ? <>{headingTools}{secondary}{primaryNode}</> : null;
+  const people = typeof document !== 'undefined' && document.documentElement.dataset.app === 'people';
+  const [columnsSlot] = usePeoplePageSlot('toolbar', !toolbarEnd);
+  const inlineSummary = people && strip?.type === CountLine ? strip : null;
+  const controls = (!toolbarInHeading && toolbar) || toolbarEnd || columnsSlot ? (
+    <div className="ui-list-toolbar">
+      {!toolbarInHeading && toolbar}
+      {columnsSlot && <span className="people-columns-slot" ref={columnsSlot} />}
+      {toolbarEnd ? <div className="ui-list-toolbar-end">{toolbarEnd}</div> : null}
+    </div>
+  ) : null;
+  const views = tabs?.length ? <FilterTabs tabs={tabs} value={tab} onChange={onTab} label={tabsLabel || title} appearance={people ? 'underline' : 'chips'} /> : null;
   return (
     <header className="ui-list-header">
-      <PageHeader breadcrumb={crumbs} title={titleWithCount(title, count)} entity={entity} actions={actions} />
+      <PageHeader breadcrumb={people && !crumbs.some((c) => c.onClick) ? null : crumbs} title={titleWithCount(title, count)} entity={entity} counts={headingCounts} summary={people ? headingSummary || inlineSummary : null} actions={actions} />
       {description ? <p className="ui-list-desc ui-muted">{description}</p> : null}
-      {strip}
-      {toolbar || toolbarEnd ? (
-        <div className="ui-list-toolbar">
-          {toolbar}
-          {toolbarEnd ? <div className="ui-list-toolbar-end">{toolbarEnd}</div> : null}
-        </div>
-      ) : null}
-      {tabs?.length ? <FilterTabs tabs={tabs} value={tab} onChange={onTab} label={tabsLabel || title} /> : null}
+      {!inlineSummary && strip}
+      {!people && headingSummary}
+      {people && (controls || views) ? <div className="people-list-controls">{views}{controls}</div> : <>{controls}{views}</>}
       {children}
     </header>
   );
@@ -78,13 +90,25 @@ export function titleWithCount(title, count) {
  * nought is not drawn; `tone="warn"` marks what waits on the reader. The tab
  * carries the count so no figure strip above it has to.
  */
-export function FilterTabs({ tabs, value, onChange, label }) {
+export function FilterTabs({ tabs, value, onChange, label, appearance = typeof document !== 'undefined' && document.documentElement.dataset.app === 'people' ? 'underline' : 'chips' }) {
   const ref = useRef(null);
   const indicator = useTabIndicator(ref, value);
+  const availableTabs = tabs.filter(Boolean);
+  const focusKey = availableTabs.find(t => t.key === value)?.key ?? availableTabs[0]?.key;
+  const handleKey = (event) => {
+    const buttons = Array.from(ref.current.querySelectorAll('[role="tab"]'));
+    const index = buttons.indexOf(event.target);
+    if (index < 0 || event.altKey || event.ctrlKey || event.metaKey) return;
+    const next = { ArrowRight: (index + 1) % buttons.length, ArrowLeft: (index + buttons.length - 1) % buttons.length, Home: 0, End: buttons.length - 1 }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    buttons[next].focus();
+    buttons[next].click();
+  };
   return (
-    <div ref={ref} role="tablist" aria-label={label} className={`ui-record-tablist ui-filter-chips ${indicator ? 'has-indicator' : ''}`}>
-      {tabs.filter(Boolean).map((t) => (
-        <button key={t.key} type="button" role="tab" aria-selected={value === t.key} className={`ui-tab ${value === t.key ? 'is-active' : ''}`} onClick={() => onChange?.(t.key)}>
+    <div ref={ref} onKeyDown={handleKey} role="tablist" aria-label={label} className={`ui-record-tablist ${appearance === 'chips' ? 'ui-filter-chips' : ''} ${indicator ? 'has-indicator' : ''}`}>
+      {availableTabs.map((t) => (
+        <button key={t.key} type="button" role="tab" tabIndex={focusKey === t.key ? 0 : -1} aria-selected={value === t.key} className={`ui-tab ${value === t.key ? 'is-active' : ''}`} onClick={() => onChange?.(t.key)}>
           {t.label}
           {t.count ? <span className="ui-tab-count tabular-nums" data-tone={t.tone || undefined}>{t.count}</span> : null}
         </button>

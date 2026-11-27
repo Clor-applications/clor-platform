@@ -23,11 +23,11 @@ export default function useJkList(ref, { enabled = true } = {}) {
   useEffect(() => {
     if (!enabled) return undefined;
     const onKey = (e) => {
-      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.isComposing || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       if (document.documentElement.dataset.palette === 'indigo') return;
       const t = e.target;
       if (t && t.closest && t.closest(TYPING)) return;
-      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      if (document.querySelector('[aria-modal="true"], [role="menu"]:not([hidden]), [role="listbox"]:not([hidden])')) return;
       const key = String(e.key || '').toLowerCase();
       if (key !== 'j' && key !== 'k' && key !== 'a') return;
       const box = ref.current;
@@ -35,7 +35,7 @@ export default function useJkList(ref, { enabled = true } = {}) {
       if (!rows.length) return;
       const at = rows.findIndex((b) => b === document.activeElement || b.closest('tr, li, .ui-card')?.contains(document.activeElement));
       if (key === 'a') {
-        if (at < 0) return;
+        if (at < 0 || e.repeat) return;
         const row = rows[at].closest('tr') || rows[at].parentElement;
         const yes = row && row.querySelector('.ui-decide-btn.is-yes:not([disabled])');
         if (!yes) return;

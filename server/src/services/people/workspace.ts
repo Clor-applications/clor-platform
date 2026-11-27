@@ -4,7 +4,7 @@ import { z } from 'zod';
 const text = (max = 2000) => z.string().trim().max(max).default('');
 /* Optional unless a register says otherwise: left out means empty, like text. */
 /* The picture HR puts on an announcement or event (apps/people/src/screens/symbols.js holds the same keys). */
-export const SYMBOL_KEYS = ['party', 'cake', 'diya', 'confetti', 'balloon', 'gift', 'trophy', 'star', 'sparkles', 'heart', 'wave', 'megaphone', 'pin', 'pizza', 'cricket', 'music', 'rocket', 'books', 'plane', 'sun'] as const;
+export const SYMBOL_KEYS = ['party', 'cake', 'diya', 'confetti', 'balloon', 'gift', 'trophy', 'star', 'sparkles', 'heart', 'wave', 'megaphone', 'pin', 'pizza', 'cricket', 'music', 'rocket', 'books', 'plane', 'sun', 'smile', 'clap', 'handshake', 'calendar', 'bell', 'memo', 'seedling', 'medal'] as const;
 const symbol = z.enum(SYMBOL_KEYS).nullable().optional().or(z.literal(''));
 const date = z.string().default('').refine((s) => !s || (/^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s), 'Enter a valid calendar date.');
 /** Who an announcement is for: everyone, or only these departments, branches, locations (areas) or people. */

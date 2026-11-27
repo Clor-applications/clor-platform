@@ -118,3 +118,35 @@ it('locking names the net pay and the head count', async () => {
   const words = lockWords({ period: { name: 'November 2026', endDate: '2026-11-30' }, netTotal: 80000, employeeCount: 3 });
   expect(words.message).toMatch(/^₹80,000.00 net pay to 3 people\. After locking/);
 });
+
+it('opens a run with the keyboard and records the selected run in the address state', async () => {
+  vi.mocked(listPayrollRuns).mockResolvedValue([{ id: 'r9', number: 'PR-0009', status: 'PAID', period: { name: 'October 2026' } }]);
+  vi.mocked(listPayrollPeriods).mockResolvedValue([]);
+  vi.mocked(listPayGroups).mockResolvedValue([]);
+  const updateParams = vi.fn();
+  const user = userEvent.setup();
+  render(<PayRuns updateParams={updateParams} />);
+  const run = await screen.findByRole('button', { name: 'PR-0009' });
+  run.focus();
+  await user.keyboard('{Enter}');
+  expect(updateParams).toHaveBeenCalledTimes(1);
+  expect(updateParams).toHaveBeenCalledWith({ runId: 'r9' }, { push: true });
+});
+
+it('loads a pay run directly from its address state', async () => {
+  const { getPayrollRun } = await import('../api/payrollRuns');
+  vi.mocked(getPayrollRun).mockRejectedValue(new Error('Access refused'));
+  render(<PayRuns params={{ runId: 'direct-run' }} updateParams={vi.fn()} />);
+  await waitFor(() => expect(getPayrollRun).toHaveBeenCalledWith('direct-run'));
+});
+
+it('starts on the selected open period when opened from payroll overview', async () => {
+  vi.mocked(listPayrollRuns).mockResolvedValue([]);
+  vi.mocked(listPayrollPeriods).mockResolvedValue([
+    { id: 'p1', name: 'October 2026' },
+    { id: 'p2', name: 'November 2026' },
+  ]);
+  vi.mocked(listPayGroups).mockResolvedValue([]);
+  render(<PayRuns params={{ startPeriod: 'p2' }} updateParams={vi.fn()} />);
+  expect(await screen.findByLabelText('Period')).toHaveValue('p2');
+});

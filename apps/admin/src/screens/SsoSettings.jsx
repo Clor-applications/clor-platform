@@ -118,6 +118,7 @@ export default function SsoSettings() {
 
   const load = useCallback(() => getProviders()
     .then((d) => {
+      if (!Array.isArray(d?.providers) || !d.local) throw new Error('Sign-in methods are unavailable.');
       setData(d);
       setLoadError('');
     })

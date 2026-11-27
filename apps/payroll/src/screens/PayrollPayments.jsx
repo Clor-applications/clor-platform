@@ -407,7 +407,7 @@ const StartPayment = ({ runs, banks, onCancel, onCreated }) => {
 
       <div className="flex items-center justify-end gap-2">
         <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
-        <Button loading={saving} disabled={!form.runId || !preview?.payable?.length} type="submit" variant="primary" loading={saving}>
+        <Button loading={saving} disabled={!form.runId || !preview?.payable?.length} type="submit" variant="primary">
           Start payment
         </Button>
       </div>
@@ -582,7 +582,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
               <ArrowLeft size={16} aria-hidden="true" /> Back
             </button>
             {posted ? null : (
-              <Button loading={busy === 'post'} disabled={(Boolean(busy) && busy !== 'post') || Boolean(posting?.problems?.length)} variant="primary" onClick={post} loading={busy === 'post'}>
+              <Button loading={busy === 'post'} disabled={(Boolean(busy) && busy !== 'post') || Boolean(posting?.problems?.length)} variant="primary" onClick={post}>
                 Post to accounts
               </Button>
             )}
@@ -674,7 +674,7 @@ const PaymentDetail = ({ paymentId, onBack }) => {
               </button>
             ) : null}
             {settled && !payment.paidCount ? (
-              <Button loading={busy === 'cancel'} disabled={Boolean(busy) && busy !== 'cancel'} variant="danger" size="sm" icon={Ban} onClick={callOff} loading={busy === 'cancel'}>
+              <Button loading={busy === 'cancel'} disabled={Boolean(busy) && busy !== 'cancel'} variant="danger" size="sm" icon={Ban} onClick={callOff}>
                 Cancel payment
               </Button>
             ) : null}
@@ -802,7 +802,7 @@ const RejectLine = ({ line, busy, onCancel, onSave }) => {
           </div>
           <div className="flex items-center justify-end gap-2">
             <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel} disabled={busy}>Cancel</button>
-            <Button loading={busy} type="submit" variant="primary" loading={busy}>Record rejection</Button>
+            <Button loading={busy} type="submit" variant="primary">Record rejection</Button>
           </div>
         </form>
       ) : null}

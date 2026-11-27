@@ -1,3 +1,5 @@
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
+import { useReviewSelection, SelectionBar, MobilePageCheckbox, PageCheckbox, RowCheckbox } from '@ui/components/ui/ReviewTable';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarClock, CalendarRange, Clock3, Plus, Trash2, Upload, Users } from '@ui/components/ui/lineIcons';
 
@@ -35,7 +37,7 @@ const EXPORT_COLUMNS = [
   { key: 'effectiveTo', label: 'Until', value: (r) => r.effectiveTo || 'until changed' },
 ];
 
-export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
+export default function ShiftAssignments({ peopleTimePage = false, openScreen, menuLabel } = {}) {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
@@ -45,6 +47,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
   const [from, setFrom] = useState(todayIst());
   const [until, setUntil] = useState('');
   const [search, setSearch] = useState('');
+  const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState('');
 
@@ -68,6 +71,8 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const { pageCount, safePage, pageRows } = usePaged(shownRows, perPage, page);
+  const selection = useReviewSelection(pageRows);
+  const visibleRows = peopleTimePage && selection.focused ? selection.selectedRows : pageRows;
   useEffect(() => setPage(1), [list.query]);
   const figures = useMemo(() => {
     const all = rows || [];
@@ -94,6 +99,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
     try {
       const r = await assignShift({ employeeIds: [...picked], shiftId, effectiveFrom: from, effectiveTo: until || null });
       notify.success(`${r.assigned} people assigned.`);
+      setFormOpen(false);
       setPicked(new Set());
       load();
     } catch (e) {
@@ -120,6 +126,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
 
   return (
     <DocumentListShell
+      timeRegister={peopleTimePage}
       entity="shift"
       title={menuLabel || 'Shift assignments'}
       moreItems={[exportMenuItem('Export'), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
@@ -128,7 +135,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Shift assignments', fileName: 'Shift assignments', label: 'assignment/assignments', columns: EXPORT_COLUMNS, rows: shownRows });
       }}
-      description="A person’s own shift from a date (and until a date, if it ends). It beats their rotation and department schedule; a temporary schedule beats it."
+      description={peopleTimePage ? undefined : "A person’s own shift from a date (and until a date, if it ends). It beats their rotation and department schedule; a temporary schedule beats it."}
       compact
       tight
       search={{ value: list.query, onChange: list.setQuery, placeholder: 'Search schedules…', label: 'Search employee schedules' }}
@@ -138,8 +145,9 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
         { label: 'Shifts in use', value: figures.shifts, count: true, tone: 'paid', Icon: Clock3 },
         { label: 'With an end date', value: figures.ending, count: true, tone: 'outstanding', Icon: CalendarClock },
       ])}
-      above={
-        <section className="space-y-3" aria-labelledby="assign-h">
+      primary={peopleTimePage && <button type="button" className="ui-btn ui-btn-primary" aria-controls="shift-entry" aria-expanded={formOpen} onClick={() => setFormOpen(!formOpen)}>{formOpen ? 'Close form' : 'Assign shift'}</button>}
+      above={(!peopleTimePage || formOpen) &&
+        <section id="shift-entry" className="space-y-3" aria-labelledby="assign-h">
           <h2 id="assign-h" className="ui-t-sec">Assign</h2>
           {!shifts.length ? (
             <p className="ui-muted text-sm">Create a shift first (Shifts).</p>
@@ -159,6 +167,7 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
                   <Plus size={16} aria-hidden="true" /> {saving ? 'Assigning…' : `Assign ${picked.size || ''}`}
                 </button>
               </div>
+              {peopleTimePage && shiftId && picked.size > 0 && <p className="ui-caption">This assignment overrides rotations and department shifts. Temporary shifts still take priority.</p>}
               <div className="flex flex-wrap items-center gap-3">
                 <input type="search" className="ui-input" placeholder="Search people" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search people" />
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setPicked(new Set(shown.map((p) => p.id)))}>Select {search ? 'shown' : 'all'}</button>
@@ -185,9 +194,12 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
       ) : (
         <>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky ui-table-phone w-full">
+            {peopleTimePage ? <SelectionBar selection={selection} /> : null}
+            {peopleTimePage ? <MobilePageCheckbox rows={visibleRows} selection={selection} /> : null}
+            <TimeRegisterTable enabled={peopleTimePage} register="ShiftAssignments" required={['Employee']} className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
+                  {peopleTimePage ? <th scope="col" className="record-checkbox"><PageCheckbox rows={visibleRows} selection={selection} /></th> : null}
                   <ColumnHeader label="Employee" col="employee" state={filters}  className="ui-col-grow" />
                   <ColumnHeader label="Shift" col="shift" state={filters} />
                   <ColumnHeader label="From" col="from" state={filters} type="date" />
@@ -198,21 +210,22 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
               <tbody className="ui-rows">
                 {!shownRows.length ? (
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={(5) + (peopleTimePage ? 1 : 0)}>
                       {rows.length ? (
                         <EmptyState kind="filtered" totalCount={rows.length} title="No schedules match" description="Nothing matches the search or the column filters." />
                       ) : (
                         <EmptyState
                           icon={CalendarRange}
                           title="No one has their own schedule"
-                          description="A person’s own shift from a date (and until a date, if it ends). It beats their rotation and department schedule; a temporary schedule beats it. People without one follow their rotation, their department’s schedule, or the company default shift (Attendance rules)."
+                          description={peopleTimePage ? "Employees without an assignment follow their rotation, department schedule or default shift." : "A person’s own shift from a date (and until a date, if it ends). It beats their rotation and department schedule; a temporary schedule beats it. People without one follow their rotation, their department’s schedule, or the company default shift (Attendance rules)."}
                         />
                       )}
                     </td>
                   </tr>
                 ) : (
-                  pageRows.map((r) => (
+                  visibleRows.map((r) => (
                     <tr key={r.id}>
+                      {peopleTimePage ? <RowCheckbox row={r} label={r.employeeName} selection={selection} phoneSlot="select" /> : null}
                       <td className="ui-col-entity" data-phone="name">{r.employeeName}</td>
                       <td data-phone="sub">{r.shiftName}</td>
                       <td className="ui-col-date whitespace-nowrap" data-phone="key">{dateWords(r.effectiveFrom)}</td>
@@ -228,9 +241,9 @@ export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
                   ))
                 )}
               </tbody>
-            </table>
+            </TimeRegisterTable>
           </div>
-          <Pagination total={shownRows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="schedules" />
+          {!selection.focused && (<Pagination total={shownRows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="schedules" />)}
         </>
       )}
     </DocumentListShell>

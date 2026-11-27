@@ -1,4 +1,3 @@
-import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { CountLine } from '@ui/components/ui/CountLine';
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useState } from 'react';
@@ -6,7 +5,7 @@ import { FileText } from '@ui/components/ui/lineIcons';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
-import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import SearchField from '@ui/components/ui/SearchField';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
@@ -27,12 +26,12 @@ import { istDay, plusDaysIso, todayIst } from '@ui/utils/dates';
  * candidate; this list is where HR looks after it is sent. The server keeps
  * a team-limited role to its own team's offers.
  */
-const VIEWS = [['open', 'Waiting'], ['accepted', 'Accepted'], ['closed', 'Declined or withdrawn'], ['all', 'All']];
+const VIEWS = [['open', 'Waiting'], ['accepted', 'Accepted'], ['closed', 'Closed'], ['all', 'All']];
 const STATUS = {
-  SENT: ['Waiting for them', 'ui-pill-warn'],
+  SENT: ['Awaiting reply', 'ui-pill-warn'],
   ACCEPTED: ['Accepted', 'ui-pill-pos'],
   DECLINED: ['Declined', 'ui-pill-neg'],
-  EXPIRED: ['Ran out', 'ui-pill-neutral'],
+  EXPIRED: ['Expired', 'ui-pill-neutral'],
   WITHDRAWN: ['Withdrawn', 'ui-pill-neutral'],
 };
 const inView = (o, view) => (view === 'open' ? o.status === 'SENT' : view === 'accepted' ? o.status === 'ACCEPTED' : view === 'closed' ? ['DECLINED', 'EXPIRED', 'WITHDRAWN'].includes(o.status) : true);
@@ -59,12 +58,10 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
   /* The count line (DESIGN.md "Page header"): what the chips do not already say. Zero clauses drop out. */
   const today = todayIst();
   const weekAhead = plusDaysIso(7);
-  const month = today.slice(0, 7);
   const dueSoon = all.filter((o) => o.status === 'SENT' && o.acceptBy && String(o.acceptBy).slice(0, 10) >= today && String(o.acceptBy).slice(0, 10) <= weekAhead).length;
   const figures = req.data ? [
-    { key: 'month', label: 'sent this month', value: all.filter((o) => istDay(o.createdAt).slice(0, 7) === month).length },
-    { key: 'due', label: 'answer due in 7 days', value: dueSoon, tone: 'warn', onClick: () => set({ view: null, page: null }, true) },
-    { key: 'joining', label: 'accepted, joining in 30 days', value: all.filter((o) => o.status === 'ACCEPTED' && o.joiningDate && String(o.joiningDate).slice(0, 10) >= today && String(o.joiningDate).slice(0, 10) <= plusDaysIso(30)).length },
+    { key: 'due', label: dueSoon === 1 ? 'reply due within 7 days' : 'replies due within 7 days', value: dueSoon, tone: 'warn', onClick: () => set({ view: null, page: null }, true) },
+    { key: 'joining', label: 'starting within 30 days', value: all.filter((o) => o.status === 'ACCEPTED' && o.joiningDate && String(o.joiningDate).slice(0, 10) >= today && String(o.joiningDate).slice(0, 10) <= plusDaysIso(30)).length },
   ] : null;
 
   const withdraw = async (o) => {
@@ -79,9 +76,8 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
     }
   };
   const open = (o) => (o.employeeId ? openScreen?.('employee', { id: o.employeeId }) : o.candidateId ? openScreen?.('candidates', { id: o.candidateId }) : null);
-  /* An accepted offer is the expected end: no tag (DESIGN.md "Status tags"). */
-  const status = (o) => <ExceptionTag label={o.status === 'ACCEPTED' ? '' : STATUS[o.status]?.[0] || o.status} normal={STATUS[o.status]?.[0]} pill={`${STATUS[o.status]?.[1] || 'ui-pill-neutral'}`} />;
-  const when = (o) => (o.status === 'SENT' ? `Accept by ${formatDate(o.acceptBy)}` : o.status === 'ACCEPTED' && o.acceptedAt ? `Accepted ${formatDate(istDay(o.acceptedAt))}` : o.status === 'DECLINED' && o.declinedAt ? `Declined ${formatDate(istDay(o.declinedAt))}` : o.status === 'EXPIRED' ? `Ran out ${formatDate(o.acceptBy)}` : '');
+  const status = (o) => <span className={`ui-pill ${STATUS[o.status]?.[1] || 'ui-pill-neutral'}`}>{STATUS[o.status]?.[0] || o.status}</span>;
+  const when = (o) => (o.status === 'SENT' && o.acceptBy ? `Accept by ${formatDate(o.acceptBy)}` : o.status === 'ACCEPTED' && o.acceptedAt ? formatDate(istDay(o.acceptedAt)) : o.status === 'DECLINED' && o.declinedAt ? formatDate(istDay(o.declinedAt)) : o.status === 'EXPIRED' && o.acceptBy ? formatDate(o.acceptBy) : '');
 
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (o) => <PersonCell person={{ name: o.name }} line={[o.designation, o.email].filter(Boolean).join(' · ')} /> },
@@ -92,18 +88,18 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="people-register" data-column-sizing="content">
       <ListHeader
         breadcrumb={crumbs()}
         title="Offers"
         strip={figures ? <CountLine label="Offer figures" items={figures} /> : null}
         primary={canWithdraw ? { label: 'Make an offer', icon: FileText, onClick: () => setPicking(true) } : null}
-        toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null, page: null })} placeholder="Search name, designation or email" label="Search offers" className="w-full sm:w-72" />}
+        toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null, page: null })} placeholder="Search offers" label="Search offers" className="w-full sm:w-72" />}
         tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' ? counts[k] : 0 }))}
         tab={view}
         onTab={(k) => set({ view: k === 'open' ? null : k, page: null }, true)}
       />
-      <DataTable
+      <ReviewTable key={JSON.stringify([view, p.q, page, size])} compactActions
         label="Offers"
         columns={columns}
         rows={shown}
@@ -127,12 +123,12 @@ export default function Offers({ params = {}, updateParams, openScreen }) {
           <span className="min-w-0 flex-1">
             <span className="flex items-center justify-between gap-2"><span className="truncate">{o.name}</span>{status(o)}</span>
             <span className="block truncate ui-caption">{[o.designation, rupees(o.annualCtc)].filter(Boolean).join(' · ')}</span>
-            <span className="block truncate ui-caption tabular-nums">Sent {sentOn(o)}{when(o) ? ` · ${when(o)}` : ''}</span>
+            <span className="block truncate ui-caption tabular-nums">Sent {sentOn(o)}{o.status === 'SENT' && when(o) ? ` · ${when(o)}` : ''}</span>
           </span>
         )}
         empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} />
           : q ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => set({ q: null, page: null })} />
-            : <EmptyState icon={FileText} title={view === 'open' ? 'No offer is waiting for an answer' : view === 'accepted' ? 'No offer accepted yet' : view === 'closed' ? 'Nothing declined or withdrawn' : 'No offers sent yet'} description={view === 'open' || view === 'all' ? 'An offer goes to a joiner with a joining date ahead, or to a candidate from Talent.' : undefined} />}
+            : <EmptyState icon={FileText} title={view === 'open' ? 'No offers awaiting a reply' : view === 'accepted' ? 'No offer accepted yet' : view === 'closed' ? 'No closed offers' : 'No offers sent yet'} action={view !== 'all' && all.length ? <button type="button" className="ui-link" onClick={() => set({ view: 'all', page: null }, true)}>View all offers →</button> : null} description={!all.length && canWithdraw ? 'Choose an upcoming joiner to prepare their offer.' : undefined} />}
       />
       {picking ? (
         <PickPersonDrawer title="Make an offer" description="A joiner whose joining date is ahead. For a candidate, offer from Hiring › Candidates." action="Write the offer" filter={notStarted}

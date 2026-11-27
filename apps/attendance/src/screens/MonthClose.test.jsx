@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 
 import MonthClose from './MonthClose';
@@ -225,4 +225,22 @@ it('blocks the close while reader punches are held for the month, and shows them
   fireEvent.click(screen.getByLabelText(/I have seen the 2 open items/));
   fireEvent.click(screen.getByLabelText('Count these 3 working days as unpaid.'));
   expect(screen.getByRole('button', { name: /Close the month/ }).disabled).toBe(true);
+});
+
+it('removes the prior close action immediately and ignores a late month response', async () => {
+  const initial = { ...readiness([]), blocking: 0, toCheck: 0, checks: [] };
+  let resolveOctober;
+  getMonthReadiness.mockResolvedValueOnce(initial)
+    .mockImplementationOnce(() => new Promise(resolve => { resolveOctober = resolve; }))
+    .mockResolvedValueOnce({ ...initial, month: '2026-08', ended: false });
+  render(<MonthClose params={{ month: '2026-09' }} />);
+  expect(await screen.findByRole('button', { name: 'Close the month' })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-10' } });
+  expect(screen.queryByRole('button', { name: 'Close the month' })).toBeNull();
+  await waitFor(() => expect(getMonthReadiness).toHaveBeenCalledWith('2026-10'));
+  fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-08' } });
+  await screen.findByRole('heading', { name: /August 2026.*(?:still|has not)/ });
+  await act(async () => resolveOctober({ ...initial, month: '2026-10' }));
+  expect(screen.queryByRole('button', { name: 'Close the month' })).toBeNull();
+  expect(closeMonth).not.toHaveBeenCalled();
 });

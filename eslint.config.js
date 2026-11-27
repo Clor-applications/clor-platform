@@ -14,6 +14,7 @@ export default defineConfig([
     // The end-to-end run's own build (e2e/scripts/start-web.mjs).
     'dist-e2e',
     'dist-console',
+    'website/dist',
     'console/api/dist',
     'e2e/report',
     'e2e/test-results',

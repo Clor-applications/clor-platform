@@ -1,0 +1,68 @@
+.ot-register { --ot-rule: rgb(var(--border)); --ot-paper: rgb(var(--surface)); }
+.ot-register .ot-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-block: 12px; }
+.ot-summary, .ot-table small, .ot-details small, .ot-facts dt, .ot-detail-text h4 { color: rgb(var(--fg-muted)); font-size: 12px; }
+.ot-workbench { display: grid; align-items: start; gap: 16px; }
+.ot-workbench.has-detail { grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); }
+.ot-records { min-width: 0; }
+.ot-queue { min-width: 0; }
+.ot-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
+.ot-table thead th { height: 40px; background: rgb(var(--band)); border-block: 1px solid var(--ot-rule); }
+.ot-table :is(th,td) { text-align: start; vertical-align: middle; padding: 8px; overflow-wrap: anywhere; }
+.ot-table td { background: var(--ot-paper); border-bottom: 1px solid var(--ot-rule); }
+.ot-table .ot-check { width: 40px; }
+.ot-table tr[data-current] td { background-color: rgb(var(--tint) / .6); }
+.ot-table tr[data-current] td:first-child { box-shadow: inset 2px 0 rgb(var(--act)); }
+.ot-table tr[data-chosen] td { background-color: rgb(var(--tint)); }
+.ot-table tbody tr { cursor: pointer; }
+.ot-person small, .ot-amount small { display: block; margin-top: 3px; }
+.ot-open { text-align: start; color: rgb(var(--act)); display: inline-flex; gap: 6px; align-items: center; background: none; border: 0; padding: 0; cursor: pointer; }
+.ot-open svg { flex: none; }
+.ot-date, .ot-amount, .ot-summary, .ot-facts { font-variant-numeric: tabular-nums; }
+.ot-phone-tools { display: none; }
+.ot-inspector { border: 1px solid var(--ot-rule); background: var(--ot-paper); border-radius: 12px; overflow: hidden; }
+.ot-inspector > h2 { margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--ot-rule); font-size: 14px; font-weight: 650; }
+.ot-inspector .ot-details { padding: 16px; }
+.ot-detail-top, .ot-decisions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ot-detail-top { align-items: start; }
+.ot-detail-top h3 { font-size: 18px; margin: 0; overflow-wrap: anywhere; }
+.ot-detail-top .ui-pill { flex: none; }
+.ot-facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 16px; margin: 18px 0 14px; padding-block: 12px; border-block: 1px solid rgb(var(--border)); }
+.ot-facts dd { margin: 3px 0 0; font-size: 14px; font-weight: 600; }
+.ot-detail-text h4 { font-weight: 500; margin: 0 0 4px; }
+.ot-detail-text p { font-size: 14px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ot-note { display: grid; gap: 6px; margin-top: 14px; font-size: 13px; font-weight: 600; }
+.ot-note small { font-weight: 400; }
+.ot-note textarea { width: 100%; height: auto; min-height: 52px; resize: vertical; padding: 8px; }
+.ot-inspector .ot-decisions { padding: 12px 16px; border-top: 1px solid var(--ot-rule); }
+.ot-decisions { justify-content: flex-start; gap: 8px; }
+.ot-warning { padding: 8px; border-left: 2px solid rgb(var(--warn)); background: rgb(var(--warn) / .08); font-size: 13px; }
+@media (max-width: 767px) {
+  .ot-register .ot-toolbar { gap: 6px; }
+  .ot-register .ui-record-tablist { width: 100%; justify-content: space-between; }
+  .ot-register .ot-toolbar .ui-tab { padding-inline: 3px; min-height: 44px; }
+  .ot-register .ui-page-heading > div:last-child { display: grid; grid-template-columns: minmax(0,1fr) auto; width: 100%; }
+  .ot-register .ui-page-heading > div:has(.ui-copy-link) { grid-template-columns: minmax(0,1fr) 44px auto; }
+  .ot-register .ui-page-heading .ui-copy-link { min-width: 44px; padding: 0; }
+  .ot-register .ui-copy-link span { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+  .ot-register .ui-page-heading .order-first { flex: 1 1 0; width: auto; min-width: 0; }
+  .ot-note textarea, .ot-register .ui-page-heading input { font-size: 16px; }
+  .ot-decisions button.ui-btn, .ot-register .ot-phone-tools button.ui-btn, .ot-register .ui-page-heading :is(input,button) { min-height: 44px; }
+  .ot-phone-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ot-phone-tools label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+  .ot-table, .ot-table tbody { display: block; }
+  .ot-table thead { display: none; }
+  .ot-table[data-filters] thead { display: block; }
+  .ot-table[data-filters] thead tr { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .ot-table thead .ot-check { display: none; }
+  .ot-table tbody tr { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: 6px 12px; padding: 14px; margin-top: 10px; border: 1px solid var(--ot-rule); border-radius: 10px; background: var(--ot-paper); }
+  .ot-table tbody tr[data-chosen] { background: rgb(var(--tint)); }
+  .ot-table tbody tr td { background: transparent; border: none; padding: 0; }
+  .ot-table .ot-person { grid-area: 1 / 1; }
+  .ot-table .ot-person small { margin-top: 0; }
+  .ot-table .ot-open { font-size: 15px; min-height: 44px; }
+  .ot-table .ot-amount { grid-area: 1 / 2; text-align: end; align-self: center; }
+  .ot-table .ot-date { grid-area: 2 / 1; }
+  .ot-table .record-checkbox { grid-area: 2 / 2 / 4 / 3; width: 44px; justify-self: end; }
+  .ot-table .record-checkbox label { display: grid; place-items: center; min-height: 44px; }
+  .ot-table .ot-reason { grid-area: 3 / 1; color: rgb(var(--fg-muted)); }
+}

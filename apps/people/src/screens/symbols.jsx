@@ -25,6 +25,14 @@ export const SYMBOLS = [
   { key: 'books', emoji: '📚', label: 'Learning' },
   { key: 'plane', emoji: '✈️', label: 'Trip' },
   { key: 'sun', emoji: '☀️', label: 'Holiday' },
+  { key: 'smile', emoji: '😊', label: 'Smile' },
+  { key: 'clap', emoji: '👏', label: 'Congratulations' },
+  { key: 'handshake', emoji: '🤝', label: 'Teamwork' },
+  { key: 'calendar', emoji: '🗓️', label: 'Date to remember' },
+  { key: 'bell', emoji: '🔔', label: 'Reminder' },
+  { key: 'memo', emoji: '📝', label: 'Policy or update' },
+  { key: 'seedling', emoji: '🌱', label: 'New beginning' },
+  { key: 'medal', emoji: '🏅', label: 'Milestone' },
 ];
 const BY_KEY = new Map(SYMBOLS.map((s) => [s.key, s]));
 export const symbolOf = (key) => BY_KEY.get(key) || null;

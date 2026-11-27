@@ -431,10 +431,10 @@ html[data-portal='ops'] .ops-nav-item svg {
   }
 }
 
-/* The page: 32px sides, max 1280, 20px between its parts (owner, 17 Nov 2026: no empty space at the top). */
+/* Workspace gutters, with the readable content width capped on wide screens. */
 html[data-portal='ops'] .ops-main {
   min-width: 0;
-  padding: 24px 32px 48px;
+  padding: 24px 24px 48px;
   background: rgb(var(--surface));
 }
 html[data-portal='ops'] .ops-main:focus {

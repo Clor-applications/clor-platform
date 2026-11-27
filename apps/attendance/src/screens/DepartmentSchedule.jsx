@@ -91,7 +91,7 @@ export default function DepartmentSchedule() {
     <DocumentListShell
       entity="shift"
       title="Department schedules"
-      description="The shift a department works from a date. People with their own schedule or a rotation keep theirs."
+      introduction="The shift a department works from a date. People with their own schedule or a rotation keep theirs."
       compact
       tight
       search={{ value: list.query, onChange: list.setQuery, placeholder: 'Search department schedules…', label: 'Search department schedules' }}

@@ -81,7 +81,7 @@ test.describe('Kavya runs HR', () => {
     await expect(kavya.title).toContainText(`Ravi ${last}`);
     await kavya.open('Employees');
     await kavya.main.getByRole('searchbox', { name: 'Search employees' }).fill(last);
-    await expect(kavya.main.getByRole('link', { name: new RegExp(`^Ravi ${last}`) })).toHaveCount(1);
+    await expect(kavya.employeeLink(`Ravi ${last}`)).toHaveCount(1);
   });
 
   test('H2: a duplicate employee ID or email is stopped, in plain words', { tag: ['@H2'] }, async ({ asHR: kavya, w }, testInfo) => {
@@ -161,7 +161,7 @@ test.describe('Kavya runs HR', () => {
     let dialog = kavya.drawerNamed('Transfer: Priya Sharma');
     await choose(dialog.getByLabel('Department'), 'Sales');
     await dialog.getByLabel('Effective from').fill(dmy(from));
-    await dialog.getByRole('button', { name: 'Confirm change' }).click();
+    await dialog.getByRole('button', { name: 'Transfer', exact: true }).click();
     await expect(dialog).toBeHidden();
 
     await kavya.main.getByRole('button', { name: 'Actions', exact: true }).click();
@@ -169,12 +169,12 @@ test.describe('Kavya runs HR', () => {
     dialog = kavya.drawerNamed('Change manager: Priya Sharma');
     await choose(dialog.getByLabel('New manager'), /Neha Joshi/);
     await dialog.getByLabel('Effective from').fill(dmy(from));
-    await dialog.getByRole('button', { name: 'Confirm change' }).click();
+    await dialog.getByRole('button', { name: 'Change manager', exact: true }).click();
     await expect(dialog).toBeHidden();
 
     /* Today she is still in Production under Rahul; Job changes shows both, from and to, dated. */
-    await expect(kavya.main.getByRole('list', { name: 'Summary' })).toContainText('Production');
-    await expect(kavya.main.getByRole('list', { name: 'Summary' })).toContainText('Rahul Menon');
+    await expect(kavya.main.getByRole('region', { name: 'Summary' })).toContainText('Production');
+    await expect(kavya.main.getByRole('region', { name: 'Summary' })).toContainText('Rahul Menon');
     await kavya.open('Job changes');
     await expect(kavya.row('Priya Sharma', 'Department')).toContainText(/Production → Sales/);
     await expect(kavya.row('Priya Sharma', 'Department')).toContainText(shortDate(from));
@@ -216,18 +216,23 @@ test.describe('Kavya runs HR', () => {
     /* A short window, so the page has room to scroll past the list's top with five departments. */
     await kavya.page.setViewportSize({ width: 700, height: 300 });
     await kavya.openSetting('Departments');
+    const cards = kavya.main.getByRole('list', { name: 'Departments' });
+    await expect(cards).toBeVisible();
+    await expect(cards.getByRole('listitem').first()).toBeVisible();
+    await kavya.page.setViewportSize({ width: 1280, height: 300 });
+    await expect(kavya.main.getByRole('table', { name: 'Departments' })).toBeVisible();
     const m = await kavya.page.evaluate(() => {
-      window.scrollTo(0, 0);
+      window.scrollTo({ top: 0, behavior: 'instant' });
       const th = document.querySelector('#main-content .ui-table thead th')!;
       const td = document.querySelector('#main-content .ui-table tbody tr td')!;
       const bar = document.querySelector('header')!.getBoundingClientRect().bottom;
       const top = th.getBoundingClientRect().top;
       const bottom = th.getBoundingClientRect().bottom;
       const row = td.getBoundingClientRect().top;
-      window.scrollTo(0, top - bar + 8);
+      window.scrollTo({ top: top - bar + 8, behavior: 'instant' });
       return { bottom, row, bar, stuck: th.getBoundingClientRect().top, wide: th.closest('.ui-table-scroll')!.hasAttribute('data-wide') };
     });
-    expect(m.wide, 'Departments fits 700px, so the page does the scrolling').toBe(false);
+    expect(m.wide, 'Departments fits on desktop, so the page does the scrolling').toBe(false);
     expect(m.bottom, 'head row above the first row').toBeLessThanOrEqual(m.row + 1);
     expect(Math.abs(m.stuck - m.bar), 'head row stays under the bar').toBeLessThanOrEqual(2);
   });

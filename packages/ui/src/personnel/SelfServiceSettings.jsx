@@ -24,7 +24,8 @@ export default function SelfServiceSettings() {
   const [busy, setBusy] = useState(false);
   const settings = saved || req.data;
   if (req.error && !req.data) return <ErrorState error={req.error} onRetry={req.reload} />;
-  if (!settings) return <SkeletonCard lines={4} />;
+  if (req.loading && !settings) return <SkeletonCard lines={4} />;
+  if (!Array.isArray(settings?.modes)) return <ErrorState title="Self-service settings unavailable" onRetry={req.reload} />;
   const choose = async (mode) => {
     if (mode === settings.selfServiceChanges) return;
     setBusy(true);

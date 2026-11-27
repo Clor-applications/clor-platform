@@ -3,6 +3,7 @@ import UnderEighteen from './UnderEighteen.jsx';
 import { nextEmployeeCode } from './nextCode';
 import { maskedAadhaar } from './round43';
 import CopyWord from '@ui/components/ui/CopyWord';
+import LoadFailed from '@ui/components/ui/LoadFailed';
 import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from '@ui/components/ui/lineIcons';
 import { docFolders as groupDocs } from './round46';
 
@@ -173,6 +174,7 @@ export const IMPORT_COLUMNS = [
 export default function Employees({ description = '' } = {}) {
   const [all, setAll] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadedFilters, setLoadedFilters] = useState(null);
   const [error, setError] = useState('');
   const [view, setView] = useState(() => {
     try {
@@ -242,7 +244,10 @@ export default function Employees({ description = '' } = {}) {
       if (seq !== loadSeq.current) return;
       setError(errorWords(e, 'load employees'));
     } finally {
-      if (seq === loadSeq.current) setLoading(false);
+      if (seq === loadSeq.current) {
+        setLoadedFilters(filters);
+        setLoading(false);
+      }
     }
   }, [filters]);
 
@@ -336,6 +341,14 @@ export default function Employees({ description = '' } = {}) {
   const importTemplate = () =>
     downloadImportTemplate('employees', 'CLOR employees import template').catch((e) => notify.error(errorWords(e, 'download the template')));
 
+  const changingFilters = loadedFilters !== filters;
+  const filtered = Boolean(status || Object.values(filters).some(Boolean));
+  const clearFilters = () => {
+    setFilters({ q: '', departmentId: '', jobPositionId: '', employeeTypeId: '', tagId: '' });
+    setStatus('');
+    setViewId('');
+  };
+
   if (loading) return <SkeletonCard lines={6} />;
 
   return (
@@ -384,10 +397,12 @@ export default function Employees({ description = '' } = {}) {
         { label: 'No department', value: figures.unplaced, count: true, tone: 'outstanding', tint: 'peach', Icon: UserRound },
       ]}
       tabs={TABS}
+      statusFilters
       statusValue={status}
       statusCounts={counts}
       onStatusChange={setStatus}
       tabsLabel="Employee status"
+      phoneCompact
       tabsExtras={
         <>
           {filterSelect('departmentId', 'Department', lists.departments)}
@@ -400,17 +415,16 @@ export default function Employees({ description = '' } = {}) {
             {views.map((v) => <option key={v.id} value={v.id}>{v.name}{v.shared ? (v.mine ? ' (shared by you)' : ' (shared)') : ''}</option>)}
             <option value="__save">Save these filters as a view…</option>
           </select>
+          {filtered && rows.length ? <button type="button" className="ui-link text-sm" onClick={clearFilters}>Clear filters</button> : null}
           {viewId && views.find((v) => v.id === viewId)?.mine ? <button type="button" className="ui-link text-sm" onClick={removeView}>Delete view</button> : null}
         </>
       }
     >
-      {error ? (
-        <div className="ui-card p-3 text-sm" role="alert" style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}>{error}</div>
-      ) : null}
-
-      {rows.length === 0 ? (
-        all.length ? (
-          <EmptyState kind="filtered" totalCount={all.length} title="Nobody matches" description="Nobody in this tab matches the search or the filters." />
+      {!error && !changingFilters && filtered ? <p className="ui-caption" role="status">{rows.length.toLocaleString('en-IN')} {rows.length === 1 ? 'employee matches' : 'employees match'} your filters</p> : null}
+      {changingFilters ? <p className="ui-caption" role="status">Updating employees…</p>
+        : error ? <LoadFailed message={error} onRetry={load} /> : rows.length === 0 ? (
+        filtered ? (
+          <EmptyState kind="filtered" title="Nobody matches" description="Try another search or clear the filters." action={<button type="button" className="ui-btn ui-btn-secondary" onClick={clearFilters}>Clear filters</button>} />
         ) : (
           <EmptyState
             icon={Users}
@@ -468,14 +482,18 @@ export default function Employees({ description = '' } = {}) {
                   <tr key={p.id} className="ui-row-click" onClick={() => setOpenId(p.id)}>
                     {canEdit ? <td className="w-8" onClick={(e) => e.stopPropagation()}><input type="checkbox" className="ui-checkbox" aria-label={`Choose ${p.name}`} checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td> : null}
                     <td className="ui-col-entity" data-phone="name">
-                      <span className="flex items-center gap-2">
+                      <button type="button" className="ui-link inline-flex max-w-full items-center gap-2 text-left" onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenId(p.id);
+                      }}>
                         <Avatar person={p} size={28} />
                         <span className="truncate">{p.name}</span>
-                      </span>
+                      </button>
+                      <span className="ui-caption block md:hidden">{[p.code, p.department, p.designation].filter(Boolean).join(' · ')}</span>
                     </td>
                     <td className="ui-col-meta">{p.code || '—'}</td>
                     <td className="ui-col-meta">{p.department || '—'}</td>
-                    <td className="ui-col-meta" data-phone="sub">{p.designation || '—'}</td>
+                    <td className="ui-col-meta">{p.designation || '—'}</td>
                     <td className="ui-col-meta">{p.reportingManagerName || '—'}</td>
                     <td className="ui-col-h-center">{p.dateOfJoining ? formatDateShort(p.dateOfJoining) : '—'}</td>
                     <td className="ui-col-h-center" data-phone="tag"><span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span></td>

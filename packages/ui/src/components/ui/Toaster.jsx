@@ -1,3 +1,4 @@
+import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import React, { useEffect, useRef, useState } from 'react';
 import { Toaster as SonnerToaster, toast as sonnerToast } from 'sonner';
 
@@ -194,12 +195,9 @@ export default function Toaster() {
 
       {/* --- confirm dialog --- */}
       {confirm ? (
-        <div
+        <AlertDialog.Root open><AlertDialog.Portal><div
           className="fixed inset-0 flex items-center justify-center p-4"
           style={{ zIndex: 'var(--z-toast)' }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="confirm-title"
         >
           <div
             className="absolute inset-0"
@@ -207,15 +205,17 @@ export default function Toaster() {
             onClick={() => settle(false)}
             aria-hidden="true"
           />
-          <div
+          <AlertDialog.Content
+            onOpenAutoFocus={(e) => { e.preventDefault(); cancelRef.current?.focus(); }}
+            onEscapeKeyDown={(e) => { e.preventDefault(); settle(false); }}
             ref={confirmPanelRef}
             tabIndex={-1}
             aria-busy={confirmBusy || undefined}
             className="ui-card ui-confirm ui-in-pop relative w-full max-w-sm p-5"
             style={{ boxShadow: 'var(--shadow-pop)' }}
           >
-            <h2 id="confirm-title" className="ui-t-sec">{confirm.title}</h2>
-            {confirm.message ? <p className="ui-muted mt-2 text-sm leading-relaxed">{confirm.message}</p> : null}
+            <AlertDialog.Title className="ui-t-sec">{confirm.title}</AlertDialog.Title>
+            {confirm.message ? <AlertDialog.Description className="ui-muted mt-2 text-sm leading-relaxed">{confirm.message}</AlertDialog.Description> : null}
             {confirmError ? <p className="ui-field-error mt-2" role="alert">{confirmError}</p> : null}
             <div className="ui-confirm-actions mt-5 flex justify-end gap-2">
               {confirm.stayFirst ? (
@@ -245,8 +245,8 @@ export default function Toaster() {
                 </>
               )}
             </div>
-          </div>
-        </div>
+          </AlertDialog.Content>
+        </div></AlertDialog.Portal></AlertDialog.Root>
       ) : null}
 
       {/* --- authenticator code (step-up) --- */}

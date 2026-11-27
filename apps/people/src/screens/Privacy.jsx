@@ -298,7 +298,7 @@ function GiveAccess({ onClose, onDone }) {
             <ul className="max-h-72 overflow-y-auto divide-y border-t">
               {docs.map((d) => <li key={d.id}><label className="flex items-center gap-2 py-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={draft.documentIds.includes(d.id)} onChange={() => toggleDoc(d.id)} /><span className="min-w-0 flex-1 truncate">{d.title}</span><span className="ui-caption">{d.kind?.replaceAll('_', ' ').toLowerCase()}</span></label></li>)}
             </ul>
-          ) : lists.data ? <p className="text-sm ui-muted">No documents on file.</p> : <div className="space-y-2" aria-busy="true" aria-label="Loading documents"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>}
+          ) : lists.data ? <p className="text-sm ui-muted">No documents on file.</p> : <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading documents"><div className="ui-skel h-9 w-full" /><div className="ui-skel h-9 w-full" /></div>}
         </fieldset>
       </form>
     </Drawer>

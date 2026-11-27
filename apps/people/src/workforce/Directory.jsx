@@ -7,9 +7,9 @@ import { useSuggestions } from './suggestions';
 import { Download, Filter, Pencil, Plus, Trash2, Upload, X } from '@ui/components/ui/lineIcons';
 import { BarPanel } from '../components/Core';
 import { CountLine } from '@ui/components/ui/CountLine';
-import { getOverview } from '@ui/personnel/api';
+import { getOverview, getPeopleHome } from '@ui/personnel/api';
 
-import ListHeader, { FilterTabs, ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import { screenHref } from '@ui/picks/round57';
 import DataTable, { ColumnSettings } from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
@@ -26,6 +26,7 @@ import { HOURS_WORDS } from '@ui/personnel/employmentKinds';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
 import { bulkUpdate, changeImpact, dataHealth, employeeIds, listContractors, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listAllEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
+import { usePeopleUpdates } from '../screens/usePeopleUpdates';
 import { listBranches } from '../organization/api';
 import { hasApp } from '@platform/context';
 import { STATUS, StatusBadge, can } from './shared';
@@ -71,7 +72,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
    */
   const [privateQ, setPrivateQ] = useState('');
   const p = privateQ ? { ...(params || {}), q: privateQ } : (params || {});
-  const tab = ['views', 'team', 'pending'].includes(p.tab) ? p.tab : 'directory';
+  const tab = ['views', 'team', 'pending', 'activity'].includes(p.tab) ? p.tab : 'directory';
   const page = Math.max(1, Number(p.page || 1));
   const size = [25, 50, 100].includes(Number(p.size)) ? Number(p.size) : 25;
   const set = (patch, push = false) => updateParams?.(patch, { push });
@@ -86,6 +87,16 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const list = useRequest(() => listEmployees({ ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}), limit: size, offset: (page - 1) * size }), [listKey]);
   const counts = useRequest(() => employeeCounts(), []);
   const pending = useRequest(() => workforcePending(), []);
+  const showActivity = tab === 'directory' || tab === 'activity';
+  const overview = useRequest(getOverview, [], { enabled: showActivity });
+  const daily = useRequest(() => getPeopleHome(), [], { enabled: showActivity });
+  usePeopleUpdates(() => {
+    const reads = [
+      ...(['directory', 'team'].includes(tab) ? [list, counts] : []),
+      ...(showActivity ? [daily, overview] : []),
+    ];
+    for (const read of reads) if (!read.loading && !read.refreshing) read.reload();
+  });
   const pendingCount = pending.data ? pending.data.requests.length + pending.data.scheduled.length + pending.data.invites.length + pending.data.drafts.length : 0;
   const [lists, setLists] = useState({ branches: [], departments: [], positions: [], types: [], workTypes: [], areas: [], establishments: [], units: [], grades: [], centres: [], teams: [], contractors: [], tags: [] });
   useEffect(() => {
@@ -127,6 +138,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const openRecord = (r, recordTab = 'overview') => openScreen?.('employee', { id: r.id, tab: recordTab });
   /* Under the name: the email when the Employee ID has its own column (DESIGN.md "secondary"), else the ID. */
   const codeShown = !(prefs.hidden || []).includes('code');
+  const emailShown = !(prefs.hidden || []).includes('workEmail');
   const columns = [
     { key: 'name', label: 'Employee', sortable: true, always: true, render: (r) => (
       <span className="pc-who">
@@ -134,7 +146,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         <span className="pc-who-text">
           {/* Round 29 pick "callname" C: lists show the full legal name only, as on papers. */}
           <span className="pc-who-name">{r.name}</span>
-          <span className="pc-who-sub">{codeShown ? (r.workEmail || r.email || r.code || '') : (r.code || r.workEmail || r.email || '')}</span>
+          {!codeShown && r.code ? <span className="pc-who-sub">{r.code}</span> : !emailShown && r.workEmail ? <span className="pc-who-sub">{r.workEmail}</span> : null}
         </span>
       </span>
     ) },
@@ -226,51 +238,56 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     (p.lfrom || p.lto) && { k: 'left', label: `Left ${p.lfrom ? formatDate(p.lfrom) : 'any time'} – ${p.lto ? formatDate(p.lto) : 'now'}` },
   ].filter(Boolean);
 
-  /* Status chips with counts above the list (template 24 Nov 2026): a chip at zero is left out, All always shows. */
+  // Keep the current directory population distinct from the inclusive ALL filter.
   const tally = counts.data;
-  const statusChips = !tally ? [] : [
-    { key: '', label: 'All', count: Number(tally.active || 0) + Number(tally.onNotice || 0) + Number(tally.suspended || 0) },
+  const statusOptions = !tally ? [] : [
+    { key: 'CURRENT', label: 'Current employees', count: Number(tally.active || 0) + Number(tally.onNotice || 0) + Number(tally.suspended || 0) },
     tally.leavingsHidden ? null : { key: 'ON_NOTICE', label: 'On notice', count: Number(tally.onNotice || 0) },
     { key: 'SUSPENDED', label: 'Suspended', count: Number(tally.suspended || 0) },
     tally.leavingsHidden ? null : { key: 'LEFT', label: 'Left', count: Number(tally.left || 0) },
-  ].filter((t) => t && (t.key === '' || t.count));
+  ].filter((t) => t && (t.key === 'CURRENT' || t.count));
+
+  const statusValue = p.status || 'CURRENT';
+  const showStatusPicker = statusOptions.length > 1 || Boolean(p.status);
+  const statusChoices = statusOptions.map(({ key, label, count }) => ({ value: key, label: `${label} (${count})` }));
+  if (showStatusPicker && !statusChoices.some((item) => item.value === statusValue)) {
+    statusChoices.push({ value: statusValue, label: statusValue === 'ALL' ? 'Including leavers' : STATUS[statusValue]?.label || enumWords(statusValue) });
+  }
+  const visibleChips = chips.filter((chip) => chip.k !== 'status' || !statusOptions.some((option) => option.key === statusValue));
 
   /* Nobody here yet, nobody joining and nobody gone (PEOPLE-52): no figures, tabs or search over an empty list, the way in instead. */
   const firstRun = Boolean(counts.data) && !Number(counts.data.total) && !Number(counts.data.joining) && !Number(counts.data.left) && !p.q && !filtersOn && tab === 'directory';
 
   return (
-    <div className="people-directory space-y-6">
+    <div className="people-directory space-y-4" data-column-sizing="content">
       <ListHeader
         title="Employees"
-        count={!firstRun && list.data && (tab === 'directory' || tab === 'team') ? total : null}
-        description={firstRun ? 'No one here yet. Add your team to start using leave, attendance and payroll.' : null}
-        /* The count line sits under the title (DESIGN.md "Page header"); the breakdown by department stays in the fold after the list. */
-        strip={firstRun || tab !== 'directory' ? null : <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />}
         secondary={firstRun ? null : <>
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
           {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary" disabled={exporting} onClick={() => setExportOpen(true)}><Download size={16} aria-hidden="true" /> Export</button> : null}
         </>}
         primary={allowed('PEOPLE::Employees::CREATE') ? { label: 'Add employee', icon: Plus, onClick: () => openScreen?.('employeeNew', {}) } : null}
         toolbar={!firstRun && (tab === 'directory' || tab === 'team') ? <>
-          <SearchField value={p.q || ''} onSearch={(q) => { if (/\d{6,}/.test(q)) { setPrivateQ(q); set({ q: null, page: null }); } else { setPrivateQ(''); set({ q: q || null, page: null }); } }} placeholder="Search name, employee ID or work email" label="Search employees" className="w-full sm:w-80" />
+          <SearchField value={p.q || ''} onSearch={(q) => { if (/\d{6,}/.test(q)) { setPrivateQ(q); set({ q: null, page: null }); } else { setPrivateQ(''); set({ q: q || null, page: null }); } }} placeholder="Search employees" label="Search employees" className="w-full sm:w-80" />
+          {showStatusPicker ? <div className="directory-status-filter">
+            <PopupSelect ariaLabel="Employment status" icon={null} showValueSubtext={false} value={statusValue}
+              options={statusChoices} onChange={(value) => set({ status: value === 'CURRENT' ? null : value, page: null }, true)} />
+          </div> : null}
           <button type="button" className="ui-btn ui-btn-secondary" aria-haspopup="dialog" onClick={() => setFiltersOpen(true)}>
             <Filter size={16} aria-hidden="true" /> Filters{filtersOn ? <span className="ui-pill ui-pill-info tabular-nums ml-1">{filtersOn}</span> : null}
           </button>
         </> : null}
         toolbarEnd={!firstRun && (tab === 'directory' || tab === 'team') ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={setPrefs} defaults={{ hidden: DEFAULT_HIDDEN }} /> : null}
-        tabs={firstRun ? [] : [{ key: 'directory', label: 'Directory' }, counts.data?.myTeam ? { key: 'team', label: 'My team', count: counts.data.myTeam } : null, { key: 'views', label: 'Saved views' }, pendingCount ? { key: 'pending', label: 'Pending actions', count: pendingCount } : null]}
+        tabs={firstRun ? [] : [{ key: 'directory', label: 'Directory' }, counts.data?.myTeam ? { key: 'team', label: 'My team', count: counts.data.myTeam } : null, { key: 'activity', label: 'Activity' }, { key: 'views', label: 'Saved views' }, pendingCount ? { key: 'pending', label: 'Pending actions', count: pendingCount } : null]}
         tab={tab}
         onTab={(k) => set({ tab: k === 'directory' ? null : k }, true)}
       />
       <Banners openScreen={openScreen} />
       {tab === 'team' && !firstRun ? <MyTeamPanel onFilter={(f) => set({ ...f, page: null }, true)} openScreen={openScreen} /> : null}
-      {['directory', 'team'].includes(tab) && !firstRun && statusChips.length > 1 ? (
-        <FilterTabs label="Status" tabs={statusChips} value={['ON_NOTICE', 'SUSPENDED', 'LEFT'].includes(p.status) ? p.status : p.status ? null : ''} onChange={(k) => set({ status: k || null, page: null }, true)} />
-      ) : null}
       {/* The filters in force sit above the list they narrow, so they are seen without scrolling past it (24 Nov 2026; they were under the table). */}
-      {['directory', 'team'].includes(tab) && chips.length ? (
+      {['directory', 'team'].includes(tab) && visibleChips.length ? (
         <div className="flex flex-wrap items-center gap-1.5" aria-label="Filters in force">
-          {chips.map((c) => (
+          {visibleChips.map((c) => (
             <button key={c.k} type="button" className="ui-pill" onClick={() => set(c.k === 'dates' ? { from: null, to: null, page: null } : c.k === 'left' ? { lfrom: null, lto: null, page: null } : { [c.k]: null, page: null })} aria-label={`Remove ${c.label}`}>
               {c.label} <X size={12} aria-hidden="true" />
             </button>
@@ -291,9 +308,10 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         </div>
       ) : null}
 
-      {firstRun ? <FirstRun openScreen={openScreen} mayAdd={allowed('PEOPLE::Employees::CREATE')} /> : tab === 'pending' ? <PendingActions data={pending.data} error={pending.error} reload={pending.reload} openScreen={openScreen} /> : tab === 'views' ? <SavedViews params={params || {}} prefs={prefs} onApply={(v) => { const f = v.filters || {}; set({ ...Object.fromEntries([...FILTER_KEYS, 'q', 'sort', 'dir'].map((k) => [k, f[k] || null])), view: v.id, tab: null, page: null }, true); if (f.hidden || f.order || f.density) setPrefs({ hidden: f.hidden ? String(f.hidden).split(',').filter(Boolean) : [], order: f.order ? String(f.order).split(',').filter(Boolean) : [], density: f.density || undefined }); }} canShare={allowed('PEOPLE::Employees::EDIT')} /> : (
+      {firstRun ? <FirstRun openScreen={openScreen} mayAdd={allowed('PEOPLE::Employees::CREATE')} /> : tab === 'pending' ? <PendingActions data={pending.data} error={pending.error} reload={pending.reload} openScreen={openScreen} /> : tab === 'views' ? <SavedViews params={params || {}} prefs={prefs} onApply={(v) => { const f = v.filters || {}; set({ ...Object.fromEntries([...FILTER_KEYS, 'q', 'sort', 'dir'].map((k) => [k, f[k] || null])), view: v.id, tab: null, page: null }, true); if (f.hidden || f.order || f.density) setPrefs({ hidden: f.hidden ? String(f.hidden).split(',').filter(Boolean) : [], order: f.order ? String(f.order).split(',').filter(Boolean) : [], density: f.density || undefined }); }} canShare={allowed('PEOPLE::Employees::EDIT')} /> : tab === 'activity' ? null : (
         <DataTable
           label="Employees"
+          recordColumn="name" showSortHint mobileSelectAll
           columns={columns}
           rows={rows}
           total={total}
@@ -303,7 +321,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
           onPageSize={(n) => set({ size: n === 25 ? null : n, page: null })}
           sort={p.sort ? { key: p.sort, dir: p.dir === 'desc' ? 'desc' : 'asc' } : null}
           onSort={(s) => set({ sort: s.key, dir: s.dir === 'desc' ? 'desc' : null, page: null })}
-          prefs={prefs}
+          prefs={prefs} onPrefs={setPrefs} externalColumnSettings
           selectable={allowed('PEOPLE::Employees::EDIT') || allowed('PEOPLE::Employees::EXPORT')}
           selected={selected}
           onSelect={setSelected}
@@ -313,13 +331,10 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
           loading={list.loading}
           refreshing={list.refreshing}
           card={(r) => (
-            <span className="flex items-center gap-3 min-w-0">
-              <Avatar person={r} size={40} />
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><StatusBadge employee={r} quiet /></span>
-                <span className="block truncate ui-caption">{[r.code, r.designation].filter(Boolean).join(' · ')}</span>
-                <span className="block truncate ui-caption">{[r.department, r.branchName || r.areaName || r.workLocation].filter(Boolean).join(' · ')}</span>
-              </span>
+            <span className="directory-record">
+              <span className="directory-record-meta"><span>{r.code}</span><StatusBadge employee={r} quiet /></span>
+              <span className="directory-record-person"><Avatar person={r} size={28} /><strong>{r.name}</strong></span>
+              <span className="ui-caption">{[r.designation, r.department, r.branchName || r.areaName || r.workLocation].filter(Boolean).join(' · ')}</span>
             </span>
           )}
           empty={list.error ? (
@@ -338,11 +353,13 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
 
       {['directory', 'team'].includes(tab) && list.error && rows.length ? <Alert tone="neg" title="Could not refresh the list" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.reload}>Retry</button>}>Showing the last list loaded. {list.error.message}</Alert> : null}
       {['directory', 'team'].includes(tab) && list.slow ? <Alert tone="info" title="Still loading employee records…" action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={list.cancel}>Cancel</button>} /> : null}
+      {!firstRun && showActivity ? <DirectoryActivity overview={overview} daily={daily} expanded={tab === 'activity'} onExpand={() => set({ tab: 'activity' }, true)} openRecord={openRecord} /> : null}
       {!firstRun && tab === 'directory' ? (
         <details className="ui-phone-filters ui-figures-fold">
-          <summary>Show figures</summary>
+          <summary>Workforce figures</summary>
+          <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
           <div className="pc-directory-top">
-            <Breakdown counts={counts.data} everyone={everyone} types={lists.types} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
+            <Breakdown overview={overview} counts={counts.data} everyone={everyone} types={lists.types} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
           </div>
         </details>
       ) : null}
@@ -364,6 +381,43 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       {result ? <BulkResult result={result} onClose={() => setResult(null)} /> : null}
       {appAccess ? <AppAccessSend people={appAccess} onClose={() => { setAppAccess(null); setSelected(new Set()); }} /> : null}
     </div>
+  );
+}
+
+function DirectoryActivity({ daily, overview, expanded, onExpand, openRecord }) {
+  const today = daily.data?.today;
+  const day = today?.date || todayIst();
+  const feed = today?.feed || [];
+  const joinedToday = new Set(feed.filter((event) => event.kind === 'joined').map((event) => event.employeeId));
+  const events = [
+    ...feed.map((event) => ({
+      id: event.employeeId, name: event.name, label: event.text, day, time: event.at,
+      kind: event.kind, detail: event.from ? [event.from, event.to !== event.from && event.to].filter(Boolean).map((date) => formatDate(date)).join(' – ') : '',
+    })),
+    ...(overview.data?.joinedThisMonth || []).filter((person) => !joinedToday.has(person.id)).map((person) => ({
+      id: person.id, name: person.name, label: 'Joined the company', day: String(person.date || person.dateOfJoining || '').slice(0, 10),
+      kind: 'joined', detail: person.designation,
+    })),
+  ].sort((a, b) => b.day.localeCompare(a.day) || (b.time || '').localeCompare(a.time || '') || a.name.localeCompare(b.name));
+  const reads = [daily, overview];
+  const loading = reads.some((read) => read.loading);
+  const failed = reads.find((read) => read.error);
+  return (
+    <section className="directory-activity" aria-labelledby="directory-activity-title">
+      <header><h2 id="directory-activity-title" className="ui-t-sec">Employee activity</h2>
+        {!expanded ? <button type="button" className="ui-link text-sm" onClick={onExpand}>View activity ↗</button> : null}
+      </header>
+      {failed ? <ErrorState compact error={failed.error} onRetry={failed.reload} /> : null}
+      {events.length ? <ol>
+        {(expanded ? events : events.slice(0, 3)).map((event, i) => (
+          <li key={`${event.id}-${event.kind}-${event.day}-${i}`}>
+            <time dateTime={event.day}>{event.day === day ? 'Today' : formatDate(event.day)}{event.time && event.time !== '00:00' ? ` · ${event.time}` : ''}</time>
+            <div><button type="button" className="directory-activity-person" onClick={() => openRecord({ id: event.id }, 'activity')}>{event.name}</button>
+              <span>{event.label}{event.detail ? ` · ${event.detail}` : ''}</span></div>
+          </li>
+        ))}
+      </ol> : loading ? <span className="ui-skel ui-skel-text" role="status" aria-busy="true" aria-label="Loading activity" /> : !failed ? <p className="ui-caption">No activity today or new joiners this month.</p> : null}
+    </section>
   );
 }
 
@@ -437,8 +491,7 @@ function MetricStrip({ counts, onPick }) {
  * By department (PEOPLE-02): today's headcount per department on the soft panel, from the same overview Home reads,
  * and beside it the movements the tiles do not carry, each opening the list filtered to them.
  */
-function Breakdown({ counts, everyone, types, onPick }) {
-  const overview = useRequest(() => getOverview(), []);
+function Breakdown({ overview, counts, everyone, types, onPick }) {
   const depts = overview.data?.byDepartment || [];
   if (!overview.data && !counts) return null;
   /* By employment type: everyone working now, from the directory's own read of up to 500 people. */
@@ -615,7 +668,7 @@ function BulkImpact({ ids, field, value }) {
     return () => { live = false; };
   }, [wanted, key, field, value]);
   if (!wanted) return null;
-  if (state.ask !== wanted) return <span className="ui-skel ui-skel-text" aria-label="Checking what else this affects" />;
+  if (state.ask !== wanted) return <span className="ui-skel ui-skel-text" role="status" aria-busy="true" aria-label="Checking what else this affects" />;
   if (!state.lines.length) return null;
   return (
     <div className="ui-impact" aria-label="What else this affects">
@@ -825,7 +878,6 @@ function FirstRun({ openScreen, mayAdd }) {
       <section className="people-first-run" aria-labelledby="first-run-h">
         <UserPlus size={20} aria-hidden="true" />
         <h2 id="first-run-h" className="people-first-run-title">Bring your team into CLOR People</h2>
-        <p className="people-first-run-text">Most companies import from Excel in a few minutes. You can also add people one by one, or connect your attendance reader and match punches to names.</p>
         {/* Round 57 firstrunlist A: the ways in side by side; start the way you like. */}
         {mayAdd ? (
           <div className="people-first-run-ways">

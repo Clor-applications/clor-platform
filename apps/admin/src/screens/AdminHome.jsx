@@ -1,3 +1,4 @@
+import { DashboardStats } from '@ui/components/ui/DashboardBoard';
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, CreditCard, LayoutGrid, Plus, ShieldCheck, Users } from '@ui/components/ui/lineIcons';
 
@@ -156,53 +157,67 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const [invites, setInvites] = useState(null);
   const [setupFacts, setSetupFacts] = useState(null);
   const [today, setToday] = useState({});
-  const attentionRef = useRef(null);
   /* At a glance folds away, as the reader left it; Top actions can show one subject at a time. */
   const [folded, setFolded] = useState(false);
   const [area, setArea] = useState(null);
   /* Who this is could not be read: Top actions says so, with a retry, instead of "Nothing needs your action". */
   const [meFailed, setMeFailed] = useState(false);
+  const [checks, setChecks] = useState({});
+  const sources = useRef(new Map());
   const [attempt, setAttempt] = useState(0);
   /* Which apps are on here, as one string: the effect below reads it and must not re-run on a new array of the same apps. */
   const subsKey = (tenant?.subscriptions || []).join(',');
 
   useEffect(() => {
     let live = true;
-    getAccountMe()
-      .then((r) => {
+    const reads = new Map();
+    sources.current = reads;
+    const read = (label, fetch, apply) => {
+      const refresh = () => {
+        setChecks((current) => ({ ...current, [label]: 'loading' }));
+        Promise.resolve().then(fetch).then((response) => {
+          if (!live) return;
+          apply(response);
+          setChecks((current) => ({ ...current, [label]: 'ready' }));
+        }).catch(() => {
+          if (live) setChecks((current) => ({ ...current, [label]: 'failed' }));
+        });
+      };
+      reads.set(label, refresh);
+      refresh();
+    };
+    Promise.resolve().then(() => {
+      if (!live) return null;
+      setMe(undefined);
+      setMeFailed(false);
+      setChecks({});
+      return getAccountMe();
+    }).then((r) => {
         if (!live) return;
         setMeFailed(false);
         setMe(r || null);
         const role = r?.role;
-        if (role === 'OWNER' || role === 'ADMIN' || role === 'BILLING_ADMIN') getAccountOverview().then((o) => live && setOverview(o || false)).catch(() => live && setOverview(false)); /* false: read and failed, so nothing waits on it */
-        if (role === 'OWNER' || role === 'ADMIN') {
-          listAccountMembers().then((m) => live && setMembers(m?.members || [])).catch(() => {});
-          listInvitations()
-            .then((x) => {
-              if (!live) return;
-              setInvites(x?.invitations || []);
-              setPending((x?.invitations || []).filter((i) => i.status === 'PENDING').length);
-            })
-            .catch(() => {});
-          /* The company profile and sign-in policy, for the setup steps (SetupGuide reads the same). */
-          const org = tenant?.id;
-          Promise.all([
-            org ? Promise.resolve().then(() => apiFetch(`/orgs/${encodeURIComponent(org)}/company-profile`, { skipWarehouseHeader: true })).then((x) => x?.company || null).catch(() => null) : null,
-            Promise.resolve().then(getPolicy).then((x) => x?.policy || null).catch(() => null),
-          ]).then(([profile, policy]) => live && setSetupFacts({ profile, policy }));
-          accountAudit({ limit: 6 }).then((a) => live && setActivity(a?.events || [])).catch(() => {});
-          memberDirectory()
-            .then((d) => live && setDirectory(d?.members || []))
-            .catch(() => {});
-          /* Accountants let in for a time: one whose access ends within a week is worth a word (CLOR-01). */
-          Promise.resolve()
-            .then(listOutsideAccess)
-            .then((o) => live && setOutside(o ? { ...o, readAt: Date.now() } : null))
-            .catch(() => {});
+        if (role === 'OWNER' || role === 'ADMIN' || role === 'BILLING_ADMIN') {
+          read('plan and companies', getAccountOverview, (result) => setOverview(result || null));
         }
-        listTickets().then((t) => live && setTickets(t?.tickets || [])).catch(() => {});
-        /* What waits on this person in each app they can open here. */
-        if (Array.isArray(r?.apps) && r.apps.length) Promise.resolve().then(getWaiting).then((w) => live && setWaiting(w || null)).catch(() => {});
+        if (role === 'OWNER' || role === 'ADMIN') {
+          read('member counts', listAccountMembers, (result) => setMembers(result?.members || []));
+          read('invitations', listInvitations, (result) => {
+            const next = result?.invitations || [];
+            setInvites(next);
+            setPending(next.filter((item) => item.status === 'PENDING').length);
+          });
+          const org = tenant?.id;
+          read('setup checks', () => Promise.all([
+            org ? apiFetch(`/orgs/${encodeURIComponent(org)}/company-profile`, { skipWarehouseHeader: true }) : null,
+            getPolicy(),
+          ]), ([profile, policy]) => setSetupFacts({ profile: profile?.company || null, policy: policy?.policy || null }));
+          read('recent activity', () => accountAudit({ limit: 6 }), (result) => setActivity(result?.events || []));
+          read('member access', memberDirectory, (result) => setDirectory(result?.members || []));
+          read('outside access', listOutsideAccess, (result) => setOutside(result ? { ...result, readAt: Date.now() } : null));
+        }
+        read('support tickets', listTickets, (result) => setTickets(result?.tickets || []));
+        if (Array.isArray(r?.apps) && r.apps.length) read('waiting work', getWaiting, (result) => setWaiting(result || null));
         /*
          * Today in each app this person can open here: the app's own overview, read as that app's
          * screen reads it, so the figures and who may see them are the app's (a refusal draws
@@ -350,14 +365,19 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
 
 
   /* Setup, from the same steps as the rail's Setup guide: owners and administrators only. */
-  const steps = isAdmin && overview && directory && setupFacts
+  const steps = isAdmin && overview && directory && setupFacts && checks.invitations === 'ready'
     ? setupSteps({ tenantId: tenant?.id, overview, profile: setupFacts.profile, directory: { members: directory }, invitations: invites || [], policy: setupFacts.policy })
     : null;
   const stepsDone = steps ? steps.filter((x) => x.done).length : 0;
   const here = (overview?.companies || []).find((c) => c.orgId === tenant?.id) || (overview?.companies || [])[0] || null;
 
-  /* Until the account's figures are in, an owner's attention list is not complete: no "0" and no "nothing needs you" yet. */
-  const settled = !loading && (!(isAdmin || seesPlan) || overview !== null);
+  const actionChecks = Object.entries(checks).filter(([label]) => label !== 'recent activity');
+  const settled = !loading && actionChecks.every(([, status]) => status !== 'loading');
+  const failedChecks = actionChecks.filter(([, status]) => status === 'failed').map(([label]) => label);
+  const retry = () => {
+    if (meFailed) setAttempt((n) => n + 1);
+    else failedChecks.forEach((label) => sources.current.get(label)?.());
+  };
 
   /* People each app has, from the directory: a seat once per person per app. */
   const inApp = directory ? new Map(seatsByApp(directory, [], built.map((a) => a.id)).map((x) => [x.app, x.used])) : null;
@@ -425,6 +445,112 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           ) : null}
         </header>
 
+        {settled && !meFailed ? (
+          <DashboardStats label="Workspace summary" items={[
+            { key: 'actions', label: 'Top actions', value: failedChecks.length ? null : actions.length, detail: failedChecks.length ? 'Some sources are unavailable' : urgent ? `${plural(urgent, 'urgent item')}` : 'No urgent items', tone: urgent ? 'warn' : undefined },
+            { key: 'apps', label: 'Active apps', value: onCount, onClick: go('apps') },
+            ...(isAdmin && pending !== null ? [{ key: 'pending', label: 'Pending invitations', value: pending, onClick: go('invitations') }] : []),
+          ]} />
+        ) : null}
+        <div className="dashboard-board">
+          <section className="wsg-band dashboard-panel" aria-labelledby="ws-attn-title">
+            <div className="wsg-band-head">
+              <h2 id="ws-attn-title" className="wsg-band-title">Top actions</h2>
+              {waitingLines.length && go('inbox') ? (
+                <button type="button" className="ws-link" onClick={go('inbox')}>
+                  Open inbox <ChevronRight size={16} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+            {settled && areas.length > 1 ? (
+              <div className="wsg-chips" role="group" aria-label="Show actions about">
+                {['All', ...areas].map((x) => {
+                  const n = x === 'All' ? actions.length : actions.filter((a) => a.area === x).length;
+                  return (
+                    <button key={x} type="button" className="wsg-chip" aria-pressed={(area || 'All') === x} onClick={() => setArea(x === 'All' ? null : x)}>
+                      {x} <span className="ui-num">{n}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+            {!settled ? (
+              <ul className="wsg-acts" aria-hidden="true">
+                {[0, 1, 2].map((i) => (
+                  <li key={i} className="wsg-act">
+                    <span className="ui-skel ui-skel-text" style={{ width: '40%' }} />
+                    <span className="ui-skel ui-skel-text" style={{ width: '80%' }} />
+                    <span className="ui-skel ui-skel-text" style={{ width: '60%' }} />
+                  </li>
+                ))}
+              </ul>
+            ) : actions.length ? (
+              <ul className="wsg-acts" aria-label={urgent ? `${plural(urgent, 'urgent item')}` : 'Nothing urgent'}>
+                {actions.filter((a) => !area || a.area === area).map((a) => (
+                  <li key={a.key} className="wsg-act" data-tone={a.tone || undefined}>
+                    <div className="wsg-act-body">
+                      <div className="wsg-act-head">
+                        <span className="wsg-act-area" data-area={a.area}>{a.area}</span>
+                        {/* Severity only, and only on what is urgent (DESIGN.md: tags on exceptions); the subject is said once, on the left. */}
+                        {a.tone === 'danger' ? <span className="ws-pill ws-pill--danger">{a.key === 'overdue' ? 'Overdue' : 'Urgent'}</span> : a.tone === 'warn' ? <span className="ws-pill ws-pill--warn">Needs action</span> : null}
+                      </div>
+                      <h3 className="wsg-act-title">{a.title}</h3>
+                      <p className="wsg-act-sub">{a.sub}</p>
+                      {a.meter ? <Meter coverage label="Steps done" used={a.meter.used} limit={a.meter.limit} /> : null}
+                    </div>
+                    {a.go ? (
+                      <div className="wsg-foot">
+                        <button type="button" className="ws-link" onClick={a.go} aria-label={`${a.action || 'Open'}: ${typeof a.title === 'string' ? a.title : textOf(a.title)}`}>
+                          {a.action || 'Open'} <ChevronRight size={16} aria-hidden="true" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : settled && !meFailed && !failedChecks.length ? (
+              <p className="wsg-calm">Nothing needs your action right now.</p>
+            ) : null}
+            {settled && (meFailed || failedChecks.length > 0) ? (
+              <LoadError onRetry={retry}>
+                {meFailed ? 'What needs your action could not be loaded.' : `Could not check ${new Intl.ListFormat('en').format(failedChecks)}.`}
+              </LoadError>
+            ) : null}
+          </section>
+          {activity || checks['recent activity'] === 'failed' ? (
+            <section className="dashboard-panel" aria-labelledby="ws-activity-title">
+              <div className="wsg-band-head">
+                <h2 id="ws-activity-title" className="wsg-card-title">Recent activity</h2>
+                {go('accountActivity') ? <button type="button" className="ws-link" onClick={go('accountActivity')}>View all <ChevronRight size={16} aria-hidden="true" /></button> : null}
+              </div>
+              {checks['recent activity'] === 'failed' ? (
+                <LoadError onRetry={() => sources.current.get('recent activity')?.()}>Recent activity could not be loaded.</LoadError>
+              ) : activity.length ? (
+                <ol className="wsh-feed">
+                  {activity.map((e) => (
+                    <li key={e.id} data-denied={e.result === 'DENIED' || undefined}>
+                      <Avatar name={e.actor?.name || 'Someone'} />
+                      <span className="wsh-feed-text">
+                        <span>
+                          <strong>{e.actor?.name || 'Someone'}</strong>{' '}
+                          <span className="wsh-feed-what">
+                            {e.result === 'DENIED' ? 'was refused: ' : ''}
+                            {actionText(e.action)}
+                            {e.targetName ? `: ${e.targetName}` : ''}
+                          </span>
+                        </span>
+                        <time className="wsh-feed-when" dateTime={e.at} title={dateWords(e.at)}>{ago(e.at)}</time>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="wsg-muted">Nothing recorded yet. Invitations, role changes and sign-in settings show here as they happen.</p>
+              )}
+            </section>
+          ) : null}
+        </div>
+
         <section className="wsg-band" aria-labelledby="wsg-glance-title">
           <h2 className="wsg-band-title">
             <button type="button" className="wsg-fold" aria-expanded={!folded} aria-controls="wsg-glance" onClick={() => setFolded((f) => !f)}>
@@ -440,7 +566,11 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   hero={{
                     label: memberCount === 1 ? 'Active member' : 'Active members',
                     value: memberCount.toLocaleString('en-IN'),
-                    words: pending ? `${plural(pending, 'invitation')} not accepted yet` : 'Everyone invited has joined',
+                    words: checks.invitations === 'failed'
+                      ? 'Invitation status unavailable'
+                      : pending === null
+                        ? 'Checking invitations…'
+                        : pending ? `${plural(pending, 'invitation')} not accepted yet` : 'Everyone invited has joined',
                   }}
                   rows={memberSeats.map((x) => ({
                     key: x.app,
@@ -542,7 +672,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   label="Members with an authenticator"
                   figure={security.withTotp}
                   of={security.active || null}
-                  note={privilegedNo2fa ? `${plural(privilegedNo2fa, 'administrator')} without one` : 'Every administrator uses one'}
+                  note={privilegedNo2fa ? `${plural(privilegedNo2fa, 'administrator')} without one` : security.active ? 'Every administrator uses one' : 'No active members'}
                   foot={[{ label: 'Open security', go: go('securityHome') }]}
                 >
                   {security.active ? (
@@ -584,66 +714,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             <p className="wsg-muted">You are in {tenant?.name || 'this company'}, but no app is open to you yet. An administrator gives access by giving you a role.</p>
           </section>
         ) : null}
-
-        <section ref={attentionRef} className="wsg-band" style={{ scrollMarginTop: 16 }} aria-labelledby="ws-attn-title">
-          <div className="wsg-band-head">
-            <h2 id="ws-attn-title" className="wsg-band-title">Top actions</h2>
-            {waitingLines.length && go('inbox') ? (
-              <button type="button" className="ws-link" onClick={go('inbox')}>
-                Open inbox <ChevronRight size={16} aria-hidden="true" />
-              </button>
-            ) : null}
-          </div>
-          {settled && areas.length > 1 ? (
-            <div className="wsg-chips" role="group" aria-label="Show actions about">
-              {['All', ...areas].map((x) => {
-                const n = x === 'All' ? actions.length : actions.filter((a) => a.area === x).length;
-                return (
-                  <button key={x} type="button" className="wsg-chip" aria-pressed={(area || 'All') === x} onClick={() => setArea(x === 'All' ? null : x)}>
-                    {x} <span className="ui-num">{n}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-          {!settled ? (
-            <ul className="wsg-acts" aria-hidden="true">
-              {[0, 1, 2].map((i) => (
-                <li key={i} className="wsg-card wsg-act">
-                  <span className="ui-skel ui-skel-text" style={{ width: '40%' }} />
-                  <span className="ui-skel ui-skel-text" style={{ width: '80%' }} />
-                  <span className="ui-skel ui-skel-text" style={{ width: '60%' }} />
-                </li>
-              ))}
-            </ul>
-          ) : actions.length ? (
-            <ul className="wsg-acts" aria-label={urgent ? `${plural(urgent, 'urgent item')}` : 'Nothing urgent'}>
-              {actions.filter((a) => !area || a.area === area).map((a) => (
-                <li key={a.key} className="wsg-card wsg-act" data-tone={a.tone || undefined}>
-                  <div className="wsg-act-head">
-                    <span className="wsg-act-area" data-area={a.area}>{a.area}</span>
-                    {/* Severity only, and only on what is urgent (DESIGN.md: tags on exceptions); the subject is said once, on the left. */}
-                    {a.tone === 'danger' ? <span className="ws-pill ws-pill--danger">Urgent</span> : a.tone === 'warn' ? <span className="ws-pill ws-pill--warn">Needs action</span> : null}
-                  </div>
-                  <h3 className="wsg-act-title">{a.title}</h3>
-                  <p className="wsg-act-sub">{a.sub}</p>
-                  {a.meter ? <Meter coverage label="Steps done" used={a.meter.used} limit={a.meter.limit} /> : null}
-                  {a.go ? (
-                    <div className="wsg-foot">
-                      <button type="button" className="ws-link" onClick={a.go} aria-label={`${a.action || 'Open'}: ${typeof a.title === 'string' ? a.title : textOf(a.title)}`}>
-                        {a.action || 'Open'} <ChevronRight size={16} aria-hidden="true" />
-                      </button>
-                    </div>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : meFailed ? (
-            <LoadError onRetry={() => { setMeFailed(false); setMe(undefined); setAttempt((n) => n + 1); }}>What needs your action could not be loaded.</LoadError>
-          ) : (
-            <p className="wsg-calm">Nothing needs your action right now.</p>
-          )}
-        </section>
 
         {companiesTable && companiesTable.length > 1 ? (
           <section className="wsg-band" aria-labelledby="ws-cos-title">
@@ -687,37 +757,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         ) : null}
 
         <div className="wsg-pair">
-          {activity ? (
-            <section className="wsg-card" aria-labelledby="ws-activity-title">
-              <div className="wsg-band-head">
-                <h2 id="ws-activity-title" className="wsg-card-title">Recent activity</h2>
-                {go('accountActivity') ? <button type="button" className="ws-link" onClick={go('accountActivity')}>View all <ChevronRight size={16} aria-hidden="true" /></button> : null}
-              </div>
-              {activity.length ? (
-                <ol className="wsh-feed">
-                  {activity.map((e) => (
-                    <li key={e.id} data-denied={e.result === 'DENIED' || undefined}>
-                      <Avatar name={e.actor?.name || 'Someone'} />
-                      <span className="wsh-feed-text">
-                        <span>
-                          <strong>{e.actor?.name || 'Someone'}</strong>{' '}
-                          <span className="wsh-feed-what">
-                            {e.result === 'DENIED' ? 'was refused: ' : ''}
-                            {actionText(e.action)}
-                            {e.targetName ? `: ${e.targetName}` : ''}
-                          </span>
-                        </span>
-                        <span className="wsh-feed-when">{ago(e.at)}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="wsg-muted">Nothing recorded yet. Invitations, role changes and sign-in settings show here as they happen.</p>
-              )}
-            </section>
-          ) : null}
-
           <section className="wsg-card" aria-labelledby="ws-help-title">
             <h2 id="ws-help-title" className="wsg-card-title">Help and support</h2>
             <ul className="wsg-list">

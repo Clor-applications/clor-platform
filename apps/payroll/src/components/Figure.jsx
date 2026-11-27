@@ -23,7 +23,7 @@ export function Figure({ label, value, raw, hint = null, showZero = false }) {
   return (
     <div className="min-w-0">
       <dt className="ui-t-label">{label}</dt>
-      <dd className="ui-num m-0 text-[1.375rem] leading-7 font-semibold tabular-nums">{value}</dd>
+      <dd className="ui-num m-0 text-[1.375rem] leading-7 font-semibold tabular-nums [overflow-wrap:anywhere]">{value}</dd>
       {hint ? <dd className="ui-caption m-0">{hint}</dd> : null}
     </div>
   );
@@ -34,7 +34,7 @@ export function Figures({ items = [], label }) {
   const shown = items.filter((f) => f && (f.showZero || !isZero(f.value, f.raw)));
   if (!shown.length) return null;
   return (
-    <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3" aria-label={label}>
+    <dl className="grid gap-x-6 gap-y-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 10rem), 1fr))' }} aria-label={label}>
       {shown.map((f) => (
         <Figure key={f.label} {...f} />
       ))}

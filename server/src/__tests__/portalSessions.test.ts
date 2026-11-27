@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 
@@ -9,12 +9,13 @@ import jwt from 'jsonwebtoken';
 const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { outsideTenant } = await import('../utils/tenantScope.js');
-const { deviceLabel } = await import('../services/portalSessions.js');
+const { deviceLabel, legacyCutoff } = await import('../services/portalSessions.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(() => new Promise((done) => app.close(done)));
 const rnd = () => Math.random().toString(36).slice(2, 8);
 const DAY = 864e5;
+afterEach(() => vi.restoreAllMocks());
 
 type Ctx = { token: string; orgId: string; branchId: string; accountId: string };
 const at = (c: Ctx) => ({ Authorization: `Bearer ${c.token}`, 'x-org-id': c.orgId, 'x-branch-id': c.branchId });
@@ -110,6 +111,7 @@ describe('a sign-in is a session on one device', () => {
 describe('HR and the person’s status', () => {
   it('suspended: every device is signed out — older tokens too — and sign-in says why (AE6)', async () => {
     const e = await employee(c);
+    vi.spyOn(Date, 'now').mockReturnValue(legacyCutoff() - DAY);
     const old = legacyToken(e, c, await pvOf(e.id), Math.floor(Date.now() / 1000) - 60);
     await me(old).expect(200);
     await request(app).put(`/api/orgs/${c.orgId}/people/employees/${e.id}`).set(at(c)).send({ status: 'SUSPENDED' }).expect(200);
@@ -167,6 +169,8 @@ describe('HR and the person’s status', () => {
 describe('tokens from before sessions', () => {
   it('keep working until the cut-off, which an unset setting cannot remove', async () => {
     const e = await employee(c);
+    const deadline = legacyCutoff();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(deadline - DAY);
     const old = legacyToken(e, c, await pvOf(e.id));
     await me(old).expect(200);
     const before = process.env.PORTAL_LEGACY_JWT_UNTIL;
@@ -175,6 +179,8 @@ describe('tokens from before sessions', () => {
       expect((await me(old)).status).toBe(401);
       process.env.PORTAL_LEGACY_JWT_UNTIL = '2099-01-01T00:00:00Z';
       await me(old).expect(200);
+      clock.mockReturnValue(deadline);
+      await me(old).expect(401);
     } finally {
       if (before === undefined) delete process.env.PORTAL_LEGACY_JWT_UNTIL;
       else process.env.PORTAL_LEGACY_JWT_UNTIL = before;

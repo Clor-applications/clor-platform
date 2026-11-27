@@ -1,0 +1,773 @@
+/* People is an operating workspace. The page, its controls and the records
+   share an edge, while the panel and actions keep their own visual weight. */
+:root[data-app='people'] {
+  --people-canvas: var(--app-bg);
+  --people-paper: 255 255 255;
+  --people-rule: 226 232 240;
+  --people-quiet: 241 245 249;
+  --people-padding: 1rem;
+  --people-column-bg: 237 229 245;
+  --people-column-ink: 72 48 92;
+}
+
+:root[data-app='people'][data-theme='dark'] {
+  --people-column-bg: 54 42 66;
+  --people-column-ink: 242 229 251;
+}
+
+@media (min-width: 768px) {
+  :root[data-app='people'] {
+    --workspace-rail-width: 4rem;
+    --workspace-rail-label-size: 0.65625rem;
+    --workspace-rail-gutter: 0.1875rem;
+    --workspace-rail-item-gutter: 0px;
+    --workspace-rail-label-bleed: 0.0625rem;
+  }
+
+  :root[data-app='people'] .ui-topbar-logo :is(svg, img) { max-inline-size: 90%; height: auto; }
+}
+
+:root[data-app='people'] #main-content {
+  background-color: rgb(var(--people-canvas));
+  padding-inline: var(--people-padding);
+}
+
+:root[data-app='people'] .ui-content {
+  min-width: 0;
+}
+
+:root[data-app='people'] .ui-topbar .ui-app-switch-name {
+  color: rgb(var(--fg-heading));
+}
+
+:root[data-app='people'] :is(.ui-topbar button, .ui-skip-link):focus-visible {
+  outline: 2px solid rgb(var(--act-hover));
+  outline-offset: 2px;
+  box-shadow: inset 0 0 0 2px rgb(var(--act-hover));
+}
+
+:root[data-app='people'] .ui-skip-link:focus {
+  position: fixed;
+  z-index: calc(var(--z-platform-bar) + 1);
+  border-color: rgb(var(--people-paper));
+}
+
+:root[data-app='people'] :is(.ui-split-mod, .ui-split-item, .ui-tabbar-item):focus-visible {
+  outline-offset: -2px;
+}
+
+:root[data-app='people'] .ui-split-panel-head .ui-t-sec {
+  color: rgb(var(--fg-heading));
+}
+
+:root[data-app='people'] #main-content .ui-page-heading {
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+
+:root[data-app='people'] #main-content .ui-list-header .ui-list-toolbar {
+  min-width: 0;
+  row-gap: 0.5rem;
+}
+
+:root[data-app='people'] #main-content .ui-list-header > .ui-list-toolbar {
+  padding-block: 0.625rem;
+  border-top: 1px solid rgb(var(--people-rule));
+}
+
+:root[data-app='people'] #main-content .ui-page-heading p.ui-muted.ui-t-body {
+  max-inline-size: 64ch;
+}
+
+:root[data-app='people'] #main-content .ui-table {
+  background: rgb(var(--people-paper));
+  border-spacing: 0;
+}
+
+:root[data-app='people'] #main-content .ui-table :is(thead, tbody, tfoot) :is(th, td) {
+  border-inline-start-color: transparent;
+  border-bottom-color: rgb(var(--people-rule));
+}
+
+:root[data-app='people'] #main-content .ui-table tbody tr:focus-within > td {
+  background-color: rgb(var(--tint));
+}
+
+:root[data-app='people'] #main-content .ui-table :is(.ui-col-amount, .ui-col-number, .ui-col-date) {
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-app='people'] #main-content .ui-record-tablist {
+  scrollbar-width: thin;
+}
+
+:root[data-app='people'] #main-content :is(.ui-record-section, .ui-form-part) {
+  min-width: 0;
+}
+
+:root[data-app='people'] #main-content .pc-summary {
+  padding: clamp(1rem, 2.5vw, 1.75rem);
+  background: rgb(var(--people-quiet));
+  border-color: rgb(var(--people-rule));
+}
+
+:root[data-app='people'] #main-content .pc-summary .ui-avatar-initials {
+  background: rgb(var(--tint)) !important;
+  color: rgb(var(--act-hover)) !important;
+}
+
+:root[data-app='people'] #main-content .pc-summary-facts {
+  padding-inline-start: 1.25rem;
+  border-inline-start: 1px solid rgb(var(--people-rule));
+}
+
+:root[data-app='people'] #main-content .ui-settings-catalog {
+  columns: 21rem 3;
+  column-gap: 1rem;
+}
+
+:root[data-app='people'] #main-content .ui-settings-catalog > * {
+  min-width: 0;
+  break-inside: avoid;
+  margin-block: 0 1rem;
+}
+
+:root[data-app='people'] #main-content :is(.ui-settings-group, .people-report-group) {
+  padding: 1rem;
+  border: 1px solid rgb(var(--people-rule));
+  border-radius: 0.75rem;
+  background: rgb(var(--people-paper));
+}
+
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-note {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-rows {
+  display: block;
+}
+
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-rows > li {
+  border-top: 1px solid rgb(var(--people-rule));
+}
+
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'icon label arrow';
+  min-height: 3.25rem;
+  padding: 0.5rem 0.25rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row-icon:not(:empty) {
+  width: 1.875rem;
+  height: 1.875rem;
+  background: rgb(var(--tint));
+  color: rgb(var(--act-hover));
+}
+
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row-icon > svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row-icon:empty { display: none; }
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row:has(> .ui-settings-row-icon:empty) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'label arrow';
+}
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row-label { align-self: center; }
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row-go {
+  grid-area: arrow;
+  display: block;
+  color: rgb(var(--fg-muted));
+}
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row:hover,
+:root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row:focus-visible {
+  background: rgb(var(--tint));
+}
+
+:root[data-app='people'] #main-content .people-home--daily {
+  max-width: 86rem;
+  margin-inline: auto;
+}
+
+/* The shell already supplies the page gutters. Align Home with the other People pages. */
+:root[data-app='people'] #main-content .people-home--overview {
+  max-width: none;
+  gap: 1rem;
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  :root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row-go {
+    transition: transform 150ms var(--ease-out);
+  }
+  :root[data-app='people'] #main-content .ui-settings-catalog .ui-settings-row:hover .ui-settings-row-go {
+    transform: translateX(2px);
+  }
+}
+
+@media (max-width: 767px) {
+  :root[data-app='people'] .people-home--daily { --workspace-button-min-height: 44px; }
+
+  :root[data-app='people'] :is(.ui-topbar-logo, .ui-scroll-top) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  :root[data-app='people'] #main-content .pc-summary-facts {
+    padding-inline-start: 0;
+    padding-top: 0.75rem;
+    border-inline-start: 0;
+    border-top: 1px solid rgb(var(--people-rule));
+  }
+
+  :root[data-app='people'] #main-content :is(.ui-settings-group, .people-report-group) { padding: 0.875rem; }
+}
+
+/* One reading order across People lists: title, context, views and filters, records. */
+:root[data-app='people'] #main-content .people-list-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  min-inline-size: 0;
+}
+:root[data-app='people'] #main-content .people-list-controls .ui-list-toolbar {
+  margin-inline-start: auto;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-block: 0.125rem;
+  max-inline-size: 100%;
+}
+:root[data-app='people'] #main-content .people-list-controls .ui-list-toolbar-end { margin-inline-start: 0; }
+:root[data-app='people'] #main-content .people-list-controls .ui-record-tablist {
+  gap: 1rem;
+  border: 0;
+  max-inline-size: 100%;
+}
+:root[data-app='people'] #main-content .ui-table-pager[data-single-page='true'] { display: none; }
+:root[data-app='people'] table > thead {
+  --band: var(--people-column-bg);
+  --list-head: var(--people-column-bg);
+  --fg-muted: var(--people-column-ink);
+  background-color: rgb(var(--people-column-bg));
+  color: rgb(var(--people-column-ink));
+}
+:root[data-app='people'] table > thead > tr > th {
+  background-color: rgb(var(--people-column-bg));
+  color: rgb(var(--people-column-ink));
+}
+:root[data-app='people'] #main-content .ui-list-header { gap: 0.625rem; }
+:root[data-app='people'] #main-content .ui-list-header + .ui-datatable { margin-block-start: 0.75rem; }
+@media (min-width: 640px) {
+  :root[data-app='people'] #main-content .people-list-controls .ui-search-field {
+    inline-size: clamp(13.5rem, 18vw, 17rem);
+    max-inline-size: 100%;
+  }
+}
+@media (max-width: 639px) {
+  :root[data-app='people'] #main-content .people-list-controls .ui-list-toolbar { width: 100%; justify-content: flex-start; }
+  :root[data-app='people'] #main-content .people-list-controls .ui-record-tablist { overflow-x: auto; }
+}
+
+:root[data-app='people'] #main-content .ui-search-field::after { content: none !important; }
+:root[data-app='people'] #main-content .ui-datatable > .ui-empty-state {
+  min-height: 0;
+  padding-block: clamp(1rem, 2vw, 2rem);
+}
+
+/* Match the name's midpoint to the column label, even with a portrait beside it. */
+:root[data-app='people'] #main-content table :is(.pc-who, .people-person-cell) {
+  display: grid;
+  grid-template-columns: minmax(2rem, 1fr) minmax(0, auto) minmax(2rem, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+:root[data-app='people'] #main-content table :is(.pc-who, .people-person-cell) > :first-child { justify-self: end; }
+
+/* The directory owns its column widths. Only its record list scrolls when extra fields are shown. */
+#main-content .people-directory[data-column-sizing] {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  contain: inline-size;
+}
+:root[data-app='people'] #main-content .people-directory > .ui-datatable {
+  display: block;
+  min-inline-size: 0;
+}
+:root[data-app='people'] #main-content .people-directory .ui-table-scroll {
+  overflow: auto;
+  max-inline-size: 100%;
+  overscroll-behavior-inline: contain;
+}
+#main-content .people-directory .ui-table { inline-size: 100%; table-layout: auto; }
+#main-content .people-directory [data-column] { min-inline-size: 8.25rem; }
+#main-content .people-directory [data-column='name'] { min-inline-size: 13.5rem; }
+#main-content .people-directory [data-column='designation'] { min-inline-size: 11rem; }
+#main-content .people-directory [data-column='workEmail'] { min-inline-size: 14rem; overflow-wrap: anywhere; }
+#main-content .people-directory [data-column='dateOfJoining'] { min-inline-size: 8.75rem; }
+#main-content .people-directory [data-column='status'] { min-inline-size: 7rem; }
+#main-content .people-directory [data-column='code'] { min-inline-size: 7.25rem; }
+:root[data-app='people'] #main-content .people-directory table .pc-who {
+  display: flex;
+  justify-content: flex-start;
+  text-align: start;
+  gap: .625rem;
+}
+#main-content .people-directory .ui-table [data-column='name'] { text-align: start !important; }
+#main-content .people-directory th[data-column='name'] .ui-th-sort {
+  padding-inline-start: 2.625rem;
+  justify-content: flex-start;
+}
+#main-content .people-directory .ui-list-toolbar { gap: .5rem; align-items: center; }
+#main-content .people-directory .ui-list-header :is(.ui-btn, input[type='search']) {
+  min-height: 2.25rem;
+  height: 2.25rem;
+  border-radius: .5rem;
+}
+#main-content .people-directory .ui-list-header .ui-btn { width: auto; padding-inline: .75rem; }
+#main-content .people-directory .ui-search-field { max-inline-size: 100%; }
+#main-content .people-directory .ui-search-field input { background-color: rgb(var(--people-paper)); }
+#main-content .people-directory .directory-activity { margin-block-start: 1.5rem; }
+.directory-activity header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-block-end: .5rem; }
+.directory-activity ol { list-style: none; padding: 0; margin: 0; }
+.directory-activity li {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, max-content) minmax(0, 1fr);
+  align-items: baseline;
+  gap: .875rem;
+  padding-block: .625rem;
+}
+.directory-activity time { color: rgb(var(--fg-muted)); font-size: .8125rem; font-variant-numeric: tabular-nums; }
+.directory-activity li div { display: flex; align-items: baseline; gap: .25rem .625rem; flex-wrap: wrap; font-size: .875rem; }
+.directory-activity-person { font-weight: 650; color: rgb(var(--act-hover)); text-align: start; }
+.directory-activity li div > span { color: rgb(var(--fg-muted)); }
+@media (max-width: 639px) {
+  #main-content .people-directory .ui-list-header :is(.ui-btn, input[type='search']) { height: 2.75rem; }
+  #main-content .people-directory .ui-list-toolbar .ui-search-field { flex: 1 0 100%; }
+  .directory-activity li { grid-template-columns: 6rem minmax(0, 1fr); }
+}
+/* Keep both row actions inside the pinned cell, including at the scroll boundary. */
+#main-content .people-directory .ui-table .ui-row-actions-col {
+  width: 10rem;
+  min-inline-size: 10rem;
+  padding-inline: .625rem;
+  z-index: 2;
+}
+#main-content .people-directory .ui-table th.ui-row-actions-col { z-index: 3; }
+.directory-status-filter { width: 12rem; max-width: 100%; }
+.documents-category-filter { width: 9.75rem; max-width: 100%; }
+#main-content :is(.directory-status-filter, .documents-category-filter) button[aria-haspopup='listbox'] {
+  width: 100%;
+  min-height: 2.25rem;
+  padding-inline: .75rem;
+  border-radius: .5rem;
+  background-color: rgb(var(--people-paper));
+}
+:root[data-app='people'] #main-content .ui-page-heading .min-w-0:has(> h1):has(> .ui-count-line) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .375rem .875rem;
+}
+:root[data-app='people'] #main-content .ui-page-heading h1 + .ui-count-line { margin: 0; }
+#main-content .ui-heading-actions .ui-screen-help { margin: 0; }
+@media (max-width: 767px) {
+  #main-content :is(.directory-status-filter, .documents-category-filter) button[aria-haspopup='listbox'] { min-height: 2.75rem; }
+}
+
+@media (max-width: 639px) {
+  :root[data-app='people'] #main-content .people-documents .ui-list-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  #main-content .people-documents .ui-search-field { grid-column: 1 / -1; width: 100%; }
+  #main-content .people-documents .documents-category-filter { width: 100%; }
+  #main-content .people-documents .ui-list-toolbar :is(input, button) { min-height: 44px; }
+}
+
+/* Give the employee registers the available page width and keep wide records inside the list. */
+#main-content .people-register {
+  contain: inline-size;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+#main-content .people-register .ui-table-scroll {
+  max-inline-size: 100%;
+  overflow: auto;
+  overscroll-behavior-inline: contain;
+}
+#main-content .people-register .ui-table { width: 100%; table-layout: auto; }
+#main-content .people-register [data-column] { min-inline-size: 6rem; }
+#main-content .people-register :is([data-column='person'], [data-column='employee'], [data-column='title'], [data-column='next']) { min-inline-size: 12rem; }
+#main-content .people-register :is([data-column='joins'], [data-column='sent'], [data-column='added'], [data-column='expires'], [data-column='status']) { min-inline-size: 7.5rem; }
+:root[data-app='people'] #main-content .people-register table :is(.pc-who, .people-person-cell) {
+  display: flex;
+  gap: .625rem;
+  justify-content: flex-start;
+  text-align: start;
+}
+#main-content .people-register .ui-table :is([data-column='person'], [data-column='employee'], [data-column='title'], [data-column='next']) { text-align: start !important; }
+#main-content .people-register th:is([data-column='person'], [data-column='employee']) { padding-inline-start: 3.625rem; }
+#main-content .people-register .ui-list-header .ui-btn {
+  min-block-size: 2.25rem;
+  width: auto;
+  padding-inline: .75rem;
+  border-radius: .5rem;
+}
+:root[data-app='people'] #main-content .people-register .ui-datatable > .ui-empty-state {
+  margin: 0 !important;
+  padding: 1.25rem 1rem !important;
+  border: 0 !important;
+  border-block-start: 1px solid rgb(var(--people-rule)) !important;
+  border-radius: 0 !important;
+  align-items: flex-start;
+  text-align: start;
+}
+#main-content .people-register .ui-empty-state :is(p, h3) { margin-inline: 0; text-align: start; }
+.employee-pages-link { display: inline-flex; align-items: center; gap: .375rem; }
+@media (max-width: 639px) {
+  #main-content .people-register .ui-list-header .ui-btn, .employee-pages-link { min-block-size: 2.75rem; }
+  #main-content .people-register .people-list-controls .ui-search-field { flex: 1 1 12rem; }
+}
+:root[data-app='people'] #main-content .people-register .ui-table th:is([data-column='person'], [data-column='employee']) {
+  padding-inline-start: 3.625rem !important;
+}
+:root[data-app='people'] #main-content .people-register .ui-table th[data-column='title'] { padding-inline-start: 3.875rem !important; }
+#main-content .people-register [data-column='who'] { min-inline-size: 8.25rem; }
+#main-content .people-register .ui-row-actions-col { width: 3rem; }
+
+#main-content .people-register .ui-table :is([data-column='task'], [data-column='claim'], [data-column='what'], [data-column='reason'], [data-column='coverage']) {
+  text-align: start !important;
+  min-inline-size: 10rem;
+}
+#main-content .people-register .ui-table :is([data-column='amount'], [data-column='open']) {
+  text-align: end !important;
+  font-variant-numeric: tabular-nums;
+}
+#main-content .people-register .ui-table:has([data-column='tag'], [data-column='coverage']) th[data-column='title'] {
+  padding-inline-start: 1rem !important;
+}
+#main-content .people-tasks .task-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .2rem;
+  white-space: normal;
+}
+#main-content .people-tasks .ui-table [data-column='task'] .ui-row-open { display: flex; justify-content: flex-start; text-align: start; }
+:root[data-app='people'] #main-content .people-register .ui-table:has([data-column='tag'], [data-column='coverage']) th[data-column='title'] { padding-inline-start: 1rem !important; }
+@media (min-width: 768px) {
+  #main-content .people-revisions .ui-table .ui-col-date { white-space: nowrap; }
+  #main-content .people-revisions .ui-table :is(td,th):first-child { text-align: start !important; }
+}
+
+/* Keep the column control beside its label, including before the first sort. */
+:root[data-app='people'] #main-content :is(.people-register, .people-directory) .report-column-heading-button {
+  display: inline-flex;
+  width: auto;
+  gap: .35rem;
+  justify-content: center;
+  align-items: center;
+}
+#main-content :is(.people-register, .people-directory) .report-column-heading-button svg,
+#main-content .people-directory .ui-th-sort svg { opacity: 1; flex: none; color: rgb(var(--act-hover)); }
+:root[data-app='people'] #main-content :is(.people-register, .people-directory) .ui-checkbox { opacity: 1 !important; }
+#main-content .record-checkbox { width: 2.75rem; }
+#main-content .record-checkbox label { display: inline-flex; align-items: center; justify-content: center; min-height: 2rem; cursor: pointer; }
+@media (max-width: 639px) {
+  #main-content .people-register .ui-table-phone thead .record-checkbox input { display: none; }
+}
+
+/* Open the current work area, with direct routes to common exceptions above it. */
+.module-issue-links { margin: 0 .25rem .625rem; padding-block-end: .5rem; border-block-end: 1px solid rgb(var(--people-rule)); }
+.module-issue-links p { margin: .375rem .375rem .15rem; font-weight: 650; }
+.module-issue-links button, .module-group-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: .375rem;
+  border-radius: .375rem; padding: .375rem; text-align: start; line-height: 1.3;
+}
+.module-issue-links button { color: rgb(var(--act-hover)); font-size: .8125rem; }
+.module-issue-links button:hover, .module-group-toggle:hover { background: rgb(var(--tint)); }
+.module-group-toggle { padding: .55rem .5rem; color: rgb(var(--fg-muted)); font-weight: 650; font-size: .8125rem; }
+.module-group-toggle svg { flex: none; transform: rotate(-90deg); }
+.module-group-toggle[aria-expanded='true'] svg { transform: none; }
+.module-page-group + .module-page-group { margin-block-start: .2rem; }
+@media (max-width: 767px) {
+  .module-group-toggle, .module-issue-links button { min-block-size: 44px; }
+}
+#main-content[data-people-time] { min-inline-size: 0; }
+#main-content[data-people-time] .ui-table-scroll { max-inline-size: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+#main-content[data-people-time] .ui-checkbox { opacity: 1 !important; }
+#main-content[data-people-time] .report-column-heading-button {
+  display: inline-flex; width: auto; align-items: center; justify-content: center; gap: .35rem;
+}
+#main-content[data-people-time] .report-column-heading-button svg { flex: none; opacity: 1; color: rgb(var(--act-hover)); }
+#main-content[data-people-time] .ui-list-toolbar { gap: .5rem; align-items: center; }
+#main-content[data-people-time] .ui-list-header .ui-btn { width: auto; }
+#main-content[data-people-time] :is(.ui-list-header, .ui-datatable-toolbar) input[type='search'] { max-inline-size: 100%; }
+#main-content[data-people-time] .ui-table td:is(.ui-col-date,.ui-col-amount,.ui-num) { font-variant-numeric: tabular-nums; }
+#main-content[data-people-time] [data-single-page='true'] { display: none; }
+#main-content[data-people-time] .record-checkbox { inline-size: 2.5rem; }
+@media (max-width: 639px) {
+  #main-content[data-people-time] table.ui-table-phone thead .record-checkbox input { display: none; }
+  #main-content[data-people-time] table.ui-table-phone tr:has(td[data-phone='select']) {
+    position: relative; padding-inline-start: 2.75rem;
+  }
+  #main-content[data-people-time] td[data-phone='select'] {
+    position: absolute; inset-inline-start: 0; inset-block-start: 0; padding: 0;
+  }
+  #main-content[data-people-time] td[data-phone='select'] label { inline-size: 44px; min-block-size: 44px; }
+}
+
+#main-content[data-people-time] .leave-balance-layout {
+  display: grid;
+  gap: 1.25rem;
+  align-items: start;
+  container-type: inline-size;
+}
+.leave-balance-layout > .pt-charts {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-content: start;
+  gap: 1rem;
+  min-width: 0;
+}
+@container (min-width: 56rem) {
+  .leave-balance-layout > :first-child:has(+ .pt-charts) { grid-column: 1; grid-row: 1; }
+  .leave-balance-layout > .pt-charts { grid-column: 2; grid-row: 1; width: clamp(15rem, 23cqi, 20rem); }
+}
+.leave-balance-layout .pt-chart-body { padding: .75rem; }
+.leave-balance-layout .pt-bar-row { grid-template-columns: minmax(4rem, 1fr) minmax(3rem, 1fr) auto; gap: .5rem; }
+.leave-balance-layout .pt-bar-track { background: rgb(var(--border)); border-radius: .25rem; overflow: hidden; }
+.leave-balance-layout .pt-facts > li { min-height: 2.75rem; }
+.leave-balance-layout .ui-bal-bar { max-width: 7rem; margin-inline: auto; }
+.leave-away-groups { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr)); align-items: start; }
+.leave-away-groups > .grid { display: contents; }
+#main-content .leave-away-page .ui-metric { min-height: 0; padding: .75rem 1rem; }
+
+/* Time lists keep page controls in the title row and leave status tabs next to the records. */
+#main-content[data-people-time] .ui-page-heading:has(.time-heading-tools) {
+  align-items: center;
+  row-gap: .625rem;
+}
+#main-content[data-people-time] .ui-page-heading:has(.time-heading-tools) > :first-child {
+  flex: 0 1 auto !important;
+}
+.time-heading-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem;
+  max-inline-size: 100%;
+}
+#main-content .time-heading-tools .ui-search-field { width: min(13rem, 100%); }
+#main-content .time-heading-tools > div:has(> button[role='combobox']) { width: 9.5rem; max-width: 100%; }
+#main-content .time-heading-tools :is(input[type='search'], button[role='combobox']) { min-block-size: 2.25rem; }
+#main-content .time-heading-tools .ui-segmented { flex: none; }
+.time-record-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: .625rem 1rem;
+  padding-block: .625rem;
+  border-block: 1px solid rgb(var(--border));
+}
+.time-filter-field { display: grid; gap: .25rem; color: rgb(var(--fg-muted)); font-size: .8125rem; }
+.time-record-filters > label:has(input[type='checkbox']) { align-self: center; }
+.late-mark-month { display: inline-flex; align-items: center; gap: .25rem; }
+.late-mark-person { display: inline-flex; align-items: center; gap: .65rem; text-align: start; }
+.late-mark-detail { display: inline-grid; gap: .15rem; }
+.late-mark-page small { display: block; font-size: .8125rem; color: rgb(var(--fg-muted)); }
+.late-mark-page table { font-variant-numeric: tabular-nums; }
+@media (max-width: 639px) {
+  #main-content .ui-page-heading:has(.time-heading-tools) > :last-child { justify-content: start; width: 100%; }
+  #main-content .time-heading-tools { width: 100%; }
+  #main-content .time-heading-tools > .ui-search-field { flex: 1 1 10rem; }
+  .time-record-filters > label { min-width: 0; max-width: 100%; }
+}
+
+@media (min-width: 640px) {
+  #main-content .time-heading-tools { display: contents; }
+  #main-content .ui-page-heading:has(.time-heading-tools) > :last-child { flex: 1 1 max-content; }
+
+}
+#main-content .late-mark-page .ui-table [data-column='name'] { text-align: start !important; }
+#main-content .late-mark-page .ui-table th[data-column='name'] { padding-inline-start: calc(1rem + 28px + .65rem); }
+
+.directory-record { display: grid; gap: 6px; min-width: 0; text-align: start; overflow-wrap: anywhere; }
+.directory-record-meta, .directory-record-person { display: flex; align-items: center; gap: 8px; }
+.directory-record-meta { flex-wrap: wrap; justify-content: space-between; color: rgb(var(--fg-muted)); font-family: var(--font-ident); font-size: 12px; }
+.directory-record-person { font-size: 15px; }
+@media (max-width: 767px) {
+  :root[data-app='people'] .ui-datatable.has-cards .ui-datatable-desktop { display: none; }
+  :root[data-app='people'] .ui-datatable.has-cards .ui-datatable-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  :root[data-app='people'] .ui-datatable-card { gap: 8px; align-items: flex-start; padding: 14px; border: 1px solid rgb(var(--people-rule)); border-radius: 12px; background: rgb(var(--surface)); }
+  :root[data-app='people'] .ui-datatable-card.is-selected { background: rgb(var(--tint)); }
+  :root[data-app='people'] .ui-datatable-card .ui-card-open { flex: 1; min-width: 0; }
+  :root[data-app='people'] .ui-datatable-card .ui-card-check-hit { margin: 0; width: 44px; height: 44px; }
+  :root[data-app='people'] .ui-datatable-card .ui-icon-btn { min-width: 44px; min-height: 44px; }
+}
+
+/* Keep the list's controls close to the records on phone and tablet. */
+@media (max-width: 767px) {
+  :root[data-app='people'] #main-content .ui-datatable.has-cards .ui-datatable-toolbar[data-columns-only] { display: none; }
+  :root[data-app='people'] #main-content .ui-datatable.has-cards .ui-columns-btn { display: none; }
+  :root[data-app='people'] #main-content .ui-datatable.has-cards .ui-card-open { min-height: 44px; text-align: start; }
+  :root[data-app='people'] #main-content .ui-datatable.has-cards .ui-card-check-hit { display: grid; place-items: center; align-self: center; flex: 0 0 44px; }
+  :root[data-app='people'] #main-content :is(.ui-list-toolbar, .ui-page-heading) :is(input:not([type=checkbox]),select) { min-height: 44px; font-size: 16px; }
+  :root[data-app='people'] #main-content :is(.ui-list-toolbar,.ui-page-heading,.ui-record-tablist) button { min-height: 44px; }
+}
+.correction-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.people-corrections .correction-filters-trigger { display: none; }
+.correction-comparison { width: 100%; border-collapse: collapse; font-size: .875rem; font-variant-numeric: tabular-nums; }
+.correction-comparison :is(th,td) { text-align: start; padding: 8px; border-bottom: 1px solid rgb(var(--border)); }
+.correction-comparison thead { background: rgb(var(--band)); color: rgb(var(--fg-muted)); }
+.correction-comparison tbody th { font-weight: 500; }
+.correction-comparison td:last-child { font-weight: 600; }
+.correction-history summary { cursor: pointer; font-weight: 600; }
+.correction-history[open] summary { margin-bottom: 8px; }
+.correction-decisions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 767px) {
+  #main-content .people-corrections .ui-list-toolbar { flex: 1 1 100%; align-items: center; gap: 8px; }
+  #main-content .people-corrections .ui-search-field { width: auto; flex: 1 1 10rem; }
+  .people-corrections .correction-filters-trigger { display: inline-flex; }
+  .correction-filters { display: none; }
+  .correction-filters[data-open] { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; }
+  .correction-filters[data-open] > div { min-width: 0; width: 100%; }
+  .correction-decisions > button { flex: 1 1 auto; min-height: 44px; }
+}
+
+/* A table that outgrows the viewport scrolls as one grid. Keep the action
+   column in the grid so it cannot paint over the rightmost visible value. */
+:root[data-app='people'] #main-content .ui-datatable { min-inline-size: 0; max-inline-size: 100%; }
+:root[data-app='people'] #main-content .ui-datatable-desktop { max-inline-size: 100%; }
+:root[data-app='people'] #main-content .ui-datatable-desktop:not([data-overflow], [data-wide], [data-virtualized]) { overflow: visible; }
+:root[data-app='people'] #main-content .ui-datatable-desktop:is([data-overflow], [data-virtualized]) { overflow: auto; }
+:root[data-app='people'] #main-content .ui-datatable-desktop[data-virtualized] { max-height: 68vh !important; }
+:root[data-app='people'] #main-content .ui-datatable-desktop:is([data-overflow], [data-virtualized]) thead th { top: 0; }
+:root[data-app='people'] #main-content .ui-datatable-desktop[data-overflow] .ui-row-actions-col { right: auto; }
+:root[data-app='people'] #main-content .ui-register-grid:has(.ui-row-words) .ui-row-actions-col { min-inline-size: 10rem; }
+:root[data-app='people'] #main-content .ui-heading-actions:has(> .people-help-slot:only-child:empty),
+:root[data-app='people'] #main-content .ui-list-toolbar:has(> .people-columns-slot:only-child:empty),
+:root[data-app='people'] #main-content .people-list-controls:has(> .ui-list-toolbar:only-child > .people-columns-slot:only-child:empty),
+.people-help-slot:empty, .people-columns-slot:empty { display: none; }
+.people-columns-slot, .people-help-slot { display: inline-flex; align-items: center; }
+.people-scroll-columns { display: flex; align-items: center; justify-content: end; gap: .375rem; color: rgb(var(--fg-muted)); font-size: .8125rem; }
+:root[data-app='people'] #main-content .ui-list-toolbar button[aria-haspopup='listbox'] {
+  min-block-size: 2.25rem;
+  padding-inline: .75rem;
+  border-radius: .5rem;
+  background-color: rgb(var(--people-paper));
+}
+@media (max-width: 639px) {
+  :root[data-app='people'] #main-content .people-list-controls .ui-list-toolbar:has(.people-columns-slot:not(:empty)) {
+    justify-content: flex-start;
+  }
+  :root[data-app='people'] #main-content .people-list-controls .ui-list-toolbar:has(.people-columns-slot:not(:empty)) .ui-search-field {
+    flex: 1 1 12rem;
+    min-inline-size: 0;
+  }
+}
+
+.people-help-slot { gap: .5rem; }
+
+/* The toolbar wraps within the Time workspace when both navigation rails are open. */
+#main-content[data-people-time] .time-register-toolbar .ui-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-inline-size: 0;
+}
+#main-content[data-people-time] .time-register-toolbar .ui-btn { white-space: nowrap; }
+#main-content[data-people-time] .time-register-toolbar .ui-caption { font-variant-numeric: tabular-nums; }
+@media (min-width: 768px) {
+  #main-content[data-people-time] table[data-time-register] :is(th, td).hidden { display: table-cell; }
+  #main-content[data-people-time] table.ui-table[data-time-register] { min-inline-size: 100%; width: max-content; }
+}
+#main-content[data-people-time] .time-register-trends summary {
+  width: fit-content; cursor: pointer; font-weight: 600; padding-block: .5rem;
+}
+#main-content[data-people-time] .people-corrections .correction-filters-trigger { display: inline-flex; }
+#main-content[data-people-time] .people-corrections .correction-filters:not([data-open]) { display: none; }
+@media (max-width: 767px) {
+  #main-content[data-people-time] table[data-time-cards] { display: block; width: 100%; font-size: .875rem; }
+  #main-content[data-people-time] table[data-time-cards] thead { display: none; }
+  #main-content[data-people-time] table[data-time-cards] tbody { display: grid; gap: .625rem; }
+  #main-content[data-people-time] table[data-time-cards] tbody tr {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem .75rem;
+    height: auto; padding: .875rem; background: white; border: 1px solid rgb(var(--border)); border-radius: .625rem;
+  }
+  #main-content[data-people-time] table[data-time-cards] tbody td {
+    display: block; position: static; padding: 0; width: auto; height: auto; text-align: start; min-width: 0; white-space: normal; order: 1;
+  }
+  #main-content[data-people-time] table[data-time-cards] td[data-field-label]::before {
+    display: block; content: attr(data-field-label); color: rgb(var(--fg-muted)); font-size: .75rem;
+  }
+  #main-content[data-people-time] table[data-time-cards] td[data-field-label='Employee'] { order: -2; }
+  #main-content[data-people-time] table[data-time-cards] td:has(input[type='checkbox']) { order: -1; justify-self: end; }
+  #main-content[data-people-time] table[data-time-cards] td:is([data-field-label='Day'], [data-field-label='Status']) { order: 0; }
+  #main-content[data-people-time] table[data-time-cards] td:last-child:not([data-field-label]) { order: 2; justify-self: end; }
+  #main-content[data-people-time] table[data-time-cards] td[colspan] { grid-column: 1 / -1; }
+}
+@media (max-width: 767px) {
+  #main-content:has(#attendance-record-filters:not([hidden])) table[data-time-cards] thead { display: block; }
+  #main-content table[data-time-cards] thead tr { display: flex; align-items: center; flex-wrap: wrap; }
+  #main-content table[data-time-cards] thead th { display: none; }
+  #main-content table[data-time-cards] thead th:has(:is(input, button)) { display: block; width: auto; }
+}
+
+/* One path above every People screen, including dashboards without a PageHeader. */
+#main-content > .people-screen-top, #main-content .people-screen-top {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  row-gap: 4px;
+}
+.people-page-path { margin-inline-end: auto; min-inline-size: 0; }
+.people-page-path ol, .people-page-path li {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+}
+.people-page-path ol { margin: 0; padding: 0; list-style: none; }
+.people-page-path li { font-size: .8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
+.people-page-path li:last-child { color: rgb(var(--fg)); font-weight: 600; }
+.people-page-path svg { color: rgb(var(--fg-muted)); flex: none; }
+.people-page-path a { padding-block: 2px; color: inherit; }
+.people-page-path a:hover { color: rgb(var(--act-hover)); text-decoration: underline; }
+
+.people-settings-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 100%; }
+.people-settings-tools .ui-search-field { width: min(17rem, 100%); }
+.people-settings-index {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 12px;
+}
+.people-settings-index button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: start;
+  color: rgb(var(--fg));
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--border));
+  border-radius: 10px;
+}
+.people-settings-index button:hover { border-color: rgb(var(--act)); }
+.people-settings-index button:focus-visible { outline: 2px solid rgb(var(--ring)); }
+.people-settings-index button svg { color: rgb(var(--act)); }
+.people-settings-index button span { grid-column: 1 / -1; color: rgb(var(--fg-muted)); font-size: .8125rem; }
+:root[data-app='people'] #main-content .people-settings-category { columns: auto; }
+:root[data-app='people'] #main-content .people-settings-category .ui-settings-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: 0 20px;
+}

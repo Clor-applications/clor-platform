@@ -93,7 +93,7 @@ describe('a status hue is a background, never type', () => {
   });
 
   it('the selected tab is marked by depth, not by coloured type', () => {
-    const selected = block(".ui-segment[aria-selected='true'] {");
+    const selected = block(".ui-segment:is([aria-selected='true'], [aria-pressed='true']) {");
     expect(selected).toMatch(/background-color:\s*rgb\(var\(--seg-strong/);
     expect(selected).toMatch(/color:\s*rgb\(var\(--fg\)\)/);
     expect(selected).not.toMatch(/color:\s*rgb\(var\(--seg-ink/);

@@ -18,9 +18,9 @@ import Toggle from '../components/Toggle';
  */
 const MODULES = ['peopleHiring', 'peoplePerformance', 'peopleEngage', 'peopleBenefits'];
 const APPS = [
-  { key: 'payroll', name: 'Payroll', mark: '₹', note: 'Salaries, PF, ESI, PT and TDS, and payslips; unpaid leave from HR is loss of pay.' },
-  { key: 'attendance', name: 'Attendance', mark: <Clock size={16} />, note: 'Biometric readers, shifts, late marks and overtime; days marked automatically and sent to HR and Payroll.', recommended: true },
-  { key: 'accounting', name: 'Books', mark: <BookOpen size={16} />, note: 'Salary journals and cost centres, in Books.' },
+  { key: 'payroll', name: 'Payroll', mark: '₹' },
+  { key: 'attendance', name: 'Attendance', mark: <Clock size={16} />, recommended: true },
+  { key: 'accounting', name: 'Books', mark: <BookOpen size={16} /> },
 ];
 /* The apps People switches with it; Accounting is shown for what the subscription carries, and is not switched from here. */
 const TOGGLES = { payroll: true, attendance: true };
@@ -33,7 +33,6 @@ const ICON = {
   peopleBenefits: Gift,
 };
 const TONE = { peopleHiring: 2, peoplePerformance: 3, peopleEngage: 5, peopleBenefits: 2 };
-const CORE = 'Employees, organisation, leave and attendance, insights and settings.';
 
 export default function PeopleModules() {
   const [catalog, setCatalog] = useState(null);
@@ -71,7 +70,7 @@ export default function PeopleModules() {
   const modules = MODULES.map((k) => byKey.get(k)).filter(Boolean);
   return (
     <div className="space-y-8 pb-8">
-      <PageHeader entity="settings" title="Modules & apps" description="Turn People features on or off. Turning a module off hides it; no data is deleted. What can be switched on comes from your subscription." />
+      <PageHeader entity="settings" title="Modules & apps" description="Turning off a module keeps its records." />
       {error ? <p role="alert" className="ui-card p-4 text-sm">{error} <button type="button" className="ui-btn ml-2" onClick={load}>Retry</button></p> : null}
       {!catalog ? (error ? null : <SkeletonCard lines={6} />) : (
         <>
@@ -82,7 +81,6 @@ export default function PeopleModules() {
               <li className="people-module-tile" style={{ '--set-tone': 'var(--cat-4)' }}>
                 <span className="people-module-chip" aria-hidden="true"><ICON.core size={20} /></span>
                 <p className="people-module-name">Core HR</p>
-                <p className="people-module-note">{CORE}</p>
                 <p className="people-module-foot">Always on</p>
               </li>
               {modules.map((f) => {
@@ -94,7 +92,6 @@ export default function PeopleModules() {
                       <Toggle label={f.label} checked={Boolean(f.enabled)} disabled={busy === f.key || (!f.entitled && !f.enabled)} onChange={(on) => flip(f.key, on)} />
                     </span>
                     <p className="people-module-name">{f.label}</p>
-                    <p className="people-module-note">{f.description}</p>
                     {!f.entitled ? <p className="people-module-foot inline-flex items-center gap-1"><Lock size={12} aria-hidden="true" /> {f.upgradeHint || 'Not in your plan'}</p> : null}
                   </li>
                 );
@@ -110,7 +107,7 @@ export default function PeopleModules() {
                   <li key={f.key} className="people-setting-row">
                     <div className="min-w-0">
                       <p className="people-setting-name">{f.label}</p>
-                      <p className="people-setting-note">For a company of up to 10 people and up to 2 users. Keeps organisation detail a larger company uses, such as legal entities, out of the menu; nothing anyone needs for their own leave, days or details is hidden.</p>
+                      <p className="people-setting-note">Hides advanced organisation settings for teams of up to 10 employees and 2 users.</p>
                     </div>
                     <Toggle label={f.label} checked={Boolean(f.enabled)} disabled={busy === f.key || (!f.entitled && !f.enabled)} onChange={(on) => flip(f.key, on)} />
                   </li>
@@ -136,7 +133,6 @@ export default function PeopleModules() {
                         {a.name}
                         {a.recommended && !on && owned ? <span className="ui-pill ui-pill-neutral ml-2">Recommended</span> : null}
                       </p>
-                      <p className="people-setting-note">{a.note}</p>
                     </div>
                     <span className="inline-flex items-center gap-3">
                       <span className={`ui-pill ${!owned ? 'ui-pill-neutral' : on ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{!owned ? 'Not in plan' : on ? 'Connected' : 'Off'}</span>

@@ -144,7 +144,7 @@ export default function PhonePunches({ menuLabel } = {}) {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Phone punches', fileName: 'Phone punches', label: 'punch/punches', columns: EXPORT_COLUMNS, rows: rows });
       }}
-      description="Punches made from phones, where they were made, and the attempts that were refused."
+      introduction="Punches made from phones, where they were made, and the attempts that were refused."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search phone punches…', label: 'Search phone punches' }}

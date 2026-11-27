@@ -8,13 +8,14 @@ import { EmptyState, TableTotals } from '@ui/components/ui/Primitives';
 import { confirmDialog } from '@ui/components/ui/notify';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import Popover from '@ui/components/ui/Popover';
+import useRequest from '@ui/components/ui/useRequest';
 import JournalEntryDetail from './JournalEntryDetail';
 import { formatMoney } from '@ui/utils/money';
 import { reverseJournalOnLedger } from '@ui/utils/journalSync';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { useFeatures } from '@ui/permissions/useFeatures';
 import { tdsReversalEventFrom } from '../tds/engine';
-import { getJournalEntries } from '@ui/api/ledger';
+import { getDocumentPostings, getJournalEntries } from '@ui/api/ledger';
 
 /**
  * The journal list.
@@ -22,6 +23,30 @@ import { getJournalEntries } from '@ui/api/ledger';
  * Lifted out of App.jsx when it moved onto the shared list layout — a screen
  * that cannot be rendered on its own cannot be tested on its own either.
  */
+function PayrollJournal({ id, runId, company, db, onBack }) {
+  const posting = useRequest(async () => {
+    const entries = await getDocumentPostings('PAYROLL_RUN', runId);
+    const ledger = entries.find((entry) => String(entry.id) === id);
+    if (!ledger) return null;
+    return {
+      ...ledger,
+      number: ledger.entryNo,
+      backendEntryId: ledger.id,
+      lines: ledger.lines.map((line) => ({
+        ...line,
+        accountCode: line.ledgerAccount?.code,
+        accountName: line.ledgerAccount?.name,
+      })),
+    };
+  }, [id, runId]);
+  if (posting.loading || posting.refreshing) return <p role="status">Loading journal entry…</p>;
+  if (posting.error || !posting.data) return <section role="alert" className="space-y-2">
+    <p>{posting.error ? 'Could not load the payroll journal.' : 'This posting is unavailable in the current branch.'}</p>
+    <button type="button" className="ui-btn ui-btn-secondary" onClick={posting.reload}>Retry</button>
+    <button type="button" className="ui-btn ui-btn-ghost" onClick={onBack}>Back to journals</button></section>;
+  return <JournalEntryDetail entry={posting.data} db={db} company={company} onBack={onBack} />;
+}
+
 export default function JournalEntriesList({ db, setDb, currentCompany, onNewJournal, onEditJournal, onNavigate = null }) {
   const { isEnabled } = useFeatures();
   const importsOn = isEnabled('imports');
@@ -71,6 +96,11 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
   );
   const jvFilters = useColumnFilters();
   const [actionRow, setActionRow] = useState(null);
+  const [linkedJournal, setLinkedJournal] = useState(() => {
+    const query = new URLSearchParams(window.location.search);
+    return query.get('open') === 'journalEntries' && query.get('drawer') && query.get('payrollRun')
+      ? { id: query.get('drawer'), runId: query.get('payrollRun') } : null;
+  });
   const [selectedJournalId, setSelectedJournalId] = useState(null);
   const actionAnchorRef = useRef(null);
   const journalEntries = jvFilters.applyFilters(jvSearch.filtered.filter((r) => jvPeriod.inRange(r?.date)), {
@@ -183,6 +213,13 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
   };
 
   const selectedJournal = allJournals.find((entry) => String(entry.id) === String(selectedJournalId));
+  if (linkedJournal) return <PayrollJournal key={currentCompany.id} {...linkedJournal} company={currentCompany} db={db} onBack={() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('drawer');
+    url.searchParams.delete('payrollRun');
+    window.history.replaceState(window.history.state, '', url);
+    setLinkedJournal(null);
+  }} />;
   if (selectedJournal) return <JournalEntryDetail entry={selectedJournal} db={db} company={currentCompany} onBack={() => setSelectedJournalId(null)} />;
 
   return (

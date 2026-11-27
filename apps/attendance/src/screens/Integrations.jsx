@@ -140,7 +140,7 @@ export default function Integrations() {
 
   return (
     <div className="space-y-3">
-      <PageHeader entity="settings" title="Integrations" description="Let other systems read attendance or send punches, and have CLOR tell them when things happen." />
+      <PageHeader entity="settings" title="Integrations" introduction="Let other systems read attendance or send punches, and have CLOR tell them when things happen." />
       <div className="pb-8 space-y-6">
       {shown ? <ShownOnce label={shown.label} value={shown.value} kept={shown.kept} onDone={() => setShown(null)} /> : null}
 

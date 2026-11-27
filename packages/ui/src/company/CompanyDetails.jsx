@@ -99,7 +99,7 @@ export default function CompanyDetails() {
     <div className="space-y-6">
       <PageHeader
         title="Company details"
-        description="Who the company is, on its letters, tax forms and invoices."
+        introduction="Who the company is, on its letters, tax forms and invoices."
         actions={form ? <Button variant="primary" loading={saving} disabled={!isDirty(form, saved)} type="submit" form="company-details">Save changes</Button> : null}
       />
       {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}

@@ -65,7 +65,7 @@ describe('Joining & Leaving', () => {
     render(<Tasks params={{ view: 'open' }} updateParams={() => {}} />);
     await screen.findAllByText('Final wages paid');
     expect(api.pageTasks).toHaveBeenCalledWith(expect.objectContaining({ view: 'open', limit: 25, offset: 0 }));
-    expect(screen.getByRole('tab', { name: /Nobody/ })).toHaveTextContent('2');
+    expect(screen.getByRole('tab', { name: /Unassigned/ })).toHaveTextContent('2');
     await user.click(screen.getAllByText('Final wages paid')[0]);
     const drawer = await screen.findByRole('dialog');
     await user.click(within(drawer).getByRole('button', { name: 'Mark done' }));
@@ -92,8 +92,8 @@ describe('Joining & Leaving', () => {
     api.pageTasks.mockResolvedValueOnce({ rows: [], total: 0, counts: { mine: 0, done: 0 }, mineOnly: true });
     const { default: Tasks } = await import('../packages/ui/src/lifecycle/Tasks');
     render(<Tasks params={{}} updateParams={() => {}} />);
-    expect(await screen.findByText('Nothing on your name')).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /Nobody/ })).not.toBeInTheDocument();
+    expect(await screen.findByText('No tasks assigned to you')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Unassigned/ })).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Done/ })).toBeInTheDocument();
   });
 

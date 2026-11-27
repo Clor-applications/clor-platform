@@ -72,7 +72,7 @@ export default function ReportInsights({ openScreen }) {
 
   return (
     <div className="space-y-3">
-      <PageHeader entity="report" title="Attendance insights" description="How attendance is going this month and over recent months. Figures are the same as the Monthly attendance summary." />
+      <PageHeader entity="report" title="Attendance insights" introduction="How attendance is going this month and over recent months. Figures are the same as the Monthly attendance summary." />
       <div className="pb-8 space-y-4">
         <section className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Filters">
           <div className="ui-segmented" role="tablist" aria-label="Months">

@@ -83,7 +83,6 @@ export default function HelpDesk({ params = {} }) {
     <div className="space-y-6">
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Help desk' }]} title="Help desk"
         actions={canEdit ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setRaising(true)}><Plus size={16} aria-hidden="true" /> New request</button> : null} />
-      <p className="ui-list-desc ui-muted -mt-4">Questions and requests from employees. Confidential cases are kept apart, for the people the case routes name.</p>
       {tiles ? <CountLine label="Help desk figures" items={tiles} /> : null}
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
@@ -109,7 +108,7 @@ export default function HelpDesk({ params = {} }) {
             </span>
           )}
           empty={q || queue !== 'all' || mine
-            ? <EmptyState kind="filtered" title="No requests match" description="Nothing here matches the search or filters." />
+            ? <EmptyState kind="filtered" title="No requests match" />
             : <EmptyState title="Nothing here" description="Requests from the employee app land here the moment they are sent." />}
           toolbar={<>
             <SearchField value={q} onSearch={setQ} placeholder="Search subject or name" label="Search requests" className="w-full sm:w-80" />
@@ -198,7 +197,7 @@ function RequestDrawer({ id, canEdit, categories, onClose, onChanged }) {
     }, internal ? 'Note added. The employee does not see it.' : 'Sent to the employee.');
   };
   const move = async () => {
-    if (await confirmDialog({ title: 'Move to Confidential cases?', message: 'The subject, the details and the thread are wiped here; only the date it moved stays. Open Confidential cases to carry the details across first.', confirmLabel: 'Move' })) act(() => deskMoveToCase(id), 'Moved. Only the date stays here.');
+    if (await confirmDialog({ title: 'Move to Confidential cases?', message: 'The subject, the details and the thread are wiped here; only the date it moved stays. Copy the details to Confidential cases first. Only designated case handlers can view them there.', confirmLabel: 'Move' })) act(() => deskMoveToCase(id), 'Moved. Only the date stays here.');
   };
   const live = r ? ['OPEN', 'REOPENED', 'WAITING_EMPLOYEE'].includes(r.status) : false;
   const catLabel = r ? categories.find((c) => c.key === r.category)?.label || r.category : '';

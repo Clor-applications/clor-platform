@@ -75,13 +75,34 @@ export async function exportListXlsx({ subtitle = '', fileName, columns, rows, s
   try {
     // The browser entry point: the package's node build writes to a stream and
     // would fail here with no obvious reason why.
-    const { default: writeXlsxFile } = await import('write-excel-file/browser');
     const cols = (columns || []).filter(Boolean);
 
     // v4 returns { toBlob, toFile } and saves nothing on its own. Awaiting the
     // call and passing a fileName — the v2 shape — produces no file and no
     // error: the button works, and nothing arrives.
     const polished = reportStyle === 'statement';
+    if (!polished) {
+      const XLSX = await import('xlsx');
+      const values = [cols.map((col) => String(col.label)), ...rows.map((row) => cols.map((col) => {
+        const value = raw(col, row);
+        if (value == null || value === '') return null;
+        if (!isNumeric(col)) return String(value);
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : null;
+      }))];
+      const worksheet = XLSX.utils.aoa_to_sheet(values);
+      worksheet['!cols'] = buildColumns(cols).map((col) => ({ wch: col.width }));
+      rows.forEach((_, r) => cols.forEach((col, c) => {
+        const cell = worksheet[XLSX.utils.encode_cell({ r: r + 1, c })];
+        if (isNumeric(col) && cell) cell.z = '#,##,##0.00';
+      }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, String(sheetName || 'Export').replace(/[\\/?*[\]:]/g, ' ').slice(0, 31));
+      XLSX.writeFile(workbook, `${fileName || 'export'}.xlsx`);
+      notify.success(`${rows.length} row(s) exported to Excel.`);
+      return;
+    }
+    const { default: writeXlsxFile } = await import('write-excel-file/browser');
     const border = polished ? { borderColor: '#E2E8F0', borderStyle: 'thin' } : {};
     const cellFor = (col, row, extra = {}) => {
       const value = raw(col, row);

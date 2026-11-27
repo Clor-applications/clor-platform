@@ -157,6 +157,21 @@ describe('decide in place', () => {
     expect(rejectLeave).toHaveBeenCalledWith('l1', 'Stock count that week');
   });
 
+  it('keeps the rejection reason after a failed save and retries the same request', async () => {
+    vi.mocked(rejectLeave).mockRejectedValueOnce(new Error('Offline')).mockResolvedValueOnce({});
+    render(<DecideInPlace requests={reqs} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reject leave for Neha' }));
+    const field = screen.getByRole('textbox', { name: 'Why reject Neha’s leave' });
+    fireEvent.change(field, { target: { value: 'Shift coverage' } });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reject' })); });
+    expect(field).toHaveValue('Shift coverage');
+    expect(field).toHaveAccessibleDescription(screen.getByRole('alert').textContent);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reject' })); });
+    expect(rejectLeave).toHaveBeenLastCalledWith('l1', 'Shift coverage');
+    expect(field).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reject leave for Farah' })).toBeVisible();
+  });
+
   it('brings a request back with the reason when the server refuses', async () => {
     vi.mocked(approveLeave).mockRejectedValueOnce(Object.assign(new Error('Not your step'), { status: 403 }));
     render(<DecideInPlace requests={reqs} />);

@@ -100,8 +100,10 @@ test.describe('Priya asks for leave in the employee app', () => {
 
   test('E5: withdraw a request still waiting', { tag: ['@E5', '@smoke'] }, async ({ asEmployee: priya, web, w }, testInfo) => {
     const wk = week(5, testInfo.retry);
-    const from = weekday(wk, 3);
-    const to = weekday(wk, 4);
+    // Keep both working days in one leave year, even when Friday is January 1.
+    const firstDay = weekday(wk, 3).slice(0, 4) === weekday(wk, 4).slice(0, 4) ? 3 : 0;
+    const from = weekday(wk, firstDay);
+    const to = weekday(wk, firstDay + 1);
     await appLeave(w, 'priya', from, to, 'Plans changed later');
 
     await priya.goto('Leave');

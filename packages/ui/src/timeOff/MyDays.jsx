@@ -98,10 +98,10 @@ export function TodayPunches({ punches = [] }) {
   );
 }
 
-/** On People → Home: the check-in, when the person signed in has an employee file. Home's primary is Add an employee, so this one is secondary (2 Nov 2026). */
-export function HomeCheckIn() {
+/** On People → Home: the check-in, when the person signed in has an employee file. The page can promote this action if there is no work waiting. */
+export function HomeCheckIn({ primary = false }) {
   const [me, load] = useMyDays();
-  return me ? <CheckInCard me={me} onChanged={load} secondary /> : null;
+  return me ? <CheckInCard me={me} onChanged={load} secondary={!primary} /> : null;
 }
 
 /**
@@ -206,7 +206,9 @@ function MyMonth({ records, month, today }) {
   const weeks = Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
   const title = new Date(`${first}T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   return (
-    <div className="pt-month" role="table" aria-label={`My days, ${title}`}>
+    <section aria-label="Attendance calendar">
+      <h2 className="ui-t-sec mb-2">{title}</h2>
+      <div className="pt-month" role="table" aria-label={`My days, ${title}`}>
       <div className="pt-month-row pt-month-head" role="row">{WEEK_HEAD.map((d) => <span key={d} role="columnheader">{d}</span>)}</div>
       {weeks.map((w) => (
         <div key={w[0]} className="pt-month-row" role="row">
@@ -226,7 +228,8 @@ function MyMonth({ records, month, today }) {
           })}
         </div>
       ))}
-    </div>
+      </div>
+    </section>
   );
 }
 

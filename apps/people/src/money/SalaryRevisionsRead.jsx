@@ -1,5 +1,8 @@
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import { enumWords } from '@ui/utils/errorWords';
-import React from 'react';
+import React, { useState } from 'react';
+import { MoreButton } from '@ui/components/list/ListPageParts';
+import SearchField from '@ui/components/ui/SearchField';
 
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
@@ -12,7 +15,8 @@ import { can } from '@ui/timeOff/shared';
 
 import { getHrSalaryRevisions } from '../api/choices';
 import PayrollSalaryRevisions from '../../../payroll/src/screens/SalaryRevisions';
-import { wholeRupees as money } from '@ui/utils/money';
+import { ColumnHeader } from '@ui/components/ColumnFilters';
+import { wholeRupees as money, moneyCell } from '@ui/utils/money';
 import { Avatar } from '@ui/personnel/Employees';
 import { Clock, Coins, TrendingUp, Users } from 'lucide-react';
 import { CountLine } from '@ui/components/ui/CountLine';
@@ -35,6 +39,8 @@ export function SalaryRevisionsReadOnly() {
   const req = useRequest(() => getHrSalaryRevisions(), []);
   const title = 'Salary revisions';
   const rows = req.data?.revisions || [];
+  const [query, setQuery] = useState('');
+  const shown = rows.filter((r) => [r.employeeName, r.employeeCode, r.designation, STATUS[r.status]?.label].some((v) => v?.toLowerCase().includes(query.toLowerCase())));
   /* PEOPLE-09's figures, from the same list: how many, the average rise, what the rises add a year, what still waits. */
   const live = rows.filter((r) => r.status !== 'REJECTED');
   const rises = live.map((r) => Number(r.incrementPercent)).filter((n) => Number.isFinite(n));
@@ -44,56 +50,55 @@ export function SalaryRevisionsReadOnly() {
     <CountLine label="Salary revisions at a glance" items={[
       { key: 'n', label: 'Revisions', cat: 1, Icon: Users, value: live.length, note: `${new Set(live.map((r) => r.employeeId || r.employeeName)).size} people` },
       { key: 'avg', label: 'Average increase', cat: 2, Icon: TrendingUp, value: rises.length ? `${(rises.reduce((a, n) => a + n, 0) / rises.length).toFixed(1)}%` : '—', note: 'Across revisions not rejected' },
-      { key: 'cost', label: 'Annual cost added', cat: 3, Icon: Coins, value: money(added), note: 'New CTC less old, a year' },
+      { key: 'cost', label: 'Annual cost added', cat: 3, Icon: Coins, value: money(added), note: 'Proposed annual CTC less old, a year' },
       { key: 'wait', label: 'Awaiting approval', cat: 4, Icon: Clock, value: waiting, tone: 'warn', note: waiting ? 'Approved in Payroll' : 'Nothing waiting' },
     ]} />
   ) : null;
-  const header = <ListHeader section="Pay & benefits" title={title} strip={strip} description="Annual CTC changes, from when, and where each revision stands. Read only: Payroll raises, reviews and approves revisions." />;
-  if (req.error && !req.data) return <div className="space-y-6">{header}<ErrorState error={req.error} onRetry={req.reload} /></div>;
-  if (!req.data) return <div className="space-y-6">{header}<SkeletonCard lines={6} /></div>;
+  const header = <ListHeader section="Pay & benefits" title={title} strip={strip} description="Read only · Managed in Payroll" toolbar={<SearchField value={query} onSearch={setQuery} label="Search revisions" placeholder="Search revisions" />} />;
+  if (req.error && !req.data) return <div className="people-register" data-column-sizing="content">{header}<ErrorState error={req.error} onRetry={req.reload} /></div>;
+  if (!req.data) return <div className="people-register" data-column-sizing="content">{header}<SkeletonCard lines={6} /></div>;
   return (
-    <div className="space-y-6">
+    <div className="people-register" data-column-sizing="content">
       {header}
-      {!rows.length ? (
-        <EmptyState title="No salary revisions yet" description="A revision raised in Payroll shows here once it exists, with its old and new pay." />
-      ) : (
-        <>
-        <div className="ui-table-scroll">
-          <table className="ui-table ui-table-phone w-full" aria-label="Salary revisions">
-            <thead>
-              <tr>
-                <th scope="col">Employee</th>
-                <th scope="col" className="ui-col-h-right">Old CTC</th>
-                <th scope="col" className="ui-col-h-right">New CTC</th>
-                <th scope="col" className="ui-col-h-right">Change</th>
-                <th scope="col" className="ui-col-h-right">Effective</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody className="ui-rows">
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td className="ui-col-entity" data-phone="name"><span className="pc-who"><Avatar person={{ name: r.employeeName }} size={32} /><span className="pc-who-text"><span className="pc-who-name">{r.employeeName}</span>{r.employeeCode || r.designation ? <span className="pc-who-sub">{r.designation || r.employeeCode}</span> : null}</span></span></td>
-                  <td className="ui-col-amount tabular-nums text-right">{money(r.currentAnnualCtc)}</td>
-                  <td className="ui-col-amount tabular-nums text-right font-semibold" data-phone="key">{money(r.proposedAnnualCtc)}</td>
-                  <td className="ui-col-amount tabular-nums text-right">{r.incrementPercent ? <span className={Number(r.incrementPercent) > 0 ? 'pc-up' : ''}>{Number(r.incrementPercent) > 0 ? '+' : ''}{Number(r.incrementPercent).toFixed(1)}%</span> : '—'}</td>
-                  <td className="ui-col-date tabular-nums text-right whitespace-nowrap" data-phone="sub">{r.effectiveFrom ? formatDate(String(r.effectiveFrom).slice(0, 10)) : '—'}</td>
-                  <td data-phone="tag"><ExceptionTag label={r.status === 'APPLIED' ? '' : STATUS[r.status]?.label || enumWords(r.status)} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="pc-note">Amounts are annual CTC. Only people the company lets read salaries see this page.</p>
-        </>
-      )}
+      <PeopleRevisionTable rows={shown} scope={query} empty={<EmptyState title={query ? 'No matching revisions' : 'No salary revisions yet'} />} />
     </div>
   );
+}
+
+function PeopleRevisionTable({ rows, onOpen, filters, exportRows, scope, empty }) {
+  const amount = onOpen ? moneyCell : money;
+  const status = (r) => <ExceptionTag label={STATUS[r.status]?.label || enumWords(r.status)} normal={STATUS[r.status]?.label} pill={STATUS[r.status]?.tone || 'ui-pill-neutral'} />;
+  const employee = (r) => <span className="pc-who"><Avatar person={{ name: r.employeeName }} size={32} /><span className="pc-who-text"><strong>{r.employeeName}</strong><span className="pc-who-sub">{r.employeeCode || r.designation}</span></span></span>;
+  const columns = [
+    { key: 'employeeName', label: 'Employee', always: true, render: employee, header: filters && <ColumnHeader controlOnly label="Employee" col="employee" state={filters} /> },
+    { key: 'currentAnnualCtc', label: 'Current annual CTC', align: 'right', render: (r) => amount(r.currentAnnualCtc) },
+    { key: 'proposedAnnualCtc', label: 'Proposed annual CTC', align: 'right', render: (r) => amount(r.proposedAnnualCtc) },
+    { key: 'incrementPercent', label: onOpen ? 'Raise' : 'Change', align: 'right', render: (r) => r.incrementPercent == null ? '—' : `${r.incrementPercent}%` },
+    { key: 'effectiveFrom', label: 'Effective from', render: (r) => r.effectiveFrom ? formatDate(String(r.effectiveFrom).slice(0, 10)) : '—' },
+    ...(onOpen ? [{ key: 'reason', label: 'Reason', render: (r) => r.reason || '—' }] : []),
+    { key: 'status', label: 'Status', render: status },
+  ];
+  return <ReviewTable key={scope} label="Salary revisions" columns={columns} rows={rows}
+    recordColumn="employeeName" rowLabel={(r) => r.employeeName} onRowClick={onOpen} exportSelected={exportRows}
+    total={rows.length} pageSize={Math.max(25, rows.length)} noun="revisions" empty={empty}
+    card={(r) => <span className="grid gap-1"><strong>{[r.employeeName, r.employeeCode].filter(Boolean).join(' · ')}</strong><span>{[amount(r.proposedAnnualCtc), r.effectiveFrom && formatDate(String(r.effectiveFrom).slice(0, 10))].filter(Boolean).join(' · ')}</span>{status(r)}</span>} />;
+}
+
+function PeopleRevisionList({ title, primary, countLine, search, moreItems, onMoreSelect, tabs, statusValue, statusCounts, onStatusChange, tabsLabel, above, children }) {
+  return <div className="people-register people-revisions" data-column-sizing="content">
+    <ListHeader title={title} primary={primary} strip={<CountLine items={countLine} />}
+      secondary={moreItems?.length ? <MoreButton items={moreItems} onSelect={onMoreSelect} /> : null}
+      toolbar={<SearchField label={search.label} placeholder="Search revisions" value={search.value} onSearch={search.onChange} />}
+      tabs={tabs.map((t) => ({ key: t.value, label: t.label, count: statusCounts[t.value] }))}
+      tabsLabel={tabsLabel} tab={statusValue} onTab={onStatusChange} />
+    {above}
+    {children}
+  </div>;
 }
 
 /** Payroll's screen for those who hold its right; the read-only list for HR the company let in. */
 export default function SalaryRevisionsInPeople(props) {
   const perms = usePermissions();
-  if (can(perms, 'PAYROLL::Salary Revisions::VIEW')) return <PayrollSalaryRevisions {...props} />;
+  if (can(perms, 'PAYROLL::Salary Revisions::VIEW')) return <PayrollSalaryRevisions {...props} ListShell={PeopleRevisionList} Records={PeopleRevisionTable} />;
   return <SalaryRevisionsReadOnly />;
 }

@@ -99,7 +99,8 @@ describe('Candidates', () => {
     talent.moveCandidate.mockResolvedValue({ ok: true });
     render(withPerms(['PEOPLE::Recruitment::VIEW', 'PEOPLE::Recruitment::CREATE', 'PEOPLE::Recruitment::EDIT'], <Candidates />));
     expect(await screen.findByRole('button', { name: /Add candidate/ })).toBeInTheDocument();
-    await user.click(within(screen.getAllByRole('group', { name: /Actions for/ })[0]).getByRole('button', { name: 'Move to offer' }));
+    await user.click(within(screen.getAllByRole('group', { name: /Actions for/ })[0]).getByRole('button', { name: /Actions for/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Move to offer' }));
     await waitFor(() => expect(talent.moveCandidate).toHaveBeenCalledWith('c1', 'OFFER'));
   });
 

@@ -61,7 +61,7 @@ export default function AttendanceRegister() {
     <DocumentListShell
       entity="report"
       title="Daily attendance register"
-      description="One mark per person per day. The muster roll, read across."
+      introduction="One mark per person per day. The muster roll, read across."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Find a person…', label: 'Find a person' }}

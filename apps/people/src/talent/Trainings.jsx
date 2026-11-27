@@ -80,7 +80,6 @@ export default function Trainings({ params = {} }) {
       <ListHeader
         module="Performance"
         title="Training"
-        description="Trainings, who attends them, and the certificates that lapse."
         primary={canCreate ? { label: 'New training', icon: Plus, onClick: () => setEditing({}) } : null}
         toolbar={expiring ? null : <SearchField value={q} onSearch={setQ} placeholder="Search training or provider" label="Search trainings" className="w-full sm:w-80" />}
         strip={tiles ? <CountLine label="Training figures" items={tiles} /> : null}
@@ -98,7 +97,7 @@ export default function Trainings({ params = {} }) {
             <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{r.title}</span>{statusTag(r)}</span><span className="block truncate ui-caption">{[r.startDate ? day(r.startDate) : null, `${r.completed} of ${r.assigned + r.completed + r.missed} completed`].filter(Boolean).join(' · ')}</span></span>
           ))}
           empty={expiring ? <EmptyState title="Nothing lapsing" description="No certificate lapses in the next 60 days." />
-            : q || tab ? <EmptyState kind="filtered" title="No trainings match" description="Nothing here matches the search or the tab." />
+            : q || tab ? <EmptyState kind="filtered" title="No trainings match" />
               : <EmptyState title="No trainings yet" description="Fire safety, first aid, forklift: add a training and who attends it." routes={canCreate ? [{ label: 'New training', onSelect: () => setEditing({}) }] : undefined} />} />
       )}
       {!expiring && mustOpen ? (

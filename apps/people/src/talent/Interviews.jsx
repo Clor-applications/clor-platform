@@ -105,7 +105,7 @@ function ScheduleInterview({ onClose, onSaved }) {
       footer={<button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button>}>
       {/* Choosing the candidate opens the form at once; there is nothing else to say before it. */}
       <div className="grid gap-4">
-        {req.loading ? <div className="ui-skel h-9 w-full" aria-busy="true" aria-label="Loading candidates" />
+        {req.loading ? <div className="ui-skel h-9 w-full" role="status" aria-busy="true" aria-label="Loading candidates" />
           : req.error ? <ErrorState error={req.error} onRetry={req.reload} compact />
           : !rows.length ? <p className="ui-muted text-sm" role="status">Nobody is in the running. Add a candidate under Hiring › Candidates first.</p>
             : <PopupSelect label="Candidate" alwaysSearch value={picked} onChange={(v) => setPicked(v || '')} placeholder="Choose a candidate"

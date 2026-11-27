@@ -1,5 +1,7 @@
+import { usePeoplePageSlot } from '../list/PeoplePageLayout';
 import React from 'react';
-import { Check, X } from '@ui/components/ui/lineIcons';
+import { cva } from 'class-variance-authority';
+import { Check, ChevronRight, X } from '@ui/components/ui/lineIcons';
 
 /* Books keeps its text cross on a filter chip; every other app draws the Lucide X. */
 const inBooks = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
@@ -65,33 +67,44 @@ export const EntityMark = ({ entity, size = 18 }) => {
 /* `breadcrumb`: [{ label, onClick? }] — the trail above the title (People design spec v1 §5); the last item is the current page.
    `counts`: the count line under the title (DESIGN.md "Page header"; design audit G6), either CountLine items
    ([{ label, value, onClick? }], zero clauses left out) or a ready line of text. One primary goes in `actions`. */
-export const PageHeader = ({ title, description, actions = null, entity = '', breadcrumb = null, counts = null }) => (
-  <div className="ui-page-heading flex flex-wrap items-start justify-between gap-3 mb-2">
-    {/* The title gives way before the actions do: they stay top right until the title would be narrower than 20rem. */}
-    <div className="flex min-w-0 items-center gap-2.5" style={{ flex: '1 1 20rem' }}>
-      {entity ? <EntityMark entity={entity} /> : null}
-      <div className="min-w-0">
-        {breadcrumb?.length ? (
-          <nav aria-label="Breadcrumb" className="ui-breadcrumb">
-            <ol>
-              {breadcrumb.map((b, i) => (
-                <li key={`${b.label}-${i}`}>
-                  {i < breadcrumb.length - 1 && b.onClick ? <button type="button" className="ui-link" onClick={b.onClick}>{b.label}</button> : <span aria-current={i === breadcrumb.length - 1 ? 'page' : undefined}>{b.label}</span>}
-                </li>
-              ))}
-            </ol>
-          </nav>
-        ) : null}
-        <h1 className="ui-t-page">{title}</h1>
-        {Array.isArray(counts) ? <CountLine items={counts} /> : counts ? <p className="ui-count-line">{counts}</p> : null}
-        {description ? <p className="ui-muted ui-t-body mt-0.5" title={typeof description === 'string' ? description : undefined}>{description}</p> : null}
+export const PageHeader = ({
+  title, description, introduction, actions = null, entity = '', breadcrumb = null, counts = null, summary = null,
+}) => {
+  // People omits introductory copy on shared screens. Record details and operational notices still appear.
+  const inPeople = typeof document !== 'undefined' && document.documentElement.dataset.app === 'people';
+  const [helpSlot, peopleLayout] = usePeoplePageSlot('heading');
+  const lead = inPeople ? undefined : introduction;
+  const caption = lead && description ? <>{lead} {description}</> : lead || description;
+  return (
+    <div className="ui-page-heading flex flex-wrap items-start justify-between gap-3 mb-2">
+      {/* The title gives way before the actions do: they stay top right until the title would be narrower than 20rem. */}
+      <div className="flex min-w-0 items-center gap-2.5" style={{ flex: '1 1 20rem' }}>
+        {entity ? <EntityMark entity={entity} /> : null}
+        <div className="min-w-0">
+          {!peopleLayout && breadcrumb?.length ? (
+            <nav aria-label="Breadcrumb" className="ui-breadcrumb">
+              <ol>
+                {breadcrumb.map((b, i) => (
+                  <li key={`${b.label}-${i}`}>
+                    {i > 0 && <ChevronRight size={12} aria-hidden="true" />}
+                    {i < breadcrumb.length - 1 && b.onClick ? <button type="button" className="ui-link" onClick={b.onClick}>{b.label}</button> : <span aria-current={i === breadcrumb.length - 1 ? 'page' : undefined}>{b.label}</span>}
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          ) : null}
+          <h1 className="ui-t-page">{title}</h1>
+          {summary}
+          {Array.isArray(counts) ? <CountLine items={counts} /> : counts ? <p className="ui-count-line">{counts}</p> : null}
+          {caption ? <p className="ui-muted ui-t-body mt-0.5" title={typeof caption === 'string' ? caption : undefined}>{caption}</p> : null}
+        </div>
       </div>
+      {actions || helpSlot ? (
+        <div className="ui-heading-actions flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full">{helpSlot && <span className="people-help-slot" ref={helpSlot} />}{actions}</div>
+      ) : null}
     </div>
-    {actions ? (
-      <div className="flex flex-wrap items-center justify-end gap-2 min-w-0 max-w-full">{actions}</div>
-    ) : null}
-  </div>
-);
+  );
+};
 
 /**
  * Metric tile. `tone` colours the value for financial meaning only
@@ -475,6 +488,12 @@ export const Spinner = () => <span className="ui-spinner" aria-hidden="true" />;
  * the toast is the main success signal.
  * `icon`: a component, drawn at 16px (14px on `size="sm"`), aria-hidden.
  */
+const buttonClasses = cva('ui-btn', {
+  variants: {
+    variant: { primary: 'ui-btn-primary', secondary: 'ui-btn-secondary', ghost: 'ui-btn-ghost', danger: 'ui-btn-danger' },
+    size: { sm: 'ui-btn-sm' },
+  },
+});
 export const Button = ({
   variant = 'secondary', size, icon: Icon = null, loading: busy = false, done, doneLabel = 'Saved',
   className = '', type = 'button', onClick, children, plain = false, ...rest
@@ -491,7 +510,7 @@ export const Button = ({
     onClick?.(e);
   };
   // plain: the caller's own button classes (the Admin center and Ops ws-btn), with the same states.
-  const cls = plain ? className : ['ui-btn', `ui-btn-${variant}`, size === 'sm' ? 'ui-btn-sm' : '', className].filter(Boolean).join(' ');
+  const cls = plain ? className : buttonClasses({ variant, size, className });
   return (
     <>
       <button type={type} className={cls} aria-busy={loading || undefined} aria-disabled={loading || undefined} data-state={state} onClick={guard} {...rest}>

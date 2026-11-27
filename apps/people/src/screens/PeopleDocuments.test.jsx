@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 
 import PeopleDocuments from './PeopleDocuments';
@@ -42,4 +42,16 @@ it('leaves the empty register without the add route for a view-only reader', asy
   render(<PeopleDocuments />);
   expect(await screen.findByText('No documents yet')).toBeTruthy();
   expect(screen.queryByRole('button', { name: /^(Upload document)$/ })).toBeNull();
+});
+
+it('opens document column settings from the header and applies the choice to the table', async () => {
+  render(<PeopleDocuments />);
+  await screen.findAllByText('Offer letter');
+  const toolbar = screen.getByRole('button', { name: 'Columns' }).closest('.ui-list-toolbar');
+  fireEvent.click(within(toolbar).getByRole('button', { name: 'Columns' }));
+  const panel = screen.getByRole('dialog', { name: 'Columns' });
+  fireEvent.click(within(panel).getByRole('checkbox', { name: 'Who can see' }));
+  expect(screen.queryByRole('columnheader', { name: 'Who can see' })).toBeNull();
+  fireEvent.click(within(panel).getByRole('checkbox', { name: 'Who can see' }));
+  expect(screen.getByRole('columnheader', { name: 'Who can see' })).toBeTruthy();
 });

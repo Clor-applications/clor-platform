@@ -25,11 +25,11 @@ it("lists the manager's open requests, who is away and birthdays, in date order"
   render(<HomeGlance glance={glance} go={go} />);
   const rows = screen.getByRole('heading', { name: 'Your team this week' }).closest('section').querySelectorAll('li');
   expect([...rows].map((r) => r.textContent)).toEqual([
-    expect.stringMatching(/^2 requests wait for you/),
+    expect.stringMatching(/^2 items need your action/),
     expect.stringMatching(/^Birthday Bala’s birthday/),
     expect.stringMatching(/^Away Anu away till/),
   ]);
-  fireEvent.click(screen.getByText(/requests wait for you/).closest('button'));
+  fireEvent.click(screen.getByText(/items need your action/).closest('button'));
   expect(go).toHaveBeenCalledWith('approvals');
   expect(go).toHaveBeenCalledWith('employee', { id: 'a1' });
 });

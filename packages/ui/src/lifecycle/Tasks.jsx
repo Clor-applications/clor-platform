@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CheckCheck } from '@ui/components/ui/lineIcons';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
-import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import SearchField from '@ui/components/ui/SearchField';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
@@ -11,7 +11,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import ErrorState from '@ui/components/ui/ErrorState';
 
 import { KIND_WORD, OWNER_WORD, READER_PILL, pageTasks } from './api';
-import { TaskDrawer, can, crumbs } from './shared';
+import { PersonCell, TaskDrawer, can, crumbs } from './shared';
 
 /**
  * Joining & Leaving → Tasks (was Onboarding & Exit): every joining, leaving,
@@ -21,8 +21,8 @@ import { TaskDrawer, can, crumbs } from './shared';
  * opens in a drawer to close it (with a note when the step needs one) or to
  * hand it on. Someone without the Employees right sees only their own.
  */
-const VIEWS = [['mine', 'Mine'], ['late', 'Late'], ['nobody', 'Nobody’s'], ['open', 'All open'], ['done', 'Done']];
-const KINDS = [['', 'Every kind'], ...Object.entries(KIND_WORD)];
+const VIEWS = [['mine', 'Mine'], ['late', 'Overdue'], ['nobody', 'Unassigned'], ['open', 'All open'], ['done', 'Done']];
+const KINDS = [['', 'All types'], ...Object.entries(KIND_WORD)];
 
 export default function Tasks({ params = {}, updateParams, openScreen }) {
   const perms = usePermissions();
@@ -40,40 +40,37 @@ export default function Tasks({ params = {}, updateParams, openScreen }) {
   const views = mineOnly ? VIEWS.filter(([k]) => k === 'mine' || k === 'done') : VIEWS;
   const filtered = Boolean(p.q || p.kind);
 
+  const detail = (t) => (t.system === 'READERS' && !t.done
+      ? <span className={`ui-pill ${READER_PILL[t.systemState] || 'ui-pill-neutral'}`}>{t.systemState === 'FAILED' ? 'Not confirmed' : t.systemState === 'WAITING' ? 'Waiting for readers' : 'On the last day'}</span>
+      : t.needsNote && !t.done ? <span className="ui-pill ui-pill-outline">Needs a note</span>
+        : t.ownPlan ? <span className="ui-caption">Your own plan</span> : null);
+
   const columns = [
-    { key: 'task', label: 'Task', always: true, render: (t) => (
-      <span className="block min-w-0 whitespace-normal">
-        <span className="block">{t.title}</span>
-        <span className="block ui-caption">{KIND_WORD[t.kind] || t.kind} · {t.employee.name}{t.employee.code ? ` (${t.employee.code})` : ''}</span>
-      </span>
-    ) },
-    { key: 'owner', label: 'Owner', render: (t) => <span className="whitespace-nowrap">{t.ownerName || <span className="ui-muted">{OWNER_WORD[t.owner] || t.owner}, nobody named</span>}</span> },
+    { key: 'task', label: 'Task', always: true, render: (t) => <span className="task-summary"><strong>{t.title}</strong>{detail(t)}</span> },
+    { key: 'employee', label: 'Employee', render: (t) => <PersonCell person={t.employee} line={t.employee.code} /> },
+    { key: 'kind', label: 'Type', render: (t) => <span className="ui-caption">{KIND_WORD[t.kind] || t.kind}</span> },
+    { key: 'owner', label: 'Assigned to', render: (t) => <span className="whitespace-nowrap">{t.ownerName || <span className="ui-muted">Unassigned{t.owner ? ` · ${OWNER_WORD[t.owner] || t.owner}` : ''}</span>}</span> },
     { key: 'due', label: view === 'done' ? 'Done' : 'Due', render: (t) => (view === 'done'
       ? <span className="whitespace-nowrap tabular-nums">{t.doneAt ? formatDate(String(t.doneAt).slice(0, 10)) : ''}<span className="block ui-caption">{t.doneBy}</span></span>
       : <span className={`whitespace-nowrap tabular-nums ${t.late ? 'ui-text-neg' : ''}`}>{t.dueDate ? formatDate(t.dueDate) : '—'}{t.late ? ' (late)' : ''}</span>) },
-    { key: 'state', label: 'State', render: (t) => (t.system === 'READERS' && !t.done
-      ? <span className={`ui-pill ${READER_PILL[t.systemState] || 'ui-pill-neutral'}`}>{t.systemState === 'FAILED' ? 'Not confirmed' : t.systemState === 'WAITING' ? 'Waiting for readers' : 'On the last day'}</span>
-      : t.needsNote && !t.done ? <span className="ui-pill ui-pill-outline">Needs a note</span>
-        : t.ownPlan ? <span className="ui-caption">Your own plan</span> : null) },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="people-register people-tasks" data-column-sizing="content">
       <ListHeader
         breadcrumb={crumbs()}
         title="Tasks"
-        description="Every joining, leaving, probation and letter step: whose it is, when it is due, and closing it."
         toolbar={<>
           <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search task or person" label="Search tasks" className="w-full sm:w-72" />
-          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Kind of task" placeholder="Every kind" value={p.kind || ''} onChange={(v) => set({ kind: v || null, page: null })} options={KINDS.map(([value, label]) => ({ value, label }))} /></div>
+          <div className="w-full sm:w-36"><PopupSelect showValueSubtext={false} ariaLabel="Kind of task" placeholder="All types" value={p.kind || ''} onChange={(v) => set({ kind: v || null, page: null })} options={KINDS.map(([value, label]) => ({ value, label }))} /></div>
         </>}
         tabs={views.map(([k, l]) => ({ key: k, label: l, count: k !== 'done' ? counts[k] : 0, tone: k === 'late' ? 'warn' : undefined }))}
         tab={view}
         onTab={(k) => set({ view: k === 'mine' ? null : k, page: null }, true)}
       />
-      <DataTable
+      <ReviewTable key={JSON.stringify([view, p.q, p.kind, page, size])} rowLabel={(r) => [r.title, r.employee?.name].filter(Boolean).join(' · ')} compactActions
         label="Tasks"
-        columns={columns}
+        columns={columns.filter((c) => c.key !== 'owner' || view !== 'mine')}
         rows={list.data?.rows || []}
         total={Number(list.data?.total || 0)}
         page={page}
@@ -90,13 +87,14 @@ export default function Tasks({ params = {}, updateParams, openScreen }) {
         ]}
         card={(t) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-start justify-between gap-2"><span>{t.title}</span><span className={`ui-caption tabular-nums whitespace-nowrap ${t.late ? 'ui-text-neg' : ''}`}>{t.dueDate ? formatDate(t.dueDate) : ''}</span></span>
-            <span className="block truncate ui-caption">{[KIND_WORD[t.kind], t.employee.name, t.ownerName || OWNER_WORD[t.owner]].filter(Boolean).join(' · ')}</span>
+            <span className="flex items-start justify-between gap-2"><span>{t.title}</span><span className={`ui-caption tabular-nums whitespace-nowrap ${t.late ? 'ui-text-neg' : ''}`}>{t.done && t.doneAt ? formatDate(String(t.doneAt).slice(0, 10)) : t.dueDate ? formatDate(t.dueDate) : ''}{t.late && !t.done ? ' · Overdue' : ''}</span></span>
+            <span className="block truncate ui-caption">{[KIND_WORD[t.kind], t.employee.name, view !== 'mine' ? t.ownerName || OWNER_WORD[t.owner] : null].filter(Boolean).join(' · ')}</span>
+            {detail(t)}
           </span>
         )}
         empty={list.error ? <ErrorState error={list.error} onRetry={list.reload} />
           : filtered ? <EmptyState kind="filtered" title="No tasks match" onClearFilters={() => set({ q: null, kind: null, page: null })} />
-            : <EmptyState icon={CheckCheck} title={view === 'mine' ? 'Nothing on your name' : view === 'late' ? 'Nothing late' : view === 'nobody' ? 'Every task has an owner' : view === 'done' ? 'Nothing done in the last 90 days' : 'Nothing open'} />}
+            : <EmptyState icon={CheckCheck} title={view === 'mine' ? 'No tasks assigned to you' : view === 'late' ? 'Nothing late' : view === 'nobody' ? 'Every task has an owner' : view === 'done' ? 'Nothing done in the last 90 days' : 'Nothing open'} />}
       />
       {open ? <TaskDrawer task={open} canAssign={hr && !mineOnly} onClose={() => setOpen(null)} onSaved={() => { setOpen(null); list.reload(); }} /> : null}
     </div>

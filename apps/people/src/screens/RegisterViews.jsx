@@ -1,3 +1,4 @@
+import AnnouncementText from '@ui/components/ui/AnnouncementText';
 import React, { useRef, useState } from 'react';
 import {
   BookOpen, Calendar, CalendarClock, CheckCheck, Coins, FilePen, Gift, Heart, Laptop, Megaphone, PiggyBank, ShieldCheck,
@@ -87,9 +88,6 @@ export function RegisterFigures({ kind, cfg, rows, people, working, today, onTab
   if (kind === 'assets') {
     const f = assetFigures(rows, people);
     items = [
-      { key: 'all', label: 'Assets', value: f.total, note: f.types ? `${plural(f.types, 'type')}${f.retired ? ` · ${f.retired} retired` : ''}` : 'Not counting retired', cat: 1, Icon: ICON.laptop, onClick: tab('ALL') },
-      { key: 'assigned', label: 'Assigned', value: f.assigned, note: f.total ? `${Math.round((f.assigned / f.total) * 100)}% of assets` : null, cat: 2, Icon: ICON.team, onClick: tab('ASSIGNED') },
-      { key: 'store', label: 'In store', value: f.inStore, note: f.repair ? `${f.repair} in repair` : 'Ready to hand out', cat: 3, Icon: ICON.store },
       { key: 'recover', label: 'To recover', value: f.recover, tone: 'warn', note: 'From people leaving or due back', cat: 4, Icon: ICON.recover },
     ];
   } else if (kind === 'benefits') {
@@ -198,7 +196,7 @@ export function AnnouncementFeed({ cfg, rows, working, today, audienceOf, onOpen
               {r.status !== 'PUBLISHED' ? <StatusPill cfg={cfg} status={r.status} /> : null}
               <ItemMenu label={`Actions for ${r.title}`} items={menuOf(r)} />
             </div>
-            {r.details?.body ? <p className="rg-post-body">{r.details.body}</p> : null}
+            {r.details?.body ? <div className="rg-post-body"><AnnouncementText value={r.details.body} /></div> : null}
             <div className="rg-post-foot">
               <span>{[r.status === 'DRAFT' ? `Saved ${short(r.updatedAt || r.createdAt, today)}` : short(r.createdAt, today), `to ${audienceOf(r) || 'Everyone'}`].filter(Boolean).join(' · ')}</span>
               {r.status === 'DRAFT' ? null : <span className="tabular-nums">Reaches {plural(n, 'person', 'people')}</span>}

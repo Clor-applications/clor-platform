@@ -1,3 +1,5 @@
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
+import { useReviewSelection, SelectionBar, MobilePageCheckbox, PageCheckbox, RowCheckbox } from '@ui/components/ui/ReviewTable';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, Moon, Plus, Users } from '@ui/components/ui/lineIcons';
 
@@ -98,7 +100,7 @@ const COLUMNS = {
  * Work timings. People with no shift fall back to 09:00–18:00, Sunday off.
  * An end at or before the start is a night shift (ends the next morning).
  */
-export default function Shifts({ openScreen }) {
+export default function Shifts({ peopleTimePage = false, openScreen }) {
   const [all, setAll] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(null);
@@ -120,6 +122,8 @@ export default function Shifts({ openScreen }) {
   const search = useListSearch(inTab, ['name', 'code', 'startTime', 'endTime']);
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
+  const selection = useReviewSelection(rows);
+  const visibleRows = peopleTimePage && selection.focused ? selection.selectedRows : rows;
   const hues = useMemo(() => shiftHues((all || []).filter((s) => s.isActive)), [all]);
   const figures = useMemo(() => {
     const list = all || [];
@@ -133,11 +137,12 @@ export default function Shifts({ openScreen }) {
 
   return (
     <DocumentListShell
+      timeRegister={peopleTimePage}
       entity="shift"
       title="Shifts"
       description={
         <>
-          Timings, grace and the days off of the people on each shift. Anyone without a shift works 09:00–18:00 and has the days off set in{' '}
+          {!peopleTimePage && 'Timings, grace and the days off of the people on each shift. '}Anyone without a shift works 09:00–18:00 and has the days off set in{' '}
           {openScreen ? <button type="button" className="ui-link" onClick={() => openScreen('workingWeek')}>Working week</button> : 'Working week'}.
         </>
       }
@@ -166,9 +171,12 @@ export default function Shifts({ openScreen }) {
         loadError ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky ui-table-phone w-full">
+            {peopleTimePage ? <SelectionBar selection={selection} /> : null}
+            {peopleTimePage ? <MobilePageCheckbox rows={visibleRows} selection={selection} /> : null}
+          <TimeRegisterTable enabled={peopleTimePage} register="Shifts" required={['Shift']} className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
+                  {peopleTimePage ? <th scope="col" className="record-checkbox"><PageCheckbox rows={visibleRows} selection={selection} /></th> : null}
                 <ColumnHeader label="Shift" col="name" state={filters}  className="ui-col-grow" />
                 <th scope="col" className="ui-col-h-center">Timing</th>
                 <th scope="col" className="ui-num">Break</th>
@@ -182,22 +190,23 @@ export default function Shifts({ openScreen }) {
             <tbody className="ui-rows">
               {!rows.length ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={(8) + (peopleTimePage ? 1 : 0)}>
                     {inTab.length ? (
                       <EmptyState kind="filtered" totalCount={inTab.length} title="No shifts match" description="Nothing in this tab matches the search or the column filters." />
                     ) : (
                       <EmptyState
                         icon={Clock3}
                         title={status ? `No ${status.toLowerCase()} shifts` : 'No shifts yet'}
-                        description="Timings, grace and days off. Anyone without a shift works 09:00–18:00 with the days off set in Working week. Create one, then assign people to it."
+                        description={peopleTimePage ? "Create a shift, then assign employees to it." : "Timings, grace and days off. Anyone without a shift works 09:00–18:00 with the days off set in Working week. Create one, then assign people to it."}
                         routes={status ? undefined : [{ label: 'New shift', description: 'Timings, grace and weekly offs; then assign people to it.', onSelect: create }]}
                       />
                     )}
                   </td>
                 </tr>
               ) : (
-                rows.map((s) => (
+                visibleRows.map((s) => (
                   <tr key={s.id} className="ui-row-click" onClick={() => openShift(s)}>
+                    {peopleTimePage ? <RowCheckbox row={s} label={s.name} selection={selection} phoneSlot="select" /> : null}
                     <td className="ui-col-entity" data-phone="name">
                       <button type="button" className="ui-row-open" onClick={(e) => { e.stopPropagation(); openShift(s); }}>
                         {s.code ? <span className="mr-1.5 inline-block rounded-full px-1.5 text-xs font-semibold" style={shiftChip(hues.get(s.id) || s.color || 'rgb(var(--fg-subtle))')}>{s.code}</span> : null}
@@ -218,7 +227,7 @@ export default function Shifts({ openScreen }) {
                 ))
               )}
             </tbody>
-          </table>
+          </TimeRegisterTable>
         </div>
       )}
       {editing ? <ShiftForm initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /> : null}

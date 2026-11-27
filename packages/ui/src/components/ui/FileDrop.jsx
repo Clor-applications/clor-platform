@@ -1,3 +1,4 @@
+import { useDropzone } from 'react-dropzone';
 import React, { useId, useRef, useState } from 'react';
 import { RotateCw, Upload, X } from './lineIcons';
 import FileBadge, { fileSize } from './FileBadge';
@@ -49,8 +50,6 @@ export default function FileDrop({
   const inputId = id || `${autoId}-file`;
   const noteId = `${inputId}-note`;
   const input = useRef(null);
-  const depth = useRef(0);
-  const [over, setOver] = useState(false);
   const [refused, setRefused] = useState('');
 
   const take = (f) => {
@@ -61,13 +60,11 @@ export default function FileDrop({
     onFile?.(f);
   };
   const choose = () => { if (!disabled) input.current?.click(); };
-  const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
-  const dragProps = disabled ? {} : {
-    onDragEnter: (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth.current += 1; setOver(true); },
-    onDragOver: (e) => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; },
-    onDragLeave: () => { depth.current = Math.max(0, depth.current - 1); if (!depth.current) setOver(false); },
-    onDrop: (e) => { e.preventDefault(); depth.current = 0; setOver(false); take(e.dataTransfer.files?.[0]); },
-  };
+  const { getRootProps, isDragActive: over } = useDropzone({
+    disabled, noClick: true, noKeyboard: true, preventDropOnDocument: false,
+    getFilesFromEvent: async (event) => Array.from(event.dataTransfer?.files || event.target.files || []),
+    onDrop: (files) => take(files[0]),
+  });
   const message = refused || error;
   const name = file?.name || '';
 
@@ -88,7 +85,7 @@ export default function FileDrop({
         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; take(f); }}
       />
       {file ? (
-        <div className="ui-file-drop-row" data-over={over || undefined} data-error={error ? '' : undefined} {...dragProps}>
+        <div className="ui-file-drop-row" data-over={over || undefined} data-error={error ? '' : undefined} {...getRootProps({ role: 'presentation' })}>
           <FileBadge mime={file.type} name={name} />
           <span className="ui-file-drop-name" title={name}>{over ? 'Release to replace it' : name}</span>
           {file.size ? <span className="ui-caption tabular-nums ui-file-drop-size">{sizeWords(file.size)}</span> : null}
@@ -106,16 +103,15 @@ export default function FileDrop({
         </div>
       ) : (
         <div
-          role="button"
+          {...getRootProps({ role: 'button' })}
+          onClick={choose}
           tabIndex={disabled ? -1 : 0}
           aria-disabled={disabled || undefined}
           aria-label={label ? `${label}: choose a file` : ariaLabel ? `${ariaLabel}: choose a file` : 'Choose a file'}
           aria-describedby={noteId}
           className="ui-dropzone"
           data-over={over || undefined}
-          onClick={choose}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); } }}
-          {...dragProps}
         >
           <Upload size={18} aria-hidden="true" />
           <span className="text-sm">{over ? 'Release to attach' : 'Choose a file'}</span>

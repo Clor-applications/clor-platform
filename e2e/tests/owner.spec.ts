@@ -32,9 +32,10 @@ test.describe('Suresh owns the account', () => {
   });
 
   test('A3: Kavya has HR access and Rahul team-manager access, and each sees exactly that', { tag: ['@A3', '@smoke'] }, async ({ asOwner: suresh, asHR: kavya, asManager: rahul }) => {
-    /* Settings → Users & security opens Workspace; Access → Users lists who holds which role. */
+    /* Open the access category, then inspect each company user's assigned role. */
     await suresh.goto();
     await suresh.open('Settings');
+    await suresh.main.getByRole('button', { name: /^Access(?:\s|$)/ }).click();
     await suresh.main.getByRole('button', { name: /^Users & security/ }).click();
     /* Workspace opens: in place locally (?app=admin), on staging on the front door's own host (app.), where the address carries no app=. */
     await expect(suresh.page.locator('html')).toHaveAttribute('data-app', 'admin');
@@ -49,16 +50,14 @@ test.describe('Suresh owns the account', () => {
     /* Kavya: everyone, and may add people. */
     await kavya.goto();
     await kavya.open('Employees');
-    /* The figures sit behind "Show figures" so the list comes first (FINDING-018). */
-    await kavya.main.getByText('Show figures', { exact: true }).click();
+    await kavya.main.getByText('Workforce figures', { exact: true }).click();
     await expect(kavya.main.getByRole('button', { name: /working now/i })).toContainText('12');
     await expect(kavya.main.getByRole('button', { name: 'Add employee', exact: true })).toBeVisible();
 
     /* Rahul: himself and his four, nothing to add, no company settings. */
     await rahul.goto();
     await rahul.open('Employees');
-    /* The figures sit behind "Show figures" so the list comes first (FINDING-018). */
-    await rahul.main.getByText('Show figures', { exact: true }).click();
+    await rahul.main.getByText('Workforce figures', { exact: true }).click();
     await expect(rahul.main.getByRole('button', { name: /working now/i })).toContainText('5');
     await expect(rahul.main.getByRole('tab', { name: /My team/ })).toContainText('4');
     await expect(rahul.main.getByRole('button', { name: 'Add employee', exact: true })).toHaveCount(0);
@@ -81,7 +80,7 @@ test.describe('Suresh owns the account', () => {
 
     /* Search, the address, and Back: still nothing of Asha's. */
     await vels.main.getByRole('searchbox', { name: 'Search employees' }).fill('Priya');
-    await expect(vels.main.getByRole('link', { name: /^Priya Sharma/ })).toHaveCount(0);
+    await expect(vels.employeeLink('Priya Sharma')).toHaveCount(0);
     await suresh.page.goto(`/o/${w.vels.code}/?app=people&open=employee&s.id=${w.people.priya.id}`);
     await expect(vels.main).toContainText(/not available|not found/i);
     await expect(vels.main).not.toContainText('Priya Sharma');
@@ -100,28 +99,29 @@ test.describe('Suresh owns the account', () => {
   });
 
   test('A4c: on a phone the Workspace bar fits and still switches company', { tag: ['@A4c'] }, async ({ asOwner: suresh, w }, testInfo) => {
-    /* #80 re-review: the Workspace has no app menu, so the phone's company choice must live in its own bar button. */
+    /* Workspace exposes the active company and company switcher in the profile menu on phones. */
     allowNoise(testInfo, /404|Not Found/);
     await suresh.page.setViewportSize({ width: 390, height: 844 });
     await suresh.page.goto(`/o/${w.asha.code}/?app=admin`);
     const bar = suresh.page.getByRole('banner');
-    await expect(bar.getByRole('button', { name: `Company: ${w.asha.name}` })).toBeVisible();
+    const profile = bar.getByRole('button', { name: /^Your menu: / });
+    await expect(profile).toHaveAccessibleName(new RegExp(w.asha.name, 'i'));
     const right = await bar.evaluate((b) => Math.max(...Array.from(b.querySelectorAll('button, select, label')).map((e) => e.getBoundingClientRect().right)));
     expect(right, 'nothing in the bar past the screen').toBeLessThanOrEqual(390);
     /* DESIGN.md's touch size: the bar's buttons and the menu's companies at least 44px. */
     const small = await bar.evaluate((b) => Array.from(b.querySelectorAll('.ui-icon-btn')).map((e) => e.getBoundingClientRect()).filter((r) => r.width && (r.width < 44 || r.height < 44)).length);
     expect(small, 'bar buttons under 44px').toBe(0);
-    await bar.getByRole('button', { name: /^Company: / }).click();
-    /* The menu floats over the page (base-ui portal), so it is found on the page, not inside the bar. */
-    const menu = await suresh.page.getByRole('menu').boundingBox();
-    expect(menu!.x, 'menu inside the 16px gutter').toBeGreaterThanOrEqual(16);
-    expect(menu!.x + menu!.width, 'menu inside the 16px gutter').toBeLessThanOrEqual(374);
-    const rows = await suresh.page.getByRole('menuitemradio').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+    const menu = await suresh.openYourMenu();
+    const box = await menu.boundingBox();
+    expect(box!.x, 'menu inside the 16px gutter').toBeGreaterThanOrEqual(16);
+    expect(box!.x + box!.width, 'menu inside the 16px gutter').toBeLessThanOrEqual(374);
+    const companies = menu.getByRole('group', { name: 'Company', exact: true });
+    await expect(companies.getByRole('menuitemradio', { name: w.asha.name, checked: true })).toBeVisible();
+    const rows = await companies.getByRole('menuitemradio').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
     expect(Math.min(...rows), 'company rows under 44px').toBeGreaterThanOrEqual(44);
-    await suresh.page.keyboard.press('Escape');
-    await suresh.switchCompany(w.vels.name);
+    await companies.getByRole('menuitemradio', { name: w.vels.name, exact: true }).click();
     await expect(suresh.page).toHaveURL(new RegExp(`/o/${w.vels.code}/`));
-    await expect(bar.getByRole('button', { name: `Company: ${w.vels.name}` })).toBeVisible();
+    expect((await suresh.companyInUse())?.trim()).toBe(w.vels.name);
     /* Ends back in People: the Workspace home's own off pills fail axe contrast (admin app, reported apart). */
     await new PeopleWeb(suresh.page, w.vels, testInfo).goto();
   });
@@ -138,17 +138,16 @@ test.describe('Suresh owns the account', () => {
     await people.main.getByLabel('Last name').fill('Rao');
     await people.main.getByLabel('Work email').fill(me.email);
     await people.main.getByLabel('Work email').press('Tab');
-    await people.main.getByRole('button', { name: 'Continue' }).click();
+    await people.main.getByRole('form', { name: 'Personal', exact: true }).getByRole('button', { name: 'Continue' }).click();
     await people.main.getByLabel('Joining date').fill('01/04/2024');
-    await people.main.getByRole('button', { name: 'Continue' }).click();
-    await people.main.getByRole('button', { name: 'Continue' }).click();
+    await people.main.getByRole('form', { name: 'Employment', exact: true }).getByRole('button', { name: 'Continue' }).click();
+    await people.main.getByRole('form', { name: 'Organisation', exact: true }).getByRole('button', { name: 'Continue' }).click();
     await expect(people.main.getByRole('form', { name: 'Review' })).toContainText(me.email);
     await people.main.getByRole('button', { name: 'Create employee' }).click();
     await expect(people.title).toContainText('Lalitha Rao');
 
     /* A leave type of her own, from the usual ones. */
-    await people.open('Settings');
-    await people.main.getByRole('button', { name: /^Leave policy/ }).click();
+    await people.openSetting('Leave policy');
     await expect(people.title).toHaveText('Leave policy');
     await people.main.getByRole('button', { name: 'Casual Leave', exact: true }).click();
     const typeForm = people.page.getByRole('dialog').last();

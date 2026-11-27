@@ -109,7 +109,6 @@ export default function Openings({ params = {}, openScreen }) {
       <ListHeader
         module="Hiring"
         title="Job openings"
-        description="What the company is hiring for; candidates and interviews hang off each opening."
         primary={canCreate ? { label: canEdit ? 'New opening' : 'Ask for an opening', icon: Plus, onClick: () => setEditing(blank) } : null}
         toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search job, department or place" label="Search openings" className="w-full sm:w-80" />}
         strip={tiles ? <CountLine label="Hiring figures" items={tiles} /> : null}
@@ -119,8 +118,8 @@ export default function Openings({ params = {}, openScreen }) {
         tabsLabel="Openings"
       />
       {flow && flow.some((x) => x.value) ? (
-        <ChartPanel title="Pipeline, every opening">
-          <BarChart horizontal label="Candidates at each stage" categories={flow.map((r) => r.label)} series={[{ name: 'Candidates', values: flow.map((r) => r.value) }]} />
+        <ChartPanel title="Hiring pipeline">
+          <BarChart horizontal label="Candidates at each stage" categories={flow.map((r) => r.label)} series={[{ name: 'Candidates', values: flow.map((r) => r.value), focus: true }]} />
         </ChartPanel>
       ) : null}
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
@@ -136,7 +135,7 @@ export default function Openings({ params = {}, openScreen }) {
             </span>
           )}
           empty={q || status !== 'active'
-            ? <EmptyState kind="filtered" title="No openings match" description="Nothing here matches the search or the tab." />
+            ? <EmptyState kind="filtered" title="No openings match" />
             : <EmptyState title="No openings yet" description="Add the job you are hiring for; candidates and interviews hang off it." routes={canCreate ? [{ label: canEdit ? 'New opening' : 'Ask for an opening', onSelect: () => setEditing(blank) }] : undefined} />} />
       )}
       {open ? <OpeningDrawer id={open} canEdit={canEdit} moves={moves} onMove={move} onEdit={(o) => { setOpen(null); setEditing(o); }} openScreen={openScreen} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}

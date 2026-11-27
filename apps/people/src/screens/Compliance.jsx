@@ -149,7 +149,6 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
       <ListHeader
         section="Insights"
         title="Compliance calendar"
-        description="What the company owes under labour law and to Payroll, when, and whose job it is, with the registrations and rules behind it."
         secondary={actions}
         toolbar={<>
           <SegmentedControl label="Compliance" options={VIEWS.map(([k, l]) => ({ key: k, label: l }))} value={view} onChange={(k) => set({ view: k === 'owed' ? null : k, status: null, id: null })} />
@@ -174,7 +173,7 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
                 <span className="block ui-caption">{[o.period === 'STANDING' ? 'Standing' : `Due ${day(o.dueOn)}`, o.owner, o.establishment].filter(Boolean).join(' · ')}</span>
               </span>
             )}
-            empty={q ? <EmptyState kind="filtered" title="Nothing matches" description="Nothing here matches the search." />
+            empty={q ? <EmptyState kind="filtered" title="Nothing matches" />
               : tab === 'DONE' ? <EmptyState title="Nothing done yet" description="What is marked done or checked stays here, with its proof." />
                 : <EmptyState title="Nothing owed" description="Add work sites under Organisation; what each state asks of them appears here, with Payroll’s deadlines and your own." />}
           />

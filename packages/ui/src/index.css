@@ -1,17 +1,17 @@
-/* One face for the whole platform, Books included: Figtree (owner, 15 Nov
-   2026). JetBrains Mono for identifiers only. Inter is no longer in any
-   font stack; its @font-face stays only because Books' receipt and journal
-   voucher papers still name it first, and a face that nothing outside Books
-   names is never downloaded there.
-   All self-hosted (Fontsource, SIL OFL 1.1), never Google — no IP leakage
-   before sign-in. */
 @import '@fontsource-variable/figtree';
 @import '@fontsource-variable/jetbrains-mono';
 @import '@fontsource-variable/inter';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss" source(none);
+@source "../../../apps";
+@source "../../../packages";
+@source "../../../console/web";
+@source "../../../main.jsx";
+@source "../../../index.html";
+
+@layer base {
+  *, ::before, ::after { border-color: rgb(var(--border)); }
+}
 
 /*
  * Dividers drawn with divide-y / divide-x take the theme's hairline. Tailwind
@@ -4171,7 +4171,7 @@
   .ui-segment:hover {
     background-color: rgb(var(--seg-strong, var(--surface-sunken)));
   }
-  .ui-segment[aria-selected='true'] {
+  .ui-segment:is([aria-selected='true'], [aria-pressed='true']) {
     background-color: rgb(var(--seg-strong, var(--surface-sunken)));
     color: rgb(var(--fg));
     border-color: rgb(var(--seg-key, var(--brand)));
@@ -4444,7 +4444,7 @@
   }
   /* On the selected tab the count takes the saturated key, which is the one
      place the full-strength status colour appears. */
-  .ui-segment[aria-selected='true'] .ui-segment-count {
+  .ui-segment:is([aria-selected='true'], [aria-pressed='true']) .ui-segment-count {
     background-color: rgb(var(--seg-key, var(--brand)));
     color: rgb(var(--on-tone));
   }
@@ -5940,7 +5940,7 @@ th.ui-th {
   background-color: rgb(var(--rail-hover));
   color: rgb(var(--cursor-fg));
 }
-.ui-segment:hover:not([aria-selected='true']) {
+.ui-segment:hover:not([aria-selected='true'], [aria-pressed='true']) {
   background-color: rgb(var(--cursor-bg));
   color: rgb(var(--cursor-fg));
 }
@@ -6061,21 +6061,21 @@ th.ui-th {
    counts and the content. */
 /* The red brand answers with its own choice colour, marigold (--choice); a
    palette that unsets it (Accounting's indigo) keeps the brand fill. */
-.ui-segment[aria-selected='true'],
+.ui-segment:is([aria-selected='true'], [aria-pressed='true']),
 [role='tab'][aria-selected='true'].ui-segment {
   background-color: rgb(var(--choice, var(--brand))) !important;
   border-color: rgb(var(--choice, var(--brand))) !important;
   color: rgb(var(--on-choice, var(--on-brand))) !important;
 }
-.ui-segment[aria-selected='true'] .ui-segment-count {
+.ui-segment:is([aria-selected='true'], [aria-pressed='true']) .ui-segment-count {
   background-color: rgb(var(--on-choice, var(--on-brand)) / 0.18) !important;
   color: rgb(var(--on-choice, var(--on-brand))) !important;
 }
-.ui-segment:not([aria-selected='true']),
+.ui-segment:not([aria-selected='true'], [aria-pressed='true']),
 [role='tab']:not([aria-selected='true']) {
   color: rgb(var(--fg)) !important;
 }
-.ui-segment:not([aria-selected='true']) .ui-segment-count {
+.ui-segment:not([aria-selected='true'], [aria-pressed='true']) .ui-segment-count {
   color: rgb(var(--fg)) !important;
 }
 .ui-tab.is-active,
@@ -7654,6 +7654,13 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
  * The bar: which app you are in and which company, before anything else.
  * The app wears its palette's colour as a mark; the company is named in full.
  */
+.ui-app-context {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 0.5rem;
+  min-width: 0;
+}
 .ui-app-switch {
   display: inline-flex;
   align-items: center;
@@ -7663,6 +7670,24 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   border-radius: var(--radius-btn);
   color: rgb(var(--fg));
   transition: background-color var(--dur-surface) ease;
+}
+.ui-app-switch.ui-app-launcher {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  padding: 0;
+}
+.ui-app-launcher-dots {
+  display: grid;
+  grid-template-columns: repeat(3, 3px);
+  gap: 3px;
+}
+.ui-app-launcher-dots > i {
+  width: 3px;
+  height: 3px;
+  border-radius: 1px;
+  background: currentColor;
 }
 .ui-app-switch:hover { background: rgb(var(--surface-sunken)); }
 .ui-app-switch:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
@@ -8676,7 +8701,7 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
 .ui-split-rail > .ui-split-mod:nth-last-child(2):has(+ .ui-split-mod[data-more]) { margin-top: auto; }
 
 /* The bar: room after the CLOR mark for branding, and the right-hand icons in full ink at a readable size. */
-.ui-topbar .ui-app-switch { margin-left: 1.5rem; }
+.ui-topbar .ui-app-switch:not(.ui-app-launcher) { margin-left: 1.5rem; }
 .ui-topbar .ui-icon-btn { color: rgb(var(--fg)); }
 .ui-topbar .ui-icon-btn > svg { width: 1.25rem; height: 1.25rem; }
 .ui-topbar .ui-icon-btn:hover { background: rgb(var(--surface-sunken)); }
@@ -9422,3 +9447,57 @@ button.ui-side-alert { cursor: pointer; }
   .ui-auth-scene-band .ui-auth-scene-fill { display: none; }
   .ui-auth-scene-band .ui-auth-scene-pic { position: static; display: block; width: 100%; height: auto; max-height: 40vh; object-fit: cover; object-position: 50% 60%; }
 }
+
+.mobile-page-select { display: none; }
+@media (max-width: 639px) {
+  .mobile-page-select {
+    display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; padding-inline: .5rem;
+    font-size: .8125rem; cursor: pointer;
+  }
+}
+
+.ui-cmdk-panel [cmdk-item][data-selected="true"] { background-color: rgb(var(--brand-soft)); }
+.ui-cmdk-enter { visibility: hidden; }
+[cmdk-item][data-selected="true"] .ui-cmdk-enter { visibility: visible; }
+.ui-bulkbar.ui-selection-float { position: fixed; bottom: max(1.5rem, env(safe-area-inset-bottom)); left: 50%; translate: -50% 0; z-index: 35; width: max-content; max-width: calc(100vw - 2rem); flex-wrap: wrap; background: rgb(var(--surface)); box-shadow: var(--shadow-lift); }
+@media (max-width: 767px) {
+  .ui-bulkbar.ui-selection-float { bottom: calc(4.5rem + env(safe-area-inset-bottom)); gap: 4px 8px; padding: 6px 12px; }
+  .ui-selection-float > button { min-height: 44px; }
+}
+
+.pt-full-calendar { --fc-border-color: rgb(var(--border)); --fc-today-bg-color: rgb(var(--brand-soft)); }
+.pt-full-calendar .fc-daygrid-day-top, .pt-full-calendar .fc-daygrid-day-number { display: block; width: 100%; }
+.pt-full-calendar .fc-daygrid-day-number { padding: 0; }
+.pt-full-calendar .pt-day { min-height: 5rem; }
+
+.ui-col-resize { position: absolute; inset: 12% -1px 12% auto; width: 8px; cursor: col-resize; touch-action: none; }
+.ui-col-resize:is(:focus-visible, :hover) { border-right: 2px solid rgb(var(--brand)); }
+.ui-table-scroll .ui-row-actions-col { position: sticky; right: 0; background: rgb(var(--surface)); }
+.ui-skel { animation: var(--animate-pulse); }
+@media (prefers-reduced-motion: reduce) { .ui-skel { animation: none; } }
+
+.ui-filter-panel { min-width: 13rem; max-width: calc(100vw - 20px); padding: .65rem; border: 1px solid rgb(var(--border)); border-radius: var(--radius-md); background: rgb(var(--surface)); box-shadow: var(--shadow-pop); }
+.ui-filter-panel [cmdk-item][data-selected=true] { background: rgb(var(--brand-soft)); }
+.ui-filter-panel .rdp-root { --rdp-accent-color: rgb(var(--brand)); --rdp-day-width: 2.25rem; --rdp-day-height: 2.25rem; --rdp-day_button-width: 2.2rem; --rdp-day_button-height: 2.2rem; }
+
+.ui-breadcrumb li { display: inline-flex; align-items: center; gap: 4px; }
+.ui-breadcrumb li + li::before { content: none; }
+.rg-post-body ul, .tiptap ul { list-style: disc inside; }
+.rg-post-body ol, .tiptap ol { list-style: decimal inside; }
+.ui-wizard-actions { position: sticky; bottom: 0; z-index: 2; background: rgb(var(--surface)); border-top: 1px solid rgb(var(--border)); }
+@media (pointer: fine) and (prefers-reduced-motion: no-preference) { .ui-btn:active:not(:disabled) { transform: scale(.98); transition: transform 100ms ease-out; } }
+@media (max-width: 767px) { input:not([type=checkbox]):not([type=radio]), textarea, select { font-size: max(16px, 1rem); } }
+
+.ui-register-grid { border-collapse: separate; border-spacing: 0; }
+.ui-register-grid thead th { position: sticky; top: 0; z-index: 2; height: 40px; background-color: rgb(var(--surface-sunken)); }
+.ui-register-grid :is(th,td)[data-pinned] { position: sticky; left: var(--selection-w); min-width: 140px; z-index: 1; background: rgb(var(--surface)); }
+.ui-register-grid :is(th,td).w-10 { position: sticky; left: 0; width: 40px; min-width: 40px; max-width: 40px; z-index: 2; background: rgb(var(--surface)); }
+.ui-register-grid thead :is(th[data-pinned],th.w-10,th.ui-row-actions-col) { z-index: 3; background: rgb(var(--surface-sunken)); }
+.ui-register-grid tr[data-focused] > td:first-child { box-shadow: inset 2px 0 #155196; }
+.ui-register-grid tr.is-selected > td { background: #eff6ff; color: #182d48; }
+.ui-register-grid .ui-row-actions-col { min-width: 48px; }
+.ui-col-resize { width: 6px; }
+.ui-datatable-toolbar { min-height: 48px; }
+.ui-register-grid tbody td { height: 44px; }
+.ui-datatable.is-compact .ui-register-grid tbody td { height: 34px; padding-block: 4px; }
+.ui-table tfoot.ui-totals td { position: sticky; bottom: 0; z-index: 1; height: 38px; background: rgb(var(--surface-sunken)); border-top: 1px solid rgb(var(--border)); font-variant-numeric: tabular-nums; }

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileText, Search, Table2 } from '@ui/components/ui/lineIcons';
 
 import { downloadCsv } from '../utils/csv';
@@ -195,8 +195,15 @@ export function useListSearch(rows, fields = [], seedKey = '') {
   // was chosen. Consumed once, so navigating back later shows the whole list.
   const [query, setQuery] = useState(() => (seedKey ? consumeSearchSeed(seedKey) : ''));
 
+  const [appliedQuery, setAppliedQuery] = useState(query);
+  useEffect(() => {
+    if (!query) { setAppliedQuery(''); return; }
+    const timer = setTimeout(() => setAppliedQuery(query), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+
   const filtered = useMemo(() => {
-    const q = String(query || '').trim().toLowerCase();
+    const q = String(appliedQuery || '').trim().toLowerCase();
     if (!q) return Array.isArray(rows) ? rows : [];
     return (Array.isArray(rows) ? rows : []).filter((row) =>
       fields.some((f) => {
@@ -207,7 +214,7 @@ export function useListSearch(rows, fields = [], seedKey = '') {
     // fields is normally an inline array; depending on it would rebuild every
     // render, so the row list and the query are what matter here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, query]);
+  }, [rows, appliedQuery]);
 
   return { query, setQuery, filtered };
 }

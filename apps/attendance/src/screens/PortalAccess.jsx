@@ -154,7 +154,7 @@ export default function PortalAccess() {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Employee portal access', fileName: 'Portal access', label: 'person/people', columns: EXPORT_COLUMNS, rows: shown });
       }}
-      description="Employees sign in to the portal with the company code, their employee code and a password they choose."
+      introduction="Employees sign in to the portal with the company code, their employee code and a password they choose."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search people' }}

@@ -16,7 +16,7 @@ const api = vi.hoisted(() => ({
   createEmployee: vi.fn(),
   deleteDraft: vi.fn(),
   getDraft: vi.fn(),
-  saveDraft: vi.fn(),
+  saveDraft: vi.fn(async () => ({ id: 'draft-1' })),
 }));
 vi.mock('./api', () => api);
 vi.mock('../organization/api', () => ({ listBranches: async () => [], createItem: vi.fn() }));

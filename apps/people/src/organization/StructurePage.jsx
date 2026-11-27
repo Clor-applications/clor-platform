@@ -38,7 +38,7 @@ export const STATES = [...new Set(Object.values(GST_STATE_BY_CODE).filter((s) =>
 
 export const KINDS = {
   departments: {
-    blurb: 'Departments and who heads each. The head approves leave when the manager is away.', title: 'Departments', singular: 'department', screen: 'departments',
+    title: 'Departments', singular: 'department', screen: 'departments',
     fields: [
       { key: 'parentId', label: 'Under', type: 'ref', ref: 'departments', placeholder: 'Top level', tree: true },
       { key: 'headEmployeeId', label: 'Head', type: 'person', placeholder: 'Not set' },
@@ -49,17 +49,17 @@ export const KINDS = {
     ],
   },
   'job-positions': {
-    blurb: 'The job titles people hold, and the department each belongs to.', title: 'Designations', singular: 'designation', screen: 'jobPositions',
+    title: 'Designations', singular: 'designation', screen: 'jobPositions',
     fields: [{ key: 'departmentId', label: 'Department', type: 'ref', ref: 'departments', placeholder: 'Any department' }],
     columns: [{ key: 'department', label: 'Department', render: (r, refs) => refs.departments?.get(r.departmentId) || '—' }],
   },
   'job-roles': {
-    blurb: 'The work a designation does, for job descriptions, hiring and reviews.', title: 'Job roles', singular: 'job role', screen: 'jobRoles',
+    title: 'Job roles', singular: 'job role', screen: 'jobRoles',
     fields: [{ key: 'jobPositionId', label: 'Designation', type: 'ref', ref: 'job-positions', placeholder: 'Choose…', required: true }],
     columns: [{ key: 'designation', label: 'Designation', render: (r, refs) => refs['job-positions']?.get(r.jobPositionId) || '—' }],
   },
   teams: {
-    blurb: 'Smaller groups inside a department, and who leads each.', title: 'Teams', singular: 'team', screen: 'teams',
+    title: 'Teams', singular: 'team', screen: 'teams',
     fields: [
       { key: 'departmentId', label: 'Department', type: 'ref', ref: 'departments', placeholder: 'Any department' },
       { key: 'leadEmployeeId', label: 'Lead', type: 'person', placeholder: 'Not set' },
@@ -67,7 +67,7 @@ export const KINDS = {
     columns: [{ key: 'department', label: 'Department', render: (r, refs) => refs.departments?.get(r.departmentId) || '—' }],
   },
   seats: {
-    blurb: 'Budgeted positions in a team, filled or open.', title: 'Positions', singular: 'position', screen: 'seats',
+    title: 'Positions', singular: 'position', screen: 'seats',
     fields: [
       { key: 'teamId', label: 'Team', type: 'ref', ref: 'teams', placeholder: 'Choose…', required: true },
       { key: 'jobPositionId', label: 'Designation', type: 'ref', ref: 'job-positions', placeholder: 'Any' },
@@ -76,12 +76,12 @@ export const KINDS = {
     columns: [{ key: 'team', label: 'Team', render: (r, refs) => refs.teams?.get(r.teamId) || '—' }],
   },
   areas: {
-    blurb: 'Offices, plants and project sites people work from.', title: 'Locations', singular: 'location', screen: 'areas',
+    title: 'Locations', singular: 'location', screen: 'areas',
     fields: [{ key: 'parentId', label: 'Inside', type: 'ref', ref: 'areas', placeholder: 'Top level', tree: true }],
     columns: [],
   },
   establishments: {
-    blurb: 'Registered places of work, with their state and statutory registrations.', title: 'Work sites', singular: 'work site', screen: 'establishments', noDelete: false,
+    title: 'Work sites', singular: 'work site', screen: 'establishments', noDelete: false,
     fields: [
       { key: 'state', label: 'State', type: 'state', required: true },
       { key: 'legalEntityId', label: 'Legal company', type: 'ref', ref: 'legal-entities', placeholder: 'Not set' },
@@ -98,7 +98,7 @@ export const KINDS = {
   },
   /* Settings lists: a person's terms and the company in law, laid out like every other list. */
   'employee-types': {
-    blurb: 'Permanent, contract, intern and the like: what each counts as, its probation and notice.', title: 'Employment types', singular: 'employment type', screen: 'employeeTypes', settings: true,
+    title: 'Employment types', singular: 'employment type', screen: 'employeeTypes', settings: true,
     fields: [
       { key: 'category', label: 'Counts as', type: 'select', options: Object.entries(KIND_WORDS) },
       { key: 'probationMonths', label: 'Probation (months)', type: 'text', inputMode: 'numeric', placeholder: 'None' },
@@ -110,9 +110,9 @@ export const KINDS = {
       { key: 'notice', label: 'Notice', render: (r) => (r.noticeDays ? <span className="tabular-nums">{r.noticeDays} days</span> : '—') },
     ],
   },
-  'work-types': { blurb: 'How people work: office, field, hybrid or remote.', title: 'Work modes', singular: 'work mode', screen: 'workTypes', settings: true, fields: [], columns: [] },
+  'work-types': { title: 'Work modes', singular: 'work mode', screen: 'workTypes', settings: true, fields: [], columns: [] },
   'legal-entities': {
-    blurb: 'The companies in law that employ people.', title: 'Legal entity', singular: 'legal entity', noun: 'legal companies', screen: 'legalEntities', settings: true,
+    title: 'Legal entity', singular: 'legal entity', noun: 'legal companies', screen: 'legalEntities', settings: true,
     fields: [
       { key: 'pan', label: 'PAN', type: 'text', placeholder: 'ABCDE1234F' },
       { key: 'cin', label: 'CIN', type: 'text' },
@@ -120,9 +120,9 @@ export const KINDS = {
     ],
     columns: [{ key: 'pan', label: 'PAN', render: (r) => (r.pan ? <span className="ui-mono">{r.pan}</span> : '—') }],
   },
-  'business-units': { blurb: 'Divisions with their own head and results, for reports and approvals.', title: 'Business units', singular: 'business unit', screen: 'businessUnits', fields: [], columns: [] },
-  grades: { blurb: 'Pay and seniority bands. Grades decide which salary structure and benefits apply.', title: 'Grades', singular: 'grade', screen: 'grades', fields: [], columns: [] },
-  'cost-centres': { blurb: 'Where each person’s cost is booked in Books and Payroll.', title: 'Cost centres', singular: 'cost centre', screen: 'costCentres', fields: [], columns: [] },
+  'business-units': { title: 'Business units', singular: 'business unit', screen: 'businessUnits', fields: [], columns: [] },
+  grades: { title: 'Grades', singular: 'grade', screen: 'grades', fields: [], columns: [] },
+  'cost-centres': { title: 'Cost centres', singular: 'cost centre', screen: 'costCentres', fields: [], columns: [] },
 };
 
 /* The registrations a work site holds; the same list Compliance names (services/people/complianceRules.ts). */
@@ -263,7 +263,6 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
       <ListHeader
         section="Settings"
         title={cfg.title}
-        description={cfg.blurb || `The ${noun} people are filed under, in use or retired, and how many are in each.`}
         primary={canCreate ? { label: `Add ${cfg.singular}`, icon: Plus, onClick: () => setEditing({ name: '', isActive: true }) } : null}
         toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />}
         toolbarEnd={req.data ? <span className="pc-note tabular-nums" aria-live="polite">{shown.length} {shown.length === 1 ? 'item' : 'items'}</span> : null}
@@ -291,10 +290,10 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
             </span>
           )}
           empty={q
-            ? <EmptyState kind="filtered" title={`No ${noun} match`} description="Nothing here matches the search." />
+            ? <EmptyState kind="filtered" title={`No ${noun} match`} />
             : tab === 'retired'
               ? <EmptyState title={`No retired ${noun}`} description="What you retire stays here, with its history." />
-              : <EmptyState title={`No ${noun} yet`} description={`The ${noun} you add appear here, with how many people are in each.`} routes={canCreate ? [{ label: `Add ${cfg.singular}`, onSelect: () => setEditing({ name: '', isActive: true }) }] : undefined} />}
+              : <EmptyState title={`No ${noun} yet`} routes={canCreate ? [{ label: `Add ${cfg.singular}`, onSelect: () => setEditing({ name: '', isActive: true }) }] : undefined} />}
         />
       )}
       {editing ? <EditDrawer kind={kind} cfg={cfg} value={editing} items={items} refs={req.data?.refs || {}} staff={req.data?.staff || []} onClose={() => { setEditing(null); if (params.new) updateParams?.({ new: null }); }} onDone={() => { setEditing(null); if (params.new) updateParams?.({ new: null }); req.reload(); }} onRetire={(r) => { setEditing(null); setRetiring(r); }} /> : null}

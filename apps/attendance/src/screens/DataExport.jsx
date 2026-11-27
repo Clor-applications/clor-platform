@@ -84,7 +84,7 @@ export default function DataExport() {
     }
   };
 
-  const header = <PageHeader entity="settings" title="Export data" description="Take data out: what, for when, as a spreadsheet or for another system." />;
+  const header = <PageHeader entity="settings" title="Export data" introduction="Take data out: what, for when, as a spreadsheet or for another system." />;
   /* Nothing this person may read: say so, rather than offer a list that would be refused. */
   if (!dataset) {
     return (

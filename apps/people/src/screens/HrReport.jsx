@@ -119,7 +119,6 @@ export default function HrReport({ params = {}, updateParams, openScreen, tenant
       <ListHeader
         breadcrumb={[{ label: 'People' }, { label: 'All reports', onClick: openScreen ? () => openScreen('reportsHome') : undefined }, { label: title }]}
         title={title}
-        description={spec?.description || null}
         entity="report"
         primary={<button type="button" className="ui-btn ui-btn-primary" disabled={exporting || !d?.rows?.length} onClick={exportCsv} title="Download these rows as a CSV file, which opens in Excel"><Download size={16} aria-hidden="true" /> {exporting ? 'Exporting…' : 'Export'}</button>}
         secondary={d?.rows?.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => printReport(() => shape.setShowAll(true))} title="Print or save as PDF: landscape, headings on every page"><Printer size={16} aria-hidden="true" /> Print</button> : null}

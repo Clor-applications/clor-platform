@@ -62,7 +62,7 @@ describe('People Home setup list', () => {
     expect(await screen.findByRole('heading', { name: 'Get started' })).toBeInTheDocument();
     expect(screen.getByText('1 of 4 done. Each step ticks itself once it is in place.')).toBeInTheDocument();
     expect(screen.queryByText('All caught up')).toBeNull();
-    expect(screen.getByText('Nothing waits for you yet. Start with the steps below.')).toBeInTheDocument();
+    expect(screen.getByText('Start with the setup steps below.')).toBeInTheDocument();
     /* The done step says so, and is reviewed rather than set up. */
     expect(screen.getByRole('button', { name: 'Review: Pick your leave types' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Skip: Pick your leave types' })).toBeNull();

@@ -185,3 +185,19 @@ describe('Workspace → Members', () => {
     expect(notify.success).toHaveBeenCalledWith('Suspended in every company of the account.');
   });
 });
+
+it('paginates members and returns to page one when the search changes', async () => {
+  api.memberDirectory.mockResolvedValue({
+    ...DIR,
+    members: Array.from({ length: 31 }, (_, index) => ({
+      ...DIR.members[1], userId: `member-${index + 1}`, name: `Sample member ${index + 1}`,
+    })),
+  });
+  render(<Members />);
+  expect(await screen.findByText('Showing 1 to 25 of 31 members')).toBeInTheDocument();
+  expect(screen.queryByText('Sample member 31')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+  expect(screen.getByText('Showing 26 to 31 of 31 members')).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search by name or email' }), { target: { value: 'Sample member 1' } });
+  expect(screen.getByText('Sample member 1')).toBeInTheDocument();
+});

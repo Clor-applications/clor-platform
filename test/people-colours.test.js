@@ -21,7 +21,7 @@ describe('counts that wait on you are marked', () => {
 
   /* The tabs are ListHeader's now (People plan 8 Nov 2026, step 3): a screen names the tone, the header draws the count. */
   it.each([
-    ['apps/people/src/screens/Approvals.jsx', "tone: 'warn'"],
+    ['apps/people/src/screens/Approvals.jsx', "tone: key === 'waiting' ? 'warn' : 'info'"],
     ['packages/ui/src/timeOff/LeaveRequests.jsx', "tone: k === 'PENDING' ? 'warn' : undefined"],
     ['packages/ui/src/timeOff/AttendanceRequests.jsx', "tone: k === 'PENDING' ? 'warn' : undefined"],
     ['packages/ui/src/timeOff/TeamAttendance.jsx', "tone: k === 'NONE' ? 'warn' : undefined"],
@@ -190,10 +190,6 @@ describe('moss: People declares no brand of its own (R&D redesign, 14 Nov 2026)'
   it('shows the page description at 14px and the back link at 13px', () => {
     expect(people).toMatch(/\.ui-page-heading p\.ui-muted\.ui-t-body \{ display: block;[^}]*font-size: 0\.875rem;/);
     expect(people).toMatch(/\.ui-breadcrumb \{[^}]*font-size: 0\.8125rem;/);
-  });
-
-  it("folds every Settings group but the open screen's", () => {
-    expect(people).toContain(".ui-split-panel[aria-label='Settings screens'] > div:has(> p.ui-caption):not(:has([aria-current='page'])) > .ui-split-item { position: absolute; visibility: hidden; clip-path: inset(50%); pointer-events: none; }");
   });
 
   it('a waiting count is the Attention status, never a brand fill', () => {

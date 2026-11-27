@@ -70,8 +70,8 @@ export function MonthTodo({ period, run, onOpen }) {
         {steps.map((s) => (
           <li key={s.key} className={s.done ? "is-done" : s === next ? "is-next" : undefined}>
             <span className="ui-month-todo-mark" aria-hidden="true">{s.done ? <Check size={14} /> : null}</span>
-            {s === next ? (
-              <button type="button" className="ui-link" onClick={() => onOpen("payrollRuns")}>
+            {s === next && onOpen ? (
+              <button type="button" className="ui-link" onClick={() => onOpen("runs", run?.id ? { runId: run.id } : { startPeriod: period.id })}>
                 {s.label} <ArrowRight size={14} aria-hidden="true" className="inline" />
               </button>
             ) : (

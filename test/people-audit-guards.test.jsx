@@ -34,15 +34,16 @@ describe('A register shows only what the grant allows', () => {
     render(withPerms(['PEOPLE::Assets::VIEW'], <WorkspaceList kind="assets" />));
     expect(await screen.findAllByText('Laptop 12')).not.toHaveLength(0);
     expect(screen.queryByRole('button', { name: /Add asset/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: /Actions for/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Actions for/ })).not.toBeInTheDocument();
   });
 
   it('with the grants, New and each row action are there', async () => {
     render(withPerms(['PEOPLE::Assets::VIEW', 'PEOPLE::Assets::CREATE', 'PEOPLE::Assets::EDIT', 'PEOPLE::Assets::DELETE'], <WorkspaceList kind="assets" />));
     expect(await screen.findByRole('button', { name: /Add asset/ })).toBeInTheDocument();
-    /* Up to three row actions show as words in the row (owner's pick, 17 Nov 2026). */
-    const actions = screen.getAllByRole('group', { name: /Actions for/ })[0];
-    for (const name of ['Edit', 'Delete']) expect(within(actions).getByRole('button', { name })).toBeInTheDocument();
+    const table = await screen.findByRole('table');
+    await userEvent.click(within(table).getByRole('button', { name: /Actions for/ }));
+    const actions = await screen.findByRole('menu');
+    for (const name of ['Edit', 'Delete']) expect(within(actions).getByRole('menuitem', { name })).toBeInTheDocument();
   });
 });
 

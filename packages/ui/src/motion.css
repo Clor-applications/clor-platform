@@ -2,47 +2,30 @@
  * The Motion kit (DESIGN.md, owner 24 Nov 2026), switched on app by app.
  *
  * DESIGN.md "Migration" step 6 moves the apps one at a time. This file is that switch: every rule is scoped to an
- * app that has moved (People first, then Admin center), so the apps still on the calm register look exactly as before. When an app
- * moves, add it to the scope; when every app has moved, the scope goes and the old layers (picks.css,
- * legibility.css, the per-app colours in rnd.css) are deleted (steps 1 to 5).
+ * operational app. Shared controls and palettes use this scope while other surfaces finish migrating.
  *
  * Loaded last (main.jsx). Selectors start with `:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)`: four never-matching ids, so
  * these rules beat rnd.css (one id), picks.css (two) and legibility.css and people.css (three) on specificity rather than on load order alone.
  *
- * Look (ink primary, owner 25 Nov 2026): white work areas, 8px controls, 12px floating layers, pill tags, light
- * edges, a soft shadow only on what floats, an ink button for the action that matters, violet for what is chosen,
- * the app's pale hue only on its top bar. TASA Orbiter for everything, Geist Mono for identifiers. Text weights 400
- * and 700, control labels 600. Press = scale .97 at .14s; menus and drawers reveal.
+ * Primary actions and focus share the Clor blue. Product icons and status colors retain their own palettes.
  */
 
-@import '@fontsource-variable/tasa-orbiter';
-@import '@fontsource-variable/geist-mono';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 
 /* ---------------------------------------------------------------- tokens */
 
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) {
   /* Hue family: People is pink. Deep on the top bar, deepest for its hairline and avatar ground. */
   --app-deep: 248 236 240;      /* #F8ECF0 */
   --app-deepest: 240 224 232;   /* #F0E0E8 */
 
-  /* Accents and their only jobs (DESIGN.md "Colors") */
-  --act: 124 58 237;            /* violet #7C3AED: selected tab, chosen chip, switch on, checked box; never a button */
-  --btn: 24 24 27;              /* ink #18181B: the primary button */
-  --btn-hover: 63 63 70;        /* #3F3F46 */
-  --act-hover: 63 63 70;
-  --edge: 213 216 224;          /* #D5D8E0: secondary button and chip edge */
-  --band: 247 247 249;          /* #F7F7F9: table head band, row hover */
-  --act-ink: 37 99 235;         /* the accent as text is a link: blue #2563EB, 5.2:1 (violet never sets text) */
-  --marker: 124 58 237;
-  --act-2: 167 139 250;         /* violet-soft: second chart series only */
-  --tint: 238 239 243;          /* slate deep: hover and the chosen row */
-  --hover: 238 239 243;
-  --heading-hover: 238 239 243;
-  --list-head-hover: 238 239 243;
-  --link: 37 99 235;            /* #2563EB links and info, on white */
-  --link-hover: 29 78 216;
-  --doc-link: 37 99 235;
-  --ring: 99 102 241;           /* #6366F1 focus ring, never text */
+  --edge: 203 213 225;
+  --band: 241 245 249;
+  --act-2: 69 125 177;
+  --hover: 241 245 249;
+  --heading-hover: var(--hover);
+  --list-head-hover: var(--hover);
   --info: 37 99 235;
   --neg: 220 38 38;             /* #DC2626 */
   --neg-hover: 185 28 28;
@@ -71,9 +54,9 @@
   --shadow-btn: 0 1px 1px rgb(24 24 27 / 0.05);
 
   /* Type */
-  --font-sans: 'TASA Orbiter Variable', 'TASA Orbiter', ui-sans-serif, system-ui, sans-serif;
-  --font-brand: 'TASA Orbiter Variable', 'TASA Orbiter', ui-sans-serif, system-ui, sans-serif;
-  --font-ident: 'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-brand: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-ident: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
   /* Motion */
   --mo-press: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1);
@@ -81,28 +64,78 @@
   --mo-reveal: 0.4s cubic-bezier(0.25, 0, 0, 1);
 }
 
-/* Hue family per app (DESIGN.md "Colors"). People is pink, above; Admin center is stone. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'], [data-app='accounting'], [data-app='projects']) {
+  --act: 21 81 150;
+  --act-hover: 16 62 117;
+  --act-ink: var(--act);
+  --btn: var(--act);
+  --btn-hover: var(--act-hover);
+  --brand: var(--act);
+  --brand-ink: var(--act);
+  --brand-deep: var(--act-hover);
+  --brand-soft: var(--tint);
+  --brand-subtle: 246 250 255;
+  --brand-border: 191 213 239;
+  --on-brand: 255 255 255;
+  --brand-hover: var(--act-hover);
+  --brand-pressed: 12 48 91;
+  --btn-primary-bg: var(--btn);
+  --btn-primary-hover: var(--btn-hover);
+  --marker: var(--act);
+  --tint: 239 246 255;
+  --link: var(--act);
+  --link-hover: var(--act-hover);
+  --doc-link: var(--link);
+  --ring: var(--act);
+}
+
+/* The top bar carries each app’s identity. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] {
+  --app-deep: 248 236 240;
+  --app-bg: 248 250 252;
+  --surface: 255 255 255;
+  --surface-raised: var(--surface);
+  --fg: 30 41 59;
+  --fg-heading: var(--fg);
+  --nav-fg: var(--fg);
+  --pos: 15 118 110;           /* Deep teal #0F766E */
+  --pos-ink: var(--pos);
+}
+
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] {
   --app-deep: 240 240 238;      /* #F0F0EE */
   --app-deepest: 232 232 230;   /* #E8E8E6 */
 }
 
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='payroll'] {
+  --app-deep: 239 237 243;      /* #EFEDF3 */
+  --app-deepest: 230 227 236;   /* #E6E3EC */
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='attendance'] {
+  --app-deep: 246 240 228;      /* #F6F0E4 */
+  --app-deepest: 240 232 216;   /* #F0E8D8 */
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-portal='ops'] {
+  --app-deep: 236 246 240;      /* #ECF6F0 */
+  --app-deepest: 224 240 232;   /* #E0F0E8 */
+}
+
 /* ---------------------------------------------------------------- type */
 
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) body { font-family: var(--font-sans); color: rgb(var(--fg)); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(code, kbd, .ui-mono, .font-mono) { font-family: var(--font-ident); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) body { font-family: var(--font-sans); color: rgb(var(--fg)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(code, kbd, .ui-mono, .font-mono) { font-family: var(--font-ident); }
 
 /* Page title 30/36.65 700; section 15/23 700. legibility.css pins titles with !important, so these answer in kind. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) #main-content :is(h1, h1[class], .ui-t-page, .ui-page-heading h1) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) #main-content :is(h1, h1[class], .ui-t-page, .ui-page-heading h1) {
   font-family: var(--font-brand);
   font-size: 1.875rem !important;
   line-height: 2.290625rem !important;
   font-weight: 700 !important;
   letter-spacing: -0.01em !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-h2, .ws-h2, .ui-t-sec, .people-block-title, .people-glance-title),
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-record-section, .ui-form-part) > header:first-child .ui-t-sec,
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) #main-content :is(section > .flex .ui-t-sec, section > h2.ui-t-sec) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-h2, .ws-h2, .ui-t-sec, .people-block-title, .people-glance-title),
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-record-section, .ui-form-part) > header:first-child .ui-t-sec,
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) #main-content :is(section > .flex .ui-t-sec, section > h2.ui-t-sec) {
   font-family: var(--font-brand);
   font-size: 0.9375rem !important;
   line-height: 1.453125rem !important;
@@ -111,146 +144,182 @@
 }
 
 /* Two weights only. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.font-semibold, .font-bold, b, strong, th) { font-weight: 700; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .font-medium { font-weight: 400; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.font-semibold, .font-bold, b, strong, th) { font-weight: 700; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .font-medium { font-weight: 400; }
 
 /* ---------------------------------------------------------------- shape and depth */
 
 /* Floating layers: 12px corners, a hairline and one soft shadow. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-popover, .ui-menu, .ui-dialog, .ui-modal-panel) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-popover, .ui-menu, .ui-dialog, .ui-modal-panel) {
   border: 1px solid rgb(var(--border)) !important;
   border-radius: var(--radius-lg) !important;
   box-shadow: var(--shadow-pop) !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-drawer-sheet { border-left: 1px solid rgb(var(--border)) !important; box-shadow: var(--shadow-pop) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-drawer-sheet { border-left: 1px solid rgb(var(--border)) !important; box-shadow: var(--shadow-pop) !important; }
 
 /* The page itself is flat. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-card, .ui-panel, .ui-kpi, .shadow, .shadow-sm, .shadow-md, .shadow-hover) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-card, .ui-panel, .ui-kpi, .shadow, .shadow-sm, .shadow-md, .shadow-hover) {
   box-shadow: none !important;
 }
 
 /* Documents stay square: a payslip or invoice is paper. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-print-area, :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-print-area * { border-radius: 0 !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-print-area, :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-print-area * { border-radius: 0 !important; }
 
 /* Content surfaces: a hairline, nothing else. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-card, .ui-panel, .ui-kpi) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-card, .ui-panel, .ui-kpi) {
   border-color: rgb(var(--border)) !important;
 }
 
 /* ---------------------------------------------------------------- shell */
 
 /* The app's identity: the pale hue on the top bar only. Work areas stay white. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-topbar {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-topbar, .ops-bar-top) {
   background: rgb(var(--app-deep)) !important;
   border-bottom: 1px solid rgb(var(--app-deepest)) !important;
 }
 /* The rail is chrome, not a work area: white beside the pale bar, one hairline. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-split-rail {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-split-rail {
   background: rgb(var(--surface)) !important;
   border-right: 1px solid rgb(var(--border)) !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-topbar :is(.ui-global-search input, input[type='search']) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-topbar :is(.ui-global-search input, input[type='search']) {
   background: rgb(var(--surface));
+}
+
+/* The shell owns the inset for these screens, including their headings. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='payroll'], [data-app='attendance']) main.ui-content {
+  padding-inline: 1rem;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='payroll'], [data-app='attendance']) main.ui-content .ui-page-heading {
+  margin-inline: 0;
+  padding-inline: 0;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='payroll'], [data-app='attendance']) main.ui-content .ui-page-heading .ui-entity-mark {
+  display: none;
+}
+@media (min-width: 768px) {
+  :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-app='payroll'], [data-app='attendance']) main.ui-content {
+    padding-inline: 1.5rem;
+  }
+}
+@media (max-width: 767px) {
+  :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='payroll'], [data-app='attendance']) main.ui-content .ui-page-heading :is(.ui-input, .ui-btn) {
+    min-height: 2.75rem;
+  }
 }
 
 /* ---------------------------------------------------------------- controls (36px) */
 
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn {
-  min-height: 2.25rem;
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-btn {
+  min-height: var(--workspace-button-min-height, 2.25rem);
   padding: 0 1rem;
+  padding-inline-start: var(--workspace-icon-start-padding, 1rem);
+  padding-inline-end: var(--workspace-icon-end-padding, 1rem);
   font-size: 0.8125rem;
   line-height: 1.21875rem;
   font-weight: 600;
   border-radius: var(--radius-btn);
   transition: var(--mo-press), background-color var(--mo-fade), border-color var(--mo-fade), color var(--mo-fade);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn:active:not(:disabled) { transform: scale(0.97); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-sm { min-height: 1.75rem; padding: 0 0.625rem; font-size: 0.75rem; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn:disabled { opacity: 0.45; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-btn:active:not(:disabled) { transform: scale(0.97); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-btn-sm { min-height: 1.75rem; padding: 0 0.625rem; font-size: 0.75rem; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-btn:disabled { opacity: 0.45; }
 
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-btn-primary, .ui-btn-brand) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-btn-primary, .ui-btn-brand) {
   background-color: rgb(var(--btn)) !important;
   border: 1px solid rgb(var(--btn)) !important;
   color: rgb(255 255 255) !important;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 1px 2px rgb(24 24 27 / 0.3);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
   background-color: rgb(var(--btn-hover)) !important;
   border-color: rgb(var(--btn-hover)) !important;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-secondary {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
+  background-color: rgb(var(--btn-hover)) !important;
+  border-color: rgb(var(--btn-hover)) !important;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-btn-secondary {
   background-color: rgb(var(--surface)) !important;
   border: 1px solid rgb(var(--edge)) !important;
   color: rgb(var(--fg)) !important;
   box-shadow: var(--shadow-btn);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-secondary:hover:not(:disabled) { background-color: rgb(var(--band)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-ghost:hover:not(:disabled) { background-color: rgb(var(--tint)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-danger {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-btn-secondary:hover:not(:disabled) { background-color: rgb(var(--band)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-btn-ghost:hover:not(:disabled) { background-color: rgb(var(--tint)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-btn-danger {
   background-color: rgb(var(--surface)) !important;
   border: 1px solid rgb(var(--edge)) !important;
   color: rgb(var(--neg)) !important;
   box-shadow: var(--shadow-btn);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-btn-danger:hover:not(:disabled) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-btn-danger:hover:not(:disabled) {
   background-color: rgb(var(--neg)) !important;
   border-color: rgb(var(--neg)) !important;
   color: rgb(255 255 255) !important;
 }
 
 /* Admin center draws its controls with its own classes (apps/admin/src/screens/workspace.css). Same rules. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] .ws-btn { font-weight: 600; transition: var(--mo-press), background-color var(--mo-fade), border-color var(--mo-fade), color var(--mo-fade); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] .ws-btn:active:not(:disabled) { transform: scale(0.97); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] .ws-btn--primary {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-portal='ops']) .ws-btn { font-weight: 600; transition: var(--mo-press), background-color var(--mo-fade), border-color var(--mo-fade), color var(--mo-fade); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-portal='ops']) .ws-btn:active:not(:disabled) { transform: scale(0.97); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-portal='ops']) .ws-btn--primary {
   background: rgb(var(--btn));
   border-color: rgb(var(--btn));
   color: rgb(255 255 255);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 1px 2px rgb(24 24 27 / 0.3);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] .ws-btn--primary:hover:not(:disabled) { background: rgb(var(--btn-hover)); border-color: rgb(var(--btn-hover)); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] :is(.ws-btn--quiet, .ws-btn--danger-quiet) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-portal='ops']) .ws-btn--primary:hover:not(:disabled) { background: rgb(var(--btn-hover)); border-color: rgb(var(--btn-hover)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-portal='ops']) :is(.ws-btn--quiet, .ws-btn--danger-quiet) {
   background: rgb(var(--surface));
   border-color: rgb(var(--edge));
   box-shadow: var(--shadow-btn);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] .ws-btn--quiet:hover:not(:disabled) { background: rgb(var(--band)); border-color: rgb(var(--edge)); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] .ws-link { color: rgb(var(--link)); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] .ws-link:hover { color: rgb(var(--link-hover)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-portal='ops']) .ws-btn--quiet:hover:not(:disabled) { background: rgb(var(--band)); border-color: rgb(var(--edge)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-portal='ops']) :is(.ws-link, .ops-link) { color: rgb(var(--link)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-portal='ops']) :is(.ws-link, .ops-link):hover { color: rgb(var(--link-hover)); }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] .wsh .wsg-chip[aria-pressed='true'] { border-color: rgb(var(--act)); color: rgb(var(--act)); font-weight: 600; }
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='admin'] .ws-table th { background: rgb(var(--band)); border-bottom: 1px solid rgb(var(--border)); color: rgb(var(--fg-muted)); }
 
 /* Fields: 36px, mid grey edge, ink-2 on hover, violet edge and indigo ring on focus. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-input, .ui-select):not(textarea) { min-height: 2.25rem; height: 2.25rem; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-input, .ui-select) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-input, .ui-select):not(textarea) { min-height: 2.25rem; height: 2.25rem; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-input, .ui-select) {
   font-size: 0.8125rem;
   border-color: rgb(var(--border-input));
   transition: border-color var(--mo-reveal);
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-input, .ui-select):hover:not(:disabled):not(:focus) { border-color: rgb(var(--fg-muted)); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-input, .ui-select):focus { border-color: rgb(var(--act)); }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-input, .ui-select)[aria-invalid='true'] { border-color: rgb(var(--neg)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-input, .ui-select):hover:not(:disabled):not(:focus) { border-color: rgb(var(--fg-muted)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-input, .ui-select):focus { border-color: rgb(var(--act)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-input, .ui-select)[aria-invalid='true'] { border-color: rgb(var(--neg)); }
 
 /* Tabs: open tab ink and bold, a 2px violet underline. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { color: rgb(var(--fg)); font-weight: 600; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-tab-indicator { transition: var(--mo-press); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { color: rgb(var(--fg)); font-weight: 600; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-tab-indicator { transition: var(--mo-press); }
 
 /* You are here: the current place is violet and bold (a link is blue). */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-tabbar-item[aria-current='page'], .ui-split-mod[data-current], .ui-split-mod[aria-current]:not([aria-current='false']), .ui-split-item[aria-current='page']),
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-split-mod[data-current] span, .ui-split-item[aria-current='page'] > span) {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-tabbar-item[aria-current='page'], .ui-split-mod[data-current], .ui-split-mod[aria-current]:not([aria-current='false']), .ui-split-item[aria-current='page']),
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-split-mod[data-current] span, .ui-split-item[aria-current='page'] > span) {
   color: rgb(var(--act)) !important;
   font-weight: 700;
 }
 
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-split-mod[data-current], .ui-split-mod[aria-pressed='true'], .ui-split-item[aria-current='page'], .ui-tabbar-item[aria-current='page']),
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .ui-table tbody tr[aria-selected='true'] > td {
+  background-color: rgb(var(--tint));
+}
+
 /* Links */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-link { color: rgb(var(--link)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-link { color: rgb(var(--link)); }
 /* Copy sits on tinted bands where blue falls under 4.5:1: ink, underlined. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-copy-word { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-link:hover { color: rgb(var(--link-hover)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-copy-word { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-link:hover { color: rgb(var(--link-hover)); }
+
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .people-more { color: rgb(var(--link)); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] .people-more:hover { color: rgb(var(--link-hover)); }
 
 /* ---------------------------------------------------------------- tables */
 
 /* Head 32px, 11px 700 on the band over a hairline; rows 48px, 13px. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-table thead th {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-table thead th {
   height: 2rem;
   font-size: 0.6875rem;
   line-height: 1.03125rem;
@@ -259,17 +328,33 @@
   background-color: rgb(var(--band));
   border-bottom: 1px solid rgb(var(--border));
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-table tbody td {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-table tbody td {
   height: 3rem;
   font-size: 0.8125rem;
   line-height: 1.21875rem;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-table tbody tr { transition: background-color var(--mo-fade); }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-table tbody tr { transition: background-color var(--mo-fade); }
+
+/* Data columns share a centre line from their heading through their values. */
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'])
+  :is(table.ui-table, table.ws-table, table.con-table) > :is(thead, tbody, tfoot) > tr > :is(th, td) {
+  text-align: center !important;
+  vertical-align: middle;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'])
+  :is(table.ui-table, table.ws-table, table.con-table) :is(.ui-row-open, .ui-th-sort) {
+  text-align: center;
+  justify-content: center;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'])
+  :is(table.ui-table, table.ws-table, table.con-table) :is(th, td, .ui-row-open) > .flex:not(.flex-col):not(.justify-between) {
+  justify-content: center;
+}
 
 /* ---------------------------------------------------------------- tags */
 
 /* A word in a pill. Done = mint, waiting = sand, problem = white with a red edge. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-pill {
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-pill {
   height: 1.5rem;
   padding: 0 0.5rem;
   font-size: 0.6875rem;
@@ -279,17 +364,28 @@
   background-color: rgb(var(--surface));
   color: rgb(var(--fg));
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-pill-pos { background-color: rgb(236 246 240) !important; border-color: rgb(224 240 232) !important; color: rgb(var(--fg)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-pill-warn { background-color: rgb(246 240 228) !important; border-color: rgb(240 232 216) !important; color: rgb(var(--fg)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) .ui-pill-neg { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--neg)) !important; color: rgb(var(--neg)) !important; }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-pill-neutral, .ui-pill-info) { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--border)) !important; color: rgb(var(--fg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-pill-pos { background-color: rgb(236 246 240) !important; border-color: rgb(224 240 232) !important; color: rgb(var(--fg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4)[data-app='people'] :is(.ui-pill-pos, .ui-pill-status[data-tone='paid']) {
+  background-color: color-mix(in srgb, rgb(var(--pos)) 9%, rgb(var(--surface))) !important;
+  border-color: color-mix(in srgb, rgb(var(--pos)) 19%, rgb(var(--surface))) !important;
+  color: rgb(var(--pos)) !important;
+}
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-pill-warn { background-color: rgb(246 240 228) !important; border-color: rgb(240 232 216) !important; color: rgb(var(--fg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-pill-neg { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--neg)) !important; color: rgb(var(--neg)) !important; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-pill-neutral, .ui-pill-info) { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--border)) !important; color: rgb(var(--fg)) !important; }
 
 /* ---------------------------------------------------------------- motion */
 
 /* Menus and popovers wipe open from the top. */
 @keyframes mo-reveal { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) :is(.ui-menu, .ui-popover) { animation: mo-reveal var(--mo-reveal) both; }
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) :is(.ui-menu, .ui-popover) { animation: mo-reveal var(--mo-reveal) both; }
 
 @media (prefers-reduced-motion: reduce) {
-  :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin']) * { transition-duration: 0s !important; animation-duration: 0s !important; }
+  :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) * { transition-duration: 0s !important; animation-duration: 0s !important; }
+}
+
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) svg.lucide { stroke-width: 1.5; }
+
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'], [data-app='accounting'], [data-app='projects']) .ui-register-grid tbody tr.is-selected > td {
+  background-color: rgb(var(--tint)) !important;
 }

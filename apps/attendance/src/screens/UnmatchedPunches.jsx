@@ -1,3 +1,4 @@
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Clock, Fingerprint, Link2, MapPin } from '@ui/components/ui/lineIcons';
 
@@ -40,7 +41,7 @@ const EXPORT_COLUMNS = [
   { key: 'first', label: 'First' },
   { key: 'last', label: 'Last' },
 ];
-export default function UnmatchedPunches({ menuLabel } = {}) {
+export default function UnmatchedPunches({ peopleTimePage, menuLabel } = {}) {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
@@ -82,6 +83,7 @@ export default function UnmatchedPunches({ menuLabel } = {}) {
 
   return (
     <DocumentListShell
+      timeRegister={peopleTimePage}
       entity="reader"
       title={menuLabel || 'Unmatched punches'}
       moreItems={[exportMenuItem('Export')]}
@@ -89,7 +91,7 @@ export default function UnmatchedPunches({ menuLabel } = {}) {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Unmatched punches', fileName: 'Unmatched punches', label: 'reader ID/reader IDs', columns: EXPORT_COLUMNS, rows: shown });
       }}
-      description="Reader user IDs that match no employee. Choose who each one is."
+      description={peopleTimePage ? undefined : "Reader user IDs that match no employee. Choose who each one is."}
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search reader IDs…', label: 'Search unmatched punches' }}
@@ -105,7 +107,7 @@ export default function UnmatchedPunches({ menuLabel } = {}) {
         loadError ? null : <SkeletonCard lines={4} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky w-full">
+          <TimeRegisterTable enabled={peopleTimePage} register="UnmatchedPunches" required={['Reader ID', 'Employee']} className="ui-table ui-table-sticky w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Reader ID" col="pin" state={filters} />
@@ -127,7 +129,7 @@ export default function UnmatchedPunches({ menuLabel } = {}) {
                       <EmptyState
                         icon={Fingerprint}
                         title="Every punch is matched"
-                        description="Reader user IDs that match no employee list here. Choose who each one is; their past punches become days and their next ones match on their own."
+                        description={peopleTimePage ? undefined : "Reader user IDs that match no employee list here. Choose who each one is; their past punches become days and their next ones match on their own."}
                       />
                     )}
                   </td>
@@ -167,7 +169,7 @@ export default function UnmatchedPunches({ menuLabel } = {}) {
                 ))
               )}
             </tbody>
-          </table>
+          </TimeRegisterTable>
         </div>
       )}
     </DocumentListShell>

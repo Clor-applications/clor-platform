@@ -1,3 +1,4 @@
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
 import React, { useMemo, useRef, useState } from 'react';
 import { Download, Info, Printer } from '@ui/components/ui/lineIcons';
 import { LeavePill, Notice } from './Figures';
@@ -41,7 +42,7 @@ const COLS = [
 ];
 const num = (v) => (v == null ? '—' : v);
 
-export default function LeaveRegister() {
+export default function LeaveRegister({ peopleTimePage } = {}) {
   const settings = useRequest(() => getLeaveSettings(), []);
   const [picked, setPicked] = useState(null);
   const year = picked ?? settings.data?.current?.year ?? null;
@@ -73,38 +74,42 @@ export default function LeaveRegister() {
     if (format) runListExport({ format, title: `Leave register, ${label}`, fileName: `leave-register-${year}`, label: 'Rows', rows: search.filtered.map((r) => Object.fromEntries(exportColumns.map((c) => [c.key, r[c.key] ?? '']))), columns: exportColumns });
   };
 
+  const searchField = <SearchField value={search.query} onSearch={search.setQuery} placeholder={peopleTimePage ? 'Search register' : 'Search name, department or type'} label="Search the register" className="w-full sm:w-64" />;
   const error = settings.error || req.error;
   return (
     <div className="space-y-6">
       <PageHeader
         breadcrumb={reportCrumbs()}
         title="Leave register"
-        actions={data?.rows?.length ? (
-          <div className="flex items-center gap-2">
+        description={peopleTimePage && label && periodOptions.length <= 1 ? `Leave period · ${label}` : undefined}
+        actions={<>{peopleTimePage && data && searchField}{data?.rows?.length ? (
+          <div className="flex flex-wrap items-center gap-2">
             {/* R&D PEOPLE-14: the spreadsheet as a secondary, the printed register (the inspector's copy) as the one primary. */}
             <button type="button" className="ui-btn ui-btn-secondary" onClick={() => onMore('export:xlsx')}><Download size={16} aria-hidden="true" /> Download Excel</button>
             <MoreButton items={[exportMenuItem('Other formats')]} onSelect={onMore} />
             <button type="button" className="ui-btn ui-btn-primary" onClick={() => setPrinting(true)}><Printer size={16} aria-hidden="true" /> Print register</button>
           </div>
-        ) : null}
+        ) : null}</>}
       />
-      <p className="ui-list-desc ui-muted -mt-4">Leave with wages for each person and type in the leave period{label ? ` (${label})` : ''}, ready for an inspection.</p>
+      {!peopleTimePage && (
+        <p className="ui-list-desc ui-muted -mt-4">Leave with wages for each person and type in the leave period{label ? ` (${label})` : ''}, ready for an inspection.</p>
+      )}
       {error && !data ? <ErrorState error={error} onRetry={() => { settings.reload(); req.reload(); }} /> : !data ? <SkeletonCard lines={6} /> : (
         <div className="ui-datatable" aria-busy={req.refreshing || undefined}>
-          <div className="ui-datatable-toolbar">
+          {(!peopleTimePage || periodOptions.length > 1 || typeOptions.length > 2 || typeId) && <div className="ui-datatable-toolbar">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-              <SearchField value={search.query} onSearch={search.setQuery} placeholder="Search name, department or type" label="Search the register" className="w-full sm:w-80" />
+              {!peopleTimePage && searchField}
               {periodOptions.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => v && setPicked(Number(v))} options={periodOptions} /></div> : null}
               {typeOptions.length > 2 || typeId ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave type" value={typeId} onChange={(v) => setTypeId(v || '')} options={typeOptions} placeholder="Every type" /></div> : null}
             </div>
-          </div>
-          <div className="mb-4"><Notice tone="info" icon={Info}>This register is built from approved leave and the leave policy. Corrections are made on the leave itself, which keeps an audit trail.</Notice></div>
+          </div>}
+          {!peopleTimePage && <div className="mb-4"><Notice tone="info" icon={Info}>To correct an entry, update its approved leave request.</Notice></div>}
           {!search.filtered.length ? (
             search.query ? <EmptyState kind="filtered" title="Nothing matches" onClearFilters={() => search.setQuery('')} /> : <EmptyState title="Nothing in this period" />
           ) : (
             <>
               <div className="ui-table-scroll">
-                <table className="ui-table ui-table-sticky w-full" aria-label={`Leave register, ${label}`}>
+                <TimeRegisterTable enabled={peopleTimePage} register="LeaveRegister" required={['Employee', 'Leave']} className="ui-table ui-table-sticky w-full" aria-label={`Leave register, ${label}`}>
                   <thead>
                     <tr>
                       <th scope="col">Code</th>
@@ -129,8 +134,9 @@ export default function LeaveRegister() {
                       {cols.map(([k]) => <td key={k} className="text-right tabular-nums font-semibold">{totals[k]}</td>)}
                     </tr>
                   </tfoot>
-                </table>
+                </TimeRegisterTable>
               </div>
+              {peopleTimePage && <p className="ui-caption mt-2">To correct an entry, update its approved leave request.</p>}
               <TablePager total={search.filtered.length} page={safePage} pageSize={size} onPage={setPage} onPageSize={setSize} noun="rows" />
             </>
           )}

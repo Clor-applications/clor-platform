@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { DashboardStats } from '@ui/components/ui/DashboardBoard';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { confirmDialog } from '@ui/components/ui/notify';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
@@ -57,6 +58,18 @@ export function Home({ go, has, me }) {
   const today = usePart(getHome);
   const health = usePart(getHealth);
   const audit = usePart(getAudit);
+  const queueHeading = useRef(null);
+  const roleAction = {
+    SUPER_ADMIN: ['approvals', 'Review approvals'],
+    SUPPORT: ['tickets', 'Open support tickets'],
+    SALES: ['demos', 'Open demo requests'],
+    BILLING: ['invoices', 'Open invoices'],
+  }[me?.role];
+  const canTriage = may(me?.role, 'SUPPORT', 'SALES', 'BILLING');
+  const openWork = () => {
+    if (roleAction && has(roleAction[0])) go(roleAction[0]);
+    else queueHeading.current?.focus();
+  };
   return (
     <>
       <PageHead
@@ -70,20 +83,29 @@ export function Home({ go, has, me }) {
               </button>
             ) : null}
             {has('announcements') ? (
-              <button type="button" className="ws-btn ws-btn--primary" onClick={() => go('announcements')}>
+              <button type="button" className="ws-btn ws-btn--quiet" onClick={() => go('announcements')}>
                 Post an announcement
+              </button>
+            ) : null}
+            {canTriage ? (
+              <button type="button" className="ws-btn ws-btn--primary" onClick={openWork}>
+                {roleAction && has(roleAction[0]) ? roleAction[1] : 'Go to today’s queue'}
               </button>
             ) : null}
           </>
         }
       />
-      <Figures d={ov.d} error={ov.error} onRetry={ov.reload} go={go} has={has} />
-      <Handover canWrite={may(me?.role, 'SUPPORT', 'SALES', 'BILLING')} />
-      {/* What needs somebody comes before how the machinery is doing: it was under the services table, below the fold (owner, 17 Nov 2026: "info should be available right away"). */}
-      <div className="ops-split">
-        <NeedsAction d={today.d} error={today.error} onRetry={today.reload} go={go} has={has} canMark={may(me?.role, 'SUPPORT', 'SALES', 'BILLING')} />
-        <RecentActions d={audit.d} error={audit.error} onRetry={audit.reload} go={go} has={has} />
+      {today.d ? <DashboardStats label="Operations queue" items={[
+        ...(has('tickets') && today.d.ticketsOpen != null ? [{ key: 'tickets', label: 'Open tickets', value: today.d.ticketsOpen, onClick: () => go('tickets') }] : []),
+        ...(has('approvals') && today.d.approvalsWaiting != null ? [{ key: 'approvals', label: 'Waiting approvals', value: today.d.approvalsWaiting, onClick: () => go('approvals') }] : []),
+        ...(has('alerts') && today.d.alertsOpen != null ? [{ key: 'alerts', label: 'Open alerts', value: today.d.alertsOpen, onClick: () => go('alerts'), tone: today.d.alertsOpen ? 'warn' : undefined }] : []),
+      ]} /> : null}
+      <div className="dashboard-board">
+        <div className="dashboard-panel" data-featured><NeedsAction d={today.d} error={today.error} onRetry={today.reload} go={go} has={has} canMark={canTriage} headingRef={queueHeading} /></div>
+        <div className="dashboard-panel"><RecentActions d={audit.d} error={audit.error} onRetry={audit.reload} go={go} has={has} /></div>
       </div>
+      <Handover canWrite={canTriage} />
+      <Figures d={ov.d} error={ov.error} onRetry={ov.reload} go={go} has={has} />
       <Services d={health.d} error={health.error} onRetry={health.reload} go={go} has={has} />
     </>
   );
@@ -442,7 +464,7 @@ const QUEUE_PART = {
 const partOf = (k) => QUEUE_PART[k] || 'customers';
 const QUEUE_FILTERS = [['all', 'All'], ['mine', 'Mine'], ['customers', 'Customers'], ['money', 'Money'], ['support', 'Support'], ['platform', 'Platform']];
 
-function NeedsAction({ d, error, onRetry, go, has, canMark = false }) {
+function NeedsAction({ d, error, onRetry, go, has, canMark = false, headingRef }) {
   /* The moment the page opened: days left and days overdue are counted from it, not from each render. */
   const [now] = useState(() => Date.now());
   /*
@@ -495,7 +517,7 @@ function NeedsAction({ d, error, onRetry, go, has, canMark = false }) {
   const counts = on === 'all' ? allCounts : on === 'mine' ? [] : allCounts.filter((c) => partOf(c.k) === on);
   return (
     <section className="ops-section" aria-labelledby="ops-needs">
-      <h2 id="ops-needs" className="ops-h2">Needs you today</h2>
+      <h2 id="ops-needs" className="ops-h2" ref={headingRef} tabIndex={-1}>Needs you today</h2>
       {error ? (
         <Err onRetry={onRetry}>{error}</Err>
       ) : !d ? (
@@ -637,7 +659,7 @@ function RecentActions({ d, error, onRetry, go, has }) {
                     {e.summary ? <span className="ws-item-sub">Reason: {e.summary}</span> : null}
                     {/* The field-by-field detail stays in the Audit log; here it read as raw fields (QA, 19 Nov 2026). */}
                   </span>
-                  <span className="ws-item-end">{ago(e.at)}</span>
+                  <time className="ws-item-end" dateTime={e.at} title={day(e.at)}>{ago(e.at)}</time>
                 </div>
               </li>
             );

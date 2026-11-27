@@ -191,8 +191,8 @@ describe('Delegates (stand-ins)', () => {
     await screen.findByRole('dialog', { name: 'Add delegate' });
     await pick('Manager *', /Asha Rao/);
     await pick('Stands in *', /Ravi Kumar/);
-    typeDate(screen.getByLabelText('From'), '01/11/2026');
-    typeDate(screen.getByLabelText('To'), '05/11/2026');
+    typeDate(screen.getByLabelText('From', { selector: 'input' }), '01/11/2026');
+    typeDate(screen.getByLabelText('To', { selector: 'input' }), '05/11/2026');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(api.addStandIn).toHaveBeenCalledWith({ managerEmployeeId: 'e1', standInEmployeeId: 'e2', fromDate: '2026-11-01', toDate: '2026-11-05' }));
   });
@@ -223,8 +223,8 @@ describe('Delegates (stand-ins)', () => {
     await screen.findByRole('dialog', { name: 'Add delegate' });
     expect(screen.queryByRole('combobox', { name: 'Manager *' })).toBeNull();
     await pick('Stands in *', /Ravi Kumar/);
-    typeDate(screen.getByLabelText('From'), '01/11/2026');
-    typeDate(screen.getByLabelText('To'), '05/11/2026');
+    typeDate(screen.getByLabelText('From', { selector: 'input' }), '01/11/2026');
+    typeDate(screen.getByLabelText('To', { selector: 'input' }), '05/11/2026');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(api.addStandIn).toHaveBeenCalledWith({ standInEmployeeId: 'e2', fromDate: '2026-11-01', toDate: '2026-11-05' }));
   });

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { CircleCheck, RotateCw, TriangleAlert } from 'lucide-react';
 
 import ApproveActions from '@ui/components/ui/ApproveActions';
@@ -115,7 +115,6 @@ export function DayTimeline({ today, onOpen, now: pinned }) {
       <header className="people-block-head">
         <div className="min-w-0">
           <h2 id="day-h" className="people-block-title">The day so far</h2>
-          <p className="ui-caption">How many are in, through the morning. Point anywhere, or use the arrow keys.</p>
         </div>
         {onOpen ? <button type="button" className="people-more" onClick={onOpen}>Today’s register</button> : null}
       </header>
@@ -125,6 +124,7 @@ export function DayTimeline({ today, onOpen, now: pinned }) {
           role="slider"
           tabIndex={0}
           aria-label="Time of day"
+          aria-description="Use the arrow keys to inspect attendance by time."
           aria-valuemin={0}
           aria-valuemax={steps.length - 1}
           aria-valuenow={shown ?? steps.length - 1}
@@ -289,6 +289,79 @@ export function TodayFeed({ today, openPerson }) {
 
 const UNDO_MS = 5000;
 
+function LeaveDecisionRow({ request: r, approvalError, onApprove, onReject }) {
+  const [editing, setEditing] = useState(false);
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const sending = useRef(false);
+  const row = useRef(null);
+  const field = useRef(null);
+  const restoreFocus = useRef(false);
+  const fieldId = useId();
+  const errorId = fieldId + '-error';
+
+  useEffect(() => {
+    if (!editing && restoreFocus.current) {
+      restoreFocus.current = false;
+      row.current?.querySelector('.is-no')?.focus();
+    }
+  }, [editing]);
+
+  function cancel() {
+    if (sending.current) return;
+    restoreFocus.current = true;
+    setEditing(false);
+    setError('');
+    setReason('');
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    if (sending.current) return;
+    if (!reason.trim()) {
+      setError('Say why. They see this with the decision.');
+      field.current?.focus();
+      return;
+    }
+    sending.current = true;
+    setSaving(true);
+    setError('');
+    try {
+      await onReject(r, reason.trim());
+    } catch (e) {
+      setError(errorWords(e, 'reject the request'));
+    } finally {
+      sending.current = false;
+      setSaving(false);
+    }
+  }
+
+  return <li ref={row} className="people-decide">
+    <div className="people-decision-summary">
+      <strong className="people-row-title">{r.employeeName}</strong>
+      <span className="people-leave-kind">{r.leaveTypeName || 'Leave'}</span>
+      <span className="ui-caption">{spanWords(r)} · {plural(r.days, 'day')}</span>
+      {r.reason && <span className="ui-caption">{r.reason}</span>}
+      {approvalError && <span className="ui-field-error" role="alert">{approvalError}</span>}
+    </div>
+    {editing ? <form className="people-decision-form" onSubmit={submit}
+      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); cancel(); } }}>
+      <label htmlFor={fieldId} className="ui-label">Reason for rejection</label>
+      <input id={fieldId} ref={field} className="ui-input" aria-label={`Why reject ${r.employeeName}’s leave`}
+        value={reason} maxLength={500} autoFocus readOnly={saving}
+        aria-describedby={error ? errorId : undefined} aria-invalid={Boolean(error && !reason.trim()) || undefined}
+        onChange={(e) => { setReason(e.target.value); setError(''); }} />
+      {error && <span id={errorId} className="ui-field-error" role="alert">{error}</span>}
+      <div className="people-decision-actions">
+        <button type="submit" className="ui-btn ui-btn-secondary" disabled={saving} aria-busy={saving}>{saving ? 'Rejecting…' : 'Reject'}</button>
+        <button type="button" className="ui-btn ui-btn-ghost" disabled={saving} onClick={cancel}>Cancel</button>
+      </div>
+    </form> : <ApproveActions what={`leave for ${r.employeeName}`} showLabels onApprove={() => onApprove(r)}
+      onReject={() => setEditing(true)} rejectTitle="Reject (asks for a reason)" />}
+  </li>;
+}
+
 /**
  * Leave waiting for this reader, decided in place (owner, 22 Nov 2026). Approve leaves the
  * row at once and is sent after five seconds, so Undo really undoes it. Leaving Home sends it
@@ -298,20 +371,16 @@ const UNDO_MS = 5000;
 export function DecideInPlace({ requests, onDecided, max = 3 }) {
   const [gone, setGone] = useState(() => new Set());
   const [held, setHeld] = useState(null);
-  const [asking, setAsking] = useState(null);
-  const [why, setWhy] = useState('');
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState({});
   const timer = useRef(null);
 
-  const send = async (r, approve, note = '') => {
+  const sendApproval = async (r) => {
     try {
-      if (approve) await approveLeave(r.id, note);
-      else await rejectLeave(r.id, note);
-      onDecided?.(r, approve);
+      await approveLeave(r.id, '');
+      onDecided?.(r, true);
     } catch (e) {
       setGone((g) => { const n = new Set(g); n.delete(r.id); return n; });
-      setError((x) => ({ ...x, [r.id]: errorWords(e, approve ? 'approve the request' : 'reject the request') }));
+      setError((x) => ({ ...x, [r.id]: errorWords(e, 'approve the request') }));
     }
   };
   /* A held approval goes out now: before another decision, or when its five seconds end. */
@@ -321,7 +390,7 @@ export function DecideInPlace({ requests, onDecided, max = 3 }) {
     clearTimeout(timer.current);
     const h = heldRef.current;
     hold(null);
-    if (h) send(h, true);
+    if (h) sendApproval(h);
   };
   const approve = (r) => {
     flush();
@@ -340,15 +409,11 @@ export function DecideInPlace({ requests, onDecided, max = 3 }) {
     hold(null);
     if (h) setGone((g) => { const n = new Set(g); n.delete(h.id); return n; });
   };
-  const reject = async (r) => {
-    if (!why.trim()) { setError((x) => ({ ...x, [r.id]: 'Say why. They see this with the decision.' })); return; }
+  const reject = async (r, note) => {
     flush();
-    setBusy(true);
+    await rejectLeave(r.id, note);
     setGone((g) => new Set(g).add(r.id));
-    await send(r, false, why.trim());
-    setBusy(false);
-    setAsking(null);
-    setWhy('');
+    onDecided?.(r, false);
   };
 
   const shown = requests.filter((r) => !gone.has(r.id)).slice(0, max);
@@ -356,24 +421,8 @@ export function DecideInPlace({ requests, onDecided, max = 3 }) {
     <>
       {shown.length ? (
         <ul className="people-decide-list" aria-label="Leave waiting for you">
-          {shown.map((r) => (
-            <li key={r.id} className="people-decide">
-              <span className="min-w-0 flex-1">
-                <span className="people-row-title block truncate">{r.employeeName}, {r.leaveTypeName || 'leave'}</span>
-                <span className="ui-caption block truncate">{spanWords(r)} · {plural(r.days, 'day')}{r.reason ? ` · ${r.reason}` : ''}</span>
-                {error[r.id] ? <span className="ui-field-error block" role="alert">{error[r.id]}</span> : null}
-              </span>
-              {asking === r.id ? (
-                <span className="people-decide-why">
-                  <input className="ui-input" aria-label={`Why reject ${r.employeeName}’s leave`} placeholder="Why not?" value={why} maxLength={500} autoFocus onChange={(e) => setWhy(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') reject(r); if (e.key === 'Escape') { setAsking(null); setWhy(''); } }} />
-                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => reject(r)}>Reject</button>
-                  <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { setAsking(null); setWhy(''); }}>Cancel</button>
-                </span>
-              ) : (
-                <ApproveActions what={`leave for ${r.employeeName}`} onApprove={() => approve(r)} onReject={() => { setAsking(r.id); setWhy(''); }} rejectTitle="Reject (asks for a reason)" />
-              )}
-            </li>
-          ))}
+          {shown.map((r) => <LeaveDecisionRow key={r.id} request={r} approvalError={error[r.id]}
+            onApprove={approve} onReject={reject} />)}
         </ul>
       ) : null}
       {held ? (

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 
 import { PermissionContext } from '@ui/permissions/context';
 
@@ -27,7 +27,7 @@ vi.mock('./api', () => ({
   bulkUpdate: vi.fn(), changeImpact: vi.fn(), employeeIds: vi.fn(), deleteView: vi.fn(), downloadText: vi.fn(), exportColumns: vi.fn(), exportEmployees: vi.fn(), saveView: vi.fn(),
 }));
 vi.mock('../organization/api', () => ({ listBranches: vi.fn(async () => []) }));
-vi.mock('@ui/personnel/api', () => ({ getOverview: vi.fn(async () => ({ byDepartment: [] })) }));
+vi.mock('@ui/personnel/api', () => ({ getOverview: vi.fn(async () => ({ byDepartment: [] })), getPeopleHome: vi.fn(async () => ({ today: null })) }));
 vi.mock('@platform/context', async (orig) => ({ ...(await orig()), hasApp: () => false }));
 vi.mock('./AppAccessSend', () => ({ default: () => null }));
 vi.mock('./MyTeamPanel', () => ({ default: () => null }));
@@ -66,4 +66,25 @@ it('shows Work email as a mail link once the column is chosen, and a dash for no
   const link = await screen.findByRole('link', { name: 'asha@meridian.test' });
   expect(link.getAttribute('href')).toBe('mailto:asha@meridian.test');
   expect(screen.getByRole('columnheader', { name: /work email/i })).toBeTruthy();
+});
+
+it('opens full-page activity and shows a same-day join once', async () => {
+  const { getOverview, getPeopleHome } = await import('@ui/personnel/api');
+  getOverview.mockResolvedValueOnce({ joinedThisMonth: [{ id: 'e1', name: 'Asha Rao', date: '2026-11-26' }] });
+  getPeopleHome.mockResolvedValueOnce({ today: { date: '2026-11-26', feed: [
+    { kind: 'joined', employeeId: 'e1', name: 'Asha Rao', at: '00:00', text: 'joins today' },
+  ] } });
+  mount({ tab: 'activity' });
+  expect(await screen.findByRole('button', { name: 'Asha Rao' })).toBeTruthy();
+  expect(screen.getAllByText('Asha Rao')).toHaveLength(1);
+  expect(screen.getByRole('heading', { name: 'Employees', exact: true })).toBeTruthy();
+  expect(screen.queryByRole('table', { name: 'Employees' })).toBeNull();
+});
+
+it('keeps the profile link on the employee name after moving work email first', async () => {
+  localStorage.setItem(KEY, JSON.stringify({ hidden: OLD_HIDDEN, known: ['workEmail'], order: ['workEmail', 'name'] }));
+  mount();
+  const email = await screen.findByRole('link', { name: 'asha@meridian.test' });
+  expect(email.parentElement.closest('a')).toBeNull();
+  expect(within(screen.getByRole('table', { name: 'Employees' })).getByRole('link', { name: /Asha Rao/ }).closest('td')?.dataset.column).toBe('name');
 });

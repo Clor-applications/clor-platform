@@ -2,7 +2,7 @@ import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 
 import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
-import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -69,7 +69,7 @@ export default function NightWork() {
           ))}
         </ul>
       ) : null}
-      <DataTable
+      <ReviewTable
         label="Night work"
         columns={columns}
         rows={rows}

@@ -78,7 +78,7 @@ export default function Enrolments({ menuLabel } = {}) {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Reader enrolment', fileName: 'Reader enrolment', label: 'person/people', columns: EXPORT_COLUMNS, rows: shown });
       }}
-      description="Fingerprints and faces enrolled on the readers. Enrol once on any reader; it is copied to the others."
+      introduction="Fingerprints and faces enrolled on the readers. Enrol once on any reader; it is copied to the others."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search enrolments…', label: 'Search enrolments' }}

@@ -85,14 +85,14 @@ describe('My requests', () => {
   it('says when HR has set none up', async () => {
     api.myForms.mockResolvedValue({ forms: [], requests: [] });
     render(<MyRequests />);
-    expect((await screen.findAllByText(/You have not asked for anything yet/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/HR has not set up any requests yet/)).length).toBeGreaterThan(0);
     expect(screen.queryByLabelText('New request')).toBeNull();
   });
 
   it('shows my requests with their status', async () => {
     api.myForms.mockResolvedValue({ forms: [{ id: 'f1', name: 'Salary certificate', fields: [], slaDays: 2 }], requests: [{ id: 'q1', formName: 'Salary certificate', status: 'MORE_INFO', askedAt: '2026-10-30T10:00:00Z', lines: [{ label: 'Purpose', value: 'Visa' }], files: [], said: 'Which country?', replies: [] }] });
     render(<MyRequests />);
-    expect((await screen.findAllByText('Asked for more')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Needs your reply')).length).toBeGreaterThan(0);
   });
 });
 

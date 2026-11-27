@@ -115,7 +115,8 @@ export default function MonthSummary({ openScreen } = {}) {
     <DocumentListShell
       entity="report"
       title="Monthly attendance summary"
-      description="Payable days for payroll. Days still to come are neither paid nor lost yet."
+      introduction="Payable days for payroll."
+      description="Days still to come are neither paid nor lost yet."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search people' }}
