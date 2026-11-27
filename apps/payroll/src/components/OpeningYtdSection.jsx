@@ -101,7 +101,7 @@ export default function OpeningYtdSection({ employeeId, fy, onChanged, joinedOn,
         {FIELDS.map(([key, label, hint]) => (
           <div key={key}>
             <label className="ui-label" htmlFor={`op-${key}`}>{label}</label>
-            <MoneyInput id={`op-${key}`} type="text" inputMode="decimal" min="0" step="1" inputMode="decimal" className="ui-input ui-num w-full" value={form[key]} onChange={(e) => set({ [key]: e.target.value })} />
+            <MoneyInput id={`op-${key}`} type="text" inputMode="decimal" min="0" step="1" className="ui-input ui-num w-full" value={form[key]} onChange={(e) => set({ [key]: e.target.value })} />
             {hint ? <span className="ui-caption">{hint}</span> : null}
           </div>
         ))}

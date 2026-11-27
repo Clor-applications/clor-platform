@@ -1,3 +1,4 @@
+import { payRunStatusTone } from '../components/payRunStatus';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlertTriangle, ArrowLeft, CalendarClock, Check, Info, Play } from '@ui/components/ui/lineIcons';
@@ -17,7 +18,7 @@ import useUnsavedChanges from "@ui/components/ui/useUnsavedChanges";
 import { Figures } from "../components/Figure";
 import Notice from "../components/Notice";
 import { confirmDialog, notify } from "@ui/components/ui/notify";
-import { hasApp, requestOpenScreen } from "@platform/context";
+import { hasApp, requestOpenApp, requestOpenScreen } from "@platform/context";
 import { listPayrollPeriods, listPayGroups } from "../api/payrollCalendar";
 import {
   listPayrollRuns,
@@ -145,15 +146,28 @@ const EXPORT_COLUMNS = [
   { key: "status", label: "Status", value: (r) => STATUS_LABEL[r.status] || r.status },
 ];
 
-export default function PayRuns() {
+export default function PayRuns({ params, updateParams } = {}) {
   const [runs, setRuns] = useState(null);
   const [periods, setPeriods] = useState([]);
   const [payGroups, setPayGroups] = useState([]);
   const [error, setError] = useState("");
-  const [openId, setOpenId] = useState(null);
+  const [localRunId, setLocalRunId] = useState(params?.runId ?? null);
+  const openId = updateParams ? params?.runId : localRunId;
+  const selectRun = (runId) => {
+    if (updateParams) {
+      const patch = params?.startPeriod ? { runId, startPeriod: null } : { runId };
+      updateParams(patch, { push: Boolean(runId) });
+    } else setLocalRunId(runId);
+  };
   const [starting, setStarting] = useState(false);
   const [startKey, setStartKey] = useState(0);
   const [status, setStatus] = useState("");
+  const requestedPeriod = periods.find((period) => period.id === params?.startPeriod);
+  const showStart = starting || Boolean(requestedPeriod);
+  const closeStart = () => {
+    setStarting(false);
+    if (params?.startPeriod) updateParams?.({ startPeriod: null });
+  };
 
   /* Periods refused or failed: the runs still list, and starting one waits (QA: one refused list failed the whole screen). */
   const [periodsFailed, setPeriodsFailed] = useState(false);
@@ -200,7 +214,7 @@ export default function PayRuns() {
           : `${made.run.number} started with ${made.eligible} ${made.eligible === 1 ? "person" : "people"}.`,
       );
       setStarting(false);
-      setOpenId(made.run.id);
+      selectRun(made.run.id);
       load();
     } catch (e) {
       notify.error(errorWords(e, "start that pay run"));
@@ -232,9 +246,10 @@ export default function PayRuns() {
   if (openId) {
     return (
       <RunWorkflow
+        key={openId}
         runId={openId}
         onBack={() => {
-          setOpenId(null);
+          selectRun(null);
           load();
         }}
       />
@@ -263,7 +278,7 @@ export default function PayRuns() {
         runListExport({ format, title: "Pay runs", fileName: "Pay runs", label: "pay run/pay runs", columns: EXPORT_COLUMNS, rows });
       }}
       primary={
-        <button type="button" className="ui-btn ui-btn-primary" onClick={begin} disabled={!periods.length || starting}>
+        <button type="button" className="ui-btn ui-btn-primary" onClick={begin} disabled={!periods.length || showStart}>
           <Play size={16} aria-hidden="true" /> Run payroll
         </button>
       }
@@ -274,12 +289,13 @@ export default function PayRuns() {
         { label: "Paid or posted", value: figures.done, tone: "paid", onSelect: () => setStatus("DONE") },
       ])}
       tabs={TABS}
+      statusFilters
       statusValue={status}
       statusCounts={counts}
       onStatusChange={setStatus}
       tabsLabel="Run status"
     >
-      <StartRun key={startKey} open={starting} periods={periods} payGroups={payGroups} saving={saving} onCancel={() => setStarting(false)} onStart={start} />
+      <StartRun key={requestedPeriod?.id ?? startKey} open={showStart} initialPeriodId={requestedPeriod?.id} periods={periods} payGroups={payGroups} saving={saving} onCancel={closeStart} onStart={start} />
       <LoadFailed message={error} onRetry={load} />
       {periodsFailed && runs ? <p className="ui-caption mb-2">Could not load the payroll periods, so a new run cannot be started here.</p> : null}
       {!runs ? (
@@ -322,8 +338,12 @@ export default function PayRuns() {
                 </tr>
               ) : (
                 rows.map((r) => (
-                  <tr key={r.id} className="ui-row-click" onClick={() => setOpenId(r.id)}>
-                    <td className="ui-col-id" data-phone="sub">{r.number}</td>
+                  <tr key={r.id} className="ui-row-click" onClick={() => selectRun(r.id)}>
+                    <td className="ui-col-id" data-phone="sub">
+                      <button type="button" className="ui-link" onClick={(event) => { event.stopPropagation(); selectRun(r.id); }}>
+                        {r.number}
+                      </button>
+                    </td>
                     <td className="ui-col-entity" data-phone="name">
                       {r.period?.name || "—"}
                       {r.kind === "OFF_CYCLE" ? <span className="ui-caption block">Extra pay run</span> : null}
@@ -336,7 +356,7 @@ export default function PayRuns() {
                       <ExceptionTag
                         label={["PAID", "POSTED"].includes(r.status) ? "" : STATUS_LABEL[r.status] || r.status}
                         normal={STATUS_LABEL[r.status]}
-                        pill={["APPROVED", "LOCKED"].includes(r.status) ? "ui-pill-pos" : "ui-pill-neutral"}
+                        tone={payRunStatusTone(r.status)}
                       />
                     </td>
                   </tr>
@@ -352,8 +372,8 @@ export default function PayRuns() {
 }
 
 /* Run payroll asks in a drawer, so the list page keeps one primary button (DESIGN.md "One primary action"). */
-const StartRun = ({ open, periods, payGroups, saving, onCancel, onStart }) => {
-  const firstPeriod = periods[0]?.id || "";
+const StartRun = ({ open, initialPeriodId, periods, payGroups, saving, onCancel, onStart }) => {
+  const firstPeriod = initialPeriodId || periods[0]?.id || "";
   const [form, setForm] = useState({ periodId: firstPeriod, payGroupId: "", kind: "REGULAR" });
   const extra = form.kind === "OFF_CYCLE";
   const set = (patch) => setForm((p) => ({ ...p, ...patch }));
@@ -534,7 +554,7 @@ const RunWorkflow = ({ runId, onBack }) => {
             </button>
           }
         />
-        <div className="px-5 lg:px-7 pb-8">
+        <div className="pb-8">
           <LoadFailed message={loadError} onRetry={load} />
         </div>
       </div>
@@ -576,7 +596,7 @@ const RunWorkflow = ({ runId, onBack }) => {
         }
       />
 
-      <div className="px-5 lg:px-7 pb-8 space-y-4">
+      <div className="pb-8 space-y-4">
       {/* Sent back: the reason first, as a plain note, since it is what the preparer has to act on. */}
       {run.rejectionReason ? (
         <Notice tone="warn" word="Sent back">{run.rejectionReason}</Notice>
@@ -1530,7 +1550,11 @@ const BooksStage = ({ runId, run }) => {
         <p className="ui-caption">
           Posted on{" "}
           {dateWords(String(preview.alreadyPosted.postedAt || "").slice(0, 10))}
-          . This is the entry it made.
+          {preview.alreadyPosted.journalEntryId && hasApp("accounting") && (
+            <button type="button" className="ui-link ml-3" onClick={() => requestOpenApp("accounting", "journalEntries", {
+              drawer: preview.alreadyPosted.journalEntryId, payrollRun: runId,
+            })}>View posted journal entry</button>
+          )}
         </p>
       ) : null}
 
