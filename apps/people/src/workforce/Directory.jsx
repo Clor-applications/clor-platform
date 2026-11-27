@@ -416,7 +416,7 @@ function DirectoryActivity({ daily, overview, expanded, onExpand, openRecord }) 
               <span>{event.label}{event.detail ? ` · ${event.detail}` : ''}</span></div>
           </li>
         ))}
-      </ol> : loading ? <span className="ui-skel ui-skel-text" aria-label="Loading activity" /> : !failed ? <p className="ui-caption">No activity today or new joiners this month.</p> : null}
+      </ol> : loading ? <span className="ui-skel ui-skel-text" role="status" aria-busy="true" aria-label="Loading activity" /> : !failed ? <p className="ui-caption">No activity today or new joiners this month.</p> : null}
     </section>
   );
 }
@@ -668,7 +668,7 @@ function BulkImpact({ ids, field, value }) {
     return () => { live = false; };
   }, [wanted, key, field, value]);
   if (!wanted) return null;
-  if (state.ask !== wanted) return <span className="ui-skel ui-skel-text" aria-label="Checking what else this affects" />;
+  if (state.ask !== wanted) return <span className="ui-skel ui-skel-text" role="status" aria-busy="true" aria-label="Checking what else this affects" />;
   if (!state.lines.length) return null;
   return (
     <div className="ui-impact" aria-label="What else this affects">

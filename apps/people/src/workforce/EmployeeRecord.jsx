@@ -128,13 +128,25 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   usePageTitle(person?.name || '');
   const setPerson = (patch) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...patch } }));
   const [lists, setLists] = useState(null);
-  useEffect(() => {
-    Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'business-units', 'grades', 'cost-centres', 'seats', 'job-roles'].map((k) => structure(k).catch(() => [])), hasApp('attendance') ? listContractors() : Promise.resolve([]), listTags().catch(() => []), listBranches().catch(() => [])])
-      .then(([departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags, branchRows]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags , branches: branchRows.filter((b) => b.isActive !== false).map((b) => ({ id: b.id, name: b.branchName, isActive: true })) }));
-  }, []);
-  /* Opened at a section (People Home's Probation ending: focus=probation): scrolled to it once the record is drawn. */
   const loadedId = person?.id;
-  /* Round 55 (recentrecords A): the menu's "Recently opened" keeps the last five people; only the id and name are kept, in this browser. */
+  useEffect(() => {
+    if (!loadedId) return;
+    let current = true;
+    const kinds = ['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'business-units', 'grades', 'cost-centres', 'seats', 'job-roles'];
+    Promise.all([
+      ...kinds.map(kind => structure(kind).catch(() => [])),
+      hasApp('attendance') ? listContractors() : [],
+      listTags().catch(() => []),
+      listBranches().catch(() => []),
+    ]).then(([departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags, branchRows]) => {
+      if (!current) return;
+      const branches = branchRows.filter(branch => branch.isActive !== false)
+        .map(branch => ({ id: branch.id, name: branch.branchName, isActive: true }));
+      setLists({ departments, positions, types, workTypes, areas, establishments, teams, units, grades, centres, seats, roles, contractors, tags, branches });
+    });
+    return () => { current = false; };
+  }, [loadedId]);
+  /* Keep the last five opened people in this browser. */
   const loadedName = person ? person.name || [person.firstName, person.lastName].filter(Boolean).join(' ') : '';
   useEffect(() => { if (loadedId && loadedName) rememberPerson({ id: loadedId, name: loadedName }); }, [loadedId, loadedName]);
   useEffect(() => {
