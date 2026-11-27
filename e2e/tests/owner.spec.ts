@@ -100,28 +100,29 @@ test.describe('Suresh owns the account', () => {
   });
 
   test('A4c: on a phone the Workspace bar fits and still switches company', { tag: ['@A4c'] }, async ({ asOwner: suresh, w }, testInfo) => {
-    /* #80 re-review: the Workspace has no app menu, so the phone's company choice must live in its own bar button. */
+    /* Workspace exposes the active company and company switcher in the profile menu on phones. */
     allowNoise(testInfo, /404|Not Found/);
     await suresh.page.setViewportSize({ width: 390, height: 844 });
     await suresh.page.goto(`/o/${w.asha.code}/?app=admin`);
     const bar = suresh.page.getByRole('banner');
-    await expect(bar.getByRole('button', { name: `Company: ${w.asha.name}` })).toBeVisible();
+    const profile = bar.getByRole('button', { name: /^Your menu: / });
+    await expect(profile).toHaveAccessibleName(new RegExp(w.asha.name, 'i'));
     const right = await bar.evaluate((b) => Math.max(...Array.from(b.querySelectorAll('button, select, label')).map((e) => e.getBoundingClientRect().right)));
     expect(right, 'nothing in the bar past the screen').toBeLessThanOrEqual(390);
     /* DESIGN.md's touch size: the bar's buttons and the menu's companies at least 44px. */
     const small = await bar.evaluate((b) => Array.from(b.querySelectorAll('.ui-icon-btn')).map((e) => e.getBoundingClientRect()).filter((r) => r.width && (r.width < 44 || r.height < 44)).length);
     expect(small, 'bar buttons under 44px').toBe(0);
-    await bar.getByRole('button', { name: /^Company: / }).click();
-    /* The menu floats over the page (base-ui portal), so it is found on the page, not inside the bar. */
-    const menu = await suresh.page.getByRole('menu').boundingBox();
-    expect(menu!.x, 'menu inside the 16px gutter').toBeGreaterThanOrEqual(16);
-    expect(menu!.x + menu!.width, 'menu inside the 16px gutter').toBeLessThanOrEqual(374);
-    const rows = await suresh.page.getByRole('menuitemradio').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+    const menu = await suresh.openYourMenu();
+    const box = await menu.boundingBox();
+    expect(box!.x, 'menu inside the 16px gutter').toBeGreaterThanOrEqual(16);
+    expect(box!.x + box!.width, 'menu inside the 16px gutter').toBeLessThanOrEqual(374);
+    const companies = menu.getByRole('group', { name: 'Company', exact: true });
+    await expect(companies.getByRole('menuitemradio', { name: w.asha.name, checked: true })).toBeVisible();
+    const rows = await companies.getByRole('menuitemradio').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
     expect(Math.min(...rows), 'company rows under 44px').toBeGreaterThanOrEqual(44);
-    await suresh.page.keyboard.press('Escape');
-    await suresh.switchCompany(w.vels.name);
+    await companies.getByRole('menuitemradio', { name: w.vels.name, exact: true }).click();
     await expect(suresh.page).toHaveURL(new RegExp(`/o/${w.vels.code}/`));
-    await expect(bar.getByRole('button', { name: `Company: ${w.vels.name}` })).toBeVisible();
+    expect((await suresh.companyInUse())?.trim()).toBe(w.vels.name);
     /* Ends back in People: the Workspace home's own off pills fail axe contrast (admin app, reported apart). */
     await new PeopleWeb(suresh.page, w.vels, testInfo).goto();
   });

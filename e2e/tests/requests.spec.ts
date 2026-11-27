@@ -42,7 +42,7 @@ test.describe('Hiring, referrals, swaps and requests', () => {
     const board = kavya.main.getByRole('region', { name: 'Candidates by stage' });
     /* The screen checks again, on the board: a box that clips what it holds is reported (clipped-list). */
     await auditScreen(kavya.page, testInfo);
-    await expect(board).toHaveAttribute('data-wide', '');
+    await expect.poll(() => board.evaluate((box) => box.scrollWidth - box.clientWidth), 'stages extend beyond the phone viewport').toBeGreaterThan(0);
     const hired = board.getByRole('region', { name: 'Hired', exact: true });
     await hired.scrollIntoViewIfNeeded();
     const m = await board.evaluate((box) => {
