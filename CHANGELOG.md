@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-6b96f97 - 2026-11-27
+
+API revision `aws:6b96f97`. Previous release `rel-e2bbc92` (roll back there).
+
+- #477 Fix People and Attendance CSV round-trip checks in release CI
+- #474 Upgrade Clor frontend navigation, registers and People workflows
+- #473 Admin center: move to the kit with ink primary
+- #472 People: ink primary buttons, soft corners and light edges
+- #469 People Expenses, Reviews, Plans, One-on-ones: count line under the title
+- #468 DESIGN.md: design laws, more button states, People Home pay and attendance
+- #467 People Offers and Interviews: count line under the title
+- #459 People: move to the Motion kit
+- #458 People charts on a new chart kit (Bklit shapes, CLOR look)
+- #457 People Employees: count line under the title, status chips with counts
+- #456 DESIGN.md: adopt the Motion kit on every surface
+- #455 Motion: delete ambient loops and dead decorative animation
+- #454 Release record: rel-e2bbc92
+
 ## rel-e2bbc92 - 2026-11-24
 
 API revision `aws:e2bbc92`. Previous release `rel-ad81ab7` (roll back there).
