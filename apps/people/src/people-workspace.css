@@ -772,6 +772,21 @@
   gap: 0 20px;
 }
 
+:where(:root[data-app='people'])
+  :is(table.ui-table, table.ws-table, table.con-table) > :is(thead, tbody, tfoot) > tr > :is(th, td) {
+  text-align: center !important;
+  vertical-align: middle;
+}
+:where(:root[data-app='people'])
+  :is(table.ui-table, table.ws-table, table.con-table) :is(.ui-row-open, .ui-th-sort) {
+  text-align: center;
+  justify-content: center;
+}
+:where(:root[data-app='people'])
+  :is(table.ui-table, table.ws-table, table.con-table) :is(th, td, .ui-row-open) > .flex:not(.flex-col):not(.justify-between) {
+  justify-content: center;
+}
+
 /* Keep the identifier label on the same reading edge as the name below it. */
 :root[data-app='people'] #main-content .ui-table :is([data-column='person'], [data-column='employee'], [data-column='name']) .ui-row-open {
   justify-content: flex-start;

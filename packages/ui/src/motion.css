@@ -351,21 +351,6 @@
   justify-content: center;
 }
 
-:where(:root[data-app='people'])
-  :is(table.ui-table, table.ws-table, table.con-table) > :is(thead, tbody, tfoot) > tr > :is(th, td) {
-  text-align: center !important;
-  vertical-align: middle;
-}
-:where(:root[data-app='people'])
-  :is(table.ui-table, table.ws-table, table.con-table) :is(.ui-row-open, .ui-th-sort) {
-  text-align: center;
-  justify-content: center;
-}
-:where(:root[data-app='people'])
-  :is(table.ui-table, table.ws-table, table.con-table) :is(th, td, .ui-row-open) > .flex:not(.flex-col):not(.justify-between) {
-  justify-content: center;
-}
-
 /* ---------------------------------------------------------------- tags */
 
 /* A word in a pill. Done = mint, waiting = sand, problem = white with a red edge. */
