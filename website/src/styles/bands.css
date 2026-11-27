@@ -197,6 +197,7 @@ body:has(.fx-secnav) .nav {
 /* Tabs: pills, or a row under one line. */
 .fx-tabs {
   display: flex;
+  max-inline-size: 100%;
   gap: var(--s-2);
   margin-block: var(--s-6);
   overflow-x: auto;
