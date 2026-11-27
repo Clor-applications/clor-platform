@@ -86,7 +86,6 @@ export default function Tags() {
         section="Settings"
         entity="settings"
         title="Tags"
-        description="Free labels to group people for filters, announcements and reports. Tags never change pay or access."
         primary={{ label: 'Add tag', icon: Plus, onClick: open }}
         toolbar={tags.length ? <SearchField value={q} onSearch={setQ} placeholder="Search tags" label="Search tags" className="w-full sm:w-80" /> : null}
         toolbarEnd={tags.length ? <span className="ui-caption tabular-nums">{shown.length} {shown.length === 1 ? 'item' : 'items'}</span> : null}

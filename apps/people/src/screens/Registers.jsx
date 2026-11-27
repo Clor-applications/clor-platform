@@ -102,9 +102,8 @@ export default function Registers({ params = {}, updateParams, register: fixed }
     <div className="space-y-6">
       <style>{PRINT_CSS}</style>
       <ListHeader
-        section="Insights"
+        section="Reports"
         title={fixed ? reg.label : 'Statutory registers'}
-        description="What a labour inspector asks to see, for a work site and a period, ready to print or export. Wages are in Payroll's registers."
         secondary={<button type="button" className="ui-btn ui-btn-secondary" disabled={!d?.rows?.length} onClick={exportCsv}><Download size={16} aria-hidden="true" /> Export CSV</button>}
         primary={{ label: 'Print', icon: Printer, disabled: !d?.rows?.length, onClick: () => window.print() }}
         toolbar={<>

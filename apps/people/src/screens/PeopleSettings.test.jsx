@@ -8,22 +8,24 @@ import PeopleSettings from './PeopleSettings';
 const KEYS = ['modules', 'companyDetails', 'employeeTypes', 'tags', 'journeySteps', 'letterTemplates', 'approvalRules', 'selfService', 'leaveTypes', 'holidays', 'sso', 'integrations', 'dataImport', 'auditLogs'];
 const navItems = KEYS.map((key) => ({ key, label: key }));
 
-it('shows the groups of rows, each row opening its screen', () => {
+it('opens a category, its setting, and the category index', () => {
   const openScreen = vi.fn();
-  const { container } = render(<PeopleSettings openScreen={openScreen} navItems={navItems} />);
-  expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
-    'Organisation', 'People records', 'Time off', 'Requests & approvals', 'Access', 'Data',
-  ]);
-  expect(container.querySelector('.ui-card')).toBeNull();
-  expect(container.querySelectorAll('.ui-settings-row').length).toBe(KEYS.length + 2);
-  fireEvent.click(screen.getByText('journeySteps').closest('button'));
+  render(<PeopleSettings openScreen={openScreen} navItems={navItems} />);
+  fireEvent.click(screen.getByRole('button', { name: /^People records/ }));
+  expect(screen.getByRole('heading', { name: 'People records' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'journeySteps' }));
   expect(openScreen).toHaveBeenCalledWith('journeySteps');
+  fireEvent.click(screen.getByRole('button', { name: 'All settings' }));
+  expect(screen.getByRole('navigation', { name: 'Settings categories' })).toBeTruthy();
 });
 
-it('leaves out a row this person may not open, and a group left empty', () => {
-  render(<PeopleSettings openScreen={vi.fn()} navItems={[{ key: 'holidays', label: 'Holidays' }]} />);
-  expect(screen.getByText('Holidays')).toBeTruthy();
-  expect(screen.queryByRole('heading', { name: 'People records' })).toBeNull();
-  /* The connected apps are links, not screens, so their group stays. */
-  expect(screen.getByRole('heading', { name: 'Access' })).toBeTruthy();
+it('shows only accessible categories and finds a setting outside the current category', () => {
+  render(<PeopleSettings navItems={navItems.filter(item => ['holidays', 'tags'].includes(item.key))} apps={[]} />);
+  expect(screen.queryByRole('button', { name: /^Access/ })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /^Organisation/ }));
+  const search = screen.getByRole('searchbox');
+  fireEvent.change(search, { target: { value: 'holidays' } });
+  fireEvent.keyDown(search, { key: 'Enter' });
+  expect(screen.getByRole('button', { name: 'holidays' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'tags' })).toBeNull();
 });

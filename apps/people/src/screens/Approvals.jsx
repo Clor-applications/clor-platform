@@ -1,19 +1,21 @@
+import { usePeoplePageSlot } from '@ui/components/list/PeoplePageLayout';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BulkOutcome from '@ui/components/list/BulkOutcome';
 import { bulkOutcome, waitingFirst } from '@ui/picks/round57';
 import { Check, X } from '@ui/components/ui/lineIcons';
+import { ScanSearch } from '@ui/components/ui/navEmoji';
 import ApproveActions from '@ui/components/ui/ApproveActions';
 
-import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import { FilterTabs, ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
-import useJkList from '@ui/components/list/useJkList';
+import useJkList, { rowsIn } from '@ui/components/list/useJkList';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
-import useRequest from '@ui/components/ui/useRequest';
+import useRequest, { useOnlineHint } from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -30,6 +32,11 @@ import { openFile } from '@ui/requests/formFiles';
 import MoneyRequestDetail from '../money/MoneyRequestDetail';
 import { MONEY_TYPES } from '../money/words';
 import { Button } from '@ui/components/ui/Primitives';
+
+import RequestActivity from './RequestActivity';
+import './Approvals.css';
+import { addDaysIso, istDay, todayIst } from '@ui/utils/dates';
+import { useChangeMessage, usePeopleUpdates } from './usePeopleUpdates';
 
 /* The fields a request can name, in plain words (never "photoUrl" or "addressLine"). */
 const FIELD_WORDS = {
@@ -67,8 +74,8 @@ const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
 const range = (from, to) => (!from ? '' : !to || from === to ? day(from) : `${day(from)} – ${day(to)}`);
 /* Which half of a half day, as the leave drawer writes it (#80 QA: "Half day" alone did not say which). */
 const halfText = (h) => (h === 'FIRST' ? 'First half' : h === 'SECOND' ? 'Second half' : h ? 'Half day' : '');
-const waitedDays = (at) => Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000));
-const waitedText = (at) => { const d = waitedDays(at); return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`; };
+const waitedDays = (at) => at && Number.isFinite(Date.parse(at)) ? Math.max(0, (Date.parse(todayIst()) - Date.parse(istDay(at))) / 86_400_000) : null;
+const waitedText = (at) => { const d = waitedDays(at); return d == null ? '—' : d === 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`; };
 /** The finer kind, in words: a leave type, "Work from home", "Job change", a desk category. */
 const whatOf = (i) => {
   if (i.kind === 'ATTENDANCE') return KIND_NAME[i.subKind] || i.what;
@@ -81,20 +88,58 @@ const whatOf = (i) => {
 const OWN_NOTE = { ONLY_APPROVER: 'Your own. You’re the only approver, so this is logged.', ALLOWED: 'Your own. Your company lets you decide it; this is logged.' };
 const kindText = (i) => (i.kind === 'APPROVAL' ? TYPE[i.subKind] || (String(i.subKind || '').startsWith('FORM:') ? 'Request' : INBOX_KIND.APPROVAL) : INBOX_KIND[i.kind]);
 
+function taskTiming(task, today) {
+  if (!task.dueDate) return '';
+  if (task.overdue || task.dueDate < today) return 'Overdue';
+  if (task.dueDate === today) return 'Due today';
+  if (task.dueDate === addDaysIso(today, 1)) return 'Tomorrow';
+  return '';
+}
+
+function requestUpdate(request) {
+  const steps = request.steps || [];
+  if (request.status === 'MORE_INFO') return steps.findLast((step) => step.status === 'MORE_INFO')?.comment;
+  if (request.status === 'WAITING' && request.dueAt) return `Decision due ${day(request.dueAt)}`;
+  const decision = steps.findLast((step) => step.status === request.status && step.decidedAt);
+  return decision ? [decision.decidedBy, day(decision.decidedAt)].filter(Boolean).join(' · ') : '';
+}
+
+function describeQueueChange(before, after) {
+  const previous = new Map(before.map((row) => [row.key, row]));
+  const current = new Set(after.map((row) => row.key));
+  const changes = [];
+  for (const row of after) {
+    const earlier = previous.get(row.key);
+    if (!earlier) changes.push(`${row.queue === 'tasks' ? 'New task' : 'New request'} · ${row.name}`);
+    else if (earlier.details !== row.details) changes.push(`${row.status || 'Updated'} · ${row.name}`);
+  }
+  for (const row of before) {
+    if (!current.has(row.key)) changes.push(`${row.queue === 'waiting' ? 'No longer waiting' : 'Removed'} · ${row.name}`);
+  }
+  return changes.length > 1 ? `${changes[0]} (+${changes.length - 1} more)` : changes[0];
+}
+
 export default function Approvals({ params = {}, updateParams, openScreen }) {
+  const [helpSlot] = usePeoplePageSlot('heading');
+  const [columnsSlot] = usePeoplePageSlot('toolbar');
+  const online = useOnlineHint();
   const perms = usePermissions();
   const allowed = (k) => can(perms, k);
   const p = params || {};
   const kind = KIND_ORDER.includes(p.kind) ? p.kind : '';
-  const page = Math.max(1, Number(p.page || 1));
-  const size = [25, 50, 100].includes(Number(p.size)) ? Number(p.size) : 25;
   const set = (patch, push = false) => updateParams?.(patch, { push });
   const inbox = useRequest(() => getInbox(), []);
   /* The inbox opens on what there is to do: with nothing to approve and tasks on my name, My tasks (People plan 8 Nov 2026, step 3). */
   const askedTab = p.tab === 'mine' ? 'mine' : p.tab === 'tasks' ? 'tasks' : p.tab === 'waiting' ? 'waiting' : null;
   const loadedCounts = inbox.data?.counts || null;
-  const tab = askedTab || (loadedCounts && !loadedCounts.all && loadedCounts.TASK ? 'tasks' : 'waiting');
-  const mine = useRequest(() => (tab === 'mine' ? listRequests() : Promise.resolve(null)), [tab]);
+  const [initialTab, setInitialTab] = useState(null);
+  const suggested = loadedCounts && !loadedCounts.all && loadedCounts.TASK ? 'tasks' : 'waiting';
+  useEffect(() => {
+    if (loadedCounts && !initialTab) setInitialTab(suggested);
+  }, [loadedCounts, initialTab, suggested]);
+  const tab = askedTab || initialTab || suggested;
+  const personalQueue = tab === 'tasks' || tab === 'mine';
+  const mine = useRequest(() => (personalQueue ? listRequests() : Promise.resolve(null)), [personalQueue]);
   const [q, setQ] = useState('');
   /* A notice about a request (a withdrawn one says "Withdrawn") opens it here: ?open=APPROVAL&id=… */
   const [open, setOpen] = useState(() => (p.open === 'APPROVAL' && p.id ? { kind: 'APPROVAL', id: String(p.id) } : null));
@@ -103,33 +148,45 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const items = useMemo(() => inbox.data?.items || [], [inbox.data]);
-  /*
-   * Round 57 liveupdate A: requests that arrive while the list is open wait
-   * behind a "2 new · Show" bar; the list itself never jumps under the reader.
-   * Checked once a minute while the page is in view.
-   */
-  const [arrived, setArrived] = useState(0);
-  useEffect(() => {
-    if (!inbox.data) return undefined;
-    const seen = new Set((inbox.data.items || []).map((i) => i.key));
-    setArrived(0);
-    let off = false;
-    const timer = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      getInbox().then((d) => { if (!off) setArrived((d?.items || []).filter((i) => !seen.has(i.key)).length); }).catch(() => {});
-    }, 60000);
-    return () => { off = true; clearInterval(timer); };
-  }, [inbox.data]);
+  usePeopleUpdates(() => {
+    if (!inbox.loading && !inbox.refreshing) inbox.reload();
+    if (personalQueue && !mine.loading && !mine.refreshing) mine.reload();
+  });
+  const activityRows = useMemo(() => {
+    if (tab === 'mine') return mine.data?.mine?.map((r) => ({
+      key: r.id, name: r.title, queue: 'mine', status: STATUS[r.status], details: JSON.stringify([r.title, r.status, r.updatedAt]),
+    }));
+    if (!inbox.data) return null;
+    if (tab === 'tasks') return (inbox.data.tasks || []).map((t) => ({
+      key: t.id, name: t.title, queue: 'tasks', details: JSON.stringify([t.title, t.dueDate, t.overdue, t.employee?.name]),
+    }));
+    return items.map((i) => ({
+      key: i.key, name: [i.employeeName, kindText(i)].filter(Boolean).join(' · '), queue: 'waiting',
+      details: JSON.stringify([i.employeeName, whatOf(i), i.fromDate, i.toDate, i.days, i.step, i.managerApproved, i.overdue, i.cancelAsked]),
+    }));
+  }, [tab, items, inbox.data, mine.data]);
+  const activity = useChangeMessage(activityRows, describeQueueChange, tab);
   const counts = inbox.data?.counts || {};
   const needle = q.trim().toLowerCase();
   const shown = useMemo(() => items.filter((i) => (!kind || i.kind === kind) && (!needle || [i.employeeName, i.employeeCode, i.what, kindText(i)].some((v) => String(v || '').toLowerCase().includes(needle)))), [items, kind, needle]);
   /* Round 57 waitingfirst A: my own requests still waiting come first, the oldest on top; then the rest, newest first. */
   const mineRows = useMemo(() => waitingFirst((mine.data?.mine || []).filter((r) => !needle || [r.title, typeOf(r.requestType, r.payload)].some((v) => String(v || '').toLowerCase().includes(needle))), (r) => ['WAITING', 'MORE_INFO'].includes(r.status)), [mine.data, needle]);
   const taskRows = useMemo(() => (inbox.data?.tasks || []).filter((t) => !needle || [t.title, t.employee?.name, t.employee?.code, TASK_KIND[t.kind]].some((v) => String(v || '').toLowerCase().includes(needle))), [inbox.data, needle]);
-  const list = tab === 'waiting' ? shown : tab === 'tasks' ? taskRows : mineRows;
-  const pageRows = list.slice((page - 1) * size, page * size);
+  const today = todayIst();
+  const weekEnd = addDaysIso(today, 6);
+  const scopes = tab === 'tasks' ? [
+    { key: 'late', label: 'Overdue', match: (t) => taskTiming(t, today) === 'Overdue' },
+    { key: 'week', label: 'Due in 7 days', match: (t) => t.dueDate >= today && t.dueDate <= weekEnd },
+  ] : tab === 'mine' ? [
+    { key: 'reply', label: 'Needs reply', match: (r) => r.status === 'MORE_INFO' },
+    { key: 'pending', label: 'Awaiting decision', match: (r) => r.status === 'WAITING' },
+    { key: 'closed', label: 'Closed', match: (r) => ['APPROVED', 'REJECTED', 'WITHDRAWN'].includes(r.status) },
+  ] : [];
+  const rows = tab === 'waiting' ? shown : tab === 'tasks' ? taskRows : mineRows;
+  const scope = scopes.find((item) => item.key === p.focus);
+  const list = scope ? rows.filter(scope.match) : rows;
   const chosen = shown.filter((i) => selected.has(i.key) && i.bulk);
-  const reload = () => { inbox.reload(); if (tab === 'mine') mine.reload(); };
+  const reload = () => { inbox.reload(); if (personalQueue) mine.reload(); };
 
   const [outcome, setOutcome] = useState(null);
   const decideMany = async (approve) => {
@@ -176,7 +233,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const [rowBusy, setRowBusy] = useState(() => new Set());
   const rowBusyRef = useRef(new Set());
   const jkRef = useRef(null);
-  useJkList(jkRef, { enabled: tab === 'waiting' });
+  useJkList(jkRef);
   const approveOne = async (i) => {
     const fn = BULK[i.kind];
     if (!fn || rowBusyRef.current.has(i.key)) return;
@@ -207,12 +264,27 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   };
 
   /* A task on my name, done from its row: the same tick as the employee's plan and Tasks › Mine. A step that needs a note says so. */
-  const finishTask = async (t) => {
+  const finishTask = async (t, trigger) => {
     if (rowBusyRef.current.has(t.id)) return;
     rowBusyRef.current.add(t.id);
     setRowBusy(new Set(rowBusyRef.current));
     try {
       await updateChecklistTask(t.id, { done: true });
+      // Keep the reading position when the completed row disappears.
+      if (document.activeElement === trigger && jkRef.current?.contains(trigger)) {
+        const rows = rowsIn(jkRef.current);
+        const index = rows.findIndex((button) => button.closest('tr, li')?.contains(trigger));
+        const neighbour = rows[index + 1] || rows[index - 1];
+        (neighbour || jkRef.current.closest('.people-inbox')?.querySelector('[role="tab"][aria-selected="true"]'))?.focus();
+      }
+      inbox.setData((current) => {
+        if (!current?.tasks?.some((task) => task.id === t.id)) return current;
+        const tasks = current.tasks.filter((task) => task.id !== t.id);
+        const counts = { ...current.counts };
+        if (counts.TASK != null) counts.TASK = Math.max(0, counts.TASK - 1);
+        if (counts.waiting != null) counts.waiting = Math.max(0, counts.waiting - 1);
+        return { ...current, tasks, counts };
+      });
       notify.success(`${t.title}: done.`);
       inbox.reload();
     } catch (e) {
@@ -224,154 +296,178 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   };
 
   const waitingColumns = [
-    { key: 'employee', label: 'Person', always: true, render: (i) => (
-      <span className="flex items-center gap-2.5 min-w-0">
+    { key: 'employee', label: 'Person', width: '23%', always: true, render: (i) => (
+      <span className="inbox-person">
         <Avatar person={{ name: i.employeeName, photoUrl: i.photoUrl }} size={32} />
         <span className="min-w-0">
-          <span className="block truncate">{i.employeeName || '—'}</span>
+          <span className="inbox-name">{i.employeeName || '—'}</span>
           {i.employeeCode ? <span className="block truncate ui-caption ui-mono">{i.employeeCode}</span> : null}
         </span>
       </span>
     ) },
-    { key: 'kind', label: 'Kind', render: (i) => <span className="whitespace-nowrap">{kindText(i)}</span> },
-    { key: 'what', label: 'Request', render: (i) => (
-      <span className="block max-w-xs">
-        <span className="block truncate" title={whatOf(i)}>{whatOf(i)}</span>
+    { key: 'kind', label: 'Kind', width: '15%', render: (i) => <span className="inbox-kind" data-kind={i.kind}>{kindText(i)}</span> },
+    { key: 'what', label: 'Request', width: '21%', render: (i) => (
+      <span className="inbox-detail">
+        <span className="block">{whatOf(i)}</span>
         {OWN_NOTE[i.own] ? <span className="block ui-caption whitespace-normal">{OWN_NOTE[i.own]}</span> : null}
         {/* Round 47: approved leave the person asks to cancel; opened, it reads Approve cancellation or Keep leave. */}
         {i.cancelAsked ? <span className="block ui-caption whitespace-normal">Asks to cancel approved leave{i.reason ? `: “${i.reason}”` : ''}. Open it to decide.</span> : null}
       </span>
     ) },
-    { key: 'when', label: 'Dates', render: (i) => <span className="tabular-nums whitespace-nowrap">{range(i.fromDate, i.toDate)}{i.halfDay ? <span className="ui-caption block">{halfText(i.halfDay)}</span> : i.fromTime && i.toTime ? <span className="ui-caption block">{i.fromTime}–{i.toTime}</span> : null}</span> },
+    { key: 'when', label: 'Dates', width: '17%', render: (i) => <span className="tabular-nums whitespace-nowrap">{range(i.fromDate, i.toDate)}{i.halfDay ? <span className="ui-caption block">{halfText(i.halfDay)}</span> : i.fromTime && i.toTime ? <span className="ui-caption block">{i.fromTime}–{i.toTime}</span> : null}</span> },
     /* Hourly leave reads in hours (gap 23), not a fraction of a day. */
-    { key: 'days', label: 'Days', align: 'right', render: (i) => <span className="tabular-nums">{i.fromTime && i.toTime ? hoursWords(hoursBetween(i.fromTime, i.toTime)) : i.days ?? ''}</span> },
-    { key: 'since', label: 'Waiting since', render: (i) => (
-      <span className="inline-flex flex-col items-start gap-0.5 whitespace-nowrap">
-        <span className={waitedDays(i.since) > 2 || i.overdue ? 'ui-text-warn' : ''}>{waitedText(i.since)}</span>
-        {i.overdue ? <span className="ui-pill ui-pill-neg">Overdue</span> : i.managerApproved ? <span className="ui-caption">Manager approved</span> : i.step > 1 ? <span className="ui-caption">Step {i.step}</span> : null}
+    { key: 'days', label: 'Days', width: '1%', align: 'right', render: (i) => <span className="tabular-nums">{i.fromTime && i.toTime ? hoursWords(hoursBetween(i.fromTime, i.toTime)) : i.days ?? ''}</span> },
+    { key: 'since', label: 'Waiting since', width: '16%', render: (i) => (
+      <span className="inline-flex flex-col items-center gap-0.5 whitespace-nowrap">
+        <span className="inbox-age" data-tone={i.overdue ? 'late' : waitedDays(i.since) > 2 ? 'aging' : 'normal'}>{waitedText(i.since)}</span>
+        {i.overdue ? <ExceptionTag label="Overdue" tone="neg" /> : i.managerApproved ? <span className="ui-pill ui-pill-info">Manager approved</span> : i.step > 1 ? <span className="ui-caption">Step {i.step}</span> : null}
       </span>
     ) },
     /* The header names the column for screen readers; sighted people read the buttons. */
     /* Tick and cross (owner's style pick, 17 Nov 2026): the tick approves in place; the cross opens the request, where a reason is asked for. */
-    { key: 'act', label: <span className="sr-only">Actions</span>, align: 'right', always: true, render: (i) => (i.bulk || OWN_NOTE[i.own] ? (
+    { key: 'act', label: <span className="sr-only">Actions</span>, width: '1%', align: 'right', always: true, render: (i) => (i.bulk || OWN_NOTE[i.own] ? (
       <ApproveActions what={`${whatOf(i)}${i.employeeName ? ` for ${i.employeeName}` : ''}`} busy={rowBusy.has(i.key)} onApprove={() => approveOne(i)} onReject={() => openItem(i)} rejectTitle="Reject (asks for a reason)" />
     ) : null) },
   ];
+  const doneButton = (task) => (
+    <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm inbox-complete" aria-disabled={rowBusy.has(task.id) || undefined} aria-busy={rowBusy.has(task.id) || undefined} onClick={(e) => { e.stopPropagation(); finishTask(task, e.currentTarget); }}>
+      <Check size={14} aria-hidden="true" /> {rowBusy.has(task.id) ? 'Saving…' : 'Mark done'}
+    </button>
+  );
+  const openMine = (r) => setOpen({ kind: 'APPROVAL', id: r.id, mine: true });
+  const requestSummary = (request) => {
+    const update = requestUpdate(request);
+    return <span className="inbox-request-copy"><strong className="inbox-record-name">{request.title}</strong>{update && <small className="ui-caption">{update}</small>}</span>;
+  };
   const taskColumns = [
-    { key: 'task', label: 'Task', always: true, render: (t) => (
-      <span className="block min-w-0 whitespace-normal">
-        <span className="block">{t.title}</span>
-        <span className="block ui-caption">{TASK_KIND[t.kind] || enumWords(t.kind)} · {t.employee?.name || '—'}{t.employee?.code ? ` (${t.employee.code})` : ''}</span>
-      </span>
-    ) },
-    { key: 'due', label: 'Due', render: (t) => <span className={`whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg' : ''}`}>{t.dueDate ? day(t.dueDate) : '—'}{t.overdue ? ' (late)' : ''}</span> },
-    { key: 'act', label: <span className="sr-only">Actions</span>, align: 'right', always: true, render: (t) => (
-      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={rowBusy.has(t.id)} onClick={(e) => { e.stopPropagation(); finishTask(t); }}>
-        <Check size={14} aria-hidden="true" /> {rowBusy.has(t.id) ? 'Saving…' : 'Mark done'}
-      </button>
-    ) },
+    { key: 'task', label: 'Task', width: '32%', always: true, render: (t) => <strong className="inbox-record-name">{t.title}</strong> },
+    { key: 'employee', label: 'Employee', width: '21%', render: (t) => <span>{t.employee?.name || '—'}{t.employee?.code && <small className="block ui-caption ui-mono">{t.employee.code}</small>}</span> },
+    { key: 'type', label: 'Type', width: '15%', render: (t) => <span className="inbox-kind" data-kind={t.kind}>{TASK_KIND[t.kind] || enumWords(t.kind)}</span> },
+    { key: 'due', label: 'Due date', width: '17%', render: (t) => <span className={`whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg' : ''}`}>{t.dueDate ? day(t.dueDate) : '—'}{taskTiming(t, today) && <small className="block inbox-deadline">{taskTiming(t, today)}</small>}</span> },
+    { key: 'act', label: 'Action', width: '15%', always: true, render: doneButton },
   ];
+  const requestStatus = (r) => <ExceptionTag label={r.status === 'MORE_INFO' ? 'Needs your reply' : STATUS[r.status] || enumWords(r.status)} tone={TONE[r.status] || 'neutral'} />;
   const mineColumns = [
-    { key: 'title', label: 'Request', always: true, render: (r) => <span>{r.title}</span> },
-    { key: 'kind', label: 'Kind', render: (r) => typeOf(r.requestType, r.payload) },
-    { key: 'asked', label: 'Asked', render: (r) => <span className="tabular-nums">{day(r.createdAt)}</span> },
-    { key: 'status', label: 'Status', render: (r) => <ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /> },
+    { key: 'title', label: 'Request', width: '32%', always: true, render: requestSummary },
+    { key: 'kind', label: 'Type', width: '21%', render: (r) => <span className="inbox-kind" data-kind="APPROVAL">{typeOf(r.requestType, r.payload)}</span> },
+    { key: 'asked', label: 'Submitted', width: '17%', render: (r) => <span className="whitespace-nowrap tabular-nums">{day(r.createdAt)}</span> },
+    { key: 'status', label: 'Status', width: '15%', render: requestStatus },
+    { key: 'act', label: 'Action', width: '15%', render: (r) => <button type="button" className="ui-link" onClick={() => openMine(r)}>{r.status === 'MORE_INFO' ? 'Reply' : 'View request'}</button> },
   ];
-  const kindOptions = [{ value: '', label: 'Every kind' }, ...KIND_ORDER.filter((k) => inbox.data?.rights?.[k]?.see).map((k) => ({ value: k, label: `${INBOX_KIND[k]}${counts[k] ? ` (${counts[k]})` : ''}` }))];
+  const kindOptions = [{ value: '', label: 'All types' }, ...KIND_ORDER.filter((k) => inbox.data?.rights?.[k]?.see).map((k) => ({ value: k, label: `${INBOX_KIND[k]}${counts[k] ? ` (${counts[k]})` : ''}` }))];
   const req = tab === 'mine' ? mine : inbox;
   const tabCount = { waiting: counts.all, tasks: counts.TASK };
-  const filtered = Boolean(needle || (tab === 'waiting' && kind));
+  const filtered = Boolean(scope || needle || (tab === 'waiting' && kind));
 
   return (
-    <div className="space-y-6">
-      <ListHeader
-        title="Inbox"
-        description="What waits for your decision, the tasks on your name, and what you asked for."
-        toolbar={<>
-          <SearchField value={q} onSearch={(v) => { setQ(v || ''); set({ page: null }); }} placeholder={tab === 'tasks' ? 'Search task or person' : 'Search name, employee ID or request'} label={tab === 'tasks' ? 'Search tasks' : 'Search approvals'} className="w-full sm:w-72" />
-          {tab === 'waiting' ? <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={kind} onChange={(v) => { setSelected(new Set()); set({ kind: v || null, page: null }); }} options={kindOptions} placeholder="Every kind" /></div> : null}
-        </>}
-        tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: tabCount[k], tone: 'warn' }))}
-        tab={tab}
-        onTab={(k) => { setSelected(new Set()); set({ tab: k, page: null }, true); }}
-        tabsLabel="Approvals"
-      />
-
-      <BulkOutcome outcome={outcome} verb={outcome?.verb} onClose={() => setOutcome(null)} />
-      {tab === 'waiting' && chosen.length ? (
-        <div className="ui-bulkbar" role="region" aria-label="Decide the chosen requests">
-          <span className="text-sm"><strong className="tabular-nums">{chosen.length}</strong> chosen</span>
-          <input className="ui-input w-full sm:w-72" aria-label="Note to them" placeholder="Note to them (needed to reject)" maxLength={500} value={bulkNote} onChange={(e) => setBulkNote(e.target.value)} />
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={bulkBusy} onClick={() => decideMany(true)}><Check size={14} aria-hidden="true" /> Approve</button>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={bulkBusy || !bulkNote.trim()} onClick={() => decideMany(false)}><X size={14} aria-hidden="true" /> Reject</button>
-          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
-        </div>
-      ) : null}
-
-      <div ref={jkRef}>
-      {tab === 'waiting' && arrived ? (
-        <button type="button" className="ui-new-rows-bar" onClick={() => { setArrived(0); inbox.reload(); }}>
-          {arrived} new · Show
-        </button>
-      ) : null}
-      <DataTable
-        label={tab === 'waiting' ? 'To approve': tab === 'tasks' ? 'My tasks' : 'Asked by me'}
-        columns={tab === 'waiting' ? waitingColumns : tab === 'tasks' ? taskColumns : mineColumns}
-        rows={pageRows}
-        rowKey={tab === 'waiting' ? (i) => i.key : (r) => r.id}
-        total={list.length}
-        page={page}
-        pageSize={size}
-        noun={tab === 'tasks' ? 'tasks' : 'requests'}
-        selectable={tab === 'waiting' && shown.some((i) => i.bulk)}
-        selected={selected}
-        canSelect={(i) => Boolean(i.bulk)}
-        onSelect={(next) => setSelected(new Set([...next].filter((key) => items.find((i) => i.key === key)?.bulk)))}
-        onPage={(n) => set({ page: n > 1 ? n : null }, true)}
-        onPageSize={(n) => set({ size: n === 25 ? null : n, page: null })}
-        onRowClick={tab === 'waiting' ? openItem : tab === 'tasks' ? (t) => (t.employee?.id ? openScreen?.('employee', { id: t.employee.id }) : undefined) : (r) => setOpen({ kind: 'APPROVAL', id: r.id, mine: true })}
-        loading={req.loading}
-        refreshing={req.refreshing}
-        card={tab === 'waiting' ? (i) => (
-          <span className="flex items-center gap-3 min-w-0">
-            <Avatar person={{ name: i.employeeName, photoUrl: i.photoUrl }} size={40} />
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate">{i.employeeName || '—'}</span><span className="ui-caption whitespace-nowrap">{waitedText(i.since)}</span></span>
-              <span className="block truncate ui-caption">{kindText(i)} · {whatOf(i)}</span>
-              {i.fromDate ? <span className="block truncate ui-caption tabular-nums">{range(i.fromDate, i.toDate)}{i.halfDay ? `, ${halfText(i.halfDay).toLowerCase()}` : i.fromTime && i.toTime ? `, ${i.fromTime}–${i.toTime}` : ''}</span> : null}
-              {OWN_NOTE[i.own] ? <span className="block ui-caption">{OWN_NOTE[i.own]}</span> : null}
-            </span>
-          </span>
-        ) : tab === 'tasks' ? (t) => (
-          <span className="flex items-center gap-3 min-w-0 flex-1">
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2"><span className="truncate">{t.title}</span><span className={`ui-caption whitespace-nowrap tabular-nums ${t.overdue ? 'ui-text-neg' : ''}`}>{t.dueDate ? day(t.dueDate) : ''}</span></span>
-              <span className="block truncate ui-caption">{TASK_KIND[t.kind] || enumWords(t.kind)} · {t.employee?.name || '—'}</span>
-            </span>
-          </span>
-        ) : (r) => (
-          <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.title}</span><ExceptionTag label={r.status === 'APPROVED' ? '' : STATUS[r.status] || enumWords(r.status)} normal={STATUS[r.status]} tone={TONE[r.status] || 'neutral'} /></span>
-            <span className="block truncate ui-caption">{typeOf(r.requestType, r.payload)}</span>
-          </span>
-        )}
-        empty={req.error ? (
-          <ErrorState error={req.error} onRetry={reload} />
-        ) : filtered ? (
-          <EmptyState kind="filtered" title="Nothing matches" onClearFilters={() => { setQ(''); set({ kind: null, page: null }); }} />
-        ) : tab === 'waiting' ? (
-          <EmptyState title="Nothing waiting for you" description="Leave, attendance requests, approvals and help desk cases that need you show here, oldest first." />
-        ) : tab === 'tasks' ? (
-          <EmptyState title="No tasks on your name" description="Joining, leaving and other plan steps given to you show here until you mark them done." />
-        ) : (
-          <EmptyState title="You have not asked for anything yet" description="A change you send for approval shows here with each step." />
-        )}
-      />
-      {tab === 'waiting' && pageRows.length ? (
-        <p className="ui-caption ui-kbd-hint mt-2" aria-hidden="true"><kbd className="ui-kbd">J</kbd> <kbd className="ui-kbd">K</kbd> move · <kbd className="ui-kbd">Enter</kbd> open · <kbd className="ui-kbd">A</kbd> approve</p>
-      ) : null}
+    <div className="people-inbox" data-queue={tab} data-column-sizing="content">
+      <div className="inbox-title-row">
+        <h1 className="inbox-heading">Inbox</h1>
+        {helpSlot && <span ref={helpSlot} className="people-help-slot" />}
+        <span className="inbox-sync" role="status" data-paused={!online || Boolean(req.error)}>
+          {!online ? 'Offline' : req.error ? 'Update failed' : req.loading ? 'Loading' : activity ? <>
+            <time dateTime={activity.at.toISOString()}>{activity.at.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</time> {activity.text}
+          </> : 'Auto-updating'}
+        </span>
       </div>
+      <div className="inbox-workarea">
+        <div className="inbox-list-pane">
+          <div className="inbox-toolbar">
+            <FilterTabs
+              appearance="underline"
+              tabs={TABS.map(([key, label]) => ({ key, label, count: tabCount[key], tone: key === 'waiting' ? 'warn' : 'info' }))}
+              value={tab}
+              onChange={(key) => { if (key === tab) return; setSelected(new Set()); setQ(''); set({ tab: key, focus: null, page: null }, true); }}
+              label="Approvals"
+            />
+            <div className="inbox-filters">
+              <SearchField key={tab} icon={ScanSearch} value={q} onSearch={setQ} placeholder={tab === 'tasks' ? 'Search tasks' : 'Search requests'} label={tab === 'tasks' ? 'Search tasks' : 'Search approvals'} />
+              {tab === 'waiting' && (
+                <div className="inbox-type-filter" data-active={Boolean(kind)}>
+                  <PopupSelect icon={null} panelAlign="end" panelMinWidth={176} showValueSubtext={false} ariaLabel="Kind" value={kind} onChange={(v) => { setSelected(new Set()); set({ kind: v || null, page: null }); }} options={kindOptions} placeholder="All types" />
+                </div>
+              )}
+              {columnsSlot && <span ref={columnsSlot} className="people-columns-slot" />}
+            </div>
+          </div>
 
+          {scopes.length > 0 && !req.loading && !req.error && (rows.length > 0 || scope) && (
+            <div className="inbox-scope" role="group" aria-label={tab === 'tasks' ? 'Filter by deadline' : 'Filter by progress'}>
+              <button type="button" aria-pressed={!scope} onClick={() => set({ focus: null })}>All <b>{rows.length}</b></button>
+              {scopes.map(({ key, label, match }) => (
+                <button key={key} type="button" aria-pressed={scope?.key === key} onClick={() => set({ focus: key })}>{label} <b>{rows.filter(match).length}</b></button>
+              ))}
+            </div>
+          )}
+          <BulkOutcome outcome={outcome} verb={outcome?.verb} onClose={() => setOutcome(null)} />
+          {tab === 'waiting' && chosen.length ? (
+            <div className="ui-bulkbar" role="region" aria-label="Decide the chosen requests">
+              <span className="text-sm"><strong className="tabular-nums">{chosen.length}</strong> chosen</span>
+              <input className="ui-input w-full sm:w-72" aria-label="Note to them" placeholder="Note to them (needed to reject)" maxLength={500} value={bulkNote} onChange={(e) => setBulkNote(e.target.value)} />
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={bulkBusy} onClick={() => decideMany(true)}><Check size={14} aria-hidden="true" /> Approve</button>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={bulkBusy || !bulkNote.trim()} onClick={() => decideMany(false)}><X size={14} aria-hidden="true" /> Reject</button>
+              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
+            </div>
+          ) : null}
+
+          <div ref={jkRef} className="inbox-records">
+          <DataTable
+            label={tab === 'waiting' ? 'To approve': tab === 'tasks' ? 'My tasks' : 'Asked by me'}
+            columns={tab === 'waiting' ? waitingColumns.filter((col) => col.key !== 'days' || shown.some((i) => i.days != null || (i.fromTime && i.toTime))) : tab === 'tasks' ? taskColumns : mineColumns}
+            rows={list}
+            prefs={{ density: 'compact' }}
+            rowKey={tab === 'waiting' ? (i) => i.key : (r) => r.id}
+            selectable={tab === 'waiting' && shown.some((i) => i.bulk)}
+            selected={selected}
+            canSelect={(i) => Boolean(i.bulk)}
+            onSelect={(next) => setSelected(new Set([...next].filter((key) => items.find((i) => i.key === key)?.bulk)))}
+            onRowClick={tab === 'waiting' ? openItem : tab === 'tasks' ? (t) => (t.employee?.id ? openScreen?.('employee', { id: t.employee.id }) : undefined) : openMine}
+            loading={req.loading}
+            refreshing={req.refreshing}
+            cardActions={tab === 'tasks' ? doneButton : null}
+            card={tab === 'waiting' ? (i) => (
+              <span className="flex items-center gap-3 min-w-0">
+                <Avatar person={{ name: i.employeeName, photoUrl: i.photoUrl }} size={40} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2"><span className="truncate">{i.employeeName || '—'}</span><span className="ui-caption whitespace-nowrap">{waitedText(i.since)}</span></span>
+                  <span className="block truncate ui-caption">{kindText(i)} · {whatOf(i)}</span>
+                  {i.fromDate ? <span className="block truncate ui-caption tabular-nums">{range(i.fromDate, i.toDate)}{i.halfDay ? `, ${halfText(i.halfDay).toLowerCase()}` : i.fromTime && i.toTime ? `, ${i.fromTime}–${i.toTime}` : ''}</span> : null}
+                  {OWN_NOTE[i.own] ? <span className="block ui-caption">{OWN_NOTE[i.own]}</span> : null}
+                </span>
+              </span>
+            ) : tab === 'tasks' ? (t) => (
+              <span className="inbox-mobile-record">
+                <strong className="inbox-record-name">{t.title}</strong>
+                <span className="ui-caption">{[TASK_KIND[t.kind] || enumWords(t.kind), t.employee?.name].filter(Boolean).join(' · ')}</span>
+                {t.dueDate && <span className={t.overdue ? 'ui-text-neg' : 'ui-caption'}>{taskTiming(t, today) || 'Due'} · {day(t.dueDate)}</span>}
+              </span>
+            ) : (r) => (
+              <span className="inbox-mobile-record">
+                {requestSummary(r)}
+                <span className="ui-caption">{typeOf(r.requestType, r.payload)} · {day(r.createdAt)}</span>
+                {requestStatus(r)}
+              </span>
+            )}
+            empty={req.error ? (
+              <ErrorState error={req.error} onRetry={reload} />
+            ) : filtered ? (
+              <EmptyState kind="filtered" title="Nothing matches" onClearFilters={() => { setQ(''); set({ kind: null, focus: null, page: null }); }} />
+            ) : tab === 'waiting' ? (
+              <EmptyState title="Nothing waiting for you" description="Leave, attendance requests, approvals and help desk cases that need you show here, oldest first." />
+            ) : tab === 'tasks' ? (
+              <EmptyState title="No open tasks" />
+            ) : (
+              <EmptyState title="No submitted requests" description="Requests you submit for approval appear here." />
+            )}
+          />
+          {list.length ? (
+            <p className="ui-caption ui-kbd-hint mt-2" aria-hidden="true"><kbd className="ui-kbd">J</kbd> <kbd className="ui-kbd">K</kbd> move · <kbd className="ui-kbd">Enter</kbd> open{tab === 'waiting' && <> · <kbd className="ui-kbd">A</kbd> approve</>}</p>
+          ) : null}
+          </div>
+
+        </div>
+        {personalQueue && !mine.error && mine.data?.mine && <RequestActivity requests={mine.data.mine} onOpen={openMine} />}
+      </div>
       {open?.kind === 'LEAVE' ? <LeaveDrawer id={open.id} allowed={allowed} onClose={() => setOpen(null)} onDone={() => { setOpen(null); inbox.reload(); }} /> : null}
       {open?.kind === 'ATTENDANCE' ? <AttendanceDrawer id={open.id} allowed={allowed} onClose={() => setOpen(null)} onDone={() => { setOpen(null); inbox.reload(); }} /> : null}
       {open?.kind === 'PUNCH' || open?.kind === 'OVERTIME' ? <TimeDrawer item={open} onClose={() => setOpen(null)} onDone={() => { setOpen(null); inbox.reload(); }} /> : null}
@@ -496,7 +592,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
             <div><dt className="ui-t-label">Kind</dt><dd>{typeOf(open.requestType, open.payload)}</dd></div>
             <div><dt className="ui-t-label">Asked by</dt><dd>{open.requesterName} · {day(open.createdAt)}</dd></div>
             <div><dt className="ui-t-label">Status</dt><dd><span className={`ui-pill ui-pill-${TONE[open.status] || 'neutral'}`}>{STATUS[open.status] || enumWords(open.status)}</span></dd></div>
-            <div><dt className="ui-t-label">Due</dt><dd className="tabular-nums">{open.status === 'WAITING' ? day(open.dueAt) : '—'}{open.overdue ? <span className="ui-pill ui-pill-neg ml-2">Overdue</span> : null}</dd></div>
+            <div><dt className="ui-t-label">Due</dt><dd className="tabular-nums">{open.status === 'WAITING' ? day(open.dueAt) : '—'}{open.overdue ? <span className="ml-2"><ExceptionTag label="Overdue" tone="neg" /></span> : null}</dd></div>
           </dl>
           {open.payload?.fields ? (
             <div>

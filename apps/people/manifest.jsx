@@ -208,6 +208,8 @@ const SalaryRevisions = screen('SalaryRevisions');
 const CompanyChoices = screen('CompanyChoices');
 const LeaveRequests = screen('LeaveRequests');
 const TimeOverview = screen('TimeOverview');
+const TimeWorkspace = screen('TimeWorkspace');
+const EmployeeWorkspace = screen('EmployeeWorkspace');
 const WorkingWeek = screen('WorkingWeek');
 const LeaveYearEnd = screen('LeaveYearEnd');
 const StandIns = screen('StandIns');
@@ -476,6 +478,7 @@ export const peopleApp = {
   /* Counts beside panel items (R&D shell): employees, open jobs and what waits in each inbox (src/api/railCounts.js). {} on failure. */
   panelCounts: (ctx) => import('./src/api/railCounts.js').then((m) => m.peoplePanelCounts(ctx)).catch(() => ({})),
   /* Search (People plan, 8 Nov 2026): people by name, code or email; and jobs by the words people use for them. */
+  searchLabel: 'Search people, pages and issues',
   searchRecords: (q) => import('@ui/personnel/search').then((m) => m.findPeople(q)),
   searchActions: [
     { label: 'Probation ending', screen: 'employees', params: { prob: 'on' }, keywords: ['probation', 'confirm', 'confirmation'] },
@@ -498,14 +501,24 @@ export const peopleApp = {
       /* A person's own pages (also under My profile). */
       { label: 'Me', items: ['myLeave', 'myDays', 'myRequests'] },
     ] },
-    { key: 'employees', label: 'Employees', icon: M.employees, groups: [
+    { key: 'employees', label: 'Employees', icon: M.employees, shortcuts: [
+      { key: 'checklists', label: 'Chase overdue tasks', params: { view: 'late' }, keywords: ['late task', 'overdue onboarding'] },
+      { key: 'lifecycleChanges', label: 'Review ending probation', params: { view: 'probation' }, keywords: ['confirm probation', 'probation review'] },
+      { key: 'documents', label: 'Renew expired documents', params: { tab: 'expired' }, keywords: ['expired certificate', 'renew ID'] },
+    ], groups: [
+      { label: '', items: ['employeeWorkspace'] },
       { label: 'Directory', items: ['employees', 'orgChart', 'documents'] },
       /* `checklists` keeps its key (old links); it is Tasks. */
       { label: 'Joining & leaving', items: ['joiners', 'offers', 'lifecycleChanges', 'leavers', 'checklists', 'assets'] },
       { label: 'Pay & benefits', items: ['compensation', 'benefits', 'expenses'] },
     ] },
     /* Leave and attendance in one section; shifts, readers and the month's close live here too (owner, 11 Nov 2026). */
-    { key: 'leave', label: 'Leave & attendance', short: 'Time', icon: M.time, groups: [
+    { key: 'leave', label: 'Leave & attendance', short: 'Time', icon: M.time, shortcuts: [
+      { key: 'exceptions', label: 'Fix attendance exceptions', keywords: ['missing punch', 'forgot to clock out', 'missed check out', 'incomplete day'] },
+      { key: 'unmatched', label: 'Match unknown punches', keywords: ['unmapped fingerprint', 'unknown reader ID', 'unlinked punch'] },
+      { key: 'payrollReadiness', label: 'Find payroll blockers', keywords: ['blocked payroll', 'cannot close month', 'payroll issue'] },
+    ], groups: [
+      { label: '', items: ['timeWorkspace'] },
       { label: 'Leave', items: ['leaveRequests', 'leaveCalendar', 'leaveBalances', 'leaveRegister', 'timeOverview'] },
       { label: 'Attendance', items: ['attendance', 'records', 'exceptions', 'attendanceRequests', 'overtime', 'lateMarks', 'absences', 'nightWork'] },
       { label: 'Shifts', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'temporarySchedule', 'shiftSwaps'] },
@@ -524,13 +537,15 @@ export const peopleApp = {
       { label: '', items: ['announcements', 'events', 'helpdesk', 'privateCases', 'policies'] },
     ] },
     /* Reports, and the checks HR watches: data check and the compliance calendar. */
-    { key: 'reports', label: 'Insights', icon: M.insights, groups: [
-      { label: '', items: ['reportsHome', 'reports', 'dataHealth', 'compliance'] },
-      { label: 'Time', items: ['summary', 'register', 'attendanceReports', 'requestsReport'] },
+    { key: 'reports', label: 'Reports', icon: I.report, opensHome: true, groups: [
+      { label: '', items: ['reportsHome', 'reports'] },
+      { label: 'Time', items: ['summary', 'register', 'attendanceReports', 'leaveRegister'] },
+      { label: 'Requests', items: ['requestsReport'] },
       { label: 'Statutory', items: ['registers'] },
     ] },
+    { key: 'insights', label: 'Insights', icon: M.insights, items: ['dataHealth', 'compliance'] },
     /* Every Settings page in the panel, in the Settings page's own groups; the panel folds every group but the open one (people.css). */
-    { key: 'settings', label: 'Settings', icon: M.settings, groups: [
+    { key: 'settings', label: 'Settings', icon: M.settings, opensHome: true, groups: [
       { label: '', items: ['settings'] },
       ...SETTINGS_GROUPS.map((g) => ({ label: g.title, items: g.items.map(([key]) => key) })),
     ] },
@@ -544,6 +559,7 @@ export const peopleApp = {
   nav: [
     { key: 'overview', label: 'Home', icon: I.home, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'approvals', label: 'Inbox', keywords: ['approve', 'pending', 'waiting', 'requests'], icon: I.approve, permission: 'PEOPLE::Requests::VIEW' },
+    { key: 'employeeWorkspace', label: 'Employees overview', overviewOf: 'employees', keywords: ['workforce overview', 'employee overview', 'employee dashboard'], icon: M.employees },
     { key: 'employees', label: 'Employees', keywords: ['staff', 'employee', 'directory', 'team', 'worker'], icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
     /* Pages inside Workforce (profile, add, import): reached from the directory, never their own sidebar entries; the shell shows "← Workforce". */
     { key: 'employee', label: 'Employee', icon: I.people, permission: 'PEOPLE::Employees::VIEW', parent: 'employees' },
@@ -554,15 +570,15 @@ export const peopleApp = {
     { key: 'organization', label: 'Organisation', keywords: ['organisation', 'organization'], icon: I.orgOverview, permission: 'PEOPLE::Employees::VIEW', parent: 'orgChart' },
     { key: 'branches', label: 'Branches', keywords: ['organisation', 'office'], icon: I.branch, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'orgChanges', label: 'Org changes', keywords: ['change history', 'organisation', 'history'], icon: I.history, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
-    { key: 'documents', label: 'Documents', keywords: ['id proof', 'aadhaar', 'pan card', 'certificate'], icon: I.folder, permission: 'PEOPLE::Documents::VIEW' },
+    { key: 'documents', label: 'Documents', keywords: ['expired document', 'expiring certificate', 'id proof', 'aadhaar', 'pan card', 'certificate'], icon: I.folder, permission: 'PEOPLE::Documents::VIEW' },
     { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW' },
-    { key: 'joiners', label: 'Joining', keywords: ['onboarding', 'new joiner', 'induction', 'joining & leaving'], icon: I.joiner, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'joiners', label: 'Joining', keywords: ['new starter', 'onboarding', 'new joiner', 'induction', 'joining & leaving'], icon: I.joiner, permission: 'PEOPLE::Employees::VIEW' },
     /* Offers sent with an accept link: status and withdraw (FEATURE-UI-AUDIT gap 7). */
     { key: 'offers', label: 'Offers', icon: I.offer, permission: 'PEOPLE::Documents::VIEW' },
     { key: 'lifecycleChanges', label: 'Job changes', icon: I.change, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'leavers', label: 'Leaving', keywords: ['exit', 'resignation', 'offboarding', 'notice period', 'relieving'], icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'leavers', label: 'Leaving', keywords: ['exit clearance', 'exit', 'resignation', 'offboarding', 'notice period', 'relieving'], icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
     /* Anyone with a task on their name opens Tasks (their own only); the server decides what each sees. */
-    { key: 'checklists', label: 'Tasks', icon: I.task },
+    { key: 'checklists', label: 'Tasks', keywords: ['overdue tasks', 'unassigned task'], icon: I.task },
     { key: 'journeySteps', label: 'Joining & leaving steps', icon: I.steps, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'selfService', label: 'Employee app', icon: I.phone, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'letterTemplates', label: 'Letters', keywords: ['offer letter', 'appointment letter', 'experience letter', 'relieving letter'], icon: I.letter, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
@@ -574,8 +590,8 @@ export const peopleApp = {
     { key: 'requestForms', label: 'Request types', icon: I.requestType, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
     { key: 'requestsReport', label: 'Requests report', icon: I.requestsReport, permission: 'PEOPLE::Approvals::VIEW' },
     /* Swaps asked in the employee app; HR sees all, a manager their team (the server decides). */
-    { key: 'shiftSwaps', label: 'Shift swaps', icon: I.shiftSwap, permission: 'PEOPLE::Requests::VIEW' },
-    { key: 'lateMarks', label: 'Late marks', icon: I.lateMarks, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
+    { key: 'shiftSwaps', label: 'Shift swaps', keywords: ['swap shifts', 'trade shifts'], icon: I.shiftSwap, permission: 'PEOPLE::Requests::VIEW' },
+    { key: 'lateMarks', label: 'Late marks', keywords: ['late arrivals', 'late deduction'], icon: I.lateMarks, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     /* Absent working day after working day with no leave and no word (Absences.jsx): the label says so. */
     { key: 'absences', label: 'Absent without leave', keywords: ['absences', 'absconding', 'no show', 'missing'], icon: I.absences, permission: 'PEOPLE::Employees::VIEW' },
     /* Women's consent to night work (OSH Code s.43), recorded here; Time › Attendance. */
@@ -586,15 +602,15 @@ export const peopleApp = {
     { key: 'exceptions', label: 'Days to check', keywords: ['exceptions', 'missing punch', 'odd days'], icon: I.exceptions, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
     { key: 'overtime', label: 'Overtime & comp-off', keywords: ['overtime', 'ot', 'comp off', 'extra hours'], icon: I.overtime, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
     { key: 'scheduleCalendar', label: 'Shift calendar', keywords: ['roster', 'schedule'], icon: I.shiftCalendar, permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
-    { key: 'shifts', label: 'Shifts', keywords: ['shift', 'timing', 'weekly off'], icon: I.shifts, permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
+    { key: 'shifts', label: 'Shifts', keywords: ['shift times', 'shift', 'timing', 'weekly off'], icon: I.shifts, permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
     { key: 'shiftAssignments', label: 'Who is on which shift', keywords: ['shift assignments', 'assign shift', 'roster'], icon: I.shiftPeople, permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
     { key: 'temporarySchedule', label: 'Temporary shifts', keywords: ['temporary schedule', 'cover'], icon: I.tempShift, permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
     { key: 'readers', label: 'Readers', keywords: ['biometric', 'device', 'machine', 'fingerprint', 'face', 'essl', 'zkteco'], icon: I.readers, permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
-    { key: 'readerHealth', label: 'Reader health', keywords: ['offline', 'reader status'], icon: I.readerHealth, permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
-    { key: 'transactions', label: 'Punches', keywords: ['punch log', 'transactions', 'in out'], icon: I.punches, permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
+    { key: 'readerHealth', label: 'Reader health', keywords: ['offline reader', 'machine offline', 'device stopped syncing', 'offline', 'reader status'], icon: I.readerHealth, permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
+    { key: 'transactions', label: 'Punches', keywords: ['raw punch', 'punch history', 'punch log', 'transactions', 'in out'], icon: I.punches, permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
     { key: 'unmatched', label: 'Punches with no employee', keywords: ['unmatched punches', 'unknown id'], icon: I.unmatched, permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
     { key: 'payrollReadiness', label: 'Ready for payroll?', keywords: ['payroll readiness', 'month end'], wholeCompany: true, icon: I.readiness, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
-    { key: 'confirmations', label: 'Employee confirmations', keywords: ['confirm month', 'sign off'], icon: I.confirm, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'confirmations', label: 'Employee confirmations', keywords: ['disputed attendance', 'employee dispute', 'confirm month', 'sign off'], icon: I.confirm, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
     { key: 'monthClose', label: 'Month close', keywords: ['lock attendance', 'close the month'], icon: I.monthClose, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
     { key: 'summary', label: 'Monthly attendance', icon: I.summary, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
     { key: 'register', label: 'Daily attendance register', wholeCompany: true, icon: I.register, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
@@ -615,17 +631,18 @@ export const peopleApp = {
     { key: 'automations', label: 'Automations', icon: I.automation, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'exitQuestions', label: 'Exit interview', icon: I.exit, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'myRequests', label: 'My requests', icon: I.requests, permission: 'ATTENDANCE::My Attendance::VIEW' },
+    { key: 'timeWorkspace', label: 'Time overview', overviewOf: 'leave', keywords: ['attendance overview', 'waiting for review', 'resolve an issue'], icon: M.time },
     { key: 'timeOverview', label: "Who's away", keywords: ['who is away', 'on leave today', 'absent today'], icon: I.away, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveRequests', label: 'Leave requests', keywords: ['leave', 'time off', 'approve leave', 'absence request'], short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveBalances', label: 'Leave balances', keywords: ['leave balance', 'remaining leave'], icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveRegister', label: 'Leave register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRequests', label: 'Leave requests', keywords: ['pending leave', 'holiday approval', 'leave', 'time off', 'approve leave', 'absence request'], short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveBalances', label: 'Leave balances', keywords: ['leave entitlement', 'days remaining', 'leave balance', 'remaining leave'], icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRegister', label: 'Leave register', breadcrumbSection: { key: 'reportsHome', label: 'Reports' }, icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveCalendar', label: 'Leave calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     /* Who decides for an absent approver: set up once, so Settings › Requests & approvals (People plan, 8 Nov 2026). */
     { key: 'standIns', label: 'Delegates', keywords: ['stand-in', 'stand in', 'away', 'hand on approvals'], icon: I.delegate, permission: 'ATTENDANCE::Leave Requests::VIEW', parent: 'settings' },
     { key: 'attendanceRequests', label: 'Attendance corrections', keywords: ['attendance requests', 'attendance fixes', 'punch', 'missed punch', 'regularise', 'regularize', 'fix punch'], short: 'Corrections', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
     { key: 'attendance', label: 'Daily attendance', keywords: ['who is in', 'absent', 'present', 'late', 'today'], icon: I.attendance, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'myDays', label: 'My attendance', icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
-    { key: 'myLeave', label: 'My leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },
+    { key: 'myDays', label: 'My attendance', keywords: ['my missing punch', 'clock in'], icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
+    { key: 'myLeave', label: 'My leave', keywords: ['apply for leave', 'my balance'], icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'leaveTypes', label: 'Leave policy', icon: I.leavePolicy, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
     { key: 'holidays', label: 'Holidays', keywords: ['holiday list', 'festival'], icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW', parent: 'settings' },
     { key: 'leaveBlocks', label: 'Leave block dates', icon: I.blockDates, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
@@ -654,7 +671,7 @@ export const peopleApp = {
     /* Who the case routes let in (gap 5): the grant to take cases in and set committees, or a seat on a case or committee. */
     { key: 'privateCases', label: 'Confidential cases', keywords: ['posh', 'grievance', 'harassment', 'icc'], icon: I.privateCase, permission: ['PEOPLE::Private Cases::VIEW', 'PEOPLE::Private Cases::CREATE', 'PEOPLE::Case committee::VIEW'] },
     { key: 'helpDeskSettings', label: 'Help desk settings', icon: I.hrCase, permission: 'PEOPLE::HR Cases::EDIT', parent: 'settings' },
-    { key: 'assets', label: 'Assets', keywords: ['laptop', 'phone', 'sim', 'company property', 'asset'], icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
+    { key: 'assets', label: 'Assets', keywords: ['return equipment', 'recover laptop', 'laptop', 'phone', 'sim', 'company property', 'asset'], icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
     { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
     { key: 'compensation', label: 'Salary revisions', keywords: ['salary', 'hike', 'increment', 'raise', 'revision'], icon: I.salary, permission: ['PAYROLL::Salary Revisions::VIEW', 'PEOPLE::Salary revisions read::VIEW'], feature: 'peopleBenefits' },
     /* Claims approved in Approvals, paid here; advances and salary advances (WORKFLOW-GAP-RESEARCH 4.1, 4.2). */
@@ -783,6 +800,8 @@ export const peopleApp = {
     exitQuestions: ExitQuestions,
     myRequests: MyRequests,
     selfService: PortalAccess,
+    timeWorkspace: TimeWorkspace,
+    employeeWorkspace: EmployeeWorkspace,
     timeOverview: TimeOverview,
     workingWeek: WorkingWeek,
     leaveYearEnd: LeaveYearEnd,

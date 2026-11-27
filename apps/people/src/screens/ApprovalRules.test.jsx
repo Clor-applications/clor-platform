@@ -16,7 +16,7 @@ vi.mock('../api/desk', () => ({ orgUsers: vi.fn().mockResolvedValue([]) }));
 vi.mock('../workforce/api', () => ({ listEmployees: vi.fn().mockResolvedValue({ employees: [] }), structure: vi.fn().mockResolvedValue([]) }));
 vi.mock('@ui/timeOff/api', () => ({ listLeaveTypes: vi.fn().mockResolvedValue([]) }));
 vi.mock('@platform/http', () => ({ apiFetch: vi.fn().mockResolvedValue({ roles: [] }) }));
-vi.mock('@platform/context', () => ({ orgId: () => 'org-1' }));
+vi.mock('@platform/context', () => ({ orgId: () => 'org-1', currentUser: () => ({ id: 'hr-user' }) }));
 vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true), notify: { error: vi.fn(), success: vi.fn() } }));
 
 beforeEach(() => vi.clearAllMocks());

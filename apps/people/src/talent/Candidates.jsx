@@ -81,7 +81,6 @@ export default function Candidates({ params = {}, openScreen }) {
       <ListHeader
         module="Hiring"
         title="Candidates"
-        description="Everyone applying, on one pipeline from applied to hired, as a list or a board of stages."
         primary={canCreate ? { label: 'Add candidate', icon: Plus, onClick: () => setAdding(true) } : null}
         strip={tiles ? <CountLine label="Candidate figures" items={tiles} /> : null}
         toolbar={<ToolbarItems {...{ q, setQ, opening, setOpening, openings: openings.data || [], view, chooseView }} />}
@@ -104,7 +103,7 @@ export default function Candidates({ params = {}, openScreen }) {
             </span>
           )}
           empty={filtered
-            ? <EmptyState kind="filtered" title="No candidates match" description="Nothing here matches the search, the opening or the tab." />
+            ? <EmptyState kind="filtered" title="No candidates match" />
             : <EmptyState title="No candidates yet" description="Add someone who applied, or turn on an opening's apply link." routes={canCreate ? [{ label: 'Add candidate', onSelect: () => setAdding(true) }, { label: 'Job openings', onSelect: () => openScreen?.('recruitment') }] : undefined} />} />
       )}
       {open ? <CandidateDrawer id={open} hr known={rows} canEdit={canEdit} canHire={canHire} canOffer={canOffer} onClose={() => setOpen(null)} onChanged={req.reload} onHired={() => openScreen?.('joiners')} /> : null}

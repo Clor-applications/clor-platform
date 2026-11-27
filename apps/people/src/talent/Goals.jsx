@@ -35,7 +35,7 @@ export const Progress = ({ value }) => {
     <span className="ui-goal-ring">
       <svg viewBox="0 0 36 36" width="22" height="22" aria-hidden="true">
         <circle cx="18" cy="18" r="15" fill="none" strokeWidth="5" stroke="rgb(var(--border))" />
-        <circle cx="18" cy="18" r="15" fill="none" strokeWidth="5" strokeLinecap="round" stroke={v >= 100 ? 'rgb(var(--pos))' : 'rgb(var(--fg))'} strokeDasharray={`${v * 0.94} 94`} transform="rotate(-90 18 18)" />
+        {v > 0 ? <circle cx="18" cy="18" r="15" fill="none" strokeWidth="5" strokeLinecap="round" stroke={v >= 100 ? 'rgb(var(--pos))' : 'rgb(var(--act))'} strokeDasharray={`${v * 0.94} 94`} transform="rotate(-90 18 18)" /> : null}
       </svg>
       <span className="tabular-nums">{Math.round(v)}%</span>
     </span>
@@ -82,7 +82,6 @@ export default function Goals({ params = {} }) {
       <ListHeader
         module="Performance"
         title="Goals"
-        description="What each person is working towards, how it is measured, by when, and how it is going."
         primary={canAdd ? { label: 'New goal', icon: Plus, onClick: () => setEditing(blank) } : null}
         secondary={canAdd && person ? <CopyLastYear employeeId={person} onDone={req.reload} /> : null}
         toolbar={<>
@@ -106,7 +105,7 @@ export default function Goals({ params = {} }) {
             </span>
           )}
           empty={q || person || status !== 'ACTIVE'
-            ? <EmptyState kind="filtered" title="No goals match" description="Nothing here matches the search, the person or the tab." />
+            ? <EmptyState kind="filtered" title="No goals match" />
             : <EmptyState title="No goals yet" description="Agree what someone is working towards, how it is measured and by when." routes={canAdd ? [{ label: 'New goal', onSelect: () => setEditing(blank) }] : undefined} />} />
       )}
       {open ? <GoalDrawer id={open} onEdit={(g) => { setOpen(null); setEditing(g); }} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}

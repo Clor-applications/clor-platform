@@ -98,6 +98,7 @@ it('late marks: HR applies an ended month; a waiver needs a reason', async () =>
   const save = within(dialog).getByRole('button', { name: 'Waive' });
   expect(save.disabled).toBe(true);
   fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'Bus strike all week' } });
+  await waitFor(() => expect(save.disabled).toBe(false));
   fireEvent.click(save);
   await waitFor(() => expect(api.waivePenalty).toHaveBeenCalledWith('e1', '2026-09', 'Bus strike all week'));
 });

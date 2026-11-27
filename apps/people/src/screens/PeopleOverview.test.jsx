@@ -2,6 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 
+import { PermissionContext } from '@ui/permissions/context';
+import { todayIst } from '@ui/utils/dates';
 import PeopleOverview from './PeopleOverview';
 
 /*
@@ -37,14 +39,85 @@ vi.mock('@ui/timeOff/MyDays', () => ({ HomeCheckIn: () => null }));
 vi.mock('./HomeSetup', () => ({ default: () => null }));
 vi.mock('./HomeMyLeave', () => ({ default: () => null }));
 
-it('counts the whole inbox in the greeting, with leave as the detail on the Inbox line', async () => {
-  render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText('4 items')).toBeTruthy();
-  expect(await screen.findByText(/1 leave request among them, next starts/)).toBeTruthy();
+it('shows Team overview and recovers a missing announcements payload while events render', async () => {
+  const { listRecords } = await import('../api/workspace');
+  listRecords.mockResolvedValueOnce(undefined);
+  listRecords.mockResolvedValueOnce([
+    { id: 'future', title: 'Team town hall', status: 'SCHEDULED', details: { startDate: '2099-01-01', location: 'Main office' } },
+    { id: 'old', title: 'Past meeting', status: 'SCHEDULED', details: { startDate: '2000-01-01' } },
+  ]);
+  const openScreen = vi.fn();
+  render(<PeopleOverview openScreen={openScreen} />);
+  const team = within(await screen.findByRole('region', { name: 'Team overview' }));
+  expect(team.getByText('Headcount')).toBeTruthy();
+  expect(team.getByText('On leave today')).toBeTruthy();
+  const events = within(screen.getByRole('region', { name: 'Upcoming events' }));
+  expect(await events.findByText('Team town hall')).toBeTruthy();
+  expect(events.getByText('🎤')).toHaveAttribute('aria-hidden', 'true');
+  expect(events.queryByText('Past meeting')).toBeNull();
+  const news = within(screen.getByRole('region', { name: 'Announcements' }));
+  expect(await news.findByText(/Could not load announcements/)).toBeTruthy();
+  listRecords.mockResolvedValueOnce([
+    { id: 'published', title: 'Policy update', status: 'PUBLISHED', updatedAt: '2026-11-25' },
+    { id: 'draft', title: 'Unpublished copy', status: 'DRAFT', updatedAt: '2026-11-25' },
+  ]);
+  fireEvent.click(news.getByRole('button', { name: 'Retry' }));
+  fireEvent.click(await news.findByRole('button', { name: /Policy update/ }));
+  expect(openScreen).toHaveBeenLastCalledWith('announcements', undefined);
+  expect(news.queryByText('Unpublished copy')).toBeNull();
 });
 
-/* People plan 8 Nov 2026, step 2: the subtitle's number is the card's. Requests to approve plus the tasks on my name, each line opening the Inbox tab that holds it. */
-it('the card adds up to the subtitle: requests on one line, my tasks on another, each opening its Inbox tab', async () => {
+it('shows attendance coverage as a readout with its actual denominator', async () => {
+  const api = await import('@ui/personnel/api');
+  api.getPeopleHome.mockResolvedValueOnce({ todos: [], waiting: 0, today: { inCount: 8, expected: 10 } });
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  const overview = within(await screen.findByRole('region', { name: 'Team overview' }));
+  const coverage = await overview.findByRole('meter', { name: 'Checked in today out of expected' });
+  expect(coverage).toHaveAttribute('value', '8');
+  expect(coverage).toHaveAttribute('max', '10');
+  expect(overview.getByText('of 10 expected')).toBeTruthy();
+  expect(coverage.closest('button')).toBeNull();
+});
+
+it('opens the employee directory filtered to people who joined this month', async () => {
+  const { getOverview } = await import('@ui/personnel/api');
+  const today = todayIst();
+  const openScreen = vi.fn();
+  getOverview.mockResolvedValueOnce({ headcount: 10, byDepartment: [], byStatus: {}, joinedThisMonth: [{ id: 'e1', name: 'Nila Shah' }] });
+  render(<PeopleOverview openScreen={openScreen} />);
+  const joiners = within(await screen.findByRole('region', { name: 'New joiners' }));
+  fireEvent.click(joiners.getByRole('button', { name: /Nila Shah/ }));
+  expect(openScreen).toHaveBeenCalledWith('employees', { from: `${today.slice(0, 7)}-01`, to: today });
+});
+
+it('opens briefing links and hides destinations outside the user’s permissions', async () => {
+  const openScreen = vi.fn();
+  const permissions = new Set(['PEOPLE::Requests::VIEW', 'ATTENDANCE::My Attendance::VIEW']);
+  render(
+    <PermissionContext.Provider value={{ permissions }}>
+      <PeopleOverview openScreen={openScreen} />
+    </PermissionContext.Provider>,
+  );
+  const links = within(await screen.findByRole('navigation', { name: 'People destinations' }));
+  const inbox = await links.findByRole('link', { name: /4 items need your action/ });
+  expect(inbox).toHaveAttribute('href', '?app=people&open=approvals');
+  fireEvent.click(inbox);
+  expect(openScreen).toHaveBeenLastCalledWith('approvals', undefined);
+  fireEvent.click(links.getByRole('link', { name: 'My requests' }));
+  expect(openScreen).toHaveBeenLastCalledWith('myRequests', undefined);
+  expect(links.queryByRole('link', { name: /Employee directory|Leave calendar/ })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Quick launch' })).toBeNull();
+});
+
+it('keeps the header concise, with leave detail in the action panel', async () => {
+  render(<PeopleOverview openScreen={vi.fn()} />);
+  const header = (await screen.findByRole('heading', { level: 1 })).closest('header');
+  expect(header.querySelector('h1 time')).toHaveAttribute('datetime', todayIst());
+  expect(within(header).queryByText(/need your action|assigned task/)).toBeNull();
+  expect(await screen.findByText(/1 leave request · next starts/)).toBeTruthy();
+});
+
+it('splits the Inbox total into requests and assigned tasks and opens each tab', async () => {
   const api = await import('@ui/personnel/api');
   api.getPeopleHome.mockResolvedValueOnce({
     todos: [
@@ -56,28 +129,33 @@ it('the card adds up to the subtitle: requests on one line, my tasks on another,
     probation: null, week: null, monthClose: null,
   });
   const openScreen = vi.fn();
-  render(<PeopleOverview openScreen={openScreen} />);
-  expect(await screen.findByText('5 items')).toBeTruthy();
-  const requests = (await screen.findByText('2 requests wait for you')).closest('button');
-  const tasks = screen.getByText('3 tasks are on your name').closest('button');
+  render(<PermissionContext.Provider value={{ permissions: new Set(['PEOPLE::Requests::VIEW']) }}>
+    <PeopleOverview openScreen={openScreen} />
+  </PermissionContext.Provider>);
+  expect(await screen.findByRole('link', { name: 'Inbox, 5 items need your action' })).toBeTruthy();
+  const requests = await screen.findByRole('button', { name: 'Review requests' });
+  const tasks = screen.getByRole('button', { name: 'View my tasks' });
+  expect(within(requests.closest('li')).getByText('2')).toBeTruthy();
+  expect(within(tasks.closest('li')).getByText('3')).toBeTruthy();
+  expect(requests).toHaveClass('people-arrow-link');
+  expect(tasks).toHaveClass('people-arrow-link');
   /* The two lines are the whole card: 2 + 3 = 5. HR's all-tasks figure sits under "Needs attention", outside the number. */
   const card = requests.closest('section');
   expect(within(card).getAllByRole('button')).toHaveLength(2);
   expect(screen.getByText('Joining and leaving tasks').closest('section')).not.toBe(card);
   expect(screen.getByText('Needs attention')).toBeTruthy();
   fireEvent.click(requests);
-  expect(openScreen).toHaveBeenCalledWith('approvals', undefined);
+  expect(openScreen).toHaveBeenCalledWith('approvals', { tab: 'waiting' });
   fireEvent.click(tasks);
   expect(openScreen).toHaveBeenCalledWith('approvals', { tab: 'tasks' });
 });
 
-it('says "Nothing needs your action" only when the server counts nought, and then shows no card rows', async () => {
+it('shows an empty action panel when the server counts no waiting work', async () => {
   const api = await import('@ui/personnel/api');
   api.getPeopleHome.mockResolvedValueOnce({ todos: [{ key: 'checklists', title: 'Joining and leaving tasks', count: 320, tone: 'urgent', screen: 'checklists' }], waiting: 0, probation: null, week: null, monthClose: null });
   render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText(/Nothing needs your action/)).toBeTruthy();
-  expect(screen.getByText('All caught up')).toBeTruthy();
-  expect(screen.queryByText(/wait for you$/)).toBeNull();
+  expect(await screen.findByText('All caught up')).toBeTruthy();
+  expect(screen.queryByText('Requests to review')).toBeNull();
   expect(screen.getByText('Joining and leaving tasks')).toBeTruthy();
 });
 
@@ -93,13 +171,13 @@ it('has no To approve figure; Probation due counts probation to decide and opens
   });
   const openScreen = vi.fn();
   render(<PeopleOverview openScreen={openScreen} />);
-  const figure = (await screen.findByText('Probation due')).closest('button');
+  const figure = (await screen.findByText('Probation due')).closest('li');
   expect(screen.queryByText('To approve')).toBeNull();
   // Probation is the figure and the list below, not also a Waiting-for-you row.
   expect(screen.queryByText('Probation to decide')).toBeNull();
   expect(figure.textContent).toMatch(/3/);
   expect(figure.textContent).toMatch(/1 person past their date/);
-  fireEvent.click(figure);
+  fireEvent.click(within(figure).getByRole('button', { name: 'Review probation' }));
   expect(openScreen).toHaveBeenCalledWith('employees', { prob: 'on' });
 });
 
@@ -125,7 +203,6 @@ it('leaves out the figures that stand at zero, but never Headcount', async () =>
 
 /* QA, Team Manager (1 Nov 2026): Home offered Announce, Post one, HR cases and Add an employee, which his role refuses. */
 it('offers only the actions this reader may use', async () => {
-  const { PermissionContext } = await import('@ui/permissions/context');
   const as = (permissions, isAdmin = false) => (
     <PermissionContext.Provider value={{ loading: false, isAdmin, permissions: new Set(permissions) }}>
       <PeopleOverview openScreen={vi.fn()} />
@@ -133,12 +210,14 @@ it('offers only the actions this reader may use', async () => {
   );
   const { unmount } = render(as(['PEOPLE::Employees::VIEW', 'ATTENDANCE::Leave Requests::VIEW']));
   expect(await screen.findByText('Headcount')).toBeTruthy();
-  expect(screen.getByRole('button', { name: /Leave requests/ })).toBeTruthy();
-  for (const name of [/Announce/, /Post one/, /Help desk/, /Add an employee/, /All events/]) expect(screen.queryByRole('button', { name })).toBeNull();
+  expect(await screen.findByRole('link', { name: 'Leave calendar' })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'My requests' })).toBeNull();
+  for (const name of [/Announce/, /Post one/, /Help desk/, /Add employee/, /All events/]) expect(screen.queryByRole('button', { name })).toBeNull();
   unmount();
   render(as([], true));
-  expect(await screen.findByRole('button', { name: /Announce/ })).toBeTruthy();
-  for (const name of [/Post one/, /Help desk/, /Add an employee/, /All events/]) expect(screen.getByRole('button', { name })).toBeTruthy();
+  expect(await screen.findByRole('link', { name: 'My requests' })).toBeTruthy();
+  for (const name of [/Post one/, /Add employee/, /All events/]) expect(screen.getByRole('button', { name })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Add employee', exact: true })).toHaveClass('ui-btn-primary');
 });
 
 /* UI audit, 7 Nov 2026: a failed Home list said "All caught up" and "Everyone is in today". A failure is said as one, with Retry. */
@@ -153,7 +232,6 @@ it('never reads a failed list as nothing waiting, and Retry asks both lists agai
   render(<PeopleOverview openScreen={vi.fn()} />);
   expect(await screen.findByText(/Could not load what waits for you/)).toBeTruthy();
   expect(screen.queryByText('All caught up')).toBeNull();
-  expect(screen.getByText(/Could not check what needs your action/)).toBeTruthy();
   expect(api.getPeopleHome).toHaveBeenCalledTimes(1);
   expect(timeOff.listLeaveRequests).toHaveBeenCalledTimes(1);
 
@@ -174,8 +252,9 @@ it('says a failed leave or news list failed instead of drawing it empty; a refus
   ws.listRecords.mockImplementation((kind) => Promise.reject(kind === 'announcements' ? fail : Object.assign(new Error('Engage is switched off'), { status: 403 })));
   render(<PeopleOverview openScreen={vi.fn()} />);
   expect(await screen.findByText(/Could not load who is out today/)).toBeTruthy();
-  expect(screen.queryByText('Everyone is in today.')).toBeNull();
-  expect(screen.getByText('Could not load leave')).toBeTruthy();
+  expect(screen.queryByText('No approved leave today.')).toBeNull();
+  const team = within(screen.getByRole('region', { name: 'Team overview' }));
+  expect(team.getByText('On leave today').closest('li')).toHaveTextContent('Could not load');
   /* Side cards are polite (status); only "Waiting for you" alerts. */
   expect(screen.getByText(/Could not load announcements/).closest('[role]').getAttribute('role')).toBe('status');
   expect(screen.getByText(/Could not load the leave waiting for you/).closest('[role]').getAttribute('role')).toBe('alert');
@@ -199,9 +278,13 @@ it('counts who is out today by India’s date at 00:30 IST, even when the browse
   vi.setSystemTime(new Date('2026-11-06T19:00:00.000Z')); // 00:30 IST, 7 Nov
   try {
     const timeOff = await import('@ui/timeOff/api');
-    timeOff.listLeaveRequests.mockResolvedValueOnce([{ id: 'l2', employeeId: 'e2', status: 'APPROVED', fromDate: '2026-11-07', toDate: '2026-11-07', employeeName: 'Bala', leaveTypeName: 'Casual leave', days: 1 }]);
+    const approved = { employeeId: 'e2', status: 'APPROVED', fromDate: '2026-11-07', toDate: '2026-11-07', employeeName: 'Bala', leaveTypeName: 'Casual leave', days: 1 };
+    timeOff.listLeaveRequests.mockResolvedValueOnce([{ ...approved, id: 'l2' }, { ...approved, id: 'l3' }]);
     render(<PeopleOverview openScreen={vi.fn()} />);
-    expect(await screen.findByText('9 of 10 at work')).toBeTruthy();
+    const away = within(await screen.findByRole('region', { name: 'Team overview' }));
+    const row = away.getByText('On leave today').closest('li');
+    expect(within(row).getByText('1')).toBeTruthy();
+    expect(screen.getAllByText('Bala')).toHaveLength(1);
   } finally {
     vi.useRealTimers();
     local.forEach((spy) => spy.mockRestore());
@@ -230,36 +313,38 @@ it('retries only the failed list, once, however often Retry is pressed', async (
   expect(screen.queryByText(/Could not load the leave waiting for you/)).toBeNull();
 });
 
-/* Review of #147: before the inbox and leave answer, the greeting does not claim nothing waits. */
-it('says it is checking, not "Nothing waits", while the inbox and leave are loading', async () => {
+it('keeps the action panel in its loading state while the inbox and leave load', async () => {
   const api = await import('@ui/personnel/api');
   const timeOff = await import('@ui/timeOff/api');
   api.getPeopleHome.mockImplementationOnce(() => new Promise(() => {}));
   timeOff.listLeaveRequests.mockImplementationOnce(() => new Promise(() => {}));
   render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText(/Checking what needs your action/)).toBeTruthy();
-  expect(screen.queryByText(/Nothing needs your action/)).toBeNull();
+  expect(await screen.findByRole('status', { name: 'Loading requests and tasks' })).toBeTruthy();
+  expect(screen.queryByText('All caught up')).toBeNull();
 });
 
 /* People plan, 8 Nov 2026: Home's waiting number is the inbox's own (help desk included), not a sum of to-do lines. */
 it('shows the waiting number the server counts for the inbox, the one the rail badge shows', async () => {
   const api = await import('@ui/personnel/api');
   api.getPeopleHome.mockResolvedValueOnce({ todos: [{ key: 'leave', title: 'Leave waiting', count: 1, screen: 'approvals' }], waiting: 3, probation: null, week: null, monthClose: null });
-  render(<PeopleOverview openScreen={vi.fn()} />);
-  expect(await screen.findByText('3 items')).toBeTruthy();
+  render(<PermissionContext.Provider value={{ permissions: new Set(['PEOPLE::Requests::VIEW']) }}>
+    <PeopleOverview openScreen={vi.fn()} />
+  </PermissionContext.Provider>);
+  expect(await screen.findByRole('link', { name: 'Inbox, 3 items need your action' })).toBeTruthy();
 });
 
 /* Owner, 8 Nov 2026: approvals live in the Inbox. Home says how many wait and opens it; it lists and approves none. */
 it('shows one line for the Inbox, no request list and no Approve button', async () => {
   const openScreen = vi.fn();
   render(<PeopleOverview openScreen={openScreen} />);
-  const line = (await screen.findByText('4 requests wait for you')).closest('button');
+  const line = await screen.findByRole('button', { name: 'Review requests' });
+  expect(within(line.closest('li')).getByText('4')).toBeTruthy();
   expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
   expect(screen.queryByText('Leave waiting')).toBeNull();
   expect(screen.queryByText('Field punches waiting')).toBeNull();
   /* Tasks that are not approvals stay listed. */
   expect(screen.getByText('Documents expiring')).toBeTruthy();
   fireEvent.click(line);
-  expect(openScreen).toHaveBeenCalledWith('approvals', undefined);
+  expect(openScreen).toHaveBeenCalledWith('approvals', { tab: 'waiting' });
 });
 

@@ -3,7 +3,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import CallButtons from '@ui/components/ui/CallButtons';
 
 import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
-import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -72,7 +72,7 @@ export default function Absences({ params = {}, updateParams }) {
   return (
     <div className="space-y-6">
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Time' }]} title="Absent without leave" actions={canAct ? <Button variant="secondary" loading={checking} onClick={check}>Check now</Button> : null} />
-      <DataTable
+      <ReviewTable key={status}
         tabs={(
           <div ref={tabsRef} role="tablist" aria-label="Absences" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
             {TABS.map(([k, l]) => (

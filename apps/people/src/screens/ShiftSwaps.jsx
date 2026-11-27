@@ -3,7 +3,7 @@ import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useRef, useState } from 'react';
 
 import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
-import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
@@ -62,7 +62,7 @@ export default function ShiftSwaps({ params = {}, updateParams, openScreen }) {
   return (
     <div className="space-y-6">
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Time' }]} title="Shift swaps" />
-      <DataTable
+      <ReviewTable key={JSON.stringify([status, page, size])}
         tabs={(
           <div ref={tabsRef} role="tablist" aria-label="Shift swaps" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
             {TABS.map(([k, l]) => (

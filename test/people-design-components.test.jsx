@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import SearchField from '../packages/ui/src/components/ui/SearchField';
@@ -226,19 +226,19 @@ describe('Drawer and Modal (spec v1 §5.1)', () => {
     expect(opener).toHaveFocus();
   });
 
-  it('with unsaved edits the scrim does not close a drawer, and Escape asks before discarding', async () => {
+  it('with unsaved edits both the scrim and Escape ask before discarding', async () => {
     const { default: Drawer } = await import('../packages/ui/src/components/ui/Drawer');
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(false).mockReturnValueOnce(true);
     const onClose = vi.fn();
     render(<Drawer open onClose={onClose} title="Edit" dirty><input aria-label="Phone" /></Drawer>);
     const scrim = screen.getByRole('dialog', { name: 'Edit' }).parentElement;
     fireEvent.mouseDown(scrim);
     await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
     expect(onClose).not.toHaveBeenCalled();
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(window, { key: 'Escape' });
     await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
-    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledTimes(2);
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.keyDown(window, { key: 'Escape' });
     await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
@@ -269,6 +269,24 @@ describe('DataTable (spec v1 §4.2, §5)', () => {
     { key: 'department', label: 'Department' },
   ];
   const rows = [{ id: 'a', name: 'Aarav Mehta', code: 'E1', department: 'Product' }, { id: 'b', name: 'Isha Kapoor', code: 'E2', department: 'Design' }];
+  it('enforces the approval grant when a record is opened via its right-click menu', async () => {
+    const { default: DataTable } = await import('../packages/ui/src/components/ui/DataTable');
+    const { PermissionContext } = await import('../packages/ui/src/permissions/context');
+    const { WriteGuard } = await import('../packages/ui/src/permissions/WriteGuard');
+    const approve = vi.fn();
+    const view = (permissions) => <PermissionContext.Provider value={{ permissions: new Set(permissions) }}>
+      <WriteGuard permission="PEOPLE::Requests::VIEW">
+        <DataTable columns={columns} rows={rows} rowActions={() => [{ key: 'approve', label: 'Approve', onSelect: approve }]} />
+      </WriteGuard>
+    </PermissionContext.Provider>;
+    const { rerender } = render(view(['PEOPLE::Requests::EDIT']));
+    fireEvent.contextMenu(within(screen.getByRole('table')).getByText('Aarav Mehta'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Approve' }));
+    expect(approve).not.toHaveBeenCalled();
+    rerender(view(['PEOPLE::Requests::APPROVE']));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Approve' }));
+    expect(approve).toHaveBeenCalledOnce();
+  });
   it('asks the server to sort, pages 25/50/100, and says what it shows', async () => {
     const { default: DataTable } = await import('../packages/ui/src/components/ui/DataTable');
     const user = userEvent.setup();
@@ -299,9 +317,10 @@ describe('DataTable (spec v1 §4.2, §5)', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Choose Isha Kapoor' }));
     expect(onSelect.mock.calls[0][0].has('b')).toBe(true);
     expect(onRowClick).toHaveBeenCalledTimes(1);
-    /* Up to three row actions show as words in the row (owner's pick, 17 Nov 2026); each is a button reached by Tab. */
+    // The first action is visible; secondary actions are keyboard-accessible in the overflow menu.
     const actions = screen.getByRole('group', { name: 'Actions for Isha Kapoor' });
-    within(actions).getByRole('button', { name: 'Edit' }).focus();
+    await user.click(within(actions).getByRole('button', { name: 'Actions for Isha Kapoor' }));
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Edit' })).toHaveFocus());
     await user.keyboard('{Enter}');
     expect(edit).toHaveBeenCalledWith('b');
     expect(onRowClick).toHaveBeenCalledTimes(1);

@@ -77,12 +77,12 @@ export default function ReportsHome({ openScreen, navItems = [] }) {
   }, [own.data]);
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="people-report-index space-y-6 pb-8">
       <ListHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Insights' }]}
+        breadcrumb={[{ label: 'People' }, { label: 'Reports' }]}
         title="All reports"
-        description="Every People and Time report. Open one to set its dates and filters, see the chart and export the rows."
         entity="report"
+        toolbarInHeading
         toolbar={<SearchField value={q} onSearch={setQ} delay={150} placeholder="Search reports" label="Search reports" className="w-full sm:w-80" />}
       />
       {loading && !rows.length ? <SkeletonCard lines={8} /> : null}
@@ -97,7 +97,7 @@ export default function ReportsHome({ openScreen, navItems = [] }) {
                 <button type="button" onClick={() => openScreen?.('hrReport', { report: r.id, ...(r.from ? { from: r.from } : {}), ...(r.to ? { to: r.to } : {}) })} className="ui-settings-row">
                   <span className="ui-settings-row-icon" aria-hidden="true" />
                   <span className="ui-settings-row-label">{r.spec.name}</span>
-                  <span className="ui-settings-row-note">{periodWord(r.from, r.to) || r.spec.description}</span>
+                  {(r.from || r.to) && <span className="ui-settings-row-note">{periodWord(r.from, r.to)}</span>}
                   <ChevronRight size={16} aria-hidden="true" className="ui-settings-row-go" />
                 </button>
               </li>
@@ -105,24 +105,25 @@ export default function ReportsHome({ openScreen, navItems = [] }) {
           </ul>
         </section>
       ) : null}
-      {groups.map((g) => (
-        <section key={g.title} className="space-y-2" aria-labelledby={`rep-${g.title}`}>
-          <h2 id={`rep-${g.title}`} className="ui-t-sec">{g.title}</h2>
-          {/* Plain rows on the page ground under one hairline, as Settings draws its pages. */}
-          <ul className="ui-settings-rows">
-            {g.rows.map((r) => (
-              <li key={r.key}>
-                <button type="button" onClick={r.open} className="ui-settings-row">
-                  <span className="ui-settings-row-icon" aria-hidden="true" />
-                  <span className="ui-settings-row-label">{r.label}</span>
-                  <span className="ui-settings-row-note">{r.note}</span>
-                  <ChevronRight size={16} aria-hidden="true" className="ui-settings-row-go" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      <div className="ui-settings-catalog">
+        {groups.map((g) => (
+          <section key={g.title} className="people-report-group space-y-2" aria-labelledby={`rep-${g.title.replaceAll(' ', '-')}`}>
+            <h2 id={`rep-${g.title.replaceAll(' ', '-')}`} className="ui-t-sec">{g.title}</h2>
+            {/* Plain rows on the page ground under one hairline, as Settings draws its pages. */}
+            <ul className="ui-settings-rows">
+              {g.rows.map((r) => (
+                <li key={r.key}>
+                  <button type="button" onClick={r.open} className="ui-settings-row">
+                    <span className="ui-settings-row-icon" aria-hidden="true" />
+                    <span className="ui-settings-row-label">{r.label}</span>
+                    <ChevronRight size={16} aria-hidden="true" className="ui-settings-row-go" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

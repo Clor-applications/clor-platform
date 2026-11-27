@@ -83,12 +83,13 @@ it('has a My tasks tab with the task count, lists my open tasks, and marks one d
   const tasksTab = screen.getByRole('tab', { name: /My tasks/ });
   expect(within(tasksTab).getByText('1')).toBeTruthy();
   fireEvent.click(tasksTab);
-  expect(updateParams).toHaveBeenCalledWith({ tab: 'tasks', page: null }, { push: true });
+  expect(updateParams).toHaveBeenCalledWith({ tab: 'tasks', focus: null, page: null }, { push: true });
   cleanup();
   render(<PermissionContext.Provider value={{ loading: false, error: '', isAdmin: true, permissions: new Set() }}><Approvals params={{ tab: 'tasks' }} updateParams={updateParams} /></PermissionContext.Provider>);
   const row = (await screen.findAllByText('Collect the signed offer'))[0].closest('tr');
-  expect(within(row).getByText(/Joining · Dev Kumar/)).toBeTruthy();
-  expect(within(row).getByText(/\(late\)/)).toBeTruthy();
+  expect(within(row).getByRole('cell', { name: 'Joining' })).toBeTruthy();
+  expect(within(row).getByText('Dev Kumar')).toBeTruthy();
+  expect(within(row).getByText('Overdue')).toBeTruthy();
   fireEvent.click(within(row).getByRole('button', { name: 'Mark done' }));
   await waitFor(() => expect(updateChecklistTask).toHaveBeenCalledWith('t1', { done: true }));
 });
@@ -105,4 +106,63 @@ it('opens on My tasks when nothing waits to approve, unless the address names a 
   render(<PermissionContext.Provider value={{ loading: false, error: '', isAdmin: true, permissions: new Set() }}><Approvals params={{ tab: 'waiting' }} updateParams={() => {}} /></PermissionContext.Provider>);
   expect(await screen.findByText('Nothing waiting for you')).toBeTruthy();
   expect(screen.getByRole('tab', { name: /To approve/ }).getAttribute('aria-selected')).toBe('true');
+});
+
+it('shows the full queue even when an older bookmark specifies a page and page size', async () => {
+  const { getInbox } = await import('../api/approvals');
+  const items = Array.from({ length: 31 }, (_, index) => ({
+    key: `LEAVE:${index}`, id: String(index), kind: 'LEAVE', what: 'Annual leave',
+    employeeName: `Employee ${index + 1}`, days: 2, since: '2026-11-26',
+  }));
+  getInbox.mockResolvedValueOnce({ items, counts: { all: items.length }, rights: {} });
+  render(<PermissionContext.Provider value={{ isAdmin: true, permissions: new Set() }}>
+    <Approvals params={{ page: 2, size: 25 }} />
+  </PermissionContext.Provider>);
+  const queue = within(screen.getByRole('table', { name: 'To approve' }));
+  await queue.findByText('Employee 31');
+  expect(queue.getAllByRole('row')).toHaveLength(32);
+  expect(queue.getByText('Employee 1')).toBeTruthy();
+  expect(queue.getByRole('columnheader', { name: 'Days' })).toBeTruthy();
+});
+
+it('updates the queue and announces the change after a successful write for this company', async () => {
+  const { getInbox } = await import('../api/approvals');
+  const { publishPeopleChange } = await import('@platform/peopleChanges');
+  const initial = await getInbox();
+  localStorage.setItem('activeOrgId', 'company-a');
+  try {
+    mount();
+    const queue = within(screen.getByRole('table', { name: 'To approve' }));
+    await queue.findByText('Ravi Das');
+    getInbox.mockResolvedValueOnce({ ...initial, counts: { ...initial.counts, all: 1 }, items: [initial.items[1]] });
+    publishPeopleChange('company-a');
+    await screen.findByText(/No longer waiting · Ravi Das · Field punch/);
+    expect(queue.queryByText('Ravi Das')).toBeNull();
+    expect(screen.getByRole('tab', { name: /To approve/ })).toHaveTextContent('1');
+    expect(queue.getByText('Priya Kumar')).toBeTruthy();
+  } finally {
+    localStorage.removeItem('activeOrgId');
+  }
+});
+
+it('keeps a task available after a failed save and removes it after a confirmed retry while refreshing', async () => {
+  const { updateChecklistTask } = await import('@ui/personnel/api');
+  const { getInbox } = await import('../api/approvals');
+  let resolveSave;
+  updateChecklistTask.mockRejectedValueOnce(new Error('Offline')).mockImplementationOnce(() => new Promise((resolve) => { resolveSave = resolve; }));
+  render(<Approvals params={{ tab: 'tasks' }} />);
+  const table = within(screen.getByRole('table', { name: 'My tasks' }));
+  const done = await table.findByRole('button', { name: 'Mark done' });
+  done.focus();
+  fireEvent.click(done);
+  await waitFor(() => expect(done).not.toHaveAttribute('aria-busy'));
+  expect(done).toHaveFocus();
+  fireEvent.click(done);
+  fireEvent.click(done);
+  expect(updateChecklistTask).toHaveBeenCalledTimes(2);
+  expect(done).toHaveAttribute('aria-busy', 'true');
+  getInbox.mockImplementationOnce(() => new Promise(() => {}));
+  resolveSave({});
+  await screen.findByText('No open tasks');
+  expect(screen.getByRole('tab', { name: 'My tasks' })).toHaveFocus();
 });

@@ -1,4 +1,6 @@
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Handle, Position, ReactFlow } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import React, { useMemo, useState } from 'react';
 import { tintOf } from '../organization/tints';
 import { Minus, Plus, Maximize2 } from '@ui/components/ui/lineIcons';
 
@@ -19,7 +21,39 @@ const MAX = 1.2;
 const STEP = 0.1;
 
 const initialsOf = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('');
-const clamp = (z) => Math.min(MAX, Math.max(MIN, Math.round(z * 100) / 100));
+function OrgNode({ data }) {
+  return <>
+    <Handle type="target" position={Position.Top} isConnectable={false} />
+    {data.seat ? <SeatCard s={data.seat} /> : <PersonCard {...data} />}
+    <Handle type="source" position={Position.Bottom} isConnectable={false} />
+  </>;
+}
+const orgNodeTypes = { person: OrgNode };
+
+// Each parent sits midway between its outer children. A forest shares the same horizontal cursor.
+function buildFlow(chart, ctx) {
+  const nodes = [];
+  const edges = [];
+  let nextLeaf = 0;
+  function place(n, depth, parent, seat = false) {
+    const id = (seat ? 'seat-' : 'person-') + n.id;
+    const kids = seat ? [] : chart.kids.get(n.id) || [];
+    const seats = seat ? [] : chart.seatsUnder.get(n.id) || [];
+    const open = !seat && !ctx.closed.has(n.id) && kids.length + seats.length > 0;
+    const children = open ? [
+      ...kids.map((k) => place(k, depth + 1, id)),
+      ...seats.map((s) => place(s, depth + 1, id, true)),
+    ] : [];
+    const x = children.length ? (children[0] + children[children.length - 1]) / 2 : nextLeaf++ * 248;
+    const data = seat ? { seat: n } : { n, ctx, count: kids.length, seats: seats.length, open, compact: !kids.length && !seats.length };
+    nodes.push({ id, type: 'person', position: { x, y: depth * 200 }, data });
+    if (parent) edges.push({ id: parent + '/' + id, source: parent, target: id, type: 'smoothstep' });
+    return x;
+  }
+  chart.roots.forEach((n) => place(n, 0, null));
+  chart.loose.forEach((s) => place(s, 0, null, true));
+  return { nodes, edges };
+}
 
 export default function OrgTreeChart({ chart, closed, toggle, openScreen, onExpandAll, onCollapseAll, lead = null }) {
   /* One colour per department, the same as on the Organisation overview and the structure page (tintOf, from the name). */
@@ -28,97 +62,11 @@ export default function OrgTreeChart({ chart, closed, toggle, openScreen, onExpa
     return new Map(names.map((d) => [d, tintOf(d)]));
   }, [chart]);
 
-  const frameRef = useRef(null);
-  const innerRef = useRef(null);
+  const [flow, setFlow] = useState(null);
   const [zoom, setZoom] = useState(1);
-  const [size, setSize] = useState({ w: 0, h: 0 });
-
-  /* A transform does not change layout size, so the scroll area is sized to the scaled chart by hand. */
-  useLayoutEffect(() => {
-    const el = innerRef.current;
-    if (!el) return undefined;
-    const measure = () => setSize({ w: el.offsetWidth, h: el.offsetHeight });
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  /* The frame ends at the bottom of the window, so the chart scrolls and the page does not. */
-  useLayoutEffect(() => {
-    const f = frameRef.current;
-    if (!f) return undefined;
-    const place = () => f.style.setProperty('--oc-frame-h', `${Math.max(380, window.innerHeight - f.getBoundingClientRect().top - window.scrollY - 24)}px`);
-    place();
-    window.addEventListener('resize', place);
-    return () => window.removeEventListener('resize', place);
-  }, []);
-
-  /* Opens as wide as the frame allows while the names stay readable (60% at least); drag or zoom for the rest. */
-  const centred = useRef(false);
-  useLayoutEffect(() => {
-    const f = frameRef.current;
-    if (!f || !size.w || centred.current) return;
-    centred.current = true;
-    const z = clamp(Math.min(1, Math.max(0.6, (f.clientWidth - 48) / size.w)));
-    /* Where the top person sits at 100%, measured before the zoom (and its transition) starts. */
-    const root = innerRef.current?.querySelector('.oc-roots > .oc-node > .oc-card')?.getBoundingClientRect();
-    const midAt1 = root ? root.left + root.width / 2 - innerRef.current.getBoundingClientRect().left : size.w / 2;
-    setZoom(z);
-    requestAnimationFrame(() => { f.scrollLeft = Math.max(0, midAt1 * z - f.clientWidth / 2); });
-  }, [size.w]);
-
-  const zoomTo = useCallback((next) => {
-    const f = frameRef.current;
-    const z = clamp(next);
-    if (!f) return setZoom(z);
-    /* Keep the middle of what is on screen in the middle. */
-    const cx = (f.scrollLeft + f.clientWidth / 2) / zoom;
-    const cy = (f.scrollTop + f.clientHeight / 2) / zoom;
-    setZoom(z);
-    requestAnimationFrame(() => {
-      f.scrollLeft = cx * z - f.clientWidth / 2;
-      f.scrollTop = cy * z - f.clientHeight / 2;
-    });
-    return undefined;
-  }, [zoom]);
-
-  /* After the tree changes shape (expand or collapse all), bring the top person back to the middle. */
-  const centreOnRoot = () => requestAnimationFrame(() => requestAnimationFrame(() => {
-    const f = frameRef.current;
-    const r = innerRef.current?.querySelector('.oc-roots > .oc-node > .oc-card')?.getBoundingClientRect();
-    if (!f || !r) return;
-    f.scrollLeft = Math.max(0, r.left + r.width / 2 - f.getBoundingClientRect().left + f.scrollLeft - f.clientWidth / 2);
-    f.scrollTop = 0;
-  }));
-
-  const fit = () => {
-    const f = frameRef.current;
-    if (!f || !size.w) return;
-    const z = clamp(Math.min(1, (f.clientWidth - 48) / size.w));
-    setZoom(z);
-    requestAnimationFrame(() => { f.scrollTop = 0; f.scrollLeft = Math.max(0, (f.scrollWidth - f.clientWidth) / 2); });
-  };
-
-  /* Drag the empty canvas to move around, as on any map. */
-  const drag = useRef(null);
-  const onPointerDown = (e) => {
-    if (e.button !== 0 || e.pointerType === 'touch' || e.target.closest('button')) return;
-    const f = frameRef.current;
-    drag.current = { x: e.clientX, y: e.clientY, l: f.scrollLeft, t: f.scrollTop };
-    f.setPointerCapture(e.pointerId);
-    f.classList.add('is-dragging');
-  };
-  const onPointerMove = (e) => {
-    const d = drag.current;
-    if (!d) return;
-    const f = frameRef.current;
-    f.scrollLeft = d.l - (e.clientX - d.x);
-    f.scrollTop = d.t - (e.clientY - d.y);
-  };
-  const endDrag = () => { drag.current = null; frameRef.current?.classList.remove('is-dragging'); };
-
   const ctx = { chart, closed, toggle, openScreen, tones };
+  const { nodes, edges } = buildFlow(chart, ctx);
+  const fit = () => flow?.fitView({ padding: 0.15, maxZoom: 1 });
   const legend = [...tones.entries()];
 
   return (
@@ -127,26 +75,30 @@ export default function OrgTreeChart({ chart, closed, toggle, openScreen, onExpa
       <div className="oc-bar ui-no-print">
         {lead ? <div className="oc-lead">{lead}</div> : <span />}
         <div className="oc-tools">
-          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { onExpandAll(); centreOnRoot(); }}>Expand all</button>
-          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { onCollapseAll(); centreOnRoot(); }}>Collapse all</button>
+          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { onExpandAll(); requestAnimationFrame(() => requestAnimationFrame(fit)); }}>Expand all</button>
+          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { onCollapseAll(); requestAnimationFrame(() => requestAnimationFrame(fit)); }}>Collapse all</button>
           <div className="oc-zoom" role="group" aria-label="Zoom">
-            <button type="button" className="oc-zoom-btn" onClick={() => zoomTo(zoom - STEP)} disabled={zoom <= MIN} aria-label="Zoom out"><Minus size={14} /></button>
+            <button type="button" className="oc-zoom-btn" onClick={() => flow?.zoomTo(Math.max(MIN, zoom - STEP))} disabled={zoom <= MIN} aria-label="Zoom out"><Minus size={14} /></button>
             <span className="oc-zoom-value tabular-nums" aria-live="polite">{Math.round(zoom * 100)}%</span>
-            <button type="button" className="oc-zoom-btn" onClick={() => zoomTo(zoom + STEP)} disabled={zoom >= MAX} aria-label="Zoom in"><Plus size={14} /></button>
+            <button type="button" className="oc-zoom-btn" onClick={() => flow?.zoomTo(Math.min(MAX, zoom + STEP))} disabled={zoom >= MAX} aria-label="Zoom in"><Plus size={14} /></button>
             <button type="button" className="oc-zoom-btn oc-zoom-fit" onClick={fit}><Maximize2 size={13} aria-hidden="true" />Fit</button>
           </div>
         </div>
       </div>
       <div className="oc-stage">
       {/* The departments' colours, floating in the chart's corner rather than taking a row above it. */}
-      {legend.length ? (
+      {legend.length > 1 ? (
         <ul className="oc-legend oc-legend-float ui-no-print" aria-label="Departments">
           {legend.map(([d, tone]) => <li key={d} data-tone={tone}><i aria-hidden="true" />{d}</li>)}
         </ul>
       ) : null}
-      <div ref={frameRef} className="oc-frame" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}>
-        <div className="oc-sizer" style={{ width: size.w * zoom || undefined, height: size.h * zoom || undefined }}>
-          <div ref={innerRef} className="oc-canvas" style={{ transform: `scale(${zoom})` }}>
+      <div className="oc-frame oc-flow ui-no-print">
+        <ReactFlow nodes={nodes} edges={edges} nodeTypes={orgNodeTypes} onInit={setFlow} onMove={(_, viewport) => setZoom(viewport.zoom)}
+          fitView fitViewOptions={{ padding: 0.15, maxZoom: 1 }} minZoom={MIN} maxZoom={MAX}
+          nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} deleteKeyCode={null}
+          zoomOnDoubleClick={false} preventScrolling={false} aria-label="Reporting hierarchy" />
+      </div>
+      <div className="oc-tree-outline">
             <ul className="oc-level oc-roots">
               {chart.roots.map((n) => <Branch key={n.id} n={n} ctx={ctx} />)}
               {chart.loose.length ? (
@@ -156,8 +108,6 @@ export default function OrgTreeChart({ chart, closed, toggle, openScreen, onExpa
                 </li>
               ) : null}
             </ul>
-          </div>
-        </div>
       </div>
       </div>
     </section>
@@ -172,12 +122,12 @@ function Branch({ n, ctx }) {
   const open = count > 0 && !closed.has(n.id);
   /* People who manage nobody sit in a column under their manager: a row of thirty would run off any screen. */
   const leavesOnly = kids.every((k) => !(chart.kids.get(k.id) || []).length && !chart.seatsUnder.has(k.id));
-  const stacked = leavesOnly && count >= 2;
+  const stacked = leavesOnly && count > 6;
   return (
     <li className={`oc-node ${open && stacked ? 'has-stack' : ''}`}>
-      <PersonCard n={n} ctx={ctx} count={kids.length} seats={seats.length} open={open} />
+      <PersonCard n={n} ctx={ctx} count={kids.length} seats={seats.length} open={open} compact={!count} />
       {open ? (
-        <ul className={stacked ? 'oc-stack' : 'oc-level'}>
+        <ul className={stacked ? 'oc-stack' : leavesOnly ? 'oc-level oc-terminal' : 'oc-level'}>
           {kids.map((k) => (stacked
             ? <li key={k.id}><PersonCard n={k} ctx={ctx} count={0} seats={0} open={false} compact /></li>
             : <Branch key={k.id} n={k} ctx={ctx} />))}
@@ -204,14 +154,14 @@ function PersonCard({ n, ctx, count, seats, open, compact = false }) {
           <span className="oc-name" title={n.name}>{n.name}</span>
           <span className="oc-role" title={n.designation || undefined}>{n.designation || '—'}</span>
           {n.department && !compact ? <span className="oc-dept"><i aria-hidden="true" />{n.department}</span> : null}
-          {dotted && !compact ? <span className="oc-dotted">Also reports to {dotted.name}</span> : null}
+          {dotted ? <span className="oc-dotted">Also reports to {dotted.name}</span> : null}
         </span>
       </button>
       {total ? (
         <button type="button" className="oc-count" aria-expanded={open} onClick={() => ctx.toggle(n.id)}
           aria-label={`${open ? 'Hide' : 'Show'} ${reports}`} title={reports}>
           {open ? <Minus size={11} aria-hidden="true" /> : <Plus size={11} aria-hidden="true" />}
-          <span className="tabular-nums">{total}</span>
+          <span className="tabular-nums">{count ? `${count} ${count === 1 ? 'report' : 'reports'}` : ''}{count && seats ? ' · ' : ''}{seats ? `${seats} open` : ''}</span>
         </button>
       ) : null}
     </div>

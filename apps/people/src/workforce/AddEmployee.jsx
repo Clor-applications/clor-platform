@@ -1,3 +1,4 @@
+import { useForm, useWatch } from 'react-hook-form';
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Camera, Check, ChevronDown } from '@ui/components/ui/lineIcons';
@@ -39,7 +40,6 @@ import { probationHint } from './round59';
  * idempotency key, and the server checks everything again.
  */
 const STEPS = [['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['review', 'Review']];
-const STEP_WORDS = { personal: 'personal details', employment: 'job details', organization: 'where they sit and who they report to', review: 'check everything, then create' };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BLANK = {
   firstName: '', lastName: '', preferredName: '', workEmail: '', workPhone: '', email: '', phone: '', dateOfBirth: '', gender: '', guardianName: '', photoUrl: '',
@@ -84,9 +84,12 @@ function check(step, f) {
 
 export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   const perms = usePermissions();
-  const [form, setForm] = useState(BLANK);
+  const { control, getValues, setValue, reset } = useForm({ defaultValues: BLANK, mode: 'onTouched' });
+  const form = useWatch({ control });
+  const setForm = (update) => reset(typeof update === 'function' ? update(getValues()) : update);
   const [saved, setSaved] = useState(BLANK);
   const [draftId, setDraftId] = useState(params.draft || null);
+  const locallySavedDraft = useRef(null);
   const [loading, setLoading] = useState(Boolean(params.draft));
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
@@ -135,6 +138,11 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   useEffect(() => {
     let live = true;
     if (params.draft) {
+      // The first autosave adds the draft to the URL. The form already holds its latest values.
+      if (params.draft === locallySavedDraft.current) {
+        locallySavedDraft.current = null;
+        return;
+      }
       getDraft(params.draft).then((d) => { if (!live) return; const next = { ...BLANK, ...d.data }; setForm(next); setSaved(next); setDraftId(d.id); }).catch((e) => live && setFailure(e)).finally(() => live && setLoading(false));
     } else {
       /* The suggestion is not an edit: the baseline takes it too, so an untouched wizard leaves without a warning. */
@@ -166,10 +174,33 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     setSaved((f) => ({ ...f, ...start }));
   }, [lists]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const goStep = (k) => { updateParams?.({ step: k === 'personal' ? null : k }, { push: true }); bodyRef.current?.focus(); window.scrollTo(0, 0); };
+  const draftLock = useRef(false);
+  const goStep = async (k) => {
+    if (draftLock.current || busy) return;
+    let id = draftId;
+    if (dirty) {
+      draftLock.current = true;
+      setBusy(true);
+      try {
+        const snapshot = getValues();
+        const { photoUrl: _photo, ...data } = snapshot;
+        const draft = await saveDraft(id, { step: STEPS.findIndex(([key]) => key === k) + 1, data });
+        id = draft.id;
+        locallySavedDraft.current = id;
+        setDraftId(id);
+        setSaved(snapshot);
+      } catch (error) {
+        notify.error(errorWords(error, 'save this step'));
+        return;
+      } finally { draftLock.current = false; setBusy(false); }
+    }
+    updateParams?.({ step: k === 'personal' ? null : k, ...(id ? { draft: id } : {}) }, { push: true });
+    bodyRef.current?.focus();
+    window.scrollTo(0, 0);
+  };
   const emailHints = useEmailSuggestions(form.workEmail, form.firstName, form.lastName);
   const relationHints = useSuggestions('relation');
-  const field = (k) => ({ value: form[k], onChange: (v) => { setForm((f) => ({ ...f, [k]: v })); if (errors[k]) setErrors((e) => { const n = { ...e }; delete n[k]; return n; }); },
+  const field = (k) => ({ value: form[k], onChange: (v) => { setValue(k, v, { shouldDirty: true }); if (errors[k]) setErrors((e) => { const n = { ...e }; delete n[k]; return n; }); },
     /* Round 56 (errortiming A): a mistake shows when the field is left, under it; an empty field is not nagged until Continue. */
     onBlur: () => { const f = latest.current.form; const msg = f[k] ? check(latest.current.stepKey, f)[k] : null; if (msg) setErrors((e) => (e[k] === msg ? e : { ...e, [k]: msg })); } });
   latest.current = { form, stepKey };
@@ -308,7 +339,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
     <div className="space-y-6 ui-wizard">
       <div className="pc-head">
         <BackLink label="Employees" onClick={cancel} />
-        <PageHeader title="Add employee" description={`Step ${stepIndex + 1} of ${STEPS.length} · ${STEP_WORDS[stepKey] || ''}. You can save a draft and finish later.`}
+        <PageHeader title="Add employee" description={`Step ${stepIndex + 1} of ${STEPS.length}`}
           actions={<>
             {draftId ? <button type="button" className="ui-link text-sm" onClick={discardDraft}>Delete saved draft</button> : null}
             <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={saveAsDraft}>Save draft</button>

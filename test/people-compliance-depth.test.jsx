@@ -26,7 +26,7 @@ const perms = vi.hoisted(() => ({ current: { isAdmin: true, permissions: new Set
 const http = vi.hoisted(() => ({ apiFetch: vi.fn() }));
 vi.mock('../apps/people/src/api/compliance', () => api);
 vi.mock('@platform/http', () => http);
-vi.mock('@platform/context', () => ({ orgId: () => 'org1' }));
+vi.mock('@platform/context', () => ({ orgId: () => 'org1', currentUser: () => ({ id: 'u1' }) }));
 vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => perms.current }));
 vi.mock('../packages/ui/src/permissions/usePermissions', () => ({ usePermissions: () => perms.current }));
 vi.mock('@ui/components/ui/notify', () => ({ confirmDialog: vi.fn(async () => true), notify: { error: vi.fn(), success: vi.fn() } }));

@@ -147,7 +147,8 @@ describe('Offers (gap 7)', () => {
     expect(within(table).getByText('₹6,00,000')).toBeInTheDocument();
     expect(within(table).getByText('Accept by 5 Nov 2026')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Waiting/ })).toHaveTextContent('1');
-    fireEvent.click(within(within(table).getByRole('group', { name: /actions/i })).getByRole('button', { name: 'Withdraw' }));
+    fireEvent.click(within(table).getByRole('button', { name: 'Actions for Neha Rao' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Withdraw' }));
     await waitFor(() => expect(wf.withdrawOffer).toHaveBeenCalledWith('o1'));
     expect(dialogs.confirmDialog).toHaveBeenCalled();
   });
@@ -219,8 +220,8 @@ describe('Delegates: one list and one form over the one stand-in table (gap 9, w
     fireEvent.click(screen.getByRole('button', { name: /Add delegate/ }));
     await screen.findByRole('dialog', { name: 'Add delegate' });
     await pick('Decides *', /Kavya Iyer/);
-    typeDate(screen.getByLabelText('From'), '10/11/2026');
-    typeDate(screen.getByLabelText('To'), '14/11/2026');
+    typeDate(screen.getByLabelText('From', { selector: 'input' }), '10/11/2026');
+    typeDate(screen.getByLabelText('To', { selector: 'input' }), '14/11/2026');
     expect(screen.getByRole('radio', { name: 'All approvals' })).toBeChecked();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(appr.addStandIn).toHaveBeenCalledWith({ standInEmployeeId: 'e-kavya', fromDate: '2026-11-10', toDate: '2026-11-14', requestTypes: ['ALL'] }));
@@ -234,8 +235,8 @@ describe('Delegates: one list and one form over the one stand-in table (gap 9, w
     fireEvent.click(await screen.findByRole('button', { name: /Add delegate/ }));
     await screen.findByRole('dialog', { name: 'Add delegate' });
     await pick('Decides *', /Kavya Iyer/);
-    typeDate(screen.getByLabelText('From'), '10/11/2026');
-    typeDate(screen.getByLabelText('To'), '14/11/2026');
+    typeDate(screen.getByLabelText('From', { selector: 'input' }), '10/11/2026');
+    typeDate(screen.getByLabelText('To', { selector: 'input' }), '14/11/2026');
     fireEvent.click(screen.getByRole('radio', { name: 'Chosen request types' }));
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Leave' }));
@@ -255,8 +256,8 @@ describe('Delegates: one list and one form over the one stand-in table (gap 9, w
     expect(screen.getByRole('radio', { name: 'All approvals' })).toBeDisabled();
     expect(screen.getByRole('radio', { name: 'Leave and attendance' })).toBeChecked();
     expect(screen.getByText('Other approvals are handed on by the manager themselves, from their own sign-in.')).toBeInTheDocument();
-    typeDate(screen.getByLabelText('From'), '10/11/2026');
-    typeDate(screen.getByLabelText('To'), '14/11/2026');
+    typeDate(screen.getByLabelText('From', { selector: 'input' }), '10/11/2026');
+    typeDate(screen.getByLabelText('To', { selector: 'input' }), '14/11/2026');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(time.addStandIn).toHaveBeenCalledWith({ managerEmployeeId: 'e-asha', standInEmployeeId: 'e-kavya', fromDate: '2026-11-10', toDate: '2026-11-14', requestTypes: ['LEAVE', 'ATTENDANCE'] }));
     expect(appr.addStandIn).not.toHaveBeenCalled();
@@ -271,8 +272,8 @@ describe('Delegates: HR with nobody chosen yet', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Add delegate/ }));
     await screen.findByRole('dialog', { name: 'Add delegate' });
     await pick('Decides *', /Kavya Iyer/);
-    typeDate(screen.getByLabelText('From'), '10/11/2026');
-    typeDate(screen.getByLabelText('To'), '14/11/2026');
+    typeDate(screen.getByLabelText('From', { selector: 'input' }), '10/11/2026');
+    typeDate(screen.getByLabelText('To', { selector: 'input' }), '14/11/2026');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     await pick('In place of *', /Asha Rao/);
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -339,7 +340,7 @@ describe('Joining forms not back, and held details to Payroll (gaps 15, 22)', ()
     ctx.apps = ['people', 'payroll'];
     personnel.listInvites.mockResolvedValue(invites);
     render(<Joining params={{ view: 'forms' }} updateParams={() => {}} openScreen={() => {}} />);
-    const table = await screen.findByRole('table', { name: 'Forms not back' });
+    const table = await screen.findByRole('table', { name: 'Pending forms' });
     expect(within(table).getByText('Neha Joshi')).toBeInTheDocument();
     expect(within(table).getByText('Not opened yet')).toBeInTheDocument();
     expect(within(table).getByText('Link ran out')).toBeInTheDocument();
@@ -349,10 +350,18 @@ describe('Joining forms not back, and held details to Payroll (gaps 15, 22)', ()
     await waitFor(() => expect(personnel.sendHeldToPayroll).toHaveBeenCalled());
   });
 
+  it('finds a pending form by employee code, ignoring case', async () => {
+    personnel.listInvites.mockResolvedValue(invites);
+    render(<Joining params={{ view: 'forms', q: 'at-06' }} />);
+    const table = await screen.findByRole('table', { name: 'Pending forms' });
+    expect(await within(table).findByText('Neha Joshi')).toBeInTheDocument();
+    expect(within(table).queryByText('Old Link')).toBeNull();
+  });
+
   it('without Payroll on, nothing is offered to send', async () => {
     personnel.listInvites.mockResolvedValue(invites);
     render(<Joining params={{ view: 'forms' }} updateParams={() => {}} openScreen={() => {}} />);
-    await screen.findByRole('table', { name: 'Forms not back' });
+    await screen.findByRole('table', { name: 'Pending forms' });
     expect(screen.queryByRole('button', { name: 'Send to Payroll' })).toBeNull();
   });
 

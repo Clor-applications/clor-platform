@@ -5,6 +5,8 @@ import OpenInCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
  * them as one file the first time the app opens (WX-03). The manifest names
  * them; nothing else should import from here.
  */
+export { default as EmployeeWorkspace } from './workforce/EmployeeWorkspace';
+export { default as TimeWorkspace } from './time/TimeWorkspace';
 export { default as PeopleOverview } from './screens/PeopleOverview';
 /* Workforce (People design v1, Module 01). */
 export { default as Workforce } from './workforce/Directory';

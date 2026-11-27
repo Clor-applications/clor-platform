@@ -85,7 +85,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Insights' }]}
+        breadcrumb={[{ label: 'People' }, { label: 'Reports' }]}
         title="Requests report"
         actions={<button type="button" className="ui-btn ui-btn-primary" disabled={exporting || !rows.length} onClick={exportCsv}><Download size={16} aria-hidden="true" /> {exporting ? 'Exporting…' : 'Export'}</button>}
       />

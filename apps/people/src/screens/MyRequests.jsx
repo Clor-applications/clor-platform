@@ -20,8 +20,12 @@ import { askForm, myFile, myForms, replyMine, withdrawMine } from '../api/reques
  * CLOR, and followed here: waiting, asked for more (answer it), decided.
  * The same requests as in the employee app; opened from My profile.
  */
-const REQUEST_STATUS = { WAITING: 'Waiting for approval', MORE_INFO: 'Asked for more', APPROVED: 'Approved', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn' };
+const REQUEST_STATUS = { WAITING: 'Waiting for approval', MORE_INFO: 'Needs your reply', APPROVED: 'Approved', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn' };
 const REQUEST_TONE = { WAITING: 'warn', MORE_INFO: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'neutral' };
+function RequestStatus({ status }) {
+  return <span className={`ui-pill ui-pill-${REQUEST_TONE[status] || 'neutral'}`}>{REQUEST_STATUS[status] || enumWords(status)}</span>;
+}
+
 const day = (iso) => (iso ? formatDate(String(iso).slice(0, 10)) : '');
 const newKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 
@@ -33,16 +37,15 @@ export default function MyRequests() {
   const [open, setOpen] = useState(null);
 
   const columns = [
-    { key: 'form', label: 'Request', always: true, render: (r) => <span>{r.formName}</span> },
-    { key: 'what', label: 'What you wrote', render: (r) => <span className="block max-w-sm truncate">{r.lines.map((l) => l.value).join(' · ')}</span> },
-    { key: 'asked', label: 'Asked', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.askedAt)}</span> },
-    { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || enumWords(r.status)}</span> },
+    { key: 'form', label: 'Request', width: '28%', always: true, render: (r) => <span>{r.formName}</span> },
+    { key: 'what', label: 'Details', width: '34%', render: (r) => <span className="block mx-auto max-w-sm whitespace-normal">{r.lines.map((l) => l.value).join(' · ')}</span> },
+    { key: 'asked', label: 'Submitted', width: '19%', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.askedAt)}</span> },
+    { key: 'status', label: 'Status', width: '19%', render: (r) => <RequestStatus status={r.status} /> },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-column-sizing="content">
       <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Me' }]}
         title="My requests"
         actions={forms.length ? (
           <div className="w-full sm:w-64">
@@ -64,7 +67,7 @@ export default function MyRequests() {
         onRowClick={(r) => setOpen(r)}
         card={(r) => (
           <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.formName}</span><span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || enumWords(r.status)}</span></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.formName}</span><RequestStatus status={r.status} /></span>
             <span className="block truncate ui-caption">{day(r.askedAt)} · {r.lines.map((l) => l.value).join(' · ')}</span>
           </span>
         )}
@@ -72,7 +75,7 @@ export default function MyRequests() {
           /* An owner or HR user with no employee file of their own: said plainly, not "not found". */
           <EmptyState title="No employee file is linked to your sign-in" description="Ask HR to put your email on your employee file; your requests then show here." />
         ) : req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : (
-          <EmptyState title="You have not asked for anything yet" description={forms.length ? 'Choose a request above. HR sees it in their Inbox.' : 'HR has not set up any requests yet.'} action={forms.length ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking(forms[0])}><Plus size={14} aria-hidden="true" /> {forms[0].name}</button> : null} />
+          <EmptyState describe title="No submitted requests" description={forms.length ? 'Choose a request above. HR sees it in their Inbox.' : 'HR has not set up any requests yet.'} action={forms.length ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking(forms[0])}><Plus size={14} aria-hidden="true" /> {forms[0].name}</button> : null} />
         )}
       />
       {asking ? <AskDrawer form={asking} onClose={() => setAsking(null)} onSent={() => { setAsking(null); req.reload(); }} /> : null}
@@ -148,7 +151,7 @@ function RequestDrawer({ request: r, onClose, onDone }) {
     >
       <div className="space-y-4 text-sm">
         <dl className="grid gap-3 sm:grid-cols-2">
-          <div><dt className="ui-t-label">Status</dt><dd><span className={`ui-pill ui-pill-${REQUEST_TONE[r.status] || 'neutral'}`}>{REQUEST_STATUS[r.status] || enumWords(r.status)}</span></dd></div>
+          <div><dt className="ui-t-label">Status</dt><dd><RequestStatus status={r.status} /></dd></div>
           <div><dt className="ui-t-label">Asked</dt><dd className="tabular-nums">{day(r.askedAt)}{r.dueAt && open ? ` · due ${day(r.dueAt)}` : ''}</dd></div>
           {r.lines.map((l) => <div key={l.label} className="sm:col-span-2"><dt className="ui-t-label">{l.label}</dt><dd>{l.value}</dd></div>)}
           {r.said ? <div className="sm:col-span-2"><dt className="ui-t-label">{r.status === 'MORE_INFO' ? 'HR asks' : 'Note'}</dt><dd>{r.said}</dd></div> : null}

@@ -9,6 +9,7 @@ import { StatStrip, Button } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
 import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SearchField from '@ui/components/ui/SearchField';
@@ -58,12 +59,11 @@ export default function Expenses({ params = {}, updateParams }) {
   /* The count line (DESIGN.md "Page header"): what waits to be paid, in claims and in rupees. Zero clauses drop out. */
   const waiting = toPay.data || [];
   const figures = toPay.data ? [
-    { key: 'claims', label: waiting.length === 1 ? 'claim to pay' : 'claims to pay', value: waiting.length, tone: 'warn', onClick: tab === 'pay' ? undefined : () => set({ tab: null, page: null, q: null }, true) },
-    { key: 'sum', label: 'to pay in all', value: waiting.length ? money(waiting.reduce((a, c) => a + Number(c.toPay || 0), 0)) : 0 },
+    { key: 'sum', label: 'awaiting payment', value: waiting.length ? money(waiting.reduce((a, c) => a + Number(c.toPay || 0), 0)) : 0 },
   ] : null;
   const exportBooks = () => downloadCsv('books').catch((e) => notify.error(errorWords(e, 'download the file')));
   return (
-    <div className="space-y-6">
+    <div className="people-register" data-column-sizing="content">
       <ListHeader
         section="Pay & benefits"
         title="Expenses"
@@ -73,13 +73,14 @@ export default function Expenses({ params = {}, updateParams }) {
           {mayPay ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setCategoriesOpen(true)}>Categories and limits</button> : null}
           {mayExport ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportBooks}>Download for Books</button> : null}
         </>}
+        toolbar={tab !== 'report' && <SearchField key={tab} value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder={tab === 'advances' ? 'Search name or purpose' : tab === 'salary' ? 'Search name' : 'Search employee or claim'} label={tab === 'advances' ? 'Search advances' : tab === 'salary' ? 'Search salary advances' : 'Search claims'} />}
         tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: k === 'pay' ? toPay.data?.length || 0 : 0, tone: 'warn' }))}
         tab={tab}
         onTab={(k) => set({ tab: k === 'pay' ? null : k, page: null, q: null }, true)}
       />
       {tab === 'pay' || tab === 'all' || tab === 'books' ? <ClaimList key={tab} tab={tab} params={p} set={set} mayPay={mayPay} onPaid={toPay.reload} preloaded={tab === 'pay' ? toPay : null} /> : null}
-      {tab === 'advances' ? <AdvanceList params={p} set={set} mayPay={mayPay} /> : null}
-      {tab === 'salary' ? <SalaryAdvanceList params={p} set={set} mayPay={mayPay} /> : null}
+      {tab === 'advances' ? <AdvanceList params={p} mayPay={mayPay} /> : null}
+      {tab === 'salary' ? <SalaryAdvanceList params={p} mayPay={mayPay} /> : null}
       {tab === 'report' ? <Report mayExport={mayExport} /> : null}
       {categoriesOpen ? <CategoriesDrawer onClose={() => setCategoriesOpen(false)} /> : null}
       {recording?.step === 'person' ? (
@@ -121,10 +122,12 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (c) => <PersonCell person={{ name: c.employeeName || '—' }} line={c.employeeCode || ''} /> },
     { key: 'claim', label: 'Claim', render: (c) => <span className="min-w-0"><span className="block truncate">{c.title}</span><span className="block ui-caption">{c.number} · {c.lines.length} bill{c.lines.length === 1 ? '' : 's'}{c.recordedByUserId ? ' · recorded by HR' : ''}</span></span> },
-    { key: 'status', label: 'Status', render: (c) => <span className="block"><ExceptionTag label={c.status === 'PAID' ? '' : HR_WORDS[c.status] || c.status} normal={HR_WORDS[c.status]} tone={PILL[c.status] || 'neutral'} />{c.status === 'PAID' || c.status === 'WITH_SALARY' ? <span className="block ui-caption mt-0.5">{c.payMode === 'SALARY' ? `With salary${c.payrollPeriodName ? `, ${c.payrollPeriodName}` : ''}` : `${METHOD[c.paidMethod] || 'Paid now'} · ${day(c.paidOn)}`}</span> : null}</span> },
+    { key: 'billed', label: 'Last bill', render: (c) => day(c.lines.map(l => l.spentOn).filter(Boolean).sort().at(-1)) || '—' },
+    { key: 'status', label: 'Status', render: (c) => <span className="block"><ExceptionTag label={HR_WORDS[c.status] || c.status} normal={HR_WORDS[c.status]} tone={PILL[c.status] || 'neutral'} />{c.status === 'PAID' || c.status === 'WITH_SALARY' ? <span className="block ui-caption mt-0.5">{c.payMode === 'SALARY' ? `With salary${c.payrollPeriodName ? `, ${c.payrollPeriodName}` : ''}` : `${METHOD[c.paidMethod] || 'Paid now'} · ${day(c.paidOn)}`}</span> : null}</span> },
     { key: 'amount', label: tab === 'pay' ? 'To pay' : 'Amount', align: 'right', render: (c) => <span className="tabular-nums whitespace-nowrap">{money(amountOf(c))}</span> },
   ];
   const books = tab === 'books';
+  const ClaimsTable = books ? DataTable : ReviewTable;
   return (
     <>
       {books && selected.size ? (
@@ -135,9 +138,9 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
         </div>
       ) : null}
       {books ? <p className="ui-caption">Every approved bill, however it was paid. Books does not take these by itself yet: enter each in Books (Download for Books has the GSTIN, the GST and any advance used), then mark it here.</p> : null}
-      <DataTable
+      <ClaimsTable key={JSON.stringify([tab, q, page, size])} mobileSelectAll
         label={TABS.find(([k]) => k === tab)?.[1]}
-        columns={columns}
+        columns={columns.filter(c => tab === 'pay' ? c.key !== 'status' : c.key !== 'billed')}
         rows={rows.slice((page - 1) * size, page * size)}
         total={rows.length}
         page={page}
@@ -154,10 +157,9 @@ function ClaimList({ tab, params: p, set, mayPay, onPaid, preloaded }) {
         card={(c) => (
           <span className="min-w-0 flex-1">
             <span className="flex items-center justify-between gap-2"><span className="truncate">{c.employeeName}</span><span className="tabular-nums">{money(amountOf(c))}</span></span>
-            <span className="flex items-center justify-between gap-2"><span className="truncate ui-caption">{c.number} · {c.title}</span><ExceptionTag label={c.status === 'PAID' ? '' : HR_WORDS[c.status] || c.status} normal={HR_WORDS[c.status]} tone={PILL[c.status] || 'neutral'} /></span>
+            <span className="flex items-center justify-between gap-2"><span className="truncate ui-caption">{c.number} · {c.title}</span><ExceptionTag label={HR_WORDS[c.status] || c.status} normal={HR_WORDS[c.status]} tone={PILL[c.status] || 'neutral'} /></span>
           </span>
         )}
-        toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null, page: null })} placeholder="Search name, employee ID or claim" label="Search claims" className="w-full sm:w-72" />}
         empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} />
           : q ? <EmptyState kind="filtered" title="Nothing matches" onClearFilters={() => set({ q: null, page: null })} />
             : <EmptyState icon={Receipt} title={tab === 'pay' ? 'Nothing to pay' : books ? 'Nothing waiting to go into Books' : 'No claims yet'} description={tab === 'pay' ? 'Claims approved in the Inbox wait here to be paid.' : tab === 'all' ? 'Staff add bills from the employee app, under Me, or HR records a claim for them.' : undefined} />}
@@ -237,7 +239,7 @@ function ClaimDrawer({ claim: c, reimbursement, mayPay, onClose, onDone }) {
 // Advances
 // ---------------------------------------------------------------------------
 
-function AdvanceList({ params: p, set, mayPay }) {
+function AdvanceList({ params: p, mayPay }) {
   const req = useRequest(() => listAdvances(), []);
   const [open, setOpen] = useState(null);
   const q = String(p.q || '').trim().toLowerCase();
@@ -245,22 +247,21 @@ function AdvanceList({ params: p, set, mayPay }) {
   const label = (a) => (a.status === 'APPROVED' ? 'To pay' : a.status === 'PAID' ? (a.recovering && !a.open ? 'Waiting for Payroll' : a.overdue ? 'Bills overdue' : 'Open') : HR_WORDS[a.status]);
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (a) => <PersonCell person={{ name: a.employeeName || '—' }} line={a.employeeCode || ''} /> },
-    { key: 'for', label: 'For', render: (a) => <span className="min-w-0"><span className="block truncate">{a.purpose}</span><span className="block ui-caption">{a.number}{a.settleBy && a.status === 'PAID' ? ` · bills by ${day(a.settleBy)}` : ''}</span></span> },
+    { key: 'for', label: 'Purpose', render: (a) => <span className="min-w-0"><span className="block truncate">{a.purpose}</span><span className="block ui-caption">{a.number}{a.settleBy && a.status === 'PAID' ? ` · bills by ${day(a.settleBy)}` : ''}</span></span> },
     { key: 'status', label: 'Status', render: (a) => <span className={`ui-pill ui-pill-${a.overdue ? 'neg' : PILL[a.status] || 'neutral'}`}>{label(a)}</span> },
     { key: 'amount', label: 'Given', align: 'right', render: (a) => <span className="tabular-nums">{money(a.amount)}</span> },
     { key: 'open', label: 'Still open', align: 'right', render: (a) => <span className="tabular-nums">{a.status === 'PAID' ? money(a.open) : '—'}</span> },
   ];
   return (
     <>
-      <DataTable label="Advances" columns={columns} rows={rows} total={rows.length} pageSize={Math.max(25, rows.length)} noun="advances" onRowClick={(a) => setOpen(a)} loading={req.loading} refreshing={req.refreshing}
+      <ReviewTable key={q} label="Advances" columns={columns} rows={rows} total={rows.length} pageSize={Math.max(25, rows.length)} noun="advances" onRowClick={(a) => setOpen(a)} loading={req.loading} refreshing={req.refreshing}
         card={(a) => (
           <span className="min-w-0 flex-1">
             <span className="flex items-center justify-between gap-2"><span className="truncate">{a.employeeName}</span><span className="tabular-nums">{money(a.status === 'PAID' ? a.open : a.amount)}</span></span>
             <span className="flex items-center justify-between gap-2"><span className="truncate ui-caption">{a.number} · {a.purpose}</span><span className={`ui-pill ui-pill-${a.overdue ? 'neg' : PILL[a.status] || 'neutral'}`}>{label(a)}</span></span>
           </span>
         )}
-        toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null })} placeholder="Search name or purpose" label="Search advances" className="w-full sm:w-72" />}
-        empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState icon={Receipt} title="No advances" description="Staff ask for one from the employee app, under Me." />} />
+        empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState icon={Receipt} title={q ? 'No matching advances' : 'No advances'} />} />
       {open ? <AdvanceDrawer advance={open} mayPay={mayPay} onClose={() => setOpen(null)} onDone={() => { setOpen(null); req.reload(); }} /> : null}
     </>
   );
@@ -319,7 +320,7 @@ function AdvanceDrawer({ advance: a, mayPay, onClose, onDone }) {
 // Salary advances
 // ---------------------------------------------------------------------------
 
-function SalaryAdvanceList({ params: p, set, mayPay }) {
+function SalaryAdvanceList({ params: p, mayPay }) {
   const req = useRequest(() => listSalaryAdvances(), []);
   const q = String(p.q || '').trim().toLowerCase();
   const rows = (req.data || []).filter((a) => a.status !== 'WITHDRAWN' && (!q || `${a.employeeName} ${a.employeeCode} ${a.reason}`.toLowerCase().includes(q)));
@@ -351,15 +352,14 @@ function SalaryAdvanceList({ params: p, set, mayPay }) {
     { key: 'loan', label: 'Payroll loan', render: (a) => <span className="block max-w-xs"><span className={`block ${a.payrollNote && !a.loan ? 'ui-text-warn' : ''}`}>{loanText(a) || '—'}</span>{mayPay && a.status === 'APPROVED' && !a.loan ? <button type="button" className="ui-link text-xs" disabled={Boolean(sending)} aria-busy={sending === a.id || undefined} onClick={(e) => { e.stopPropagation(); again(a); }}>{sending === a.id ? 'Sending…' : 'Send to Payroll'}</button> : null}</span> },
   ];
   return (
-    <DataTable label="Salary advances" columns={columns} rows={rows} total={rows.length} pageSize={Math.max(25, rows.length)} noun="salary advances" loading={req.loading} refreshing={req.refreshing}
+    <ReviewTable key={q} label="Salary advances" columns={columns} rows={rows} total={rows.length} pageSize={Math.max(25, rows.length)} noun="salary advances" loading={req.loading} refreshing={req.refreshing}
       card={(a) => (
         <span className="min-w-0 flex-1">
           <span className="flex items-center justify-between gap-2"><span className="truncate">{a.employeeName}</span><span className="tabular-nums">{money(a.amount)}</span></span>
           <span className="flex items-center justify-between gap-2"><span className="truncate ui-caption">{loanText(a) || `${money(a.emi)} a month`}</span><span className="ui-pill ui-pill-neutral">{a.statusLabel}</span></span>
         </span>
       )}
-      toolbar={<SearchField value={p.q || ''} onSearch={(v) => set({ q: v || null })} placeholder="Search name" label="Search salary advances" className="w-full sm:w-72" />}
-      empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState icon={Receipt} title="No salary advances" description="Staff ask from the employee app, within half their pay. You decide in the Inbox." />} />
+      empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState icon={Receipt} title={q ? 'No matching salary advances' : 'No salary advances'} />} />
   );
 }
 

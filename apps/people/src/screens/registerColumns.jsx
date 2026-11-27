@@ -18,8 +18,8 @@ export function assetColumns({ cfg, people, today }) {
     { key: 'tag', label: 'Tag', render: (r) => <span className="rg-tag">{r.details?.assetTag || '—'}</span> },
     { key: 'title', label: 'Asset', always: true, render: (r) => <span>{symbolOf(r.details?.symbol) ? <span className="mr-1.5" aria-hidden="true">{symbolOf(r.details.symbol).emoji}</span> : null}{r.title}</span> },
     { key: 'category', label: 'Type', render: (r) => r.details?.category || <span className="ui-muted">—</span> },
-    { key: 'employee', label: 'With', render: (r) => (people.get(r.employeeId) ? <span className="rg-who"><Avatar person={people.get(r.employeeId)} size={28} /><span className="truncate">{people.get(r.employeeId).name}</span></span> : <span className="ui-muted">—</span>) },
-    { key: 'since', label: 'Since', align: 'right', render: (r) => <span className="tabular-nums whitespace-nowrap">{r.employeeId && r.details?.issuedOn ? day(r.details.issuedOn) : '—'}</span> },
+    { key: 'employee', label: 'Assigned to', render: (r) => (people.get(r.employeeId) ? <span className="rg-who"><Avatar person={people.get(r.employeeId)} size={28} /><span className="truncate">{people.get(r.employeeId).name}</span></span> : <span className="ui-muted">—</span>) },
+    { key: 'since', label: 'Issued', align: 'right', render: (r) => <span className="tabular-nums whitespace-nowrap">{r.employeeId && r.details?.issuedOn ? day(r.details.issuedOn) : '—'}</span> },
     { key: 'status', label: 'Status', render: (r) => <AssetPill cfg={cfg} row={r} holder={people.get(r.employeeId)} today={today} /> },
   ];
 }
@@ -29,7 +29,7 @@ export function enrolmentColumns({ cfg, people, today }) {
   return [
     { key: 'employee', label: 'Employee', always: true, render: (r) => (people.get(r.employeeId) ? <span className="rg-who"><Avatar person={people.get(r.employeeId)} size={28} /><span className="truncate">{people.get(r.employeeId).name}</span></span> : <span className="ui-muted">Someone who has left</span>) },
     { key: 'title', label: 'Plan', render: (r) => r.title },
-    { key: 'coverage', label: 'Change', render: (r) => <span className="block max-w-[22rem] truncate" title={r.details?.coverage || ''}>{r.details?.coverage || '—'}</span> },
+    { key: 'coverage', label: 'Coverage', render: (r) => <span className="block max-w-[22rem] truncate" title={r.details?.coverage || ''}>{r.details?.coverage || '—'}</span> },
     { key: 'startDate', label: 'Effective', align: 'right', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.details?.startDate) || '—'}</span> },
     { key: 'status', label: 'Status', render: (r) => (r.status === 'ACTIVE' && String(r.details?.startDate || '') > today
       ? <StatusPill cfg={cfg} status={r.status} tone="warn">Starts {short(r.details.startDate, today)}</StatusPill>

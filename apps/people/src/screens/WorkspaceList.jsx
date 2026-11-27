@@ -1,8 +1,10 @@
+import AnnouncementEditor from '@ui/components/ui/AnnouncementEditor';
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SearchField from '@ui/components/ui/SearchField';
@@ -41,6 +43,7 @@ const NO_SUGGEST = new Set(['assetTag', 'serialNumber', 'email', 'phone']);
 const EVENT_TABS = ['upcoming', 'past'];
 
 export default function WorkspaceList({ kind, params }) {
+  const compact = kind === 'assets' || kind === 'benefits';
   const cfg = WORKSPACE_CONFIG[kind];
   const noun = cfg.noun || cfg.title.toLowerCase();
   const name = (s) => statusName(cfg, s);
@@ -102,9 +105,9 @@ export default function WorkspaceList({ kind, params }) {
     if (!(await confirmDialog({ title: `Delete ${row.title}?`, message: 'Only closed, cancelled, archived or draft records can be deleted. Close an active one first.', confirmLabel: 'Delete' }))) return;
     try { await deleteRecord(kind, row.id); notify.success(`${row.title} deleted.`); req.reload(); } catch (e) { notify.error(errorWords(e, 'delete it')); }
   };
-  const exportRows = () => runListExport({
+  const exportRows = (records) => runListExport({
     format: 'csv', title: cfg.title, fileName: cfg.title, label: cfg.title,
-    rows: shown.map((r) => ({ ...r, ...r.details, statusName: name(r.status), employeeName: names.get(r.employeeId) || '' })),
+    rows: records.map((r) => ({ ...r, ...r.details, statusName: name(r.status), employeeName: names.get(r.employeeId) || '' })),
     columns: [{ key: 'title', label: 'Name' }, { key: 'statusName', label: 'Status' }, ...(cfg.employee ? [{ key: 'employeeName', label: 'Employee' }] : []), { key: 'dueDate', label: 'Due date' }, ...cfg.fields.map((f) => ({ key: f.key, label: f.label }))],
   });
   const plainColumns = [
@@ -122,11 +125,12 @@ export default function WorkspaceList({ kind, params }) {
   ];
   const addLabel = cfg.addLabel || `New ${cfg.singular}`;
   const empty = q || type || status !== 'ALL'
-    ? <EmptyState kind="filtered" title={`No ${noun} match`} description={kind === 'events' && !q && status !== 'ALL' ? 'No events here. Try another tab.' : 'Nothing here matches the search or the tab.'} />
-    : <EmptyState title={`No ${noun} yet`} description={`Each ${cfg.singular} you add appears here.`} routes={canCreate ? [{ label: addLabel, onSelect: () => setEditing(blank()) }] : undefined} />;
+    ? <EmptyState kind="filtered" title={`No ${noun} match`} onClearFilters={() => { setQ(''); setType(''); setStatus('ALL'); }} />
+    : <EmptyState title={`No ${noun} yet`} routes={canCreate && !compact ? [{ label: addLabel, onSelect: () => setEditing(blank()) }] : undefined} />;
   const failed = req.error && !req.data;
+  const Table = compact ? ReviewTable : DataTable;
   const table = (list, extra = {}) => (
-    <DataTable
+    <Table key={JSON.stringify([kind, status, q, type])} exportSelected={compact ? exportRows : undefined} compactActions={compact}
       label={cfg.title} columns={status === 'ALL' || extra.keepStatus ? columns : columns.filter((c) => c.key !== 'status')} rows={list} loading={req.loading} refreshing={req.refreshing}
       total={list.length} pageSize={Math.max(25, list.length)} noun={extra.noun || noun}
       onRowClick={open} rowActions={rowActions}
@@ -162,16 +166,15 @@ export default function WorkspaceList({ kind, params }) {
   } else body = table(shown, { keepStatus: kind === 'assets' });
 
   return (
-    <div className="space-y-6">
+    <div className={compact ? 'people-register' : 'space-y-6'} data-column-sizing={compact ? 'content' : undefined}>
       <ListHeader
         title={cfg.title}
-        description={cfg.description}
-        secondary={<button type="button" className="ui-btn ui-btn-secondary" onClick={exportRows} disabled={!shown.length}><Download size={16} aria-hidden="true" /> Export</button>}
+        secondary={<button type="button" className="ui-btn ui-btn-secondary" onClick={() => exportRows(shown)} disabled={!shown.length}><Download size={16} aria-hidden="true" /> Export</button>}
         primary={canCreate ? { label: addLabel, icon: Plus, onClick: () => setEditing(blank()), disabled: Boolean(failed) } : null}
-        strip={failed ? null : <RegisterFigures kind={kind} cfg={cfg} rows={rows} people={people} working={working} today={today} onTab={setStatus} />}
+        headingSummary={failed ? null : <RegisterFigures kind={kind} cfg={cfg} rows={rows} people={people} working={working} today={today} onTab={setStatus} />}
         toolbar={<>
           <SearchField value={q} onSearch={setQ} placeholder={cfg.search || `Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />
-          {types.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Asset type" placeholder="Every type" value={type} onChange={(v) => setType(v || '')} options={[{ value: '', label: 'Every type' }, ...types.map((t) => ({ value: t, label: t }))]} /></div> : null}
+          {types.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Asset type" placeholder="All types" value={type} onChange={(v) => setType(v || '')} options={[{ value: '', label: 'All types' }, ...types.map((t) => ({ value: t, label: t }))]} /></div> : null}
         </>}
         tabs={tabs}
         tab={EVENT_TABS.includes(status) || status === 'ALL' || cfg.statuses.includes(status) ? status : 'ALL'}
@@ -194,6 +197,7 @@ function RecordDrawer({ kind, cfg, rows, value, employees, onClose, onDone }) {
     const missing = !form.title.trim() ? 'a name'
       : cfg.requiredEmployee && !form.employeeId ? 'the employee'
         : cfg.fields.find((f) => f.required && !String(form.details[f.key] ?? '').trim())?.label?.toLowerCase();
+    if (kind === 'announcements' && form.details.body?.length > 10000) { setError({ message: 'Shorten the message to 10,000 characters.' }); return; }
     if (missing) { setError({ message: `Add ${missing}.` }); return; }
     setBusy(true);
     setError(null);
@@ -218,6 +222,7 @@ function RecordDrawer({ kind, cfg, rows, value, employees, onClose, onDone }) {
     const label = `${f.label}${f.required ? ' *' : ''}`;
     if (f.type === 'audience') return <AudiencePicker key={f.key} kind={form.details.audienceKind || 'ALL'} ids={form.details.audienceIds || []} onChange={(patch) => setForm((x) => ({ ...x, details: { ...x.details, ...patch } }))} />;
     if (f.type === 'symbol') return <SymbolPicker key={f.key} id={id} label={label} value={v} onChange={(k) => setDetail(f.key, k)} />;
+    if (kind === 'announcements' && f.key === 'body') return <AnnouncementEditor key={f.key} id={id} label={label} value={v} onChange={(text) => setDetail(f.key, text)} />;
     if (f.type === 'textarea') return <label key={f.key} className="block sm:col-span-2"><span className="ui-label">{label}</span><textarea id={id} className="ui-input w-full" rows={4} maxLength={10000} value={v} onChange={(e) => setDetail(f.key, e.target.value)} /></label>;
     if (f.type === 'date') return <div key={f.key}><label className="ui-label" htmlFor={id}>{label}</label><DatePicker id={id} value={v} onChange={(d) => setDetail(f.key, d || '')} /></div>;
     if (f.type === 'select') return <div key={f.key}><PopupSelect showValueSubtext={false} label={label} value={v} onChange={(s) => setDetail(f.key, s || '')} options={f.options.map((s) => ({ value: s, label: statusLabel(s) }))} /></div>;

@@ -433,7 +433,10 @@ const FIX_HERE = {
 };
 function ReadinessSection({ person, go }) {
   const r = useRequest(() => employeeReadiness(person.id), [person.id, person.version]);
-  if (r.loading || r.error || !r.data) return null;
+  if (r.loading) return null;
+  if (r.error || !r.data?.apps || !Array.isArray(r.data.checks)) {
+    return <ErrorState title="Could not check payroll readiness" error={r.error} onRetry={r.reload} compact />;
+  }
   const { apps, checks } = r.data;
   const order = ['BLOCKS_PAYROLL', 'FIX_SOON', 'TIDY_UP'];
   const sorted = [...checks].sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity));

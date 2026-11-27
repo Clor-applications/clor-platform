@@ -1,9 +1,15 @@
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { errorWords, enumWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, Button } from '@ui/components/ui/Primitives';
-import DataTable from '@ui/components/ui/DataTable';
+import { CountLine } from '@ui/components/ui/CountLine';
+import { Avatar } from '@ui/personnel/Employees';
+import { FilterTabs } from '@ui/components/list/ListHeader';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -31,6 +37,8 @@ export default function LateMarks({ params = {}, updateParams }) {
   const req = useRequest(() => getLateMarks(month), [month]);
   const d = req.data;
   const rows = useMemo(() => d?.rows || [], [d]);
+  const [view, setView] = useState('ALL');
+  const visibleRows = view === 'ALL' ? rows : rows.filter(row => row.status === view);
   const [open, setOpen] = useState(null);
   const [waiving, setWaiving] = useState(null);
   const [busy, setBusy] = useState('');
@@ -72,49 +80,69 @@ export default function LateMarks({ params = {}, updateParams }) {
   };
 
   const due = rows.filter((r) => r.status === 'DUE').length;
+  const statusTabs = [{ key: 'ALL', label: 'All' }, ...Object.entries(STATUS)
+    .filter(([key]) => key === view || rows.some(row => row.status === key))
+    .map(([key, [label]]) => ({ key, label }))];
   const stepRule = d?.rules?.cutMode === 'HALF_DAY_PER_N';
   const columns = [
-    { key: 'name', label: 'Employee', always: true, render: (r) => <span className="min-w-0"><span className="block truncate">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span> },
-    { key: 'late', label: 'Late', align: 'right', render: (r) => <span className="tabular-nums">{r.lateMarks}</span> },
-    ...(d?.rules?.early?.on ? [{ key: 'early', label: 'Early', align: 'right', render: (r) => <span className="tabular-nums">{r.earlyMarks}</span> }] : []),
-    { key: 'days', label: 'Penalty', align: 'right', render: (r) => <span className="tabular-nums">{dayAmount(r.days)}</span> },
-    /* Every N marks can cut more than the time missed (Code on Wages s.20): each person's two figures side by side. */
-    ...(stepRule ? [{ key: 'missed', label: 'Time missed', align: 'right', render: (r) => <span className="tabular-nums">{r.timeMissedMinutes ? `${minutesText(r.timeMissedMinutes)} · ${dayAmount(r.timeMissedDays)}` : '—'}</span> }] : []),
-    { key: 'leave', label: 'From leave', render: (r) => <span className="tabular-nums">{r.status === 'WAIVED' ? '—' : leaveText(r.fromLeave)}</span> },
-    { key: 'lop', label: 'Unpaid', align: 'right', render: (r) => <span className="tabular-nums">{dayAmount(r.lossOfPayDays)}</span> },
+    { key: 'name', label: 'Employee', always: true, render: (r) => (
+      <span className="late-mark-person">
+        <Avatar person={{ name: r.name, photoUrl: r.photoUrl }} size={28} />
+        <span><strong>{r.name}</strong><small>{[r.code, r.department].filter(Boolean).join(' · ')}</small></span>
+      </span>
+    ) },
+    { key: 'marks', label: 'Attendance marks', render: (r) => (
+      <span className="late-mark-detail">{r.lateMarks} late{d?.rules?.early?.on ? ` · ${r.earlyMarks} early` : ''}
+      </span>
+    ) },
+    ...(stepRule ? [{ key: 'missed', label: 'Time missed', render: (r) => (
+      <span className="tabular-nums">{r.timeMissedMinutes ? `${minutesText(r.timeMissedMinutes)} · ${dayAmount(r.timeMissedDays)}` : '—'}</span>
+    ) }] : []),
+    { key: 'impact', label: 'Penalty', render: (r) => (
+      <span className="late-mark-detail">
+        {r.status === 'WAIVED' ? 'No deduction' : r.days ? dayAmount(r.days) : 'None'}
+        {r.status !== 'WAIVED' && r.fromLeave?.length > 0 && <small>{leaveText(r.fromLeave)} from leave</small>}
+        {r.status !== 'WAIVED' && r.lossOfPayDays > 0 && <small>{dayAmount(r.lossOfPayDays)} unpaid</small>}
+      </span>
+    ) },
     { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0] || enumWords(r.status)}</span> },
-    { key: 'act', label: '', align: 'right', render: (r) => (
+    { key: 'act', label: 'Action', align: 'right', render: (r) => (
       <span className="inline-flex gap-1 whitespace-nowrap">
         {r.status === 'DUE' ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === r.employeeId} onClick={() => setWaiving(r)}>Waive</button> : null}
-        {r.status === 'WAIVED' || (r.status === 'APPLIED' && d?.canApply) ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === r.employeeId} onClick={() => undo(r)}>{r.status === 'WAIVED' ? 'Take back' : 'Undo'}</button> : null}
+        {r.status === 'WAIVED' || (r.status === 'APPLIED' && d?.canApply) ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === r.employeeId} onClick={() => undo(r)}>{r.status === 'WAIVED' ? 'Undo waiver' : 'Undo penalty'}</button> : null}
       </span>
     ) },
   ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Time' }]}
-        title="Late marks"
-        actions={d?.canApply && d?.ended && due ? <Button variant="primary" loading={busy === 'apply'} onClick={apply}>{`Apply ${monthTitle(month).split(' ')[0]} penalties`}</Button> : null}
-      />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-1" role="group" aria-label="Month">
+    <div className="late-mark-page space-y-3">
+      <PageHeader title="Late marks" summary={d?.rules?.on && <CountLine label="Monthly late marks" items={[
+        { label: d.totals.people === 1 ? 'Employee' : 'Employees', value: d.totals.people },
+        { label: 'Late marks', value: rows.reduce((n, r) => n + Number(r.lateMarks || 0), 0) },
+        { label: 'To apply', value: due, tone: 'warn' },
+        { label: 'Waived', value: d.totals.waived },
+        { label: 'From leave', value: dayAmount(d.totals.fromLeaveDays) },
+        { label: 'Unpaid', value: dayAmount(d.totals.lossOfPayDays) },
+      ]} />} actions={<>
+        <div className="late-mark-month" role="group" aria-label="Month">
           <button type="button" className="ui-icon-btn" aria-label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
-          <span className="min-w-36 text-center font-semibold" aria-live="polite">{monthTitle(month)}</span>
+          <span className="min-w-28 text-center font-semibold" aria-live="polite">{monthTitle(month)}</span>
           <button type="button" className="ui-icon-btn" aria-label="Next month" disabled={month >= thisMonth} onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
         </div>
-        {d && d.rules?.on ? <p className="text-sm tabular-nums">{d.totals.people} {d.totals.people === 1 ? 'person' : 'people'} · {dayAmount(d.totals.fromLeaveDays)} from leave · {dayAmount(d.totals.lossOfPayDays)} unpaid{d.totals.waived ? ` · ${d.totals.waived} waived` : ''}</p> : null}
-      </div>
+        {d?.canApply && d?.ended && due > 0 && <Button variant="primary" loading={busy === 'apply'} onClick={apply}>
+          Apply {monthTitle(month).split(' ')[0]} penalties
+        </Button>}
+      </>} />
       {d && !d.rules?.on && !rows.length ? (
         <EmptyState title="Late marks cost nothing now" description="Switch the rule on in Settings, Attendance rules." />
       ) : (
-        <DataTable
+        <ReviewTable key={month}
           label={`Late marks in ${monthTitle(month)}`}
           columns={columns}
-          rows={rows}
+          rows={visibleRows}
+          tabs={<FilterTabs label="Penalty status" appearance="underline" tabs={statusTabs} value={view} onChange={setView} />}
           rowKey={(r) => r.employeeId}
-          total={rows.length}
+          total={visibleRows.length}
           noun="people"
           loading={req.loading}
           refreshing={req.refreshing}
@@ -122,9 +150,10 @@ export default function LateMarks({ params = {}, updateParams }) {
           card={(r) => (
             <span className="block min-w-0 flex-1">
               <span className="flex items-center justify-between gap-2"><span className="truncate">{r.name}</span><span className={`ui-pill ui-pill-${STATUS[r.status]?.[1] || 'neutral'}`}>{STATUS[r.status]?.[0]}</span></span>
-              <span className="block ui-caption tabular-nums">{r.lateMarks} late{d?.rules?.early?.on ? `, ${r.earlyMarks} early` : ''}{r.days ? ` · ${dayAmount(r.days)}` : ''}{r.lossOfPayDays ? `, ${dayAmount(r.lossOfPayDays)} unpaid` : ''}</span>            </span>
+              <span className="block ui-caption tabular-nums">{r.lateMarks} late{d?.rules?.early?.on ? `, ${r.earlyMarks} early` : ''}{r.status === 'WAIVED' ? ' · No deduction' : r.days ? ` · ${dayAmount(r.days)} penalty` : ''}{r.status !== 'WAIVED' && r.lossOfPayDays ? `, ${dayAmount(r.lossOfPayDays)} unpaid` : ''}</span>
+            </span>
           )}
-          empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState title={`No late marks in ${monthTitle(month)}`} />}
+          empty={req.error ? <ErrorState error={req.error} onRetry={req.reload} /> : <EmptyState title={view === 'ALL' ? `No late marks in ${monthTitle(month)}` : `No employees marked “${STATUS[view][0]}”`} kind={view === 'ALL' ? 'new' : 'filtered'} onClearFilters={() => setView('ALL')} />}
         />
       )}
       {d?.ended === false && rows.some((r) => r.status === 'DUE') ? <p className="ui-caption">The month is still running. It can be applied once it ends.</p> : null}
@@ -137,15 +166,15 @@ export default function LateMarks({ params = {}, updateParams }) {
 function MarksDrawer({ row, month, early, onClose, onWaive, onUndo, canUndo }) {
   return (
     <Drawer open onClose={onClose} title={`${row.name}, ${monthTitle(month)}`} widthClass="w-[min(32rem,96vw)]"
-      actions={<>
+      footer={<div className="flex flex-wrap justify-end gap-2">
         {row.status === 'DUE' ? <button type="button" className="ui-btn ui-btn-secondary" onClick={onWaive}>Waive</button> : null}
-        {canUndo ? <button type="button" className="ui-btn ui-btn-secondary" onClick={onUndo}>{row.status === 'WAIVED' ? 'Take back waiver' : 'Undo'}</button> : null}
-      </>}
+        {canUndo ? <button type="button" className="ui-btn ui-btn-secondary" onClick={onUndo}>{row.status === 'WAIVED' ? 'Undo waiver' : 'Undo penalty'}</button> : null}
+      </div>}
     >
       <div className="space-y-4 text-sm">
         <dl className="grid gap-3 grid-cols-2">
-          <div><dt className="ui-t-label">Penalty</dt><dd className="tabular-nums">{dayAmount(row.days)}</dd></div>
-          <div><dt className="ui-t-label">Unpaid</dt><dd className="tabular-nums">{dayAmount(row.lossOfPayDays)}</dd></div>
+          <div><dt className="ui-t-label">Penalty</dt><dd className="tabular-nums">{row.status === 'WAIVED' ? 'No deduction' : dayAmount(row.days)}</dd></div>
+          <div><dt className="ui-t-label">Unpaid</dt><dd className="tabular-nums">{row.status === 'WAIVED' || !row.lossOfPayDays ? '0 days' : dayAmount(row.lossOfPayDays)}</dd></div>
           {row.timeMissedMinutes ? <div className="col-span-2"><dt className="ui-t-label">Time missed</dt><dd className="tabular-nums">{minutesText(row.timeMissedMinutes)} · {dayAmount(row.timeMissedDays)}</dd></div> : null}
           <div className="col-span-2"><dt className="ui-t-label">From leave</dt><dd>{row.status === 'WAIVED' ? '—' : leaveText(row.fromLeave)}</dd></div>
           {row.decision?.reason ? <div className="col-span-2"><dt className="ui-t-label">Waived because</dt><dd>{row.decision.reason}{row.decidedBy ? ` (${row.decidedBy})` : ''}</dd></div> : null}
@@ -165,12 +194,13 @@ function MarksDrawer({ row, month, early, onClose, onWaive, onUndo, canUndo }) {
   );
 }
 
+const waiverSchema = z.object({ reason: z.string().trim().min(3, 'Enter at least 3 characters.').max(500) });
+
 function WaiveDrawer({ row, month, onClose, onDone }) {
-  const [reason, setReason] = useState('');
+  const { control, handleSubmit, formState: { isDirty, isValid } } = useForm({ defaultValues: { reason: '' }, mode: 'onTouched', resolver: zodResolver(waiverSchema) });
   const [busy, setBusy] = useState(false);
   const own = useSuggestions('requestReason');
-  const save = async (e) => {
-    e.preventDefault();
+  const save = async ({ reason }) => {
     setBusy(true);
     try {
       await waivePenalty(row.employeeId, month, reason);
@@ -183,13 +213,13 @@ function WaiveDrawer({ row, month, onClose, onDone }) {
     }
   };
   return (
-    <Drawer open onClose={onClose} dirty={Boolean(reason)} title={`Waive ${dayAmount(row.days)} for ${row.name}`} widthClass="w-[min(32rem,96vw)]"
-      footer={<div className="flex justify-end gap-2"><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={reason.trim().length < 3} type="submit" form="waive-form">Waive</Button></div>}
+    <Drawer open onClose={onClose} dirty={isDirty} title={`Waive ${dayAmount(row.days)} for ${row.name}`} widthClass="w-[min(32rem,96vw)]"
+      footer={<div className="flex justify-end gap-2"><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><Button variant="primary" loading={busy} disabled={!isValid || busy} type="submit" form="waive-form">Waive</Button></div>}
     >
-      <form id="waive-form" onSubmit={save} className="space-y-3">
+      <form id="waive-form" onSubmit={handleSubmit(save)} className="space-y-3">
         <label className="block">
           <span className="ui-label">Why</span>
-          <SuggestInput value={reason} onChange={setReason} suggestions={[...REASONS, ...own]} maxLength={500} required autoFocus />
+          <Controller control={control} name="reason" render={({ field }) => <SuggestInput ref={field.ref} value={field.value} onBlur={field.onBlur} onChange={field.onChange} suggestions={[...REASONS, ...own]} maxLength={500} required autoFocus />} />
         </label>
         <p className="ui-caption">{row.name} and the audit trail keep the reason.</p>
       </form>

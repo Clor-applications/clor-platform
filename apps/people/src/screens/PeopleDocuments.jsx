@@ -1,11 +1,9 @@
 import { errorWords } from '@ui/utils/errorWords';
 import React, { useMemo, useState } from 'react';
-import { CalendarClock, CircleX, FileText, Users } from 'lucide-react';
 import FileBadge, { fileSize } from '@ui/components/ui/FileBadge';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
-import { CountLine } from '@ui/components/ui/CountLine';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
-import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SearchField from '@ui/components/ui/SearchField';
@@ -38,16 +36,16 @@ function DocStatus({ on, today }) {
   const days = daysTo(on, today);
   if (days < 0) return <span className="ui-pill ui-pill-neg">Expired</span>;
   if (days <= SOON_DAYS) return <span className="ui-pill ui-pill-warn">{days === 0 ? 'Expires today' : `Expires in ${days} ${days === 1 ? 'day' : 'days'}`}</span>;
-  /* A valid document is the expected state: no tag (DESIGN.md "Status tags"). */
-  return <span className="sr-only">Valid</span>;
+  return <span className="ui-pill ui-pill-pos">Current</span>;
 }
 
-export default function PeopleDocuments({ openScreen }) {
+export default function PeopleDocuments({ openScreen, params }) {
   const req = useRequest(() => Promise.all([listCompanyDocuments(), listAllEmployees().then((r) => r?.employees || [])]), []);
   const [docs, employees] = req.data || [[], []];
-  const [tab, setTab] = useState('all');
+  const [tab, setTab] = useState(() => ['valid', 'expired', 'nextmonth'].includes(params?.tab) ? params.tab : 'all');
   const [q, setQ] = useState('');
   const [kind, setKind] = useState('');
+  const [columnsTarget, setColumnsTarget] = useState(null);
   const [drawer, setDrawer] = useState(null);
   /* A reader who may not add files (a view-only manager) is not offered New document; the server refuses it anyway. */
   const mayAdd = can(usePermissions(), 'PEOPLE::Documents::CREATE');
@@ -64,12 +62,11 @@ export default function PeopleDocuments({ openScreen }) {
   const counts = { all: docs.length, valid: docs.filter((r) => !expired(r)).length, nextmonth: docs.filter((r) => expiresNextMonth(r, today)).length, expired: docs.filter(expired).length };
   const nextMonth = nextMonthRange(today);
   const soon = docs.filter((r) => r.expiresOn && !expired(r) && daysTo(r.expiresOn, today) <= SOON_DAYS).length;
-  const people = new Set(docs.map((r) => r.employeeId).filter(Boolean)).size;
-  const shared = docs.filter((r) => r.visibleToEmployee).length;
   const kinds = [...new Set(docs.map((r) => r.kind).filter(Boolean))].sort();
   const download = async (r) => {
     try { const d = await getDocument(r.id); const a = document.createElement('a'); a.href = d.dataUrl; a.download = r.title; a.click(); } catch (e) { notify.error(errorWords(e, 'download the document')); }
   };
+  const exportDocuments = (rows) => runListExport({ format: 'csv', title: 'Documents', fileName: 'document-register', label: 'Documents', rows, columns: EXPORT_COLUMNS });
   /* PEOPLE-06: the person first, then the document, its category, when it was added, when it runs out and where it stands. */
   const columns = [
     { key: 'employee', label: 'Employee', render: (r) => (r.employeeName ? <span className="pc-who"><Avatar person={{ name: r.employeeName }} size={32} /><span className="pc-who-text"><span className="pc-who-name">{r.employeeName}</span>{r.employeeCode ? <span className="pc-who-sub">{r.employeeCode}</span> : null}</span></span> : '—') },
@@ -86,39 +83,32 @@ export default function PeopleDocuments({ openScreen }) {
     r.employeeId ? { key: 'record', label: 'Open their record', onSelect: () => openScreen?.('employee', { id: r.employeeId, tab: 'documents' }) } : null,
   ];
   return (
-    <div className="space-y-6">
+    <div className="people-register people-documents" data-column-sizing="content">
       <ListHeader
         title="Documents"
-        description="Every document on people's records, with who may see it and when it runs out."
-        strip={req.data && docs.length ? (
-          <CountLine label="Documents at a glance" items={[
-            { key: 'docs', label: 'Documents', cat: 1, Icon: FileText, value: docs.length.toLocaleString('en-IN'), note: `Across ${people} ${people === 1 ? 'person' : 'people'}` },
-            { key: 'soon', label: `Expiring in ${SOON_DAYS} days`, cat: 4, Icon: CalendarClock, value: soon, tone: 'warn', note: soon ? 'Renew before they run out' : 'Nothing runs out soon' },
-            { key: 'expired', label: 'Expired', cat: 8, Icon: CircleX, value: counts.expired, tone: 'neg', note: counts.expired ? 'Action needed' : 'None', onClick: counts.expired ? () => setTab('expired') : undefined },
-            { key: 'shared', label: 'Shared with employees', cat: 3, Icon: Users, value: shared, note: 'They see these in the employee app' },
-          ]} />
-        ) : null}
-        secondary={<button type="button" className="ui-btn ui-btn-secondary" disabled={!shown.length} onClick={() => runListExport({ format: 'csv', title: 'Documents', fileName: 'document-register', label: 'Documents', rows: shown, columns: EXPORT_COLUMNS })}><Download size={16} aria-hidden="true" /> Export</button>}
+        headingCounts={soon ? [{ key: 'soon', label: `expiring within ${SOON_DAYS} days`, value: soon, tone: 'warn' }] : null}
+        secondary={shown.length ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => exportDocuments(shown)}><Download size={16} aria-hidden="true" /> Export</button> : null}
         primary={mayAdd ? { label: 'Upload document', icon: Plus, onClick: () => setDrawer({ employeeId: '' }) } : null}
         toolbar={<>
-          <SearchField value={q} onSearch={setQ} placeholder="Search employee or document" label="Search documents" className="w-full sm:w-80" />
-          {kinds.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Category" icon={null} placeholder="Category: All" value={kind} onChange={(v) => setKind(v || '')} options={[{ value: '', label: 'Category: All' }, ...kinds.map((k) => ({ value: k, label: kindWord(k) }))]} /></div> : null}
+          <SearchField value={q} onSearch={setQ} placeholder="Search documents or people" label="Search documents" className="w-full sm:w-80" />
+          {kinds.length > 1 ? <div className="documents-category-filter"><PopupSelect panelMinWidth={176} panelAlign="end" showValueSubtext={false} ariaLabel="Category" icon={null} placeholder="All categories" value={kind} onChange={(v) => setKind(v || '')} options={[{ value: '', label: 'All categories' }, ...kinds.map((k) => ({ value: k, label: kindWord(k) }))]} /></div> : null}
         </>}
+        toolbarEnd={<span ref={setColumnsTarget} />}
         tabs={[{ key: 'all', label: 'All', count: counts.all }, { key: 'valid', label: 'Current', count: counts.valid }, { key: 'nextmonth', label: `Expiring in ${nextMonth.label.split(' ')[0]}`, count: counts.nextmonth }, { key: 'expired', label: 'Expired', count: counts.expired }]}
         tab={tab}
         onTab={setTab}
       />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
-        <DataTable
+        <ReviewTable externalColumnSettings columnSettingsTarget={columnsTarget} key={JSON.stringify([tab, q, kind])} exportSelected={exportDocuments} rowLabel={(r) => [r.title, r.employeeName].filter(Boolean).join(' · ')} compactActions
           label="Documents" columns={columns} rows={shown} loading={req.loading} refreshing={req.refreshing}
           total={shown.length} pageSize={Math.max(25, shown.length)} noun="documents"
           onRowClick={(r) => setDrawer({ employeeId: r.employeeId || '' })} rowActions={rowActions}
           card={(r) => <span className="min-w-0 flex-1"><span className="block truncate">{r.title}</span><span className="block truncate ui-caption">{[r.employeeName, kindWord(r.kind), r.expiresOn ? `until ${formatDate(r.expiresOn)}` : null].filter(Boolean).join(' · ')}</span></span>}
           empty={q || kind || tab !== 'all'
             ? (tab === 'nextmonth' && !q && !kind
-              ? <EmptyState kind="filtered" title={`Nothing runs out in ${nextMonth.label}`} description="Documents with a valid-until date next month are listed here, to renew together." />
-              : <EmptyState kind="filtered" title="No documents match" description="Nothing here matches the search or the tab." />)
-            : <EmptyState title="No documents yet" description="Documents added on a person's record, or here, are listed with who may see them and their expiry." routes={mayAdd ? [{ label: 'Upload document', onSelect: () => setDrawer({ employeeId: '' }) }] : []} />} />
+              ? <EmptyState kind="filtered" title={`Nothing runs out in ${nextMonth.label}`}  />
+              : <EmptyState kind="filtered" title="No documents match" onClearFilters={() => { setQ(''); setKind(''); setTab('all'); }} />)
+            : <EmptyState title="No documents yet" />} />
       )}
       {drawer ? (
         <Drawer open title="Employee documents" onClose={() => { setDrawer(null); req.reload(); }} widthClass="w-[min(44rem,96vw)] ui-drawer-sheet">

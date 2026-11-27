@@ -86,7 +86,7 @@ export default function Branches({ openScreen }) {
           noun="branches"
           tiles
           card={(b) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate">{b.branchName}</span><span className="ui-caption tabular-nums ui-tile-figure">{b.people}<span className="ui-tile-figure-word"> {b.people === 1 ? 'person' : 'people'}</span></span></span><span className="block truncate ui-caption">{[b.city, b.state].filter(Boolean).join(', ')}</span></span>}
-          empty={q ? <EmptyState kind="filtered" title="No branches match" description="Nothing here matches the search." /> : <EmptyState title={tab === 'retired' ? 'No retired branches' : 'No branches yet'} description={tab === 'retired' ? 'A branch you retire stays here for its history.' : 'Add the company’s first branch.'} />}
+          empty={q ? <EmptyState kind="filtered" title="No branches match" /> : <EmptyState title={tab === 'retired' ? 'No retired branches' : 'No branches yet'} description={tab === 'retired' ? 'A branch you retire stays here for its history.' : 'Add the company’s first branch.'} />}
           toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search branches" label="Search branches" className="w-full sm:w-80" />}
         />
       )}

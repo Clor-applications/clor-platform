@@ -28,7 +28,7 @@ export default function AuditEvidence() {
   };
   return (
     <div className="space-y-4">
-      <PageHeader title="Audit evidence" description="The documents the company has shared with you for an audit, until the date shown. Every document you open is recorded for the company." />
+      <PageHeader title="Audit evidence" description="The company logs document views." />
       {!data ? <SkeletonCard lines={4} /> : !data.documents.length ? <EmptyState title="Nothing shared with you now" /> : (
         <>
           <ul className="text-sm space-y-0.5">

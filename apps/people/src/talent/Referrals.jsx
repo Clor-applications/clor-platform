@@ -88,7 +88,6 @@ export default function Referrals({ params = {}, openScreen }) {
       <ListHeader
         module="Hiring"
         title="Referrals"
-        description="People your staff put forward, where each stands, and the bonus owed when one is hired."
         secondary={canEdit ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setRule(true)}>Bonus rule</button> : null}
         primary={{ label: 'Refer someone', onClick: () => openScreen?.('referMe') }}
         toolbar={report ? null : (
@@ -115,7 +114,7 @@ export default function Referrals({ params = {}, openScreen }) {
             </span>
           )}
           empty={q || opening || status !== 'all'
-            ? <EmptyState kind="filtered" title="No referrals match" description="Nothing here matches the search, the opening or the tab." />
+            ? <EmptyState kind="filtered" title="No referrals match" />
             : <EmptyState title="No referrals yet" description="Open a job to referrals and your staff can put people forward from their phone." routes={[{ label: 'Job openings', onSelect: () => openScreen?.('recruitment') }]} />} />
       )}
       {open ? <CandidateDrawer id={open} hr known={[]} canEdit={canEdit} canHire={canEdit && allowed('PEOPLE::Employees::CREATE')} canOffer={canEdit && allowed('PEOPLE::Documents::CREATE')} onClose={() => setOpen(null)} onChanged={req.reload} onHired={() => req.reload()} /> : null}

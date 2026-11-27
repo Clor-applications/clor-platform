@@ -99,7 +99,7 @@ export default function Policies({ openScreen, params }) {
             </span>
           )}
           empty={q || category !== 'all'
-            ? <EmptyState kind="filtered" title="No policies match" description="Nothing here matches the search." />
+            ? <EmptyState kind="filtered" title="No policies match" />
             : <EmptyState title="No policies yet" description="Start with the ones people ask about: leave, working hours, conduct." action={allowed('PEOPLE::Policies::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setCreating(true)}>New policy</button> : null} />}
           toolbar={<>
             <SearchField value={q} onSearch={setQ} placeholder="Search policies" label="Search policies" className="w-full sm:w-80" />
