@@ -75,7 +75,7 @@ export default function AttendanceRules({ menuLabel } = {}) {
     }
   };
 
-  const header = <PageHeader entity="settings" title={menuLabel || 'Attendance policy'} description="Company-wide. Grace, half day, overtime and weekly offs are set on each shift." />;
+  const header = <PageHeader entity="settings" title={menuLabel || 'Attendance policy'} introduction="Company-wide. Grace, half day, overtime and weekly offs are set on each shift." />;
   if (!rules) {
     return (
       <div className="space-y-3">

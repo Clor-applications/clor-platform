@@ -91,6 +91,7 @@ const GROUPS = ['Attendance', 'Workforce', 'Statutory Registers', 'Devices', 'Pe
  * `initialReport` opens it on one report (the sidebar's named reports).
  */
 export default function AttendanceReports({ openScreen, initialReport = '', menuLabel } = {}) {
+  const inPeople = typeof document !== 'undefined' && document.documentElement.dataset.app === 'people';
   const [catalogue, setCatalogue] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -169,7 +170,7 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
     const matches = catalogue.reports.filter((r) => !q || `${r.name} ${r.description}`.toLowerCase().includes(q));
     return (
       <div className="space-y-3">
-        <PageHeader entity="report" title={menuLabel || 'Report catalogue'} description="Every attendance report and statutory register. Open one to see it for this month or today." />
+        <PageHeader entity="report" title={menuLabel || 'Report catalogue'} introduction="Every attendance report and statutory register. Open one to see it for this month or today." />
         <div className="pb-8 space-y-5">
           <input type="search" className="ui-input w-full max-w-md" placeholder="Search reports…" aria-label="Search reports" value={query} onChange={(e) => setQuery(e.target.value)} />
           {!matches.length ? <EmptyState kind="filtered" totalCount={catalogue.reports.length} title="No report matches" description="Try another word." /> : null}
@@ -184,7 +185,7 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
                     <li key={r.id}>
                       <button type="button" className="ui-card ui-report-card" onClick={() => open(r)}>
                         <span>{r.name}</span>
-                        <span className="ui-caption">{r.description}</span>
+                        {!inPeople && <span className="ui-caption">{r.description}</span>}
                       </button>
                     </li>
                   ))}
@@ -205,7 +206,7 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
       <PageHeader
         entity="report"
         title={active.name}
-        description={active.description}
+        introduction={active.description}
         actions={
           <>
             {!initialReport ? <button type="button" className="ui-btn ui-btn-ghost" onClick={() => { setActive(null); setResult(null); }}>All reports</button> : null}

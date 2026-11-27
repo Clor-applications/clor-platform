@@ -84,7 +84,7 @@ export default function ReaderSync({ menuLabel } = {}) {
     <DocumentListShell
       entity="reader"
       title={menuLabel || 'Sync monitoring'}
-      description="Who is on which reader. Enrol once on any reader and CLOR copies fingerprints and faces to the rest."
+      introduction="Who is on which reader. Enrol once on any reader and CLOR copies fingerprints and faces to the rest."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search people' }}

@@ -1,3 +1,4 @@
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCheck, Clock, MessageSquare, MessageSquareWarning, Smartphone } from '@ui/components/ui/lineIcons';
 
@@ -43,8 +44,8 @@ const EXPORT_COLUMNS = [
 
 const EDIT = 'ATTENDANCE::Attendance Records::EDIT';
 
-export default function MonthConfirmations() {
-  const [month, setMonth] = useState(lastMonth());
+export default function MonthConfirmations({ peopleTimePage, params } = {}) {
+  const [month, setMonth] = useState(() => params?.month || lastMonth());
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const perms = usePermissions();
@@ -94,6 +95,7 @@ export default function MonthConfirmations() {
 
   return (
     <DocumentListShell
+      timeRegister={peopleTimePage}
       entity="report"
       title="Employee confirmations"
       moreItems={[exportMenuItem('Export')]}
@@ -101,7 +103,7 @@ export default function MonthConfirmations() {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Employee confirmations', fileName: 'Employee confirmations', label: 'dispute/disputes', columns: EXPORT_COLUMNS, rows: rows });
       }}
-      description="Who has confirmed their month in the app, and who says something is wrong. Answer each before the month closes."
+      description={peopleTimePage ? (open > 0 ? "Reply to disputes before closing the month." : undefined) : "Who has confirmed their month in the app, and who says something is wrong. Answer each before the month closes."}
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search disputes…', label: 'Search disputes' }}
@@ -120,7 +122,7 @@ export default function MonthConfirmations() {
         error ? null : <SkeletonCard lines={5} />
       ) : (
         <div className="ui-table-scroll">
-          <table className="ui-table ui-table-sticky ui-table-phone w-full">
+          <TimeRegisterTable enabled={peopleTimePage} register="MonthConfirmations" required={['Employee']} className="ui-table ui-table-sticky ui-table-phone w-full">
             <thead>
               <tr>
                 <ColumnHeader label="Employee" col="name" state={filters} />
@@ -137,7 +139,7 @@ export default function MonthConfirmations() {
                     {disputed.length ? (
                       <EmptyState kind="filtered" totalCount={disputed.length} title="No disputes match" description="Nothing matches the search or the column filters." />
                     ) : (
-                      <EmptyState icon={CheckCheck} title="No disputes" description="When someone says their month is wrong, what they wrote appears here." />
+                      <EmptyState icon={CheckCheck} title="No disputes" description={peopleTimePage ? undefined : "When someone says their month is wrong, what they wrote appears here."} />
                     )}
                   </td>
                 </tr>
@@ -166,7 +168,7 @@ export default function MonthConfirmations() {
                 ))
               )}
             </tbody>
-          </table>
+          </TimeRegisterTable>
         </div>
       )}
       <Drawer

@@ -1,3 +1,4 @@
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Cpu, Fingerprint, Plus, UserX, Wifi } from '@ui/components/ui/lineIcons';
 import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
@@ -187,7 +188,7 @@ const exportColumns = (siteNames) => [
   { key: 'userCount', label: 'Enrolled' },
   { key: 'punchesToday', label: 'Punches today' },
 ];
-export default function AttendanceDevices({ openScreen, menuLabel }) {
+export default function AttendanceDevices({ peopleTimePage, openScreen, menuLabel }) {
   const [data, setData] = useState(null);
   /* Site names for the list; a reader holds only the area's id. */
   const [siteNames, setSiteNames] = useState(() => new Map());
@@ -223,6 +224,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
   return (
     <div className="space-y-6">
     <DocumentListShell
+      timeRegister={peopleTimePage}
       entity="reader"
       title={menuLabel || 'All readers'}
       moreItems={[exportMenuItem('Export')]}
@@ -230,7 +232,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'All readers', fileName: 'Readers', label: 'reader/readers', columns: exportColumns(siteNames), rows: rows });
       }}
-      description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office, all landing on the same days."
+      description={peopleTimePage ? undefined : "Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office, all landing on the same days."}
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search readers…', label: 'Search readers' }}
@@ -283,7 +285,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
         loadError ? null : <SkeletonCard lines={4} />
       ) : (
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky ui-table-phone w-full">
+            <TimeRegisterTable enabled={peopleTimePage} register="AttendanceDevices" defaultHidden={['Site', 'Connection', 'Enrolled']} required={['Reader']} className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <ColumnHeader label="Reader" col="name" state={columns}  className="ui-col-grow" />
@@ -310,7 +312,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
                         <EmptyState
                           icon={Cpu}
                           title="No readers yet"
-                          description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office, all landing on the same days. Point a reader at CLOR as below, then add it by its serial number."
+                          description={peopleTimePage ? "Connect the reader to CLOR, then add its serial number." : "Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office, all landing on the same days. Point a reader at CLOR as below, then add it by its serial number."}
                           routes={[{ label: 'Add reader', description: 'By serial number, push URL, file or pull.', onSelect: () => setAdding(true) }]}
                         />
                       )}
@@ -333,7 +335,7 @@ export default function AttendanceDevices({ openScreen, menuLabel }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </TimeRegisterTable>
           </div>
       )}
     </DocumentListShell>
@@ -1375,7 +1377,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
   const [dirty] = useDirty({ form, allowList });
 
   const loadDetail = useCallback(() => {
-    listDeviceCommands(device.id, queueStatus).then(setQueue).catch(() => setQueue({ commands: [], counts: {} }));
+    listDeviceCommands(device.id, queueStatus).then((result) => setQueue(Array.isArray(result?.commands) ? result : { unavailable: true })).catch(() => setQueue({ unavailable: true }));
     listDeviceUsers(device.id).then(setUsers).catch(() => setUsers([]));
   }, [device.id, queueStatus]);
   useEffect(() => {
@@ -1537,6 +1539,8 @@ function ReaderDrawer({ device, onClose, onChanged }) {
           ) : null}
           {!queue ? (
             <SkeletonCard lines={2} />
+          ) : queue.unavailable ? (
+            <p role="status" className="ui-caption">Could not load queued changes. <button type="button" className="ui-link" onClick={loadDetail}>Retry</button></p>
           ) : !queue.commands.length ? (
             <p className="ui-muted text-sm">Nothing here.</p>
           ) : (

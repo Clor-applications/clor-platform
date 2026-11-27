@@ -1,5 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import RangePresets from '@ui/components/ui/RangePresets';
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
+import { FacetFilter, DateRangeFilter } from '@ui/components/ui/RecordFilters';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import RangePresets, { presetRanges } from '@ui/components/ui/RangePresets';
+import { ListFilter } from 'lucide-react';
 import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlarmClock, CalendarCheck, CheckCheck, FileSearch, FileSpreadsheet, HelpCircle, Plus, Timer, UserX, Upload, Wand2, X } from '@ui/components/ui/lineIcons';
 
@@ -74,10 +77,11 @@ const TRUST_EXPORT = [
   { key: 'trustReasons', label: 'Why', value: (r) => (Array.isArray(r.trustReasons) ? r.trustReasons.map((x) => x.text).join(' ') : '') },
 ];
 
-export default function AttendanceRecords({ params, openScreen, menuLabel } = {}) {
+export default function AttendanceRecords({ peopleTimePage, params, openScreen, menuLabel } = {}) {
   /* Opened from a report row or an exception: start on that person and those days. */
   const [filters, setFilters] = useState(() => ({ from: weekAgo(), to: todayIst(), employeeId: '', validated: '', late: '', trust: '', ...(params || {}), status: '' }));
   const [status, setStatus] = useState(() => params?.status || '');
+  const [statusFacet, setStatusFacet] = useState(() => params?.status ? [params.status] : []);
   const [explaining, setExplaining] = useState(null);
   const [bulk, setBulk] = useState(null);
   const explainLoad = useCallback(() => explainDay(explaining?.employeeId, explaining?.date), [explaining]);
@@ -92,18 +96,22 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
 
+  const latestLoad = useRef(0);
   const load = useCallback(() => {
+    const id = ++latestLoad.current;
     listRecords(filters)
       .then((r) => {
+        if (id !== latestLoad.current) return;
         setAll(r.records || []);
         setReaderTrust(Boolean(r.readerTrust));
         setLoadError('');
         setSelected(new Set());
       })
-      .catch((e) => setLoadError(errorWords(e, 'load the days')));
+      .catch((e) => { if (id === latestLoad.current) setLoadError(errorWords(e, 'load the days')); });
   }, [filters]);
   useEffect(() => {
     load();
+    return () => { latestLoad.current += 1; };
   }, [load]);
   useEffect(() => {
     listEmployees().then(setPeople).catch(() => setPeople([]));
@@ -114,13 +122,16 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
     for (const r of all || []) c[r.status] = (c[r.status] || 0) + 1;
     return c;
   }, [all]);
-  const inTab = useMemo(() => (all || []).filter((r) => !status || r.status === status), [all, status]);
+  const inTab = useMemo(() => (all || []).filter((r) => peopleTimePage ? !statusFacet.length || statusFacet.includes(r.status) : !status || r.status === status), [all, status, statusFacet, peopleTimePage]);
   const search = useListSearch(inTab, ['employeeName', 'employeeCode', 'date']);
   const columns = useColumnFilters();
   const rows = columns.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
-  useResetPage(setPage, [status, search.query, filters]);
+  useResetPage(setPage, [status, statusFacet, search.query, filters]);
 
+  const summaryRows = selected.size ? rows.filter((record) => selected.has(record.id)) : rows;
+  const sumMinutes = (key) => summaryRows.reduce((sum, record) =>
+    sum + (key === 'workedMinutes' && !record.checkOut ? 0 : Number(record[key]) || 0), 0);
   const figures = useMemo(() => {
     const list = all || [];
     return {
@@ -161,14 +172,58 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
     }
   };
 
-  const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
+  const set = (key) => (event) => {
+    const value = event.target.value;
+    setFilters((previous) => ({ ...previous, [key]: value }));
+  };
   const onlyPerson = filters.employeeId ? people.find((p) => p.id === filters.employeeId) : null;
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const today = todayIst();
+  const periods = [
+    ['week', 'Last 7 days', weekAgo(), today],
+    ...presetRanges(new Date(today + 'T12:00:00')).map(([key, name, from, to]) => [key, name, from, to > today ? today : to]),
+  ];
+  const period = periods.find(([, , from, to]) => from === filters.from && to === filters.to);
+  const filterControls = <>
+    {onlyPerson ? (
+      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setFilters((f) => ({ ...f, employeeId: '' }))} aria-label={`Show everyone, not only ${onlyPerson.name}`}>
+        {onlyPerson.name} <X size={14} aria-hidden="true" />
+      </button>
+    ) : null}
+    {peopleTimePage ? <label className="time-filter-field">Period
+      <select aria-label="Period" className="ui-select" value={period?.[0] || 'custom'}
+        onChange={(event) => {
+          const picked = periods.find(([key]) => key === event.target.value);
+          if (picked) setFilters((f) => ({ ...f, from: picked[2], to: picked[3] }));
+        }}>
+        {periods.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+        {!period && <option value="custom">Custom dates</option>}
+      </select>
+    </label> : <RangePresets from={filters.from} to={filters.to} maxTo={todayIst()} onPick={(f, t) => setFilters((x) => ({ ...x, from: f, to: t }))} />}
+    <DateRangeFilter from={filters.from} to={filters.to} max={todayIst()} onChange={(from, to) => setFilters((f) => ({ ...f, from, to }))} />
+    <label className="flex items-center gap-1.5 text-sm">
+      <input type="checkbox" className="ui-checkbox" checked={filters.late === 'true'} onChange={(e) => setFilters((f) => ({ ...f, late: e.target.checked ? 'true' : '' }))} /> Late only
+    </label>
+    {readerTrust ? (
+      <select className="ui-select ui-ctl-compact !w-auto" value={filters.trust || ''} onChange={set('trust')} aria-label="Reader trust">
+        <option value="">Any trust</option>
+        {Object.entries(TRUST).map(([value, t]) => <option key={value} value={value}>{t.label}</option>)}
+      </select>
+    ) : null}
+  </>;
+  const filterSummary = [
+    period?.[1] || [dayText(filters.from), dayText(filters.to)].join(' – '),
+    TABS.filter((tab) => tab.value && (peopleTimePage ? statusFacet.includes(tab.value) : tab.value === status)).map((t) => t.label).join(', '),
+    filters.late === 'true' && 'Late only',
+    onlyPerson?.name, filters.trust && TRUST[filters.trust]?.label,
+  ].filter(Boolean).join(' · ');
   return (
     <DocumentListShell
+      timeRegister={peopleTimePage}
       entity="attendance"
       title={menuLabel || 'Attendance records'}
-      description="Mark, correct and validate days. A corrected day needs validating again."
+      description={peopleTimePage ? undefined : "Mark, correct and validate days. A corrected day needs validating again."}
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people or dates…', label: 'Search records' }}
@@ -188,39 +243,32 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
       countLine={countItems([
         { label: 'Present', value: figures.present, count: true, tone: 'paid', Icon: CalendarCheck },
         { label: 'Late', value: figures.late, count: true, tone: 'partial', Icon: AlarmClock, onSelect: () => setFilters((f) => ({ ...f, late: f.late === 'true' ? '' : 'true' })) },
-        { label: 'Absent', value: figures.absent, count: true, tone: 'overdue', Icon: UserX, onSelect: () => setStatus('ABSENT') },
+        { label: 'Absent', value: figures.absent, count: true, tone: 'overdue', Icon: UserX, onSelect: () => peopleTimePage ? setStatusFacet(['ABSENT']) : setStatus('ABSENT') },
         { label: 'No punch out', value: figures.open, count: true, tone: 'outstanding', Icon: Wand2 },
         { label: 'Overtime to approve', value: figures.overtime, count: true, tone: 'sent', Icon: Timer },
       ])}
-      tabs={TABS}
+      filterSummary={<span className="ui-caption" aria-label="Active filters">{filterSummary}</span>}
+      tabs={peopleTimePage ? null : TABS}
+      headerExtras={peopleTimePage && <button type="button" className="ui-btn ui-btn-secondary"
+        aria-expanded={filtersOpen} aria-controls="attendance-record-filters" onClick={() => setFiltersOpen(!filtersOpen)}>
+        <ListFilter size={16} aria-hidden="true" /> Filters
+      </button>}
       statusValue={status}
       statusCounts={counts}
       onStatusChange={setStatus}
       tabsLabel="Day status"
       phoneCompact
-      tabsExtras={
-        <>
-          {onlyPerson ? (
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setFilters((f) => ({ ...f, employeeId: '' }))} aria-label={`Show everyone, not only ${onlyPerson.name}`}>
-              {onlyPerson.name} <X size={14} aria-hidden="true" />
-            </button>
-          ) : null}
-          <RangePresets from={filters.from} to={filters.to} maxTo={todayIst()} onPick={(f, t) => setFilters((x) => ({ ...x, from: f, to: t }))} />
-          <input type="date" className="ui-input ui-ctl-compact !w-auto" value={filters.from} max={filters.to} onChange={set('from')} aria-label="From" />
-          <input type="date" className="ui-input ui-ctl-compact !w-auto" value={filters.to} max={todayIst()} onChange={set('to')} aria-label="To" />
-          <label className="flex items-center gap-1.5 text-sm">
-            <input type="checkbox" className="ui-checkbox" checked={filters.late === 'true'} onChange={(e) => setFilters((f) => ({ ...f, late: e.target.checked ? 'true' : '' }))} /> Late only
-          </label>
-          {readerTrust ? (
-            <select className="ui-select ui-ctl-compact !w-auto" value={filters.trust || ''} onChange={set('trust')} aria-label="Reader trust">
-              <option value="">Any trust</option>
-              {Object.entries(TRUST).map(([value, t]) => <option key={value} value={value}>{t.label}</option>)}
-            </select>
-          ) : null}
-        </>
-      }
-      above={
-        selected.size ? (
+      tabsExtras={peopleTimePage ? null : filterControls}
+      above={<>
+        {peopleTimePage && <>
+          <div id="attendance-record-filters" hidden={!filtersOpen}>
+            <div className="time-record-filters" role="group" aria-label="Record filters">
+              <FacetFilter label="Day status" options={TABS.filter((tab) => tab.value)} selected={statusFacet} onChange={setStatusFacet} counts={counts} />
+              {filterControls}
+            </div>
+          </div>
+        </>}
+        {selected.size ? (
           <div className="ui-bulkbar" role="region" aria-label="Change the selected days">
             <span className="text-sm"><strong className="tabular-nums">{selected.size}</strong> selected</span>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={validating || !validatable.length} aria-busy={validating || undefined} onClick={validate}><CheckCheck size={14} aria-hidden="true" /> {validating ? 'Validating…' : `Validate ${validatable.length || ''}`}</button>
@@ -229,8 +277,8 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ operation: 'SET_STATUS', status: 'ABSENT' })}>Mark days without times…</button>
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
           </div>
-        ) : null
-      }
+        ) : null}
+      </>}
     >
       <LoadFailed message={loadError} onRetry={load} />
       {!all ? (
@@ -238,7 +286,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
       ) : (
         <>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky ui-table-phone w-full">
+            <TimeRegisterTable enabled={peopleTimePage} register="AttendanceRecords" mobileFields={['In', 'Out', 'Status']} defaultHidden={['Department', 'Early out', 'Source', 'Validated']} required={['Employee', 'Day']} className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
                   <th scope="col" className="w-8">
@@ -276,7 +324,7 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                         <EmptyState
                           icon={CalendarCheck}
                           title="No days in this range"
-                          description="Mark, correct and validate days here. A corrected day needs validating again. Widen the dates, or mark attendance."
+                          description={peopleTimePage ? "Change the dates or mark attendance." : "Mark, correct and validate days here. A corrected day needs validating again. Widen the dates, or mark attendance."}
                           routes={[{ label: 'Mark attendance', description: 'One person, one day, with the times.', onSelect: () => setEditing({ date: todayIst(), checkIn: '', checkOut: '', status: '' }) }]}
                         />
                       )}
@@ -338,7 +386,17 @@ export default function AttendanceRecords({ params, openScreen, menuLabel } = {}
                   ))
                 )}
               </tbody>
-            </table>
+              {summaryRows.length > 0 && <tfoot className="ui-totals hidden md:table-footer-group"><tr>
+                <td /><td colSpan={2}>{selected.size ? 'Selected' : 'Total'} ({summaryRows.length})</td>
+                <td className="hidden min-[1800px]:table-cell" /><td /><td />
+                <td className="ui-num">{hm(sumMinutes('workedMinutes'))}</td>
+                <td className="ui-num">{sumMinutes('lateMinutes')} min</td>
+                <td className="ui-num hidden 2xl:table-cell">{sumMinutes('earlyOutMinutes')} min</td>
+                <td className="ui-num">{hm(sumMinutes('overtimeMinutes'))}</td>
+                <td /><td className="hidden 2xl:table-cell" /><td className="hidden 2xl:table-cell" />
+                {readerTrust && <td />}<td />
+              </tr></tfoot>}
+            </TimeRegisterTable>
           </div>
           <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="days" />
         </>

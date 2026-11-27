@@ -91,7 +91,7 @@ export default function Contractors({ openScreen } = {}) {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Contractors', fileName: 'Contractors', label: 'contractor/contractors', columns: EXPORT_COLUMNS, rows: rows });
       }}
-      description="Companies that supply workers. Link a worker to their contractor on their employee file."
+      introduction="Companies that supply workers. Link a worker to their contractor on their employee file."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search contractors…', label: 'Search contractors' }}

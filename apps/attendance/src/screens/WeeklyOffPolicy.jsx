@@ -63,10 +63,11 @@ export default function WeeklyOffPolicy({ openScreen }) {
       <PageHeader
         entity="shift"
         title="Weekly off policy"
+        introduction="The days off of the people on each shift."
         description={
           <>
-            The days off of the people on each shift. Everyone without a shift follows the{' '}
-            {openScreen ? <button type="button" className="ui-link" onClick={() => openScreen('workingWeek')}>Working week</button> : 'Working week'}, which is the company’s answer to which day is off.
+            Everyone without a shift follows the{' '}
+            {openScreen ? <button type="button" className="ui-link" onClick={() => openScreen('workingWeek')}>Working week</button> : 'Working week'}.
           </>
         }
       />

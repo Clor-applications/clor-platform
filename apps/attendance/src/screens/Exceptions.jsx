@@ -1,3 +1,4 @@
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDot, Clock, EyeOff, HelpCircle, UserRoundCheck } from '@ui/components/ui/lineIcons';
 
@@ -50,10 +51,16 @@ const COLUMNS = {
   what: (x) => x.title,
   who: (x) => x.employeeName,
   date: (x) => x.date,
-  owner: (x) => x.assignee || 'Nobody',
+  owner: (x) => x.assignee || 'Unassigned',
 };
 const SEVERITY = { high: 'Urgent', medium: 'To do', low: 'When you can' };
 const STATUS = { OPEN: 'Open', IN_PROGRESS: 'In progress', RESOLVED: 'Settled', IGNORED: 'Ignored' };
+const STATUS_TONE = { IN_PROGRESS: 'info', RESOLVED: 'pos', IGNORED: 'neutral' };
+function ExceptionStatus({ status }) {
+  if (!STATUS_TONE[status]) return null;
+  return <span className={`ui-pill ui-pill-${STATUS_TONE[status]}`}>{STATUS[status]}</span>;
+}
+
 const back = (n) => plusDaysIso(-n);
 /* What one bulk change takes on the server; more picked are sent in batches this size. */
 const BATCH = 500;
@@ -68,10 +75,10 @@ const EXPORT_COLUMNS = [
   { key: 'date', label: 'Day' },
   { key: 'detail', label: 'Detail' },
   { key: 'note', label: 'Note' },
-  { key: 'assignee', label: 'Owner', value: (r) => r.assignee || 'Nobody' },
+  { key: 'assignee', label: 'Owner', value: (r) => r.assignee || 'Unassigned' },
   { key: 'status', label: 'Status', value: (r) => STATUS[r.status] || enumWords(r.status) },
 ];
-export default function Exceptions({ openScreen, menuLabel }) {
+export default function Exceptions({ peopleTimePage, openScreen, menuLabel }) {
   const [range, setRange] = useState({ from: back(14), to: back(1) });
   const [kind, setKind] = useState('');
   const [showAll, setShowAll] = useState(false);
@@ -202,6 +209,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
 
   return (
     <DocumentListShell
+      timeRegister={peopleTimePage}
       entity="exception"
       title={menuLabel || 'Exceptions'}
       moreItems={[exportMenuItem('Export')]}
@@ -209,7 +217,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Exceptions', fileName: 'Exceptions', label: 'item/items', columns: EXPORT_COLUMNS, rows: rows });
       }}
-      description="What is still not settled. Each item opens the screen that fixes it."
+      description={peopleTimePage ? undefined : "Review missing punches and other attendance exceptions."}
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search exceptions…', label: 'Search exceptions' }}
@@ -217,9 +225,10 @@ export default function Exceptions({ openScreen, menuLabel }) {
         { label: 'Urgent', value: figures.high, count: true, tone: 'overdue', Icon: AlertTriangle },
         { label: 'To do', value: figures.medium, count: true, tone: 'partial', Icon: CircleDot },
         { label: 'When you can', value: figures.low, count: true, tone: 'cancelled', Icon: Clock },
-        { label: 'Nobody owns', value: figures.unowned, count: true, tone: 'outstanding', Icon: UserRoundCheck },
+        { label: 'Unassigned', value: figures.unowned, count: true, tone: 'outstanding', Icon: UserRoundCheck },
       ])}
       tabs={tabs}
+      statusFilters
       statusValue={kind}
       statusCounts={counts}
       onStatusChange={setKind}
@@ -265,7 +274,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
                 {inTab.length ? (
                   <EmptyState kind="filtered" totalCount={inTab.length} title="No exceptions match" description="Nothing in this tab matches the search or the column filters." />
                 ) : (
-                  <EmptyState icon={CheckCircle2} title="Nothing to settle" description="Every day in this range is complete and every queue is clear." />
+                  <EmptyState icon={CheckCircle2} title="Nothing to settle" description={peopleTimePage ? undefined : "Every day in this range is complete and every queue is clear."} />
                 )}
               </li>
             ) : (
@@ -279,10 +288,11 @@ export default function Exceptions({ openScreen, menuLabel }) {
                     <div className="min-w-0 flex-1">
                       <p>{x.title}</p>
                       <p className="ui-caption">
-                        {[x.employeeName, x.date ? dayLabel(x.date, { weekday: true, year: false }) : null, SEVERITY[x.severity], x.status !== 'OPEN' ? STATUS[x.status] : null].filter(Boolean).join(' · ')}
+                        {[x.employeeName, x.date ? dayLabel(x.date, { weekday: true, year: false }) : null, SEVERITY[x.severity]].filter(Boolean).join(' · ')}
                       </p>
+                      <ExceptionStatus status={x.status} />
                       {x.detail ? <p className="ui-caption mt-1">{x.detail}{x.note ? ` · Note: ${x.note}` : ''}</p> : null}
-                      <p className="ui-caption mt-1">Owner: {x.assignee || 'Nobody'}</p>
+                      <p className="ui-caption mt-1">Owner: {x.assignee || 'Unassigned'}</p>
                     </div>
                   </div>
                   {/* Round 59 attexceptions A: a day with nothing on it is decided here. */}
@@ -303,7 +313,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
             )}
           </ul>
           <div className="ui-table-scroll hidden md:block">
-            <table className="ui-table ui-table-sticky w-full">
+            <TimeRegisterTable enabled={peopleTimePage} register="Exceptions" required={['Who', 'What']} className="ui-table ui-table-sticky w-full">
               <thead>
                 <tr>
                   <th scope="col" className="w-8">
@@ -324,7 +334,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
                       {inTab.length ? (
                         <EmptyState kind="filtered" totalCount={inTab.length} title="No exceptions match" description="Nothing in this tab matches the search or the column filters." />
                       ) : (
-                        <EmptyState icon={CheckCircle2} title="Nothing to settle" description="Every day in this range is complete and every queue is clear. Anything not settled shows here, and each item opens the screen that fixes it." />
+                        <EmptyState icon={CheckCircle2} title="Nothing to settle" description={peopleTimePage ? undefined : "Every day in this range is complete and every queue is clear. Anything not settled shows here, and each item opens the screen that fixes it."} />
                       )}
                     </td>
                   </tr>
@@ -339,14 +349,17 @@ export default function Exceptions({ openScreen, menuLabel }) {
                           <span className="ui-exc-dot" data-severity={x.severity} aria-hidden="true" />
                           <span>
                             <span className="block">{x.title}</span>
-                            <span className="ui-caption">{SEVERITY[x.severity]} · {KIND[x.kind] || enumWords(x.kind)}{x.status !== 'OPEN' ? ` · ${STATUS[x.status]}` : ''}</span>
+                            <span className="flex flex-wrap items-center gap-1.5">
+                              <span className="ui-caption">{SEVERITY[x.severity]} · {KIND[x.kind] || enumWords(x.kind)}</span>
+                              <ExceptionStatus status={x.status} />
+                            </span>
                           </span>
                         </span>
                       </td>
                       <td className="ui-col-entity">{x.employeeName || '—'}</td>
                       <td className="ui-col-date whitespace-nowrap">{x.date ? dayLabel(x.date, { weekday: true, year: false }) : '—'}</td>
                       <td className="hidden lg:table-cell ui-caption ui-col-grow whitespace-normal min-w-[9rem]">{x.detail}{x.note ? ` · Note: ${x.note}` : ''}</td>
-                      <td className="whitespace-nowrap">{x.assignee || <span className="ui-caption">Nobody</span>}</td>
+                      <td className="whitespace-nowrap">{x.assignee || <span className="ui-caption">Unassigned</span>}</td>
                       <td className="ui-col-meta">
                         <span className="flex items-center justify-end gap-1">
                           {x.employeeId && x.date && ['MISSING_OUT', 'NO_RECORD', 'OVERTIME'].includes(x.kind) ? (
@@ -371,9 +384,9 @@ export default function Exceptions({ openScreen, menuLabel }) {
                   ))
                 )}
               </tbody>
-            </table>
+            </TimeRegisterTable>
           </div>
-          <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="items" />
+          {rows.length > 0 ? <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="items" /> : null}
           {data.truncated ? (
             <p className="ui-caption p-3" role="status">
               Showing the first {(data.exceptions?.length || 0).toLocaleString('en-IN')} of {(data.total || 0).toLocaleString('en-IN')}. {kind || Object.values(data.counts || {}).filter(Boolean).length < 2 ? 'Narrow the dates to reach the rest.' : 'Pick one kind or narrow the dates to reach the rest.'}

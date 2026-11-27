@@ -1,9 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarPlus, Clock, Settings2, Timer, UserRound } from '@ui/components/ui/lineIcons';
-import ApproveActions from '@ui/components/ui/ApproveActions';
+import { useReviewSelection, SelectionBar } from '@ui/components/ui/ReviewTable';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Settings2, Timer } from '@ui/components/ui/lineIcons';
+import { RequestQueue, RequestDetails, DecisionButtons, duration as hours } from '../components/OvertimeReview';
+import './overtime-review.css';
 
-import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import { useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
+import { FilterTabs } from '@ui/components/list/ListHeader';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
@@ -15,22 +18,16 @@ import { decideOvertimeRequest, getOvertimeRules, listOvertimeRequests, saveOver
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import OvertimeRuleFields from '../components/OvertimeRuleFields';
 import { errorWords, dayText } from '@ui/utils/errorWords';
-import { countItems } from '../components/countItems';
-import { dateWords } from '@ui/utils/dates';
 
 /**
  * Overtime and comp-off asked for from the employee app, and the company's
  * rules for them. Approved overtime is marked approved on the day (and so is
  * paid); approved comp-off adds its days to the chosen leave type.
  */
-const hours = (m) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
-
-const DAY_WORDS = { working: 'working day', weeklyOff: 'weekly off', holiday: 'holiday' };
-
 const TABS = [
   { value: 'PENDING', label: 'Waiting', tone: 'partial' },
   { value: 'APPROVED', label: 'Approved', tone: 'paid' },
-  { value: 'REJECTED', label: 'Not approved', tone: 'overdue' },
+  { value: 'REJECTED', label: 'Declined', tone: 'overdue' },
   { value: 'CANCELLED', label: 'Withdrawn', tone: 'cancelled' },
 ];
 const COLUMNS = {
@@ -54,23 +51,41 @@ const EXPORT_COLUMNS = [
   { key: 'reason', label: 'Reason' },
   { key: 'status', label: 'Status' },
 ];
-export default function OvertimeRequests() {
-  const [status, setStatus] = useState('PENDING');
+export default function OvertimeRequests({ peopleTimePage = false, params, updateParams } = {}) {
+  const [localStatus, setLocalStatus] = useState('PENDING');
+  const status = updateParams ? TABS.find(tab => tab.value === params?.status)?.value || 'PENDING' : localStatus;
   const [byStatus, setByStatus] = useState(null);
   const [rules, setRules] = useState(null);
   const [types, setTypes] = useState([]);
   const [error, setError] = useState('');
   const [notes, setNotes] = useState({});
   const [showRules, setShowRules] = useState(false);
+  const [localId, setLocalId] = useState(null);
+  const activeId = updateParams ? params?.drawer : localId;
+  const setActiveId = (id) => {
+    if (updateParams) updateParams({ drawer: id }, { push: Boolean(id && !activeId) });
+    else setLocalId(id);
+  };
+  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 1050px)').matches);
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const loadVersion = useRef(0);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1050px)');
+    const resize = () => setNarrow(media.matches);
+    media.addEventListener('change', resize);
+    return () => media.removeEventListener('change', resize);
+  }, []);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   /* The server answers one status at a time; the tabs count all four, so all four are asked for together. */
   const load = useCallback(() => {
-    Promise.all(TABS.map((t) => listOvertimeRequests(t.value)))
-      .then((list) => { setByStatus(Object.fromEntries(TABS.map((t, i) => [t.value, list[i]?.requests || []]))); setError(''); })
-      .catch((e) => setError(errorWords(e, 'load requests')));
+    const version = ++loadVersion.current;
+    return Promise.all(TABS.map((t) => listOvertimeRequests(t.value)))
+      .then((list) => { if (version !== loadVersion.current) return; setByStatus(Object.fromEntries(TABS.map((t, i) => [t.value, list[i]?.requests || []]))); setError(''); })
+      .catch((e) => { if (version === loadVersion.current) setError(errorWords(e, 'load requests')); });
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); return () => { loadVersion.current++; }; }, [load]);
   useEffect(() => {
     getOvertimeRules().then((r) => { setRules(r.rules); setTypes(r.leaveTypes || []); }).catch(() => null);
   }, []);
@@ -81,11 +96,12 @@ export default function OvertimeRequests() {
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
+  const selection = useReviewSelection(pageRows);
+  const visibleRows = peopleTimePage && selection.focused ? selection.selectedRows : pageRows;
   useResetPage(setPage, [status, search.query]);
   const figures = useMemo(() => {
     const waiting = byStatus?.PENDING || [];
     return {
-      withManager: waiting.filter((r) => r.waitingOnManager).length,
       overtimeMinutes: waiting.filter((r) => r.kind !== 'COMP_OFF').reduce((a, r) => a + Number(r.minutes || 0), 0),
       compOffDays: waiting.filter((r) => r.kind === 'COMP_OFF').reduce((a, r) => a + Number(r.days || 0), 0),
     };
@@ -93,14 +109,23 @@ export default function OvertimeRequests() {
 
   const decide = async (r, approve) => {
     /* Round 28 "otlimit" B: past the cap, ask at the moment of approving. */
-    const ask = approve ? overCapQuestion(r) : null;
-    if (ask && !(await confirmDialog(ask))) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
     try {
+      const ask = approve ? overCapQuestion(r) : null;
+      if (ask && !(await confirmDialog(ask))) return;
       await decideOvertimeRequest(r.id, approve, notes[r.id] || null);
       notify.success(approve ? (r.kind === 'COMP_OFF' ? `${r.days} comp-off day${r.days === 1 ? '' : 's'} added for ${r.employeeName}.` : `${r.employeeName}'s overtime on ${dayText(r.date, { year: false })} is approved.`) : `${r.employeeName}'s request was declined.`);
-      load();
+      setByStatus(prev => ({ ...prev, PENDING: prev.PENDING.filter(row => row.id !== r.id) }));
+      setActiveId(null);
+      setNotes(prev => { const next = { ...prev }; delete next[r.id]; return next; });
+      await load();
     } catch (e) {
       notify.error(errorWords(e, 'do that'));
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
     }
   };
   const save = async (next) => {
@@ -113,11 +138,28 @@ export default function OvertimeRequests() {
     }
   };
 
+  const active = visibleRows.find(r => String(r.id) === String(activeId)) || (!narrow ? visibleRows[0] : null);
+  const inspect = (row) => setActiveId(row.id);
+  const switchTab = (value) => {
+    if (updateParams) updateParams({ status: value === 'PENDING' ? null : value, drawer: null });
+    else { setLocalStatus(value); setLocalId(null); }
+  };
+  const exportRequests = (format, records) => runListExport({ format, title: 'Overtime & comp-off', fileName: 'Overtime and comp-off', label: 'request/requests', columns: EXPORT_COLUMNS, rows: records });
+  const details = active && <RequestDetails request={active} status={status} note={notes[active.id] || ''} busy={busy}
+    onNote={value => setNotes(prev => ({ ...prev, [active.id]: value }))} />;
+  const actions = active && status === 'PENDING' && !active.waitingOnManager
+    ? <DecisionButtons request={active} busy={busy} decide={decide} /> : null;
+  const summary = status === 'PENDING' && [
+    figures.overtimeMinutes > 0 && `${hours(figures.overtimeMinutes)} overtime`,
+    figures.compOffDays > 0 && `${figures.compOffDays} comp-off ${figures.compOffDays === 1 ? 'day' : 'days'}`,
+  ].filter(Boolean).join(' · ');
+  const statusTabs = <FilterTabs appearance="underline" label="Request status"
+          tabs={TABS.map(({ value, label }) => ({ key: value, label, count: counts[value] }))} value={status} onChange={switchTab} />;
   return (
     <DocumentListShell
-      entity="overtime"
+      timeRegister={peopleTimePage}
+      entity="overtime" className="ot-register" surface="plain"
       title="Overtime & comp-off"
-      description="Requests from the employee app, and who decides them."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search requests…', label: 'Search overtime and comp-off requests' }}
@@ -125,84 +167,29 @@ export default function OvertimeRequests() {
       onMoreSelect={(k) => {
         if (k === 'rules') return setShowRules(true);
         const format = exportFormatFromKey(k);
-        if (format) runListExport({ format, title: 'Overtime & comp-off', fileName: 'Overtime and comp-off', label: 'request/requests', columns: EXPORT_COLUMNS, rows: rows });
+        if (format) exportRequests(format, rows);
       }}
-      countLine={countItems([
-        { label: 'Waiting', value: counts.PENDING, count: true, tone: 'partial', Icon: Clock, onSelect: () => setStatus('PENDING') },
-        { label: 'With the manager', value: figures.withManager, count: true, tone: 'sent', Icon: UserRound },
-        { label: 'Overtime waiting', value: hours(figures.overtimeMinutes), count: true, tone: 'outstanding', Icon: Timer },
-        { label: 'Comp-off days', value: figures.compOffDays, count: true, tone: 'draft', Icon: CalendarPlus },
-      ])}
-      tabs={TABS}
-      statusValue={status}
-      statusCounts={counts}
-      onStatusChange={setStatus}
-      tabsLabel="Request status"
+      countLine={peopleTimePage && summary ? <span className="ot-summary">{summary} pending</span> : null}
+      registerViews={peopleTimePage && statusTabs}
+      above={!peopleTimePage && <div className="ot-toolbar">{statusTabs}{summary && <span className="ot-summary">{summary} pending</span>}</div>}
     >
       <LoadFailed message={error} onRetry={load} />
-      {!byStatus ? (
-        error ? null : <SkeletonCard lines={5} />
-      ) : (
-        <>
-          <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky w-full">
-              <thead>
-                <tr>
-                  <ColumnHeader label="Employee" col="employee" state={filters} />
-                  <ColumnHeader label="Day" col="date" state={filters} type="date" />
-                  <ColumnHeader label="Asks for" col="kind" state={filters} />
-                  <ColumnHeader label="Reason" col="reason" state={filters}  className="ui-col-grow" />
-                  <th scope="col">{status === 'PENDING' ? <span className="sr-only">Decide</span> : 'Note'}</th>
-                </tr>
-              </thead>
-              <tbody className="ui-rows">
-                {!rows.length ? (
-                  <tr>
-                    <td colSpan={5}>
-                      {inTab.length ? (
-                        <EmptyState kind="filtered" totalCount={inTab.length} title="No requests match" description="Nothing in this tab matches the search or the column filters." />
-                      ) : (
-                        <EmptyState
-                          icon={Timer}
-                          title={status === 'PENDING' ? 'Nothing waiting' : status === 'APPROVED' ? 'No approved requests' : status === 'REJECTED' ? 'No declined requests' : 'No withdrawn requests'}
-                          description="Employees ask for overtime or comp-off from the app, from the days their extra work is recorded on. Approved overtime is paid; approved comp-off adds its days to the chosen leave type."
-                        />
-                      )}
-                    </td>
-                  </tr>
-                ) : (
-                  pageRows.map((r) => (
-                    <tr key={r.id}>
-                      <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
-                      <td className="ui-col-date whitespace-nowrap">{dateWords(r.date)}</td>
-                      <td>
-                        <span className="tabular-nums">{r.kind === 'COMP_OFF' ? `Comp-off, ${r.days} day${r.days === 1 ? '' : 's'} (worked ${hours(r.minutes)})` : `Overtime ${hours(r.minutes)}${r.rate ? ` at ${r.rate}× (${DAY_WORDS[r.dayType] || 'working day'})` : ''}`}</span>
-                        {/* Hours over the company's cap are kept and said here, for whoever decides (overtimePolicy.ts). */}
-                        {r.overCap ? <span className="ui-caption block tabular-nums" style={{ color: 'rgb(var(--warn))' }}>{r.overCap}</span> : null}
-                      </td>
-                      <td className="ui-col-grow whitespace-normal min-w-[10rem]">{r.reason}</td>
-                      <td className="ui-col-meta">
-                        {status !== 'PENDING' ? (
-                          r.reviewNote || '—'
-                        ) : r.waitingOnManager ? (
-                          <span className="ui-caption">With the manager first</span>
-                        ) : (
-                          <span className="flex items-center justify-end gap-1">
-                            <input className="ui-input ui-ctl-compact !w-40" placeholder="Note (optional)" value={notes[r.id] || ''} onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))} aria-label="Note" />
-                            <ApproveActions what={`${r.kind === 'COMP_OFF' ? 'comp-off' : 'overtime'} for ${r.employeeName}`} onApprove={() => decide(r, true)} onReject={() => decide(r, false)} rejectTitle="Decline" />
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+      {peopleTimePage && <SelectionBar selection={selection} onExport={records => exportRequests('csv', records)} />}
+      {!byStatus ? (error ? null : <SkeletonCard lines={5} />) : <>
+        <div className={`ot-workbench${active && !narrow ? ' has-detail' : ''}`}>
+          <div className="ot-records">
+            {(visibleRows.length > 0 || filters.hasActiveFilters) && <RequestQueue rows={visibleRows} active={active}
+              inspect={inspect} filters={filters} selection={selection} selectable={peopleTimePage} narrow={narrow} />}
+            {!rows.length && <EmptyState icon={Timer}
+              title={inTab.length ? 'No matching requests' : { PENDING: 'No requests waiting', APPROVED: 'No approved requests', REJECTED: 'No declined requests', CANCELLED: 'No withdrawn requests' }[status]}
+              kind={inTab.length ? 'filtered' : 'new'} totalCount={inTab.length}
+              onClearFilters={() => { search.setQuery(''); filters.clearAll(); }} />}
+            {!selection.focused && pageCount > 1 && <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={n => { setPerPage(n); setPage(1); }} noun="requests" />}
           </div>
-          <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="requests" />
-        </>
-      )}
-
+          {!narrow && active && <aside aria-label="Request details" className="ot-inspector"><h2>Request details</h2>{details}{actions}</aside>}
+        </div>
+        {narrow && active && <Drawer open title="Request details" onClose={() => setActiveId(null)} busy={busy} footer={actions}>{details}</Drawer>}
+      </>}
       {rules ? (
         <Drawer
           open={showRules}

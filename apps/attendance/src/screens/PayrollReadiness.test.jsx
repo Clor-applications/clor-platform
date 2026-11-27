@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 
 import PayrollReadiness from './PayrollReadiness';
@@ -40,4 +40,39 @@ it('takes its title from the menu label it was opened from', async () => {
   unmount();
   render(<PayrollReadiness />);
   expect(await screen.findByRole('heading', { level: 1, name: 'Payroll readiness' })).toBeTruthy();
+});
+
+it('keeps the selected month when an earlier response arrives late and hides restricted pay amounts', async () => {
+  let resolveEarlier;
+  getPayrollReadiness.mockImplementationOnce(() => new Promise(resolve => { resolveEarlier = resolve; }));
+  const monthData = { ready: false, score: 50, people: { total: 4, blocking: 1 }, payVisible: false, blockers: [],
+    issues: [{ key: 'punch', title: 'Selected month missing punch', count: 1, money: 1250, blocks: true, screen: 'records' }] };
+  getPayrollReadiness.mockResolvedValueOnce(monthData);
+  render(<PayrollReadiness />);
+  await waitFor(() => expect(resolveEarlier).toBeTypeOf('function'));
+  const month = screen.getByLabelText('Month');
+  fireEvent.change(month, { target: { value: month.value === '2026-10' ? '2026-09' : '2026-10' } });
+  const issue = await screen.findByRole('heading', { name: /Selected month missing punch/ });
+  expect(issue.textContent).not.toContain('1,250');
+  await act(async () => resolveEarlier({ ...monthData, issues: [] }));
+  expect(screen.getByRole('heading', { name: /Selected month missing punch/ })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Ready for payroll' })).toBeNull();
+});
+
+it('opens correction blockers inside People and payroll blockers through the app switcher', async () => {
+  const base = { count: 1, blocks: true };
+  getPayrollReadiness.mockResolvedValue({
+    ready: false, score: 0, people: { total: 4, blocking: 2 }, payVisible: false, blockers: [],
+    issues: [
+      { ...base, key: 'corrections', title: 'Corrections pending', app: 'attendance', screen: 'requests' },
+      { ...base, key: 'salary', title: 'Salary missing', app: 'payroll', screen: 'assignments' },
+    ],
+  });
+  const openScreen = vi.fn();
+  const openApp = vi.fn();
+  render(<PayrollReadiness peopleTimePage openApp={openApp} openScreen={openScreen} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Review issue' }));
+  expect(openScreen).toHaveBeenCalledWith('attendanceRequests', undefined);
+  fireEvent.click(screen.getByRole('button', { name: 'Fix in Payroll' }));
+  expect(openApp).toHaveBeenCalledWith('payroll', 'assignments');
 });

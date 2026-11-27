@@ -1,9 +1,10 @@
+import '@ui/components/ui/DashboardBoard.css';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronRight } from '@ui/components/ui/lineIcons';
 import { CalendarDays, Fingerprint, Inbox, ListChecks } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
-import { PartsRing } from '@ui/components/ui/FigureViews';
+import { PartsBar } from '@ui/components/ui/FigureViews';
 import '../attendance.css';
 
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
@@ -99,19 +100,24 @@ function DpdpNotice({ openScreen }) {
 
 export default function AttendanceToday({ openScreen }) {
   const [date, setDate] = useState(todayIst());
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+  const [dayResult, setDayResult] = useState(null);
   const [onScreen, setOnScreen] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  /* Readers and the week are extras: without access to them, or on a failed read, the panel is simply not shown. */
   const [readers, setReaders] = useState(null);
-  const [week, setWeek] = useState(null);
+  const [weekResult, setWeekResult] = useState(null);
+  const [weekAttempt, setWeekAttempt] = useState(0);
+  const day = dayResult?.date === date ? dayResult : null;
+  const data = day?.data;
+  const error = day?.error;
+  const recentDays = weekResult?.date === date ? weekResult : null;
+  const week = recentDays?.days;
+  const isToday = date === todayIst();
 
   useEffect(() => {
     let cancelled = false;
     getOverview(date)
-      .then((d) => !cancelled && (setData(d), setError('')))
-      .catch((e) => !cancelled && setError(errorWords(e, 'load today’s attendance')));
+      .then((data) => !cancelled && setDayResult({ date, data }))
+      .catch((e) => !cancelled && setDayResult({ date, error: errorWords(e, 'load attendance for this day') }));
     return () => {
       cancelled = true;
     };
@@ -131,13 +137,13 @@ export default function AttendanceToday({ openScreen }) {
       .then((d) => {
         if (cancelled) return;
         const days = (d?.days || []).filter((x) => x.date <= date && !x.future).slice(-7);
-        setWeek(days.length ? days : null);
+        setWeekResult({ date, days });
       })
-      .catch(() => !cancelled && setWeek(null));
+      .catch((e) => !cancelled && setWeekResult({ date, error: errorWords(e, 'load recent days') }));
     return () => {
       cancelled = true;
     };
-  }, [date, attempt]);
+  }, [date, weekAttempt]);
 
   /* The gate screen asks again every minute while it is open. */
   const refresh = useCallback(() => setAttempt((n) => n + 1), []);
@@ -157,14 +163,15 @@ export default function AttendanceToday({ openScreen }) {
       })()
     : null;
   const readerList = readers?.readers || [];
-  const readerTrouble = readerList.filter((r) => r.status !== 'ok' && r.status !== 'off' && r.status !== 'delayed').length;
+  const activeReaders = readerList.filter((r) => r.status !== 'off');
+  const readerTrouble = activeReaders.filter((r) => r.status !== 'ok').length;
 
   return (
     <div className="space-y-3">
       <PageHeader
         entity="attendance"
         title="Today"
-        description={data?.holiday ? `Holiday: ${data.holiday}` : 'Attendance at a glance.'}
+        description={data?.holiday ? `Holiday: ${data.holiday}` : undefined} introduction={data?.holiday ? undefined : 'Attendance at a glance.'}
         /* The day's figures as one count line, not six tiles (DESIGN.md "Page header"; design audit step 2).
            Zero clauses drop out; late, absent and not marked are the ones that need someone. */
         counts={data ? [
@@ -178,7 +185,7 @@ export default function AttendanceToday({ openScreen }) {
         actions={
           <>
             {data ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOnScreen(true)}>Show on a screen</button> : null}
-            <input type="date" className="ui-input" value={date} max={todayIst()} onChange={(e) => setDate(e.target.value)} aria-label="Day" />
+            <input type="date" className="ui-input" value={date} max={todayIst()} onChange={(e) => { if (e.target.value) { setDate(e.target.value); setOnScreen(false); } }} aria-label="Day" />
           </>
         }
       />
@@ -188,17 +195,14 @@ export default function AttendanceToday({ openScreen }) {
         error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
-          <section className="ui-today-hero" aria-labelledby="hello-h">
-            <div className="ui-today-hero-main">
-              <div className="ui-today-hero-text">
-              <h2 id="hello-h" className="ui-today-hero-greet">{longDate(date)}</h2>
-              <p className="ui-today-hero-line">{daySentence(data, date === todayIst())}</p>
-              {/* The day as a ring of its parts (owner, 22 Nov 2026, style E), each part in its status colour and named beside it. */}
-              {data.headcount ? <PartsRing label="The day" {...dayParts(data, date === todayIst())} /> : null}
-              </div>
-            </div>
-            <div className="ui-today-hero-side">
-              <h3 className="ui-today-hero-label">Waiting for you</h3>
+          <div className="dashboard-board">
+            <section className="dashboard-panel" data-featured aria-labelledby="hello-h">
+              <h2 id="hello-h" className="dashboard-panel-title">{longDate(date)}</h2>
+              <p className="dashboard-panel-meta">{daySentence(data, date === todayIst())}</p>
+              {data.headcount ? <PartsBar label="Attendance breakdown" {...dayParts(data, isToday)} /> : null}
+            </section>
+            <section className="dashboard-panel" aria-labelledby="attendance-work">
+              <h2 className="dashboard-panel-title" id="attendance-work">Waiting for you</h2>
               {waiting.some((w) => w.n) ? (
                 <ul className="ui-today-hero-queue">
                   {waiting.filter((w) => w.n).map((w) => (
@@ -216,8 +220,8 @@ export default function AttendanceToday({ openScreen }) {
               ) : (
                 <p className="ui-today-hero-clear">Nothing to validate or approve.</p>
               )}
-            </div>
-          </section>
+            </section>
+          </div>
 
           <DpdpNotice openScreen={openScreen} />
 
@@ -236,7 +240,14 @@ export default function AttendanceToday({ openScreen }) {
                   <i data-k="in" aria-hidden="true" />In <i data-k="leave" aria-hidden="true" />On leave <i data-k="absent" aria-hidden="true" />Absent
                 </span>
               </div>
-              {week ? (
+              {!recentDays ? (
+                <p className="ui-muted text-sm" role="status">Loading recent days…</p>
+              ) : recentDays.error ? (
+                <LoadFailed message={recentDays.error} onRetry={() => {
+                  setWeekResult(null);
+                  setWeekAttempt((n) => n + 1);
+                }} />
+              ) : week.length ? (
                 <div className="ui-week-plot">
                   <span className="ui-week-axis" aria-hidden="true"><i>100%</i><i>50%</i><i>0</i></span>
                   <ol className="ui-week" aria-label="Share of people in each day">
@@ -270,12 +281,14 @@ export default function AttendanceToday({ openScreen }) {
               <section aria-labelledby="readers-h">
                 <div className="att-block-head flex items-baseline justify-between gap-3">
                   <h2 id="readers-h" className="ui-t-sec">Readers</h2>
-                  <span className="ui-caption">{readerList.length ? (readerTrouble ? `${readerTrouble} need${readerTrouble === 1 ? 's' : ''} a look` : 'All healthy') : 'None added'}</span>
+                  {readerTrouble ? <span className="ui-pill ui-pill-warn">{readerTrouble} need{readerTrouble === 1 ? 's' : ''} review</span> : (
+                    <span className="ui-caption">{activeReaders.length ? 'Active readers healthy' : readerList.length ? 'All switched off' : 'None added'}</span>
+                  )}
                 </div>
                 {readerList.length ? (
                   <ul className="divide-y">
                     {readerList.slice(0, 5).map((r) => {
-                      const st = READER[r.status] || READER.ok;
+                      const st = READER[r.status] || { label: 'Status unknown', tone: 'neutral' };
                       return (
                         <li key={r.id} className="flex items-center gap-3 py-2 text-sm">
                           <Fingerprint size={16} aria-hidden="true" className="ui-subtle shrink-0" />
@@ -317,7 +330,7 @@ export default function AttendanceToday({ openScreen }) {
               )}
             </section>
             <section className="xl:col-span-2" aria-labelledby="notin-h">
-              <h2 id="notin-h" className="ui-t-sec att-block-head">Not in yet <span className="ui-caption tabular-nums">{data.notIn.length}{date === todayIst() ? ` · ${new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : ''}</span></h2>
+              <h2 id="notin-h" className="ui-t-sec att-block-head">{isToday ? 'Not in yet' : 'No punch recorded'} <span className="ui-caption tabular-nums">{data.notIn.length}{isToday ? ` · ${new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : ''}</span></h2>
               {data.notIn.length ? (
                 <ul className="grid gap-x-4 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">
                   {data.notIn.map((p) => (
@@ -325,7 +338,7 @@ export default function AttendanceToday({ openScreen }) {
                   ))}
                 </ul>
               ) : (
-                <p className="ui-muted text-sm">Everyone is in.</p>
+                <p className="ui-muted text-sm">{isToday ? 'Everyone is in.' : 'No missing punches in this list.'}</p>
               )}
             </section>
           </div>

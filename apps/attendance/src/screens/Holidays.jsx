@@ -147,7 +147,8 @@ export default function Holidays({ openScreen } = {}) {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Holidays', fileName: 'Holidays', label: 'holiday/holidays', columns: EXPORT_COLUMNS, rows });
       }}
-      description="Paid days off: for everyone, or only one branch’s or area’s people (a branch in another state keeps its own). Optional holidays do not change anyone's attendance."
+      introduction="Paid days off: for everyone, or only one branch’s or area’s people (a branch in another state keeps its own)."
+      description="Optional holidays do not change anyone's attendance."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search holidays…', label: 'Search holidays' }}

@@ -1,3 +1,5 @@
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
+import { useReviewSelection, SelectionBar, MobilePageCheckbox, PageCheckbox, RowCheckbox } from '@ui/components/ui/ReviewTable';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Camera, Fingerprint, MapPin, Router, Users, UserX } from '@ui/components/ui/lineIcons';
 import { ExceptionTag, exceptionsFirst } from '@ui/components/ui/ExceptionTag';
@@ -53,7 +55,7 @@ const EXPORT_COLUMNS = [
  * how was it verified, whose ID was it? (ClorTime's Transaction view.)
  */
 /* `title`: the same log is Punches under Attendance and Punch Transactions under Readers. */
-export default function Transactions({ title = 'Punches' }) {
+export default function Transactions({ peopleTimePage = false, title = 'Punches' }) {
   const [filters, setFilters] = useState({ from: todayIst(), to: todayIst(), employeeId: '', deviceId: '', unmatched: '' });
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -114,6 +116,8 @@ export default function Transactions({ title = 'Punches' }) {
    * who it is, so it is tagged and sorts first. In and out are what the reader sent, data not a state: plain words. */
   const rows = exceptionsFirst(columns.applyFilters(search.filtered, COLUMNS), (t) => !t.employeeName);
   const { pageCount, safePage, pageRows } = usePaged(rows, perPage, page);
+  const selection = useReviewSelection(pageRows);
+  const visibleRows = peopleTimePage && selection.focused ? selection.selectedRows : pageRows;
   useResetPage(setPage, [direction, search.query, filters]);
   const figures = useMemo(() => ({
     punches: all.length,
@@ -124,9 +128,10 @@ export default function Transactions({ title = 'Punches' }) {
 
   return (
     <DocumentListShell
+      timeRegister={peopleTimePage}
       entity="reader"
       title={title}
-      description="Every punch as the readers sent it, before it becomes a day."
+      description={peopleTimePage ? undefined : "Every punch as the readers sent it, before it becomes a day."}
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search punches…', label: 'Search punches' }}
@@ -172,9 +177,12 @@ export default function Transactions({ title = 'Punches' }) {
         <>
           {data.truncated ? <p className="ui-caption px-4 pt-3">Showing the latest {data.transactions.length} of {data.total}. Narrow the dates or export to see the rest.</p> : null}
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky ui-table-phone w-full">
+            {peopleTimePage ? <SelectionBar selection={selection} /> : null}
+            {peopleTimePage ? <MobilePageCheckbox rows={visibleRows} selection={selection} /> : null}
+            <TimeRegisterTable enabled={peopleTimePage} register="Transactions" required={['Employee', 'Time']} className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
+                  {peopleTimePage ? <th scope="col" className="record-checkbox"><PageCheckbox rows={visibleRows} selection={selection} /></th> : null}
                   <ColumnHeader label="Time" col="time" state={columns} type="date" />
                   <ColumnHeader label="Employee" col="employee" state={columns}  className="ui-col-grow" />
                   <ColumnHeader label="Reader ID" col="pin" state={columns} />
@@ -189,21 +197,22 @@ export default function Transactions({ title = 'Punches' }) {
               <tbody className="ui-rows">
                 {!rows.length ? (
                   <tr>
-                    <td colSpan={anyWorkCode ? 9 : 8}>
+                    <td colSpan={(anyWorkCode ? 9 : 8) + (peopleTimePage ? 1 : 0)}>
                       {all.length ? (
                         <EmptyState kind="filtered" totalCount={inTab.length || all.length} title="No punches match" description="Nothing in this tab matches the search or the column filters." />
                       ) : (
                         <EmptyState
                           icon={Fingerprint}
                           title="No punches"
-                          description="Every punch as the readers sent it, before it becomes a day. No reader sent a punch in this range; widen the dates."
+                          description={peopleTimePage ? "Try a wider date range." : "Every punch as the readers sent it, before it becomes a day. No reader sent a punch in this range; widen the dates."}
                         />
                       )}
                     </td>
                   </tr>
                 ) : (
-                  pageRows.map((t) => (
+                  visibleRows.map((t) => (
                     <tr key={t.id} className={repeats.has(t.id) ? 'ui-punch-repeat' : undefined}>
+                      {peopleTimePage ? <RowCheckbox row={t} label={[t.employeeName || t.pin, t.localTime].join(' · ')} selection={selection} phoneSlot="select" /> : null}
                       <td className="ui-col-date whitespace-nowrap tabular-nums" data-phone="key">
                         {t.localTime}
                         {repeats.has(t.id) ? <span className="ui-caption block">Repeat · the day counts the first</span> : null}
@@ -254,9 +263,9 @@ export default function Transactions({ title = 'Punches' }) {
                   ))
                 )}
               </tbody>
-            </table>
+            </TimeRegisterTable>
           </div>
-          <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="punches" />
+          {!selection.focused && (<Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="punches" />)}
         </>
       )}
       {photo ? (

@@ -58,7 +58,7 @@ const clock = (sec) => {
  * it, is anything stuck — and is attendance arriving at all today. Problems
  * are emailed once when they start and once when they clear.
  */
-export default function ReaderHealth() {
+export default function ReaderHealth({ peopleTimePage } = {}) {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -84,12 +84,20 @@ export default function ReaderHealth() {
   const recent = data.alerts.filter((a) => a.resolvedAt).slice(0, 10);
   const problems = data.readers.filter((r) => r.status !== 'ok' && r.status !== 'off').length;
 
+  const figures = <CountLine label="Reader figures" items={countItems([
+          { label: 'Readers', value: data.readers.length, count: true, tone: 'sent', Icon: Cpu },
+          { label: 'Online now', value: data.readers.filter((r) => r.online).length, count: true, tone: 'paid', Icon: Wifi },
+          { label: 'Need a look', value: problems, count: true, tone: 'overdue', Icon: AlertTriangle },
+          { label: 'Punches today', value: data.punchesToday, count: true, tone: 'partial', Icon: Fingerprint },
+          { label: 'Open alerts', value: open.length, count: true, tone: 'outstanding', Icon: BellRing },
+        ])} />;
   return (
     <div className="space-y-3">
       <PageHeader
         entity="reader"
         title="Reader health"
-        description="Is each reader reporting, is its clock right, how full is it. Problems are emailed once when they start and once when they clear."
+        summary={peopleTimePage ? figures : null}
+        description={peopleTimePage ? undefined : "Is each reader reporting, is its clock right, how full is it. Problems are emailed once when they start and once when they clear."}
         actions={
           <>
             <button type="button" className="ui-btn ui-btn-secondary" onClick={load}><RefreshCw size={16} aria-hidden="true" /> Refresh</button>
@@ -98,13 +106,7 @@ export default function ReaderHealth() {
         }
       />
 
-      <CountLine label="Reader figures" items={countItems([
-          { label: 'Readers', value: data.readers.length, count: true, tone: 'sent', Icon: Cpu },
-          { label: 'Online now', value: data.readers.filter((r) => r.online).length, count: true, tone: 'paid', Icon: Wifi },
-          { label: 'Need a look', value: problems, count: true, tone: 'overdue', Icon: AlertTriangle },
-          { label: 'Punches today', value: data.punchesToday, count: true, tone: 'partial', Icon: Fingerprint },
-          { label: 'Open alerts', value: open.length, count: true, tone: 'outstanding', Icon: BellRing },
-        ])} />
+      {!peopleTimePage && figures}
 
       <div className="pb-8 space-y-6">
       {data.collection.map((i) => (

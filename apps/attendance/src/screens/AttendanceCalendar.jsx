@@ -101,7 +101,7 @@ export default function AttendanceCalendar() {
       <PageHeader
         entity="attendance"
         title="Attendance calendar"
-        description="The month at a glance; tap a day for who was in."
+        introduction="The month at a glance; tap a day for who was in."
         actions={
           <>
             <span className="flex items-center gap-1">

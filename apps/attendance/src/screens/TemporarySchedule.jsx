@@ -1,3 +1,5 @@
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
+import { useReviewSelection, SelectionBar, MobilePageCheckbox, PageCheckbox, RowCheckbox } from '@ui/components/ui/ReviewTable';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarCheck, CalendarClock, CalendarRange, Plus, Trash2, Users } from '@ui/components/ui/lineIcons';
 
@@ -27,7 +29,7 @@ const COLUMNS = {
  * A different shift for a few days — cover, a training week, a swap. Wins over
  * every other schedule for those days (ClorTime's Temporary Schedule).
  */
-export default function TemporarySchedule({ menuLabel } = {}) {
+export default function TemporarySchedule({ peopleTimePage = false, menuLabel } = {}) {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
@@ -35,6 +37,7 @@ export default function TemporarySchedule({ menuLabel } = {}) {
   const [picked, setPicked] = useState(() => new Set());
   const [q, setQ] = useState('');
   const [form, setForm] = useState({ shiftId: '', fromDate: todayIst(), toDate: todayIst(), reason: '' });
+  const [formOpen, setFormOpen] = useState(false);
   const [saving, runSave] = useSaving();
   const [removing, setRemoving] = useState('');
   const load = useCallback(() => {
@@ -63,6 +66,8 @@ export default function TemporarySchedule({ menuLabel } = {}) {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const { pageCount, safePage, pageRows } = usePaged(shownRows, perPage, page);
+  const selection = useReviewSelection(pageRows);
+  const visibleRows = peopleTimePage && selection.focused ? selection.selectedRows : pageRows;
   useResetPage(setPage, [list.query]);
   const figures = useMemo(() => {
     const all = rows || [];
@@ -80,6 +85,7 @@ export default function TemporarySchedule({ menuLabel } = {}) {
     try {
       const r = await addTemporarySchedule({ ...form, employeeIds: [...picked], reason: form.reason || null });
       notify.success(`${r.scheduled} scheduled.`);
+      setFormOpen(false);
       setPicked(new Set());
       load();
     } catch (e) {
@@ -103,9 +109,10 @@ export default function TemporarySchedule({ menuLabel } = {}) {
 
   return (
     <DocumentListShell
+      timeRegister={peopleTimePage}
       entity="shift"
       title={menuLabel || 'Temporary schedules'}
-      description="A different shift for some days. It wins over every other schedule on those days."
+      description={peopleTimePage ? undefined : "A different shift for some days. It wins over every other schedule on those days."}
       compact
       tight
       search={{ value: list.query, onChange: list.setQuery, placeholder: 'Search temporary schedules…', label: 'Search temporary schedules' }}
@@ -115,8 +122,9 @@ export default function TemporarySchedule({ menuLabel } = {}) {
         { label: 'On today', value: figures.today, count: true, tone: 'paid', Icon: CalendarCheck },
         { label: 'Still to come', value: figures.upcoming, count: true, tone: 'partial', Icon: CalendarRange },
       ])}
-      above={
-        <section className="space-y-3" aria-label="New temporary schedule" aria-busy={saving || undefined}>
+      primary={peopleTimePage && <button type="button" className="ui-btn ui-btn-primary" aria-controls="shift-entry" aria-expanded={formOpen} onClick={() => setFormOpen(!formOpen)}>{formOpen ? 'Close form' : 'Schedule shift'}</button>}
+      above={(!peopleTimePage || formOpen) &&
+        <section id="shift-entry" className="space-y-3" aria-label="New temporary schedule" aria-busy={saving || undefined}>
           <div className="flex flex-wrap items-end gap-3">
             <label className="block">
               <span className="ui-label">Shift *</span>
@@ -130,6 +138,7 @@ export default function TemporarySchedule({ menuLabel } = {}) {
             <label className="block min-w-[12rem] flex-1"><span className="ui-label">Why</span><input className="ui-input w-full" maxLength={200} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="e.g. Covering night shift" /></label>
             <button type="button" className="ui-btn ui-btn-primary" disabled={saving || !form.shiftId || !picked.size} aria-busy={saving || undefined} onClick={add}><Plus size={16} aria-hidden="true" /> {saving ? 'Saving…' : `Schedule ${picked.size || ''}`}</button>
           </div>
+          {peopleTimePage && form.shiftId && picked.size > 0 && <p className="ui-caption">This shift overrides the selected employees’ schedules for these dates.</p>}
           <input type="search" className="ui-input" placeholder="Search people" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
           <ul className="grid max-h-48 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
             {shown.map((p) => (
@@ -150,9 +159,12 @@ export default function TemporarySchedule({ menuLabel } = {}) {
       ) : (
         <>
           <div className="ui-table-scroll">
-            <table className="ui-table ui-table-sticky ui-table-phone w-full">
+            {peopleTimePage ? <SelectionBar selection={selection} /> : null}
+            {peopleTimePage ? <MobilePageCheckbox rows={visibleRows} selection={selection} /> : null}
+            <TimeRegisterTable enabled={peopleTimePage} register="TemporarySchedule" required={['Employee']} className="ui-table ui-table-sticky ui-table-phone w-full">
               <thead>
                 <tr>
+                  {peopleTimePage ? <th scope="col" className="record-checkbox"><PageCheckbox rows={visibleRows} selection={selection} /></th> : null}
                   <ColumnHeader label="Employee" col="employee" state={filters} />
                   <ColumnHeader label="Shift" col="shift" state={filters} />
                   <ColumnHeader label="From" col="from" state={filters} type="date" />
@@ -164,21 +176,22 @@ export default function TemporarySchedule({ menuLabel } = {}) {
               <tbody className="ui-rows">
                 {!shownRows.length ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={(6) + (peopleTimePage ? 1 : 0)}>
                       {rows.length ? (
                         <EmptyState kind="filtered" totalCount={rows.length} title="No temporary schedules match" description="Nothing matches the search or the column filters." />
                       ) : (
                         <EmptyState
                           icon={CalendarClock}
                           title="No temporary schedules"
-                          description="A different shift for some days. It wins over every other schedule on those days. None from this month on."
+                          description={peopleTimePage ? undefined : "A different shift for some days. It wins over every other schedule on those days. None from this month on."}
                         />
                       )}
                     </td>
                   </tr>
                 ) : (
-                  pageRows.map((r) => (
+                  visibleRows.map((r) => (
                     <tr key={r.id}>
+                      {peopleTimePage ? <RowCheckbox row={r} label={r.employeeName} selection={selection} phoneSlot="select" /> : null}
                       <td className="ui-col-entity" data-phone="name">{r.employeeName}</td>
                       <td data-phone="sub">{r.shiftName}</td>
                       <td className="ui-col-date whitespace-nowrap" data-phone="key">{dayLabel(r.fromDate)}</td>
@@ -195,9 +208,9 @@ export default function TemporarySchedule({ menuLabel } = {}) {
                   ))
                 )}
               </tbody>
-            </table>
+            </TimeRegisterTable>
           </div>
-          <Pagination total={shownRows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="schedules" />
+          {!selection.focused && (<Pagination total={shownRows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="schedules" />)}
         </>
       )}
     </DocumentListShell>

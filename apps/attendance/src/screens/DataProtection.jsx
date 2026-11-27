@@ -102,7 +102,8 @@ export default function DataProtection({ openScreen }) {
       <PageHeader
         entity="privacy"
         title="Data protection"
-        description="How this company meets the DPDP Act for attendance. You are the Data Fiduciary; CLOR processes the data for you."
+        introduction="How this company meets the DPDP Act for attendance."
+        description="You are the Data Fiduciary; CLOR processes the data for you."
         actions={s.requestsWaiting && openScreen ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('dataRequests')}>Answer data requests</button> : null}
       />
       <div className="pb-8 space-y-6 max-w-3xl">

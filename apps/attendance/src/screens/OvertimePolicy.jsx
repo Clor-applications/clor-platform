@@ -74,7 +74,7 @@ export default function OvertimePolicy({ openScreen }) {
       <PageHeader
         entity="overtime"
         title="Overtime policy"
-        description="When overtime starts on each shift, and how overtime and comp-off are asked for and approved."
+        introduction="When overtime starts on each shift, and how overtime and comp-off are asked for and approved."
       />
       <div className="pb-8 space-y-4">
         <section className="ui-card p-4 space-y-3" aria-labelledby="ot-rules-h">

@@ -81,7 +81,7 @@ export default function Geofences() {
     <DocumentListShell
       entity="location"
       title="Punch areas"
-      description="Where a phone punch counts: within the radius of an area. Not People's work sites, which are the company's legal establishments."
+      introduction="Where a phone punch counts: within the radius of an area. Not People's work sites, which are the company's legal establishments."
       compact
       tight
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search punch areas…', label: 'Search punch areas' }}

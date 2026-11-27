@@ -1,4 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { PEOPLE_SCREEN_ALIASES } from '@platform/includedApps';
+import TimeRegisterTable from '@ui/components/list/TimeRegisterTable';
+import React, { useEffect, useState } from 'react';
+import useRequest from '@ui/components/ui/useRequest';
 import { AlertTriangle, CalendarDays, CheckCircle2, Download, Lock, Unlock } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -116,22 +119,28 @@ function StartDate({ value, canChange, onSaved }) {
 }
 const monthName = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-export default function MonthClose({ openScreen, params }) {
+export default function MonthClose({ peopleTimePage, openScreen, params }) {
   const [month, setMonth] = useState(params?.month || lastMonth());
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
   const [ack, setAck] = useState(false);
   const [lopOk, setLopOk] = useState(false);
   const [busy, setBusy] = useState(false);
   const perms = usePermissions();
   const canClose = Boolean(perms?.isAdmin) || Boolean(perms?.permissions?.has?.('ATTENDANCE::Attendance Records::APPROVE'));
 
-  const load = useCallback(() => {
-    getMonthReadiness(month)
-      .then((d) => { setData(d); setError(''); setAck(false); setLopOk(false); })
-      .catch((e) => setError(errorWords(e, 'check the month')));
-  }, [month]);
-  useEffect(() => { load(); }, [load]);
+  const readiness = useRequest(async () => ({ month, result: await getMonthReadiness(month) }), [month], { enabled: Boolean(month) });
+  const data = readiness.data?.month === month && !readiness.refreshing && !readiness.error ? readiness.data.result : null;
+  const error = readiness.error ? errorWords(readiness.error, 'check the month') : '';
+  const load = () => {
+    setAck(false);
+    setLopOk(false);
+    readiness.reload();
+  };
+  const chooseMonth = (event) => {
+    if (!event.target.value) return;
+    setAck(false);
+    setLopOk(false);
+    setMonth(event.target.value);
+  };
 
   const openItems = (data?.checks || []).filter((c) => c.count > 0);
   /* Docked as unpaid absence on close: never an "all clear", and confirmed on its own. */
@@ -199,7 +208,8 @@ export default function MonthClose({ openScreen, params }) {
     if (!openScreen) return;
     const end = `${month}-${String(new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate()).padStart(2, '0')}`;
     if (c.screen === 'records') openScreen('records', { from: `${month}-01`, to: end, ...(c.key === 'unvalidated' ? { validated: 'false' } : {}), ...(c.key === 'trustCheck' ? { trust: 'CHECK' } : {}) });
-    else openScreen(c.screen);
+    else if (c.screen === 'confirmations') openScreen(c.screen, { month });
+    else openScreen((peopleTimePage && PEOPLE_SCREEN_ALIASES[c.screen]) || c.screen);
   };
 
   return (
@@ -207,8 +217,8 @@ export default function MonthClose({ openScreen, params }) {
       <PageHeader
         entity="report"
         title="Month close"
-        description="Check the month before Payroll takes it. Closing makes its days final and keeps a copy of the figures."
-        actions={<input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />}
+        description={peopleTimePage ? undefined : "Check the month before Payroll takes it. Closing makes its days final and keeps a copy of the figures."}
+        actions={<input type="month" className="ui-input !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={chooseMonth} disabled={busy} aria-label="Month" />}
       />
       <div className="pb-8 space-y-6">
       <LoadFailed message={error} onRetry={load} />
@@ -328,7 +338,7 @@ export default function MonthClose({ openScreen, params }) {
               ) : null}
             </div>
             <div className="ui-table-scroll" id="people-panel" role="tabpanel" aria-labelledby={`kind-tab-${kind || 'all'}`}>
-              <table className="ui-table ui-table-sticky w-full">
+              <TimeRegisterTable enabled={peopleTimePage} register="MonthClose" required={['Employee']} className="ui-table ui-table-sticky w-full">
                 <thead>
                   <tr>
                     <ColumnHeader label="Employee" col="employee" state={filters}  className="ui-col-grow" />
@@ -365,7 +375,7 @@ export default function MonthClose({ openScreen, params }) {
                     ))
                   )}
                 </tbody>
-              </table>
+              </TimeRegisterTable>
             </div>
             {people.length ? <Pagination total={people.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun={people.length === 1 ? 'person' : 'people'} /> : null}
           </section>
