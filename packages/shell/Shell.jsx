@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { placeFor, rememberPlace, restorePlace } from './scrollMemory';
-import { ArrowLeft, Ban, Building2, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Ban, Building2, Check, ChevronDown, ChevronRight, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
 import { Contrast, PanelLeftClose, Rows3 } from 'lucide-react';
 import { useDensity } from '@ui/components/ui/useDensity';
 import { TEXT_SIZES, useTextSize } from '@ui/components/ui/useTextSize';
@@ -21,7 +21,7 @@ import { APPS, appById, availableApps, catalogueFor, landingApp, landingFor, sub
 import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { includedForward } from './includedForward';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
-import { landingScreen, mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
+import { landingScreen, mergeParams, moduleForScreen, peopleBreadcrumbs, railAction, readScreenSearch, resolveModules, searchPages, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
 import { AnnouncementBar } from './Announcements';
@@ -36,6 +36,8 @@ import { isStartPath } from './startLink';
 /* Round 61 "unsavedleave" A: Stay is the main button, so a stray click never loses a half-edited salary. */
 const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'You have unsaved changes on this page.', confirmLabel: 'Leave', cancelLabel: 'Stay', stayFirst: true });
 import HelpCenter from './HelpCenter';
+import { createPortal } from 'react-dom';
+import { PeoplePageLayout, usePeoplePageLayout } from '@ui/components/list/PeoplePageLayout';
 import ScreenHelp, { guideForScreen } from './ScreenHelp';
 import { ExternalMarks, ScrollTop, TitleSync, useCtrlSave, useExternalLinksInNewTab } from '@ui/picks/round61';
 import { ClorLogo, ClorMark } from '@ui/components/brand';
@@ -54,6 +56,7 @@ import TwoFactorGate from './TwoFactorGate';
 import GatePage from './GatePage';
 import PrintFooter from './PrintFooter';
 import CommandPalette from '@ui/components/ui/CommandPalette';
+import { PageSearchContext } from '@ui/components/ui/PageSearchContext';
 import RecentPeople from '@ui/components/ui/RecentPeople';
 import CompanySetup from './CompanySetup';
 import { appIntent, captureAppIntent } from './appIntent';
@@ -71,6 +74,34 @@ import { useLegalRoute } from './legal/useLegalRoute';
 import { renderPublicPage, usePublicPage } from './usePublicPage';
 import { installFormRules } from '@ui/picks/round56';
 import { errorWords, subscriptionSentence, subscriptionWord } from '@ui/utils/errorWords.js';
+
+function ModulePageLinks({ module, overviewLinks, collapsible, isCurrent, panelCounts, onOpen }) {
+  const currentGroup = module.groups.find((group) => group.items.some((item) => isCurrent(item.key)));
+  const [expanded, setExpanded] = useState(() => currentGroup?.label ?? module.groups[0]?.label);
+  const shortcuts = overviewLinks ? [] : module.shortcuts || [];
+  const visit = (item) => onOpen(item.key, item.params);
+  return <>
+    {shortcuts.length ? <div className="module-issue-links">
+      <p className="ui-caption">Resolve an issue</p>
+      {shortcuts.map((link) => <button key={link.key} type="button" onClick={() => visit(link)}>{link.label}<span aria-hidden="true">↗</span></button>)}
+    </div> : null}
+    {module.groups.map((g, gi) => {
+      const foldable = collapsible && !!g.label;
+      const open = !foldable || expanded === g.label;
+      return <div key={g.label || gi} className={collapsible ? 'module-page-group' : gi ? 'mt-4' : ''}>
+        {foldable ? <button type="button" className="module-group-toggle" aria-expanded={open}
+          onClick={() => setExpanded(open ? null : g.label)}>{g.label}<ChevronDown size={14} aria-hidden="true" /></button>
+          : g.label ? <p className="ui-caption px-2 pb-1">{g.label}</p> : null}
+        {open && g.items.map((item) => <button key={item.key} type="button" className="ui-split-item"
+          aria-current={isCurrent(item.key) ? 'page' : undefined} onClick={() => visit(item)}>
+          {item.icon ? <item.icon size={16} aria-hidden="true" /> : null}
+          <span className="min-w-0 truncate">{item.label}</span>
+          {Number(panelCounts[item.key]) >= 0 && panelCounts[item.key] != null ? <span className="ui-split-item-count">{panelCounts[item.key]}</span> : null}
+        </button>)}
+      </div>;
+    })}
+  </>;
+}
 
 /**
  * The CLOR shell.
@@ -164,7 +195,7 @@ export function CompanyMenuItems({ groups, currentId, onPick }) {
           </MenuRadioItem>
         ));
         return g.label ? (
-          <MenuGroup key={g.id}>
+          <MenuGroup key={g.id} aria-label={g.label}>
             <MenuGroupLabel className="px-2 pt-2 font-medium">{g.label}</MenuGroupLabel>
             {items}
           </MenuGroup>
@@ -218,6 +249,7 @@ export default function Shell() {
 }
 
 function ShellScreens() {
+  const peopleLayout = usePeoplePageLayout();
   /* Owner's round 15 pick: roomy or compact rows, a personal choice in the name menu (not in Books, which has its own). */
   const { density, toggle: toggleDensity } = useDensity();
   const { size: textSize, set: setTextSize } = useTextSize();
@@ -422,6 +454,7 @@ function ShellScreens() {
      module panel's edge (owner, 28 Oct 2026), and follows it as the panel opens
      and closes or the window changes. */
   const searchRef = useRef(null);
+  const [pageSearches] = useState(() => new Map());
   useEffect(() => watchWideTables(document.body), []);
   useLayoutEffect(() => {
     const search = searchRef.current;
@@ -676,7 +709,7 @@ function ShellScreens() {
      top of the document (portals), outside the element that sets it, and
      start below the bar rather than under it. */
   useEffect(() => {
-    document.documentElement.style.setProperty('--platform-bar', phone ? '3.5rem' : '4rem');
+    document.documentElement.style.setProperty('--platform-bar', phone ? '48px' : '52px');
     return () => document.documentElement.style.removeProperty('--platform-bar');
   }, [phone]);
 
@@ -752,16 +785,18 @@ function ShellScreens() {
       const { open, app: appInUrl, params } = readScreenSearch(window.location.search);
       fromHistory.current = true;
       if (appInUrl && !appFromHost()) setChosenAppId(appInUrl);
-      /* Back within the same screen (a wizard step, a record tab) changes its state in place; what was typed stays. */
-      if (open && open === screenKeyRef.current && (!appInUrl || appInUrl === activeAppIdRef.current)) {
-        setLiveParams(params);
-        return;
-      }
-      /* Back would leave a screen with unsaved edits: stay, ask, and only then go back for real. */
-      if (hasUnsaved() && lastUrlRef.current) {
+      const sameScreen = open && open === screenKeyRef.current && (!appInUrl || appInUrl === activeAppIdRef.current);
+      const changingPayRun = sameScreen && activeAppIdRef.current === 'payroll' && open === 'runs'
+        && (params?.runId !== liveParamsRef.current?.runId || params?.startPeriod !== liveParamsRef.current?.startPeriod);
+      /* A tab change keeps edits mounted. Changing a pay run can close the record or start form. */
+      if ((!sameScreen || changingPayRun) && hasUnsaved() && lastUrlRef.current) {
         fromHistory.current = false;
         window.history.pushState(null, '', lastUrlRef.current);
         askLeave().then((ok) => { if (ok) { clearUnsaved(); window.history.back(); } });
+        return;
+      }
+      if (sameScreen) {
+        setLiveParams(params);
         return;
       }
       /* Round 57 filtermemory A: the browser's Back finds the list where it was left. */
@@ -941,7 +976,7 @@ function ShellScreens() {
   const holds = (p) => holdsPermission(p, granted, extraAccess);
   /* `wholeCompany`: a screen of company-wide figures, which a team-only role (a Team Manager) is refused by the server; not offered to it. */
   const teamOnly = grants.key === tenantKey && Boolean(grants.teamOnly);
-  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || (holds(item.permission) && switchedOn(item) && !(item.wholeCompany && teamOnly))));
+  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || (holds(item.permission) && switchedOn(item) && !(item.wholeCompany && teamOnly))), app?.modules);
   const nav = allowed.filter((item, i) => !item.section || (allowed[i + 1] && !allowed[i + 1].section));
   /* A screen the open app does not have is not a screen: the same company
      switch that changes the app leaves last app's screen key behind, and
@@ -956,9 +991,12 @@ function ShellScreens() {
    * (the server refuses it too; this is the explanation). Not found: the
    * address the page opened with names a screen this app does not have.
    */
+  const helpTarget = activeAppId === 'people' ? peopleLayout.helpTarget : null;
+  const screenHelp = <ScreenHelp appId={app?.id} screen={screen}
+    onOpenHelpCentre={(key) => { setHelpTopic(key); setPlatformScreen('help'); setShowMoreApps(false); window.scrollTo(0, 0); }} />;
   const screenItem = (app?.nav || []).find((n) => n.key === screen);
   /* An app whose own access is still being read is not refused yet. */
-  const screenDenied = Boolean(screenItem?.permission && !holds(screenItem.permission) && (extraAccess || !app?.access));
+  const screenDenied = Boolean(screenItem?.overviewOf && !nav.includes(screenItem)) || Boolean(screenItem?.permission && !holds(screenItem.permission) && (extraAccess || !app?.access));
   /* An app may draw its own navigation instead of handing the shell a list. */
   const Root = app?.Root || null;
   const screenMissing = Boolean(!Root && app && openedWith && screenKey === openedWith && !app.screens?.[openedWith] && !chosenLanding?.moved);
@@ -972,34 +1010,45 @@ function ShellScreens() {
     return { count, screen: first?.items?.[0] || first?.key || null };
   })();
   const split = modules.length > 0;
-  const currentModule = moduleForScreen(modules, screen, nav) || modules[0] || null;
+  const originModule = app?.id === 'people' && modules.find((m) => m.key === liveParams?.section && m.items.some((i) => i.key === screen));
+  const currentModule = originModule || moduleForScreen(modules, screen, nav) || modules[0] || null;
   /* The module whose panel is open; follows the screen unless the person is browsing another on the rail. */
   const openModule =
     (browseModule && modules.find((m) => m.key === browseModule)) ||
     /* In the phone sheet a single-screen module has nothing to list, so the sheet opens on the first module that has. */
     (phone && currentModule?.single ? modules.find((m) => !m.single) || currentModule : currentModule);
 
+  const timePage = app?.id === 'people' && modules.some((m) => m.key === 'leave' && m.items.some((i) => i.key === screen));
+  const pageModuleKey = timePage ? 'leave' : app?.id === 'people' && currentModule?.key === 'employees' ? 'employees' : null;
   const isCurrent = (key) => screen === key && !platformScreen && !showMoreApps;
 
-  /* The app switcher. Named for the app you are in, because that is the question it answers before it is
-     the control it offers. With the screens panel open on a desktop it sits over that column and the search over the page. */
   const panelOpenDesktop = Boolean(split && !phone && !tablet && !panelClosed && openModule && !openModule.single);
-  const appSwitcher = app && (app.id !== ADMIN_APP_ID || !phone) ? (
+  const hasLauncher = [ADMIN_APP_ID, 'people', 'payroll', 'attendance'].includes(app?.id);
+  const AppContext = hasLauncher ? 'div' : React.Fragment;
+  const appSwitcher = app ? (
+    <AppContext {...(hasLauncher ? { className: 'ui-app-context' } : {})}>
       <UiMenu open={switcherOpen} onOpenChange={setSwitcherOpen}>
         <MenuTrigger
-          className="ui-app-switch"
-          /* On a phone the bar's own gap spaces it; the desktop's 1.5rem lead pushed sign-out past a 390 px screen. */
-          style={phone ? { marginLeft: 0, gap: '0.25rem', paddingRight: '0.25rem' } : undefined}
+          className={hasLauncher ? 'ui-app-switch ui-app-launcher' : 'ui-app-switch'}
+          style={!hasLauncher && phone ? { marginLeft: 0, gap: '0.25rem', paddingRight: '0.25rem' } : undefined}
           aria-label={`${app.name}: switch app`}
+          title={hasLauncher ? 'App launcher' : undefined}
         >
-          {/* The app you are in, as a mark in its own colour and its name in full weight: the first thing the bar answers. */}
-          <span className="ui-app-switch-mark" style={{ '--app-color': `var(--app-${app.id})` }}><app.icon size={16} aria-hidden="true" /></span>
-          {/* On a phone the name is cut short rather than pushing the bar past the screen; the full name is the button's label. */}
-          <span className={`ui-app-switch-name${phone ? ' truncate max-[389px]:hidden' : ''}`} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
-          <ChevronDown size={14} aria-hidden="true" />
+          {hasLauncher ? (
+            <span className="ui-app-launcher-dots" aria-hidden="true">
+              <i /><i /><i /><i /><i /><i /><i /><i /><i />
+            </span>
+          ) : (
+            <>
+              <span className="ui-app-switch-mark" style={{ '--app-color': `var(--app-${app.id})` }}><app.icon size={16} aria-hidden="true" /></span>
+              <span className={`ui-app-switch-name${phone ? ' truncate max-[389px]:hidden' : ''}`} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
+              <ChevronDown size={14} aria-hidden="true" />
+            </>
+          )}
         </MenuTrigger>
+        {hasLauncher ? <span className="ui-app-switch-name">{app.name}</span> : null}
 
-        <MenuPanel aria-label="Apps" width="19rem" zIndex="var(--z-platform-menu)" sideOffset={4}>
+        <MenuPanel aria-label="Apps" width="min(19rem, calc(100vw - 1rem))" zIndex="var(--z-platform-menu)" sideOffset={4}>
             {phone && tenants.length > 1 ? (
               <>
                 <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => pickCompany(t.id)} />
@@ -1039,7 +1088,8 @@ function ShellScreens() {
             </MenuItem>
         </MenuPanel>
       </UiMenu>
-    ) : null;
+    </AppContext>
+  ) : null;
   /* The rail of modules. On a desktop a tap opens the module's first screen; in the phone sheet it only
      switches the panel, so the person can pick a screen before the sheet closes (ClorTime's drawer). */
   const moduleRail = (
@@ -1064,7 +1114,7 @@ function ShellScreens() {
             data-current={current || undefined}
             title={m.label}
             onClick={() => {
-              const action = railAction({ single: m.single, phone, panelShown, opensHome: Boolean(app?.railOpensHome), current });
+              const action = railAction({ single: m.single, phone, panelShown, opensHome: Boolean(app?.railOpensHome || m.opensHome), current });
               if (action === 'go') goTo(m.home);
               else if (action === 'goOpen') {
                 /* W-R3: the module's landing page and its panel together; the screen follows the rail. */
@@ -1130,24 +1180,13 @@ function ShellScreens() {
           {phone ? <X size={18} aria-hidden="true" /> : <PanelLeftClose size={18} strokeWidth={1.75} aria-hidden="true" />}
         </button>
       </div>
-      {openModule.groups.map((g, gi) => (
-        <div key={g.label || gi} className={gi ? 'mt-4' : ''}>
-          {g.label ? <p className="ui-caption px-2 pb-1">{g.label}</p> : null}
-          {g.items.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className="ui-split-item"
-              aria-current={isCurrent(item.key) ? 'page' : undefined}
-              onClick={() => goTo(item.key)}
-            >
-              {item.icon ? <item.icon size={16} aria-hidden="true" /> : null}
-              <span className="min-w-0 truncate">{item.label}</span>
-              {Number(panelCounts[item.key]) >= 0 && panelCounts[item.key] != null ? <span className="ui-split-item-count">{panelCounts[item.key]}</span> : null}
-            </button>
-          ))}
-        </div>
-      ))}
+      <ModulePageLinks key={`${app?.id}:${openModule.key}:${screen}`} module={openModule}
+        overviewLinks={openModule.items.some((item) => item.overviewOf === openModule.key) ? openModule.shortcuts : undefined}
+        collapsible={app?.id === 'people' && ['employees', 'leave', 'settings'].includes(openModule.key)}
+        isCurrent={isCurrent} panelCounts={panelCounts} onOpen={(key, params) => {
+          const shared = app?.id === 'people' && modules.filter((m) => m.items.some((i) => i.key === key)).length > 1;
+          goTo(key, shared ? { ...params, section: openModule.key } : params);
+        }} />
       {/* Round 55 (recentrecords A): the last five people opened, under the module that holds the employee list. */}
       {openModule.groups.some((g) => g.items.some((i) => i.key === 'employees')) ? (
         <RecentPeople currentId={screenKey === 'employee' ? screenParams?.id : null} onOpen={(p) => { goTo('employee', { id: p.id }); if (phone) setNavOpen(false); }} />
@@ -1237,11 +1276,11 @@ function ShellScreens() {
            HR palette (index.css, [data-app]); Accounting keeps its own. */
         data-app={activeAppId || undefined}
         data-palette={activePalette || undefined}
-        style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': phone ? '3.5rem' : '4rem' }}
+        style={{ backgroundColor: 'rgb(var(--app-bg))' }}
       >
         {/* Keyboard users skip the bar and the rail. Accounting (a Root app) carries its own. */}
         {!Root ? (
-          <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 ui-btn ui-btn-primary">
+          <a href="#main-content" className="ui-skip-link sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 ui-btn ui-btn-primary">
             Skip to main content
           </a>
         ) : null}
@@ -1540,7 +1579,7 @@ function ShellScreens() {
           ) : null}
 
           {/* `flush`: the app's pages sit edge to edge on the white content column, as Accounting's do. */}
-          <main id="main-content" tabIndex={-1} className={`flex-1 min-w-0 outline-none ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
+          <main id="main-content" data-people-time={timePage && !platformScreen && !showMoreApps ? screen : undefined} tabIndex={-1} className={`flex-1 min-w-0 outline-none ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
             <PrintFooter name={user?.fullName || user?.email || ''} />
             {/* Round 61 "tabtitle" A: the browser tab says the page first, then the app. "externallink" A: ↗ on links leaving CLOR. */}
             <TitleSync page={showMoreApps ? 'More apps' : platformScreen === 'help' ? 'Help centre' : platformScreen === 'profile' ? 'My profile' : screenItem?.label || ''} app={app?.name || ''} />
@@ -1618,8 +1657,12 @@ function ShellScreens() {
                          the page's breadcrumb already goes there. */
                       const linked = !parent && from?.link && from.key !== screen && from.key !== parentKey;
                       const origin = (parent || linked) && from && from.key !== parent?.key ? nav.find((n) => n.key === from.key) : null;
-                      const helpHere = Boolean(guideForScreen(app?.id, screen));
-                      if (!parent && !origin && !helpHere) return null;
+                      const helpHere = !helpTarget && Boolean(guideForScreen(app?.id, screen));
+                      const employeeMenu = pageModuleKey && !(panelOpenDesktop && openModule?.key === pageModuleKey);
+                      const trail = app?.id === 'people' && peopleBreadcrumbs({
+                        landing, screen, item: screenItem, module: originModule || moduleForScreen(modules, screen, nav), nav,
+                      });
+                      if (!trail && !parent && !origin && !helpHere && !employeeMenu) return null;
                       const back = () => confirmLeave(askLeave).then((ok) => {
                         if (!ok) return;
                         if (!origin) { goToNow(parent.key); return; }
@@ -1633,73 +1676,96 @@ function ShellScreens() {
                          Opened from elsewhere, the way back to where the link was clicked, as before.
                          "pagehelp" A: "How this works ›" at the right of the same row when the screen has a how-to. */
                       return (
-                        <div className="ui-screen-top">
+                        <div className={trail ? 'ui-screen-top people-screen-top' : 'ui-screen-top'}>
+                          {trail && <nav className="people-page-path" aria-label="Breadcrumb">
+                            <ol>{trail.map(({ key, label }, index) => (
+                              <li key={label}>
+                                {index > 0 && <ChevronRight size={13} aria-hidden="true" />}
+                                {key === screen && index === trail.length - 1 ? <span aria-current="page">{label}</span> :
+                                  <a href={screenSearch(window.location.search, { app: activeAppId, appInHost: Boolean(appFromHost()), open: key, params: null })}
+                                    onClick={event => {
+                                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+                                      event.preventDefault();
+                                      goTo(key);
+                                    }}>{label}</a>}
+                              </li>
+                            ))}</ol>
+                          </nav>}
+                          {employeeMenu ? <button type="button" className="employee-pages-link ui-link" onClick={() => {
+                            setBrowseModule(pageModuleKey);
+                            if (phone) setNavOpen(true);
+                            else if (tablet) setTabletPanel(true);
+                            else setPanelClosed(false);
+                          }}><LayoutGrid size={15} aria-hidden="true" />{timePage ? 'Time pages' : 'Employee pages'}</button> : null}
                           {origin ? (
                             <button type="button" className="ui-link inline-flex items-center gap-1 text-sm" onClick={back}>
                               ← {origin.label}
                             </button>
-                          ) : parent ? (
+                          ) : parent && !trail ? (
                             <nav className="ui-trail text-sm" aria-label="Breadcrumb">
                               <button type="button" className="ui-link" onClick={back}>{parent.label}</button>
                               <span aria-hidden="true">›</span>
                               <span aria-current="page">{screenItem?.label}</span>
                             </nav>
-                          ) : <span />}
-                          <ScreenHelp
-                            appId={app?.id}
-                            screen={screen}
-                            onOpenHelpCentre={(key) => { setHelpTopic(key); setPlatformScreen('help'); setShowMoreApps(false); window.scrollTo(0, 0); }}
-                          />
+                          ) : !trail ? <span /> : null}
+                          {helpTarget ? null : screenHelp}
                         </div>
                       );
                     })()}
-                    <Suspense fallback={<AppLoading />}>
-                      <Screen
-                        key={screenParams ? `${tenant.id}:${screenKey}:${JSON.stringify(screenParams)}` : tenant.id}
-                        params={liveParams || undefined}
-                        /* The menu's name for this page; a screen shared between apps titles itself with it (DESIGN.md: page title equals menu label). */
-                        menuLabel={screenItem?.label}
-                        /* Change this screen's own state (a tab, a filter) in place; the address follows. `push` adds a Back step. */
-                        updateParams={(patch, opts = {}) => {
-                          const next = mergeParams(liveParams, patch);
-                          const appInHost = Boolean(appFromHost());
-                          const url = `${window.location.pathname}${screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost, params: next })}${window.location.hash}`;
-                          /* Under Settings a change of tab or item is not a step of its own: the browser's Back leaves the
-                             page for where it was opened from, not the last thing clicked on it (owner, 29 Oct 2026). */
-                          const hubKey = (app?.nav || []).find((n) => n.key === screen)?.parent;
-                          const underHub = Boolean(hubKey && (app?.nav || []).find((n) => n.key === hubKey)?.hub);
-                          if (opts.push && !underHub) window.history.pushState(null, '', url);
-                          else window.history.replaceState(null, '', url);
-                          lastUrlRef.current = window.location.href;
-                          setLiveParams(next);
-                        }}
-                        /* The screens this person may open, for a hub page (People's Settings) to list. */
-                        navItems={nav}
-                        /* The company being looked at, its apps, and a way into one (Workspace's home). */
-                        tenant={tenant}
-                        user={user}
-                        apps={mine}
-                        catalog={catalog}
-                        companies={tenants.filter((t) => t.accountId && t.accountId === tenant.accountId)}
-                        accountName={accounts.find((x) => x.id === tenant.accountId)?.name || ''}
-                        openApp={openApp}
-                        openMoreApps={() => setShowMoreApps(true)}
-                        /* W-R5: the Workspace's Companies page adds a company and switches to one. */
-                        addCompany={createCompany}
-                        switchCompany={(id) => { confirmLeave(askLeave).then((ok) => ok && setTenantId(id)); }}
-                        openScreen={(key, params) => {
-                          if (!app?.screens?.[key]) return;
-                          confirmLeave(askLeave).then((ok) => {
-                            if (!ok) return;
-                            noteOrigin(key, true);
-                            setScreenKey(key);
-                            setScreenParams(params && typeof params === 'object' ? params : null);
-                            setPlatformScreen(null);
-                            window.scrollTo(0, 0);
-                          });
-                        }}
-                      />
-                    </Suspense>
+                    {helpTarget ? createPortal(screenHelp, helpTarget) : null}
+                    <PeoplePageLayout.Provider value={activeAppId === 'people' ? peopleLayout : null}>
+                    <PageSearchContext.Provider value={activeAppId === 'people' ? pageSearches : null}>
+                      <Suspense fallback={<AppLoading />}>
+                        <Screen
+                          key={screenParams ? `${tenant.id}:${screenKey}:${JSON.stringify(screenParams)}` : tenant.id}
+                          params={liveParams || undefined}
+                          /* The menu's name for this page; a screen shared between apps titles itself with it (DESIGN.md: page title equals menu label). */
+                          peopleTimePage={timePage}
+                          menuLabel={screenItem?.label}
+                          /* Change this screen's own state (a tab, a filter) in place; the address follows. `push` adds a Back step. */
+                          updateParams={(patch, opts = {}) => {
+                            const next = mergeParams(liveParams, patch);
+                            const appInHost = Boolean(appFromHost());
+                            const url = `${window.location.pathname}${screenSearch(window.location.search, { app: activeAppId, open: screenKey, appInHost, params: next })}${window.location.hash}`;
+                            /* Under Settings a change of tab or item is not a step of its own: the browser's Back leaves the
+                               page for where it was opened from, not the last thing clicked on it (owner, 29 Oct 2026). */
+                            const hubKey = (app?.nav || []).find((n) => n.key === screen)?.parent;
+                            const underHub = Boolean(hubKey && (app?.nav || []).find((n) => n.key === hubKey)?.hub);
+                            if (opts.push && !underHub) window.history.pushState(null, '', url);
+                            else window.history.replaceState(null, '', url);
+                            lastUrlRef.current = window.location.href;
+                            setLiveParams(next);
+                          }}
+                          /* The screens this person may open, for a hub page (People's Settings) to list. */
+                          navItems={nav}
+                          {...(screenItem?.overviewOf ? { overviewModule: modules.find((m) => m.key === screenItem.overviewOf) } : {})}
+                          /* The company being looked at, its apps, and a way into one (Workspace's home). */
+                          tenant={tenant}
+                          user={user}
+                          apps={mine}
+                          catalog={catalog}
+                          companies={tenants.filter((t) => t.accountId && t.accountId === tenant.accountId)}
+                          accountName={accounts.find((x) => x.id === tenant.accountId)?.name || ''}
+                          openApp={openApp}
+                          openMoreApps={() => setShowMoreApps(true)}
+                          /* W-R5: the Workspace's Companies page adds a company and switches to one. */
+                          addCompany={createCompany}
+                          switchCompany={(id) => { confirmLeave(askLeave).then((ok) => ok && setTenantId(id)); }}
+                          openScreen={(key, params) => {
+                            if (!app?.screens?.[key]) return;
+                            confirmLeave(askLeave).then((ok) => {
+                              if (!ok) return;
+                              noteOrigin(key, true);
+                              setScreenKey(key);
+                              setScreenParams(params && typeof params === 'object' ? params : null);
+                              setPlatformScreen(null);
+                              window.scrollTo(0, 0);
+                            });
+                          }}
+                        />
+                      </Suspense>
+                    </PageSearchContext.Provider>
+                    </PeoplePageLayout.Provider>
                   </WriteGuard>
                 </PermissionProvider>
               </ScreenBoundary>
@@ -1753,18 +1819,23 @@ function ShellScreens() {
             remember
             /* People by name, code or email (manifest `searchRecords`), as the person types. */
             loadRecords={app?.searchRecords ? (q) => app.searchRecords(q, { apps: mine.map((a) => a.id) }) : undefined}
+            searchRecords={activeAppId === 'people' ? (_term, query) => [...pageSearches.entries()]
+              .filter(([input]) => input.isConnected && input.getClientRects().length && !input.closest('[role="dialog"]'))
+              .map(([input, apply], index) => ({
+                key: `filter:${index}`, label: input.getAttribute('aria-label'), detail: query, group: 'This page',
+                _s: 35, apply: () => apply(query),
+              })) : undefined}
             items={[
               /* A screen can sit in two places in the menu; it is one destination here. */
-              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key, keywords: [...(i.keywords || []), ...(app?.searchActions || []).filter((x) => !x.appId && x.screen === i.key).flatMap((x) => [x.label, ...(x.keywords || [])])] })),
-              /* Round 55 (searchactions B, owner 18 Nov 2026): search finds pages and people only, so the manifests' `searchActions` jobs
-                 ("apply leave", "fix a punch") are no longer offered as rows. Their words still find the screen they belong to, below. */
+              ...searchPages(app, nav, modules),
               ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
               { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
               { key: 'help', label: 'Help centre', group: 'You', icon: CircleHelp },
             ]}
             onSelect={(item) => {
               setPaletteOpen(false);
-              if (item.appId && item.appId !== activeAppId) openApp(item.appId, item.screen || '', item.params || {});
+              if (item.apply) item.apply();
+              else if (item.appId && item.appId !== activeAppId) openApp(item.appId, item.screen || '', item.params || {});
               else if (item.screen) goTo(item.screen, item.params || null);
               else if (item.appId) openApp(item.appId);
               else if (item.key === 'profile') {

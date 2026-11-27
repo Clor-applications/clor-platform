@@ -140,6 +140,7 @@ export {
   Play,
   Plug,
   PlugZap,
+  Pin,
   Plus,
   PlusCircle,
   Power,

@@ -17,7 +17,7 @@ export const crumbs = () => [{ label: 'People' }, { label: 'Joining & leaving' }
 /** A person in a list row: avatar, name, then the line under it. */
 export function PersonCell({ person, line }) {
   return (
-    <span className="flex items-center gap-2.5 min-w-0">
+    <span className="people-person-cell flex items-center gap-2.5 min-w-0">
       <Avatar person={{ name: person.name, photoUrl: person.photoUrl }} size={32} />
       <span className="min-w-0">
         <span className="block truncate">{person.name}</span>

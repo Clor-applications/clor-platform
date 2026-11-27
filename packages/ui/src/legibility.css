@@ -16,7 +16,7 @@
 
 /* ---- Rail (first sidebar) ---- */
 :root:not(#lg1):not(#lg2):not(#lg3) .ui-split-rail .ui-split-mod > span {
-  font-size: 0.75rem;
+  font-size: var(--workspace-rail-label-size, 0.75rem);
   line-height: 1rem;
   font-weight: 600;
   color: rgb(var(--fg));
@@ -24,8 +24,8 @@
 :root:not(#lg1):not(#lg2):not(#lg3) .ui-split-rail .ui-split-mod > span:not(.ui-split-mod-count):not(.sr-only) {
   /* At 12px a one-word name ("Performance", 70px) is wider than the item's 63px inside its padding, and a
      word cannot wrap, so it was cut to "Performanc". The name may use the rail's gutter either side. */
-  margin-inline: -0.25rem;
-  max-width: calc(100% + 0.5rem);
+  margin-inline: calc(-1 * var(--workspace-rail-label-bleed, 0.25rem));
+  max-width: calc(100% + 2 * var(--workspace-rail-label-bleed, 0.25rem));
 }
 
 /* ---- Second sidebar ---- */

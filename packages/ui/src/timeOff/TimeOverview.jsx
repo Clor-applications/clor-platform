@@ -1,3 +1,4 @@
+import SearchField from '@ui/components/ui/SearchField';
 import React, { useState } from 'react';
 import { CalendarClock, CalendarDays, Clock3, Hourglass, Plus } from '@ui/components/ui/lineIcons';
 
@@ -52,10 +53,11 @@ function Person({ r }) {
   );
 }
 
-export default function TimeOverview({ openScreen }) {
+export default function TimeOverview({ peopleTimePage, openScreen }) {
   const perms = usePermissions();
   const req = useRequest(() => getTimeOverview(), []);
   const [adding, setAdding] = useState(false);
+  const [query, setQuery] = useState('');
   const d = req.data;
   const open = (r) => openScreen?.('leaveRequests', { id: r.id, tab: r.status === 'PENDING' ? null : 'all' });
   /* People decides everything in one Approvals inbox (owner, 28 Oct 2026 audit): this page says who is away and
@@ -67,7 +69,8 @@ export default function TimeOverview({ openScreen }) {
     <ListHeader
       breadcrumb={homeCrumbs()}
       title="Who's away"
-      description="Who is away today, who is away in the next seven days, and the leave waiting for a decision."
+      description={peopleTimePage ? undefined : "Who is away today, who is away in the next seven days, and the leave waiting for a decision."}
+      secondary={peopleTimePage && <SearchField value={query} onSearch={setQuery} placeholder="Search employees" label="Search who's away" className="w-full sm:w-64" />}
       primary={can(perms, 'ATTENDANCE::Leave Requests::CREATE') ? { label: 'Enter leave', icon: Plus, onClick: () => setAdding(true) } : null}
     />
   );
@@ -76,9 +79,14 @@ export default function TimeOverview({ openScreen }) {
   if (!d) return <div className="space-y-6" aria-busy="true">{header}<SkeletonCard lines={2} /><SkeletonCard lines={6} /></div>;
 
   /* Working, but not at the office: approved work from home and on duty, their own mark, never leave. */
-  const working = d.workingAwayToday || [];
+  const matches = (r) => !query || [r.employeeName, r.department, r.leaveTypeName].some((value) => value?.toLowerCase().includes(query.toLowerCase()));
+  const away = d.awayToday.filter(matches);
+  const working = (d.workingAwayToday || []).filter(matches);
+  const upcoming = d.upcoming.filter(matches);
+  const waiting = d.waiting.oldest.filter(matches);
+  const lapsing = d.lapsing.rows.filter(matches);
   const strip = [
-    { k: 'away', label: 'Away today', tint: 'mint', value: d.awayToday.length + working.length, Icon: CalendarDays, onClick: () => openScreen?.('leaveCalendar') },
+    { k: 'away', label: 'Away today', tint: 'mint', value: d.awayToday.length + (d.workingAwayToday?.length || 0), Icon: CalendarDays, onClick: () => openScreen?.('leaveCalendar') },
     { k: 'waiting', label: 'Waiting for a decision', tint: 'butter', attention: true, value: d.waiting.count, Icon: Clock3, onClick: toDecide },
     { k: 'old', label: 'Waiting over 3 days', tint: 'butter', attention: true, value: d.waiting.olderThan3Days, Icon: Hourglass, onClick: toDecide },
     { k: 'soon', label: 'Away in the next 7 days', tint: 'lilac', value: new Set(d.upcoming.map((r) => r.employeeId)).size, Icon: CalendarClock, onClick: () => openScreen?.('leaveCalendar') },
@@ -89,8 +97,9 @@ export default function TimeOverview({ openScreen }) {
   const today = d.today || todayIst();
   const clashes = clashDays([...d.awayToday, ...d.upcoming], today, addDays(today, 7), { oneGroup: Boolean(d.team) });
 
+  const GroupLayout = peopleTimePage ? 'div' : React.Fragment;
   return (
-    <div className="space-y-6">
+    <div className={peopleTimePage ? 'leave-away-page space-y-4' : 'space-y-6'}>
       {header}
       <div className="ui-metric-strip" role="list" aria-label="Time and leave counts">
         {strip.map(({ k, label, tint, value, Icon, onClick, attention }) => (
@@ -99,9 +108,10 @@ export default function TimeOverview({ openScreen }) {
       </div>
 
       {/* Two columns only when both groups show; with the waiting list in Approvals, "Away today" takes the full width. */}
+      <GroupLayout {...(peopleTimePage ? { className: 'leave-away-groups' } : {})}>
       <div className={`grid gap-6 ${inbox ? '' : '2xl:grid-cols-2'}`}>
-        {inbox ? null : <Group title="Waiting for a decision" count={d.waiting.count} action={d.waiting.count > d.waiting.oldest.length ? <button type="button" className="ui-link text-sm" onClick={() => openScreen?.('leaveRequests')}>All {d.waiting.count}</button> : null}>
-          {d.waiting.oldest.length ? d.waiting.oldest.map((r) => (
+        {inbox ? null : <Group title="Waiting for a decision" count={query ? waiting.length : d.waiting.count} action={d.waiting.count > d.waiting.oldest.length ? <button type="button" className="ui-link text-sm" onClick={() => openScreen?.('leaveRequests')}>All {d.waiting.count}</button> : null}>
+          {waiting.length ? waiting.map((r) => (
             <li key={r.id}>
               <button type="button" className="flex w-full flex-wrap items-center gap-3 py-2 text-left" onClick={() => open(r)}>
                 <Person r={r} />
@@ -110,11 +120,11 @@ export default function TimeOverview({ openScreen }) {
                 <span className="ui-caption w-28 text-right">{r.managerApprovedAt ? 'Manager approved' : `Asked ${waited(r.createdAt)}`}</span>
               </button>
             </li>
-          )) : <li className="py-3 text-sm ui-muted">Nothing waiting.</li>}
+          )) : <li className="py-3 text-sm ui-muted">{query ? 'No matching requests.' : 'Nothing waiting.'}</li>}
         </Group>}
 
-        <Group title="Away today" count={d.awayToday.length + working.length}>
-          {d.awayToday.length || working.length ? d.awayToday.map((r) => (
+        <Group title="Away today" count={away.length + working.length}>
+          {away.length || working.length ? away.map((r) => (
             <li key={r.id}>
               <button type="button" className="flex w-full flex-wrap items-center gap-3 py-2 text-left" onClick={() => open(r)}>
                 <Person r={r} />
@@ -134,11 +144,11 @@ export default function TimeOverview({ openScreen }) {
                 <span className="ui-pill ui-pill-info whitespace-nowrap">{WORKING_LABEL[w.kind] || w.kind}{w.halfDay ? ', half day' : ''}</span>
               </button>
             </li>
-          ))) : <li className="py-3 text-sm ui-muted">Everyone is in.</li>}
+          ))) : <li className="py-3 text-sm ui-muted">{query ? 'No matching employees.' : 'Everyone is in.'}</li>}
         </Group>
       </div>
 
-      {clashes.length ? (
+      {!query && clashes.length ? (
         <Group title="Away the same day" count={clashes.length}>
           {clashes.map((c) => (
             <li key={`${c.date}:${c.group || ''}`} className="flex flex-wrap items-center gap-3 py-2">
@@ -150,8 +160,8 @@ export default function TimeOverview({ openScreen }) {
         </Group>
       ) : null}
 
-      <Group title="Next 7 days" count={d.upcoming.length || null}>
-        {d.upcoming.length ? d.upcoming.map((r) => (
+      <Group title="Next 7 days" count={upcoming.length || null}>
+        {upcoming.length ? upcoming.map((r) => (
           <li key={r.id}>
             <button type="button" className="flex w-full flex-wrap items-center gap-3 py-2 text-left" onClick={() => open(r)}>
               <Person r={r} />
@@ -159,12 +169,12 @@ export default function TimeOverview({ openScreen }) {
               {r.status === 'PENDING' ? <span className="ui-pill ui-pill-warn">Waiting</span> : <span className="ui-pill ui-pill-pos">Approved</span>}
             </button>
           </li>
-        )) : <li className="py-3 text-sm ui-muted">Nobody is away in the next seven days.</li>}
+        )) : <li className="py-3 text-sm ui-muted">{query ? 'No matching employees.' : 'Nobody is away in the next seven days.'}</li>}
       </Group>
 
-      {d.lapsing.rows.length ? (
-        <Group title={`Lapsing on ${formatDate(d.lapsing.periodEnd)}`} count={d.lapsing.rows.length} action={<button type="button" className="ui-link text-sm" onClick={() => openScreen?.('leaveBalances')}>Balances</button>}>
-          {d.lapsing.rows.map((x) => (
+      {lapsing.length ? (
+        <Group title={`Lapsing on ${formatDate(d.lapsing.periodEnd)}`} count={lapsing.length} action={<button type="button" className="ui-link text-sm" onClick={() => openScreen?.('leaveBalances')}>Balances</button>}>
+          {lapsing.map((x) => (
             <li key={`${x.employeeId}:${x.leaveTypeName}`} className="flex flex-wrap items-center gap-3 py-2">
               <span className="min-w-0 flex-1">{x.employeeName}</span>
               <span>{x.leaveTypeName}</span>
@@ -174,6 +184,7 @@ export default function TimeOverview({ openScreen }) {
         </Group>
       ) : null}
 
+      </GroupLayout>
       {adding ? <EnterLeave openScreen={openScreen} onClose={() => setAdding(false)} onDone={() => { setAdding(false); req.reload(); }} /> : null}
     </div>
   );

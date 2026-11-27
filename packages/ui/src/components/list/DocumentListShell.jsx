@@ -4,6 +4,9 @@ import { createPortal } from 'react-dom';
 import { PageHeader } from '../ui/Primitives';
 import { ListSearch, MoreButton, StatCards } from './ListPageParts';
 import CopyListLink from './CopyListLink';
+import { usePeoplePageSlot } from './PeoplePageLayout';
+import { FilterTabs } from './ListHeader';
+import SearchField from '../ui/SearchField';
 import { CountLine } from '../ui/CountLine';
 
 /**
@@ -29,12 +32,16 @@ import { CountLine } from '../ui/CountLine';
  */
 export default function DocumentListShell({
   title,
-  description = '',
+  description,
+  introduction,
   /* Which business object this list holds — see entityIdentity. Draws the
      mark beside the title in that area's colour family. */
   entity = '',
   search = null,
   headerExtras = null,
+  timeRegister = false,
+  registerViews = null,
+  filterSummary = null,
   moreItems = null,
   onMoreSelect = null,
   primary = null,
@@ -47,6 +54,7 @@ export default function DocumentListShell({
   onStatusChange = null,
   tabsLabel = 'Status',
   statusInHeader = false,
+  statusFilters = false,
   /*
    * Controls that ride the far end of the status row.
    *
@@ -89,12 +97,16 @@ export default function DocumentListShell({
     return () => window.clearTimeout(timer);
   }, [headerPortalId]);
 
+  const people = typeof document !== 'undefined' && document.documentElement.dataset.app === 'people';
+  const [columnsSlot] = usePeoplePageSlot('toolbar', timeRegister);
   const countLineNode = Array.isArray(countLine) ? <CountLine items={countLine} /> : countLine;
   const heading = (
     <PageHeader
+      summary={people ? countLineNode : null}
       entity={entity}
       title={title}
       description={description}
+      introduction={introduction}
       actions={
         <>
           {statusInHeader && tabs?.length ? (
@@ -111,8 +123,8 @@ export default function DocumentListShell({
               ))}
             </select>
           ) : null}
-          {search?.before || null}
-          {search ? (
+          {!timeRegister && search?.before}
+          {!timeRegister && search ? (
             <ListSearch
               value={search.value}
               onChange={search.onChange}
@@ -120,7 +132,7 @@ export default function DocumentListShell({
               label={search.label || search.placeholder}
             />
           ) : null}
-          {headerExtras}
+          {!timeRegister && headerExtras}
           <CopyListLink />
           {moreItems?.length ? <MoreButton items={moreItems} onSelect={onMoreSelect} /> : null}
           {primary}
@@ -128,7 +140,7 @@ export default function DocumentListShell({
       }
     />
   );
-  const header = countLineNode ? <>{heading}{countLineNode}</> : heading;
+  const header = !people && countLineNode ? <>{heading}{countLineNode}</> : heading;
 
   return (
     <div className={`${compact ? (tight ? 'space-y-2' : 'space-y-3') : 'space-y-6'} ${tight ? 'document-list-tight' : ''} ${className}`}>
@@ -153,9 +165,22 @@ export default function DocumentListShell({
         )
       ) : null}
 
-      {tabs?.length && !statusInHeader ? (
+      {timeRegister && <div className="people-list-controls time-register-toolbar">
+        {registerViews || (tabs?.length && !statusInHeader ? <FilterTabs
+          tabs={tabs.map(t => ({ key: t.value, label: t.label, count: statusCounts[t.value] }))}
+          value={statusValue} onChange={onStatusChange} label={tabsLabel} appearance="underline" /> : filterSummary)}
+        <div className="ui-list-toolbar">
+          {search?.before}
+          {search && <SearchField value={search.value} onSearch={search.onChange}
+            label={search.label || search.placeholder} placeholder={search.placeholder} />}
+          {headerExtras}
+          {tabsExtras}
+          <span className="people-columns-slot" ref={columnsSlot} />
+        </div>
+      </div>}
+      {!timeRegister && tabs?.length && !statusInHeader ? (
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="ui-segmented" role="tablist" aria-label={tabsLabel}>
+          <div className="ui-segmented" role={statusFilters ? 'group' : 'tablist'} aria-label={tabsLabel}>
             {tabs.map((t) => {
               const on = statusValue === t.value;
               const n = statusCounts[t.value] ?? 0;
@@ -163,8 +188,9 @@ export default function DocumentListShell({
                 <button
                   key={t.value || 'all'}
                   type="button"
-                  role="tab"
-                  aria-selected={on}
+                  role={statusFilters ? undefined : 'tab'}
+                  aria-pressed={statusFilters ? on : undefined}
+                  aria-selected={statusFilters ? undefined : on}
                   onClick={() => onStatusChange?.(t.value)}
                   className="ui-segment"
                   data-tone={t.tone}

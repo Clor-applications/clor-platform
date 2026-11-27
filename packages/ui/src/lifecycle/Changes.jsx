@@ -4,7 +4,7 @@ import { ArrowRightLeft } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import SearchField from '@ui/components/ui/SearchField';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
@@ -21,8 +21,8 @@ import { PersonCell, can, crumbs } from './shared';
  * is made on the person's record (with its preview and approval); a row
  * opens that record, or the approval.
  */
-const VIEWS = [['scheduled', 'Dated'], ['approval', 'Waiting for approval'], ['probation', 'Probation ending'], ['contracts', 'Contracts ending'], ['applied', 'Done lately']];
-const DATE_WORD = { scheduled: 'From', approval: 'Asked', probation: 'Ends', contracts: 'Ends', applied: 'From' };
+const VIEWS = [['scheduled', 'Scheduled'], ['approval', 'Waiting for approval'], ['probation', 'Probation ending'], ['contracts', 'Contracts ending'], ['applied', 'Applied']];
+const DATE_WORD = { scheduled: 'Effective date', approval: 'Requested', probation: 'Ends', contracts: 'Ends', applied: 'Effective date' };
 /* The kinds of change the record's own drawer makes (EmployeeRecord `params.action`). */
 const CHANGE_KINDS = [['transfer', 'Transfer'], ['designation', 'Change designation'], ['manager', 'Change manager'], ['type', 'Change employment type']];
 
@@ -42,7 +42,7 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
 
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (r) => <PersonCell person={r.employee} /> },
-    { key: 'what', label: 'What', render: (r) => (
+    { key: 'what', label: 'Change', render: (r) => (
       <span className="block min-w-0 whitespace-normal">
         <span className="block">{r.what}</span>
         {r.from || r.to ? <span className="block ui-caption">{r.from || 'None'} → {r.to || 'None'}</span> : null}
@@ -53,18 +53,17 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="people-register" data-column-sizing="content">
       <ListHeader
         breadcrumb={crumbs()}
         title="Job changes"
-        description="Changes to someone's job: dated ahead, waiting for approval, probation or contract ending, and done lately."
         primary={canChange ? { label: 'New job change', icon: ArrowRightLeft, onClick: () => setPicking(true) } : null}
         toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or change" label="Search changes" className="w-full sm:w-72" />}
         tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'applied' ? counts[k] : 0, tone: k === 'approval' ? 'warn' : undefined }))}
         tab={view}
         onTab={(k) => set({ view: k === 'scheduled' ? null : k, page: null }, true)}
       />
-      <DataTable
+      <ReviewTable key={JSON.stringify([view, p.q, page, size])} rowLabel={(r) => [r.employee?.name, r.what].filter(Boolean).join(' · ')}
         label="Changes"
         columns={columns}
         rows={list.data?.rows || []}
@@ -86,10 +85,10 @@ export default function Changes({ params = {}, updateParams, openScreen }) {
         )}
         empty={list.error ? <ErrorState error={list.error} onRetry={list.reload} />
           : p.q ? <EmptyState kind="filtered" title="Nothing matches" onClearFilters={() => set({ q: null, page: null })} />
-            : <EmptyState icon={ArrowRightLeft} title={{ scheduled: 'No dated changes waiting', approval: 'No change waiting for approval', probation: 'No probation ends in the next 30 days', contracts: 'No contract ends in the next 30 days', applied: 'No changes in the last 30 days' }[view]} description={view === 'scheduled' ? 'A transfer or promotion dated ahead on someone’s record waits here for its day.' : undefined} />}
+            : <EmptyState icon={ArrowRightLeft} title={{ scheduled: 'No dated changes waiting', approval: 'No change waiting for approval', probation: 'No probation ends in the next 30 days', contracts: 'No contract ends in the next 30 days', applied: 'No changes in the last 30 days' }[view]} />}
       />
       {picking ? (
-        <PickPersonDrawer title="New job change" description="Whose job changes, and how. The change is made on their record, with its date, preview and approval." action="Continue" choices={CHANGE_KINDS} choiceLabel="Change"
+        <PickPersonDrawer title="New job change" description="Choose an employee and a change." action="Continue" choices={CHANGE_KINDS} choiceLabel="Change"
           onClose={() => setPicking(false)} onPick={(person, kind) => { setPicking(false); openScreen?.('employee', { id: person.id, tab: 'employment', action: kind }); }} />
       ) : null}
     </div>

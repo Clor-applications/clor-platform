@@ -11,6 +11,10 @@ if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function scrollIntoView() {};
 }
 
+if (typeof window !== 'undefined' && !globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+}
+
 /*
  * TEST_TODAY runs the suite as if it were another moment, to prove no test is
  * tied to the day it was written (main went red on 1 Nov 2026 for exactly

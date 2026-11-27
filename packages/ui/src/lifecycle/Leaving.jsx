@@ -3,14 +3,14 @@ import { ListChecks, UserMinus } from '@ui/components/ui/lineIcons';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
-import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import SearchField from '@ui/components/ui/SearchField';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
-import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
+import { CountLine } from '@ui/timeOff/Figures';
 
 import { READER_PILL, leavingExtras, lifecycleOverview, pageLeavers } from './api';
 import { PersonCell, can, crumbs } from './shared';
@@ -44,13 +44,9 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
   /* Last days this week, final wages and the readers, across every leaver (the Joining & leaving overview); a refusal leaves those tiles out. */
   const overview = useRequest(() => lifecycleOverview().catch(() => null), []);
   const ov = overview.data?.counts || null;
-  const tab = (k) => () => set({ view: k === 'notice' ? null : k, page: null }, true);
-  const busy = !list.data && list.loading;
-  const tiles = list.data?.hidden ? [] : [
-    { key: 'notice', label: 'On notice', value: Number(counts.notice || 0), sub: ov ? `${Number(ov.lastDaysThisWeek || 0)} last day this week` : 'Serving their notice', accent: 2, Icon: TILE_ICON.team, onClick: tab('notice'), busy },
-    { key: 'clearing', label: 'Left, steps open', value: Number(counts.clearing || 0), sub: 'Plans still running', accent: 3, Icon: TILE_ICON.done, onClick: tab('clearing'), busy },
-    ov ? { key: 'wages', label: 'Final wages late', value: Number(ov.wagesLate || 0), tone: ov.wagesLate ? 'neg' : null, accent: ov.wagesLate ? 'neg' : 'neutral', sub: `${Number(ov.wagesDue || 0)} due within two days`, Icon: TILE_ICON.money } : null,
-    ov ? { key: 'readers', label: 'Readers not confirmed', value: Number(ov.readersNotConfirmed || 0), tone: ov.readersNotConfirmed ? 'warn' : null, accent: ov.readersNotConfirmed ? 'warn' : 'neutral', sub: ov.readersFailed ? `${ov.readersFailed} failed: remove by hand` : 'Attendance readers', Icon: TILE_ICON.shield } : null,
+  const exceptions = list.data?.hidden ? [] : [
+    { key: 'wages', label: ov?.wagesLate === 1 ? 'overdue final payment' : 'overdue final payments', value: ov?.wagesLate, tone: 'neg' },
+    { key: 'readers', label: ov?.readersNotConfirmed === 1 ? 'unconfirmed reader removal' : 'unconfirmed reader removals', value: ov?.readersNotConfirmed, tone: 'warn' },
   ];
   /* Opened from a notice (final pay due, a line to sign, an exit interview answered): the plan of that person. */
   useEffect(() => {
@@ -86,21 +82,20 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="people-register" data-column-sizing="content">
       <ListHeader
         breadcrumb={crumbs()}
         title="Leaving"
-        description="Everyone on notice or recently gone: their last day, the steps, the readers, final wages and sign-in."
-        secondary={openScreen && can(perms, 'PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('journeySteps')}><ListChecks size={16} aria-hidden="true" /> Steps</button> : null}
-        primary={can(perms, 'PEOPLE::Employees::EDIT') ? { label: 'Record a leaving', icon: UserMinus, onClick: () => setPicking(true) } : null}
-        strip={<CountLine label="Leaving figures" items={tiles} />}
-        toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search leavers" className="w-full sm:w-72" />}
+        secondary={openScreen && can(perms, 'PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('journeySteps')}><ListChecks size={16} aria-hidden="true" /> Exit steps</button> : null}
+        primary={can(perms, 'PEOPLE::Employees::EDIT') ? { label: 'Record departure', icon: UserMinus, onClick: () => setPicking(true) } : null}
+        strip={<CountLine label="Leaving figures" items={exceptions} />}
+        toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search leavers" label="Search leavers" className="w-full sm:w-72" />}
         tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' && k !== 'done' ? counts[k] : 0 }))}
         tab={view}
         onTab={(k) => set({ view: k === 'notice' ? null : k, page: null }, true)}
       />
       <LateNotice rows={list.data?.rows} />
-      <DataTable
+      <ReviewTable key={JSON.stringify([view, p.q, page, size])} compactActions
         label="Leaving"
         columns={columns}
         rows={list.data?.rows || []}
@@ -125,10 +120,10 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
           /* The company keeps who is leaving from read-only users and IT administrators (People → Settings → Company choices). */
           : list.data?.hidden ? <EmptyState icon={UserMinus} title="Not shown to your role" description="The company shows who is leaving to HR and managers only." />
           : p.q ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => set({ q: null, page: null })} />
-            : <EmptyState icon={UserMinus} title={view === 'notice' ? 'Nobody is on notice' : view === 'clearing' ? 'No leaver has steps open' : 'Nobody here'} description={view === 'notice' ? 'A leaving recorded here, or a resignation approved in the Inbox, shows with its last day and steps.' : undefined} />}
+            : <EmptyState icon={UserMinus} title={view === 'notice' ? 'Nobody is on notice' : view === 'clearing' ? 'No open exit steps' : view === 'done' ? 'No completed departures' : 'No departures'} />}
       />
       {picking ? (
-        <PickPersonDrawer title="Record a leaving" description="Who is leaving. Their notice, last day and reason are taken on their record." action="Continue"
+        <PickPersonDrawer title="Record departure" description="Choose an employee." action="Continue"
           onClose={() => setPicking(false)} onPick={(person) => { setPicking(false); openScreen?.('employee', { id: person.id, tab: 'employment', action: 'leave' }); }} />
       ) : null}
       {open ? <PlanDrawer row={open} kind="LEAVING" canEdit={can(perms, 'PEOPLE::Employees::EDIT')} canAssign={can(perms, 'PEOPLE::Employees::EDIT')} openScreen={openScreen} onClose={() => setOpen(null)} onChanged={list.reload} /> : null}

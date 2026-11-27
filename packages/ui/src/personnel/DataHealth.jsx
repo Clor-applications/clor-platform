@@ -95,7 +95,7 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
     <div className="space-y-6">
       <PageHeader
         title="Data check"
-        description="Gaps in employee records that will cause problems in Payroll, compliance or approvals."
+        introduction="Gaps in employee records that will cause problems in Payroll, compliance or approvals."
         actions={
           <span className="flex flex-wrap items-center gap-2">
             <button type="button" className="ui-btn ui-btn-secondary" onClick={load}>Check again</button>

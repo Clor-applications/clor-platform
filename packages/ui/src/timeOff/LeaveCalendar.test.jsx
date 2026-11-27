@@ -73,7 +73,7 @@ it('draws the month grid with nobody away, and says so in the grid rather than i
   /* The month view (R&D PEOPLE-12), one tap away, draws its weeks from Monday. */
   fireEvent.click(screen.getByRole('button', { name: 'Month' }));
   expect(screen.getByRole('status').textContent).toContain('Nobody is away or working elsewhere in November 2026');
-  expect(within(screen.getByRole('table', { name: 'Leave in November 2026' })).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+  expect(within(screen.getByRole('region', { name: 'Leave in November 2026' })).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
 });
 
 /* DESIGN.md "Pick conflicts resolved", 19 Nov 2026: the team leave calendar is a row per person across the days. */

@@ -219,7 +219,7 @@ Code: the shell sets `data-app` on `<html>`; one stylesheet maps `--app-deep` an
 | focus | `#6366F1` | 4.47:1 | 2px focus ring (needs 3:1). Never text |
 | red-soft, violet-soft | `#F87171`, `#A78BFA` | 2.7:1 | Chart fills, and links on the ink toast. Never text on a light ground |
 
-The primary button is ink and the selection violet is the same in every app; the hue family carries the app identity.
+Primary actions use blue `#155196`, with `#103E75` on hover and `#EFF6FF` for selected surfaces. Each app keeps its own top-bar tint. People uses Inter for interface text and JetBrains Mono for identifiers.
 
 **Neutral edges (added 25 Nov 2026):** `edge #D5D8E0` on secondary buttons and chips, `edge-field #8D92A0` on fields
 (3.1:1, so the field is found without its label), `band #F7F7F9` under table heads and on row hover.
@@ -541,7 +541,10 @@ carries the kit for the apps that have moved and nothing else (`test/motion-kit.
 | App | Moved | What changed |
 |---|---|---|
 | People | 24 Nov 2026; ink primary 25 Nov 2026 | Tokens (ink action, selection violet, hairlines, pink top bar, TASA Orbiter, Geist Mono), 8/12/full radii, flat page with a soft shadow on menus and dialogs, 36px buttons and fields, 48px rows under a banded head, 30px title, mint/sand/white pill tags, links blue, current place violet, press and reveal motion |
-| Admin center | 25 Nov 2026 | Same tokens and rules as People with the stone top bar; ink primary from the start |
+| Admin center | 25 Nov 2026 | Same tokens and rules as People with the stone top bar, with the shared blue primary action |
+| Payroll | 25 Nov 2026 | Shared Motion tokens and controls, lilac top bar, blue selection and aligned page gutters |
+| Attendance | 25 Nov 2026 | Shared Motion tokens and controls, sand top bar in standalone Attendance, blue selection and aligned page gutters |
+| Ops | 25 Nov 2026 | Shared Motion tokens and controls scoped to the Ops portal, with mint chrome and the Staff banner |
 
 To move the next app, add its `data-app` value to the scope in `motion.css` and to `MOVED` in the test, give it its
 hue family, and check it in the browser. Steps 0 to 5 then become deleting the old layers once every app has moved.

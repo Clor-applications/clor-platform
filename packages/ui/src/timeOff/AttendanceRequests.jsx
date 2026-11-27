@@ -6,6 +6,7 @@ import { Check, Plus, X } from '@ui/components/ui/lineIcons';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -39,7 +40,7 @@ import { Button } from '../components/ui/Primitives';
 const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Rejected'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
 export const KINDS = ['MISSED_PUNCH', 'WFH', 'ON_DUTY', 'PERMISSION', 'SHIFT_CHANGE'];
 export const KIND_NAME = { MISSED_PUNCH: 'Missed punch', WFH: 'Work from home', ON_DUTY: 'On duty', PERMISSION: 'Permission', SHIFT_CHANGE: 'Shift change' };
-const KIND_OPTIONS = [{ value: '', label: 'Every kind' }, ...KINDS.map((k) => ({ value: k, label: KIND_NAME[k] }))];
+const KIND_OPTIONS = [{ value: '', label: 'All kinds' }, ...KINDS.map((k) => ({ value: k, label: KIND_NAME[k] }))];
 const SPANS = ['WFH', 'ON_DUTY', 'SHIFT_CHANGE'];
 /* Kinds that may be half a day; a shift change is whole days. */
 const HALVES = ['WFH', 'ON_DUTY'];
@@ -96,7 +97,7 @@ export function WhenCell({ row }) {
 /** The place, the punches asked for, or the hours. */
 export const detailsText = (r) => {
   if (r.kind === 'ON_DUTY') return r.place || '';
-  if (r.kind === 'MISSED_PUNCH') return inTime(r) ? `In ${inTime(r)}${outTime(r) ? `, out ${outTime(r)}` : ''}` : '';
+  if (r.kind === 'MISSED_PUNCH') return [inTime(r) && `In ${inTime(r)}`, outTime(r) && `Out ${outTime(r)}`].filter(Boolean).join(', ');
   if (r.kind === 'PERMISSION') return hoursText(r.minutes);
   if (r.kind === 'SHIFT_CHANGE') return r.shiftName ? `To ${r.shiftName}` : '';
   return '';
@@ -111,7 +112,7 @@ export function StatusPill({ row }) {
   );
 }
 
-export default function AttendanceRequests({ params = {}, updateParams, statusFromTab = false }) {
+export default function AttendanceRequests({ params = {}, updateParams, statusFromTab = false, peopleTimePage = false }) {
   const perms = usePermissions();
   const allowed = (k) => can(perms, k);
   const p = params || {};
@@ -127,8 +128,9 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
   const rows = list.data?.requests || [];
   const counts = list.data?.counts || {};
   const [adding, setAdding] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const filtered = Boolean(p.q || p.kind || p.month);
-  const months = useMemo(() => [{ value: '', label: 'Every month' }, ...monthChoices()], []);
+  const months = useMemo(() => [{ value: '', label: 'All months' }, ...monthChoices()], []);
   /* Several waiting requests decided at once (a week of missed punches on a Monday): one note, the same checks as one. */
   const canDecide = allowed('ATTENDANCE::Attendance Requests::APPROVE');
   const [selected, setSelected] = useState(() => new Set());
@@ -180,17 +182,22 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
   const oneStatus = statusFromTab && tab !== 'all' && rows.length > 0 && rows.every((r) => r.status === rows[0].status && !(r.status === 'PENDING' && r.managerApprovedAt));
   const shownColumns = oneStatus ? columns.filter((c) => c.key !== 'status') : columns;
 
+  const ListTable = peopleTimePage && !(tab === 'PENDING' && canDecide) ? ReviewTable : DataTable;
   return (
-    <div className="space-y-6">
+    <div className={peopleTimePage ? "people-corrections space-y-3" : "space-y-6"}>
       <ListHeader
         breadcrumb={homeCrumbs()}
         title="Attendance corrections"
-        description="Missed punches, work from home, on duty and permission hours asked for: waiting for a decision, or decided."
+        description={peopleTimePage ? undefined : "Missed punches, work from home, on duty and permission hours asked for: waiting for a decision, or decided."}
         primary={allowed('ATTENDANCE::Attendance Requests::CREATE') ? { label: 'Enter request', icon: Plus, onClick: () => setAdding(true) } : null}
+        toolbarInHeading={false}
         toolbar={<>
-          <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name or employee ID" label="Search attendance requests" className="w-full sm:w-72" />
-          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={p.kind || ''} onChange={(v) => set({ kind: v || null, page: null })} options={KIND_OPTIONS} placeholder="Every kind" /></div>
-          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Month" value={p.month || ''} onChange={(v) => set({ month: v || null, page: null })} options={months} placeholder="Every month" /></div>
+          <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder={peopleTimePage ? 'Search employees' : 'Search name or employee ID'} label="Search attendance requests" className="w-full sm:w-72" />
+          {peopleTimePage && <button type="button" className="ui-btn ui-btn-secondary correction-filters-trigger" aria-expanded={filtersOpen} aria-controls="correction-filters" onClick={() => setFiltersOpen(!filtersOpen)}>Filters{p.kind || p.month ? ` (${Number(Boolean(p.kind)) + Number(Boolean(p.month))})` : ''}</button>}
+          <div id="correction-filters" className={peopleTimePage ? 'correction-filters' : 'contents'} data-open={filtersOpen || undefined}>
+          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Kind" value={p.kind || ''} onChange={(v) => set({ kind: v || null, page: null })} options={KIND_OPTIONS} placeholder="All kinds" panelMinWidth={180} panelAlign="end" /></div>
+          <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Month" value={p.month || ''} onChange={(v) => set({ month: v || null, page: null })} options={months} placeholder="All months" panelMinWidth={180} panelAlign="end" /></div>
+          </div>
         </>}
         tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: counts[k], tone: k === 'PENDING' ? 'warn' : undefined }))}
         tab={tab}
@@ -208,7 +215,7 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
         </div>
       ) : null}
 
-      <DataTable
+      <ListTable key={JSON.stringify(p)} mobileSelectAll={peopleTimePage}
         label="Attendance requests"
         columns={shownColumns}
         rows={rows}
@@ -239,7 +246,7 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
         ) : filtered ? (
           <EmptyState kind="filtered" title="No requests match" onClearFilters={() => set({ q: null, kind: null, month: null, page: null })} />
         ) : tab === 'PENDING' ? (
-          <EmptyState title="Nothing waiting" description="A missed punch, work from home, on duty or permission asked for in the employee app, or entered here, waits here for a decision." />
+          <EmptyState title="Nothing waiting" description={peopleTimePage ? undefined : "A missed punch, work from home, on duty or permission asked for in the employee app, or entered here, waits here for a decision."} />
         ) : (
           <EmptyState title={`No ${tab === 'all' ? '' : `${STATUS_LABEL[tab].toLowerCase()} `}requests`} />
         )}
@@ -276,6 +283,17 @@ export function RequestHistory({ history }) {
       ))}
     </ol>
   );
+}
+
+function PunchComparison({ request, recorded }) {
+  const fields = [['Check-in', inTime], ['Check-out', outTime]];
+  return <table className="correction-comparison" aria-label="Recorded and requested punches">
+    <thead><tr><th scope="col">Punch</th><th scope="col">Recorded</th><th scope="col">Requested</th></tr></thead>
+    <tbody>{fields.map(([label, read]) => <tr key={label}>
+      <th scope="row">{label}</th><td>{recorded ? read(recorded) || 'No punch' : 'Unavailable'}</td>
+      <td>{read(request) || 'No time provided'}</td>
+    </tr>)}</tbody>
+  </table>;
 }
 
 export function RequestDrawer({ id, allowed, onClose, onDone }) {
@@ -332,19 +350,20 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   ) : null;
 
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={r ? `${r.employeeName}: ${KIND_NAME[r.kind] || r.kind}` : 'Attendance request'} actions={actions} dirty={Boolean(note.trim())}>
-      {req.error ? <ErrorState error={req.error} onRetry={req.reload} compact /> : !d ? <div className="ui-skel ui-skel-text" aria-busy="true" /> : (
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title={r ? `${r.employeeName} · ${KIND_NAME[r.kind] || r.kind}` : 'Attendance correction'} footer={actions && <div className="correction-decisions">{actions}</div>} busy={busy} dirty={Boolean(note.trim())}>
+      {req.error ? <ErrorState error={req.error} onRetry={req.reload} compact /> : !r ? (req.loading ? <div className="ui-skel ui-skel-text" aria-busy="true" /> : <ErrorState title="Correction details unavailable" onRetry={req.reload} compact />) : (
         <div className="space-y-6">
           <dl className="grid grid-cols-2 gap-4 text-sm">
-            <Fact label="When"><WhenCell row={r} /></Fact>
+            <Fact label="Work date"><WhenCell row={r} /></Fact>
             <Fact label="Status"><StatusPill row={r} /></Fact>
-            {detailsText(r) ? <Fact label={r.kind === 'ON_DUTY' ? 'Place' : r.kind === 'PERMISSION' ? 'Hours' : r.kind === 'SHIFT_CHANGE' ? 'Shift' : 'Punches'}><span className="tabular-nums">{detailsText(r)}</span></Fact> : null}
+            {r.kind !== 'MISSED_PUNCH' && detailsText(r) ? <Fact label={r.kind === 'ON_DUTY' ? 'Place' : r.kind === 'PERMISSION' ? 'Hours' : r.kind === 'SHIFT_CHANGE' ? 'Shift' : 'Punches'}><span className="tabular-nums">{detailsText(r)}</span></Fact> : null}
             {/* Who decides, as the server worked it out for this reader: "HR, or you as their manager" when the manager may approve it (#80 QA F4). */}
             {d.decidedBy || d.chain ? <Fact label="Decided by">{d.decidedBy || { HR: 'HR', MANAGER: 'The manager', MANAGER_THEN_HR: 'The manager, then HR' }[d.chain] || d.chain}</Fact> : null}
             <Fact className="col-span-2" label="Reason">{r.reason || <span className="ui-muted">None given</span>}</Fact>
             {r.reviewNote && r.status !== 'PENDING' ? <Fact className="col-span-2" label="Note">{r.reviewNote}</Fact> : null}
           </dl>
 
+          {r.kind === 'MISSED_PUNCH' && <PunchComparison request={r} recorded={d.days?.find(day => day.date === r.date)} />}
           {d.waitingForManager ? <p className="text-sm ui-text-warn">{d.waitingForManager}</p> : null}
           {d.ownRequest && r.status === 'PENDING' ? <p className="text-sm ui-muted">This is your own request. Somebody else decides it, unless nobody else in the company can.</p> : null}
 
@@ -355,7 +374,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
             </section>
           ) : null}
 
-          {d.days?.length ? (
+          {r.kind !== 'MISSED_PUNCH' && d.days?.length ? (
             <section aria-labelledby="ar-days" className="space-y-2">
               <h3 id="ar-days" className="ui-t-sec">The days as they stand</h3>
               <ul className="space-y-1 text-sm">
@@ -382,14 +401,11 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
             </section>
           ) : null}
 
-          <section aria-labelledby="ar-history" className="space-y-2">
-            <h3 id="ar-history" className="ui-t-sec">History</h3>
-            <RequestHistory history={d.history} />
-          </section>
+          {d.history?.length > 0 && <details className="correction-history"><summary>Request history</summary><RequestHistory history={d.history} /></details>}
 
           {r.status === 'PENDING' && canDecide ? (
             <div>
-              <label htmlFor="ar-note" className="ui-label">Note to them</label>
+              <label htmlFor="ar-note" className="ui-label">Decision note</label>
               <textarea id="ar-note" ref={noteRef} className={`ui-input w-full ${noteError ? 'is-invalid' : ''}`} rows={2} maxLength={500} value={note} aria-invalid={Boolean(noteError)} aria-describedby={noteError ? 'ar-note-err' : undefined} onChange={(e) => { setNote(e.target.value); setNoteError(''); }} />
               {noteError ? <span id="ar-note-err" className="ui-field-error">{noteError}</span> : null}
             </div>

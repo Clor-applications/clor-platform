@@ -108,7 +108,8 @@ export function watchWideTables(root) {
   const forget = (el) => { ro.unobserve(el); watched.delete(el); };
   const check = (box) => {
     const table = box.querySelector(':scope > table');
-    if (table) fitColumns(table);
+    // Screens with typed column widths let the browser fit cells to their contents.
+    if (table && !table.closest('[data-column-sizing="content"]')) fitColumns(table);
     /* Not only tables: the Candidates board is a grid of stage columns in the same box. On a phone the box clips
        until it is marked, so whatever it holds is measured, or the later stages could never be reached (e2e, #80). */
     const content = table || box.firstElementChild;

@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { PageSearchContext } from './PageSearchContext';
+import React, { useContext, useEffect, useRef, useState } from 'react';
+import { ScanSearch } from '@ui/components/ui/navEmoji';
 import { Search, X } from '@ui/components/ui/lineIcons';
 
 /**
@@ -7,10 +9,22 @@ import { Search, X } from '@ui/components/ui/lineIcons';
  * to whatever popup holds the field). No Enter while an IME is composing.
  * `onSearch` gets the trimmed text after `delay` ms of quiet, or on Enter.
  */
-export default function SearchField({ value = '', onSearch, delay = 300, placeholder = 'Search', label = 'Search', className = '', autoFocus = false }) {
+export default function SearchField({ value = '', onSearch, delay = 300, placeholder = 'Search', label = 'Search', icon: Icon = typeof document !== 'undefined' && document.documentElement.dataset.app === 'people' ? ScanSearch : Search, className = '', autoFocus = false }) {
   const [text, setText] = useState(value);
   const [seen, setSeen] = useState(value);
   const timer = useRef(null);
+  const inputRef = useRef(null);
+  const pageSearches = useContext(PageSearchContext);
+  useEffect(() => {
+    if (!pageSearches) return;
+    const input = inputRef.current;
+    pageSearches.set(input, (query) => {
+      clearTimeout(timer.current);
+      setText(query);
+      onSearch?.(query);
+    });
+    return () => { pageSearches.delete(input); };
+  }, [pageSearches, onSearch]);
   /* A value changed from outside (a saved view, Clear filters) shows here. */
   if (value !== seen) {
     setSeen(value);
@@ -31,8 +45,9 @@ export default function SearchField({ value = '', onSearch, delay = 300, placeho
   };
   return (
     <div className={`ui-search-field relative flex items-center ${className}`}>
-      <Search size={16} aria-hidden="true" className="ui-subtle pointer-events-none absolute left-2.5" />
+      <Icon size={16} aria-hidden="true" className="ui-subtle pointer-events-none absolute left-2.5" />
       <input
+        ref={inputRef}
         type="search"
         role="searchbox"
         aria-label={label}

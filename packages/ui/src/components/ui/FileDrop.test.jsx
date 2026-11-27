@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import FileDrop, { installStrayDropGuard } from './FileDrop';
 
 const pdf = (size = 1000, name = 'note.pdf') => {
@@ -16,14 +16,14 @@ function Harness(props) {
 }
 
 describe('FileDrop', () => {
-  it('reacts while a file is over it and takes the dropped file as a row', () => {
+  it('reacts while a file is over it and takes the dropped file as a row', async () => {
     render(<Harness />);
     const zone = screen.getByRole('button', { name: 'Document: choose a file' });
     fireEvent.dragEnter(zone, filesDrag());
-    expect(zone).toHaveAttribute('data-over');
+    await waitFor(() => expect(zone).toHaveAttribute('data-over'));
     expect(screen.getByText('Release to attach')).toBeInTheDocument();
     fireEvent.drop(zone, filesDrag([pdf(1536)]));
-    expect(screen.getByText('note.pdf')).toBeInTheDocument();
+    expect(await screen.findByText('note.pdf')).toBeInTheDocument();
     expect(screen.getByText('2 KB')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Remove note.pdf' })).toBeInTheDocument();
   });

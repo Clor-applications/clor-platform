@@ -6,6 +6,7 @@ import { usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { SkeletonCard, Button } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -37,7 +38,7 @@ const sum = (xs) => Math.round(xs.reduce((a, x) => a + (Number(x) || 0), 0) * 10
 const fmt = (n) => Number(n).toLocaleString('en-IN', { maximumFractionDigits: 1 });
 const signed = (n) => `${n > 0 ? '+' : ''}${n}`;
 
-export default function LeaveBalances({ openScreen }) {
+export default function LeaveBalances({ openScreen, peopleTimePage }) {
   const perms = usePermissions();
   const canChange = can(perms, 'ATTENDANCE::Leave Requests::EDIT');
   const setUpTypes = can(perms, 'ATTENDANCE::Leave Types::EDIT') && openScreen ? () => openScreen('leaveTypes') : null;
@@ -107,32 +108,12 @@ export default function LeaveBalances({ openScreen }) {
     })),
   ];
 
-  return (
-    <div className="space-y-6">
-      <ListHeader
-        breadcrumb={homeCrumbs()}
-        title="Leave balances"
-        description="Everyone's days for the leave period, and the ledger behind each number."
-        primary={data && !types.length ? (setUpTypes ? { label: 'Set up leave types', onClick: setUpTypes } : null)
-          : canChange && types.length ? { label: 'Grant leave to many', onClick: () => setGranting(true) } : null}
-        toolbar={data && types.length ? <>
-          <SearchField value={search.query} onSearch={search.setQuery} placeholder="Search name, employee ID or department" label="Search balances" className="w-full sm:w-80" />
-          {choices.length > 1 ? (
-            <div className="w-full sm:w-48">
-              <PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => v && setPicked(Number(v))} options={choices.map((c) => ({ value: String(c.year), label: c.label }))} />
-            </div>
-          ) : null}
-        </> : null}
-        strip={figures ? <CountLine label="Leave balance figures" items={[
-          { key: 'taken', label: `Days taken, ${label}`, value: fmt(figures.taken), accent: 1, Icon: TILE_ICON.away, sub: figures.people ? `${fmt(figures.taken / figures.people)} per person` : null },
-          { key: 'unused', label: 'Days still unused', value: fmt(figures.unused), accent: 2, Icon: TILE_ICON.gift, sub: `Across ${types.length} paid type${types.length === 1 ? '' : 's'}` },
-          { key: 'low', label: 'Low balances', value: `${figures.low} ${figures.low === 1 ? 'person' : 'people'}`, accent: 'warn', tone: figures.low ? 'warn' : null, Icon: TILE_ICON.low, sub: '15% or less left' },
-          { key: 'people', label: 'People', value: fmt(figures.people), accent: 4, Icon: TILE_ICON.team, sub: 'With a balance this period' },
-        ]} /> : null}
-      />
-      {figures && (figures.byType.length || figures.most.length) ? (
+  const ListTable = peopleTimePage ? ReviewTable : DataTable;
+  const searchField = <SearchField value={search.query} onSearch={search.setQuery}
+    placeholder={peopleTimePage ? 'Search balances' : 'Search name, employee ID or department'} label="Search balances" className="w-full sm:w-64" />;
+  const insights = figures && (figures.byType.length || figures.most.length) ? (
         <div className="pt-charts">
-          <ChartPanel title="How much of each leave is used">
+          <ChartPanel title={peopleTimePage ? "Leave used by type" : "How much of each leave is used"}>
             {figures.byType.length ? <BarList label="Share of each leave type used" suffix="%" max={100} rows={figures.byType.map((x) => ({ key: x.key, label: x.label, value: x.value, color: swatchOf(x.type) }))} /> : <p className="pt-foot">No days given yet this period.</p>}
           </ChartPanel>
           <ChartPanel title="Most leave taken">
@@ -151,34 +132,63 @@ export default function LeaveBalances({ openScreen }) {
             ) : <p className="pt-foot">Nobody has taken leave yet this period.</p>}
           </ChartPanel>
         </div>
-      ) : null}
-      {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : !data ? <SkeletonCard lines={6} /> : !types.length ? (
-        <EmptyState title="No paid leave types yet" description={<>Leave balances need at least one paid leave type. Set them up under {setUpTypes ? <button type="button" className="ui-link" onClick={setUpTypes}>Settings › Leave policy</button> : 'Settings › Leave policy'}.</>} />
-      ) : (
-        <DataTable
-          label="Leave balances"
-          columns={columns}
-          rows={rows}
-          rowKey={(r) => r.employeeId}
-          total={search.filtered.length}
-          page={safePage}
-          pageSize={size}
-          noun="people"
-          onPage={setPage}
-          onPageSize={setSize}
-          onRowClick={(r) => setOpen(r)}
-          rowActions={(r) => [{ key: 'why', label: 'Why this number?', onSelect: () => setOpen(r) }, canChange ? { key: 'compoff', label: 'Grant comp-off', onSelect: () => setCompOff(r) } : null]}
-          refreshing={req.refreshing}
-          card={(r) => (
-            <span className="min-w-0">
-              <span className="block truncate">{r.name}</span>
-              <span className="block ui-caption tabular-nums">{types.map((t) => `${t.code || t.name} ${r.balances[t.id]?.available ?? '—'}`).join(' · ')}</span>
-            </span>
+      ) : null;
+  return (
+    <div className="space-y-6">
+      <ListHeader
+        breadcrumb={homeCrumbs()}
+        title="Leave balances"
+        description={peopleTimePage ? undefined : "Everyone's days for the leave period, and the ledger behind each number."}
+        primary={data && !types.length ? (setUpTypes ? { label: 'Set up leave types', onClick: setUpTypes } : null)
+          : canChange && types.length ? { label: 'Grant leave to many', onClick: () => setGranting(true) } : null}
+        toolbar={data && types.length ? <>
+          {searchField}
+          {choices.length > 1 ? (
+            <div className="w-full sm:w-48">
+              <PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => v && setPicked(Number(v))} options={choices.map((c) => ({ value: String(c.year), label: c.label }))} />
+            </div>
+          ) : null}
+        </> : null}
+        strip={figures ? <CountLine label="Leave balance figures" items={[
+          { key: 'taken', label: `Days taken, ${label}`, value: fmt(figures.taken), accent: 1, Icon: TILE_ICON.away, sub: figures.people ? `${fmt(figures.taken / figures.people)} per person` : null },
+          { key: 'unused', label: 'Days still unused', value: fmt(figures.unused), accent: 2, Icon: TILE_ICON.gift, sub: `Across ${types.length} paid type${types.length === 1 ? '' : 's'}` },
+          { key: 'low', label: 'With low balances', value: fmt(figures.low), accent: 'warn', tone: figures.low ? 'warn' : null, Icon: TILE_ICON.low, sub: '15% or less left' },
+          { key: 'people', label: 'People', value: fmt(figures.people), accent: 4, Icon: TILE_ICON.team, sub: 'With a balance this period' },
+        ]} /> : null}
+      />
+      {!peopleTimePage && insights}
+      <div className={peopleTimePage ? 'leave-balance-layout' : undefined}>
+        <div className="min-w-0">
+          {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : !data ? <SkeletonCard lines={6} /> : !types.length ? (
+            <EmptyState title="No paid leave types yet" description={<>Leave balances need at least one paid leave type. Set them up under {setUpTypes ? <button type="button" className="ui-link" onClick={setUpTypes}>Settings › Leave policy</button> : 'Settings › Leave policy'}.</>} />
+          ) : (
+            <ListTable key={JSON.stringify([year, search.query])} mobileSelectAll={peopleTimePage}
+              label="Leave balances"
+              columns={columns}
+              rows={rows}
+              rowKey={(r) => r.employeeId}
+              total={search.filtered.length}
+              page={safePage}
+              pageSize={size}
+              noun="people"
+              onPage={setPage}
+              onPageSize={setSize}
+              onRowClick={(r) => setOpen(r)}
+              rowActions={(r) => [{ key: 'why', label: 'Why this number?', onSelect: () => setOpen(r) }, canChange ? { key: 'compoff', label: 'Grant comp-off', onSelect: () => setCompOff(r) } : null]}
+              refreshing={req.refreshing}
+              card={(r) => (
+                <span className="min-w-0">
+                  <span className="block truncate">{r.name}</span>
+                  <span className="block ui-caption tabular-nums">{types.map((t) => `${t.code || t.name} ${r.balances[t.id]?.available ?? '—'}`).join(' · ')}</span>
+                </span>
+              )}
+              empty={search.query ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => search.setQuery('')} /> : <EmptyState title="Nobody employed in this period" />}
+            />
           )}
-          empty={search.query ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => search.setQuery('')} /> : <EmptyState title="Nobody employed in this period" />}
-        />
-      )}
-      {data && types.length ? <p className="pt-foot">Red means 15% or less is left. Click a person for the ledger behind each number.</p> : null}
+        </div>
+        {peopleTimePage && insights}
+      </div>
+      {!peopleTimePage && data && types.length ? <p className="pt-foot">Red means 15% or less is left. Click a person for the ledger behind each number.</p> : null}
       {open ? <Ledger person={open} year={year} label={label} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
       {granting ? <BulkGrant types={types} year={year} label={label} onClose={() => setGranting(false)} onDone={() => { setGranting(false); req.reload(); }} /> : null}
       {compOff ? <CompOff person={compOff} onClose={() => setCompOff(null)} onDone={() => { setCompOff(null); req.reload(); }} /> : null}
@@ -244,7 +254,13 @@ const BLANK = { leaveTypeId: '', how: 'ADD', days: '', reason: '' };
 function Ledger({ person, year, label, onClose, onChanged }) {
   /* As of a date: the balance as it stands that day, credits landed by then. */
   const [asOf, setAsOf] = useState('');
-  const req = useRequest(() => getLeaveLedger(person.employeeId, year, asOf || undefined), [person.employeeId, year, asOf]);
+  const req = useRequest(async () => {
+    const ledger = await getLeaveLedger(person.employeeId, year, asOf || undefined);
+    if (!Array.isArray(ledger?.types) || ledger.types.some((line) => !line?.type || !line.balance || !Array.isArray(line.entries))) {
+      throw new Error('Could not load the leave balance breakdown.');
+    }
+    return ledger;
+  }, [person.employeeId, year, asOf]);
   const data = req.data;
   const [form, setForm] = useState(BLANK);
   const [saving, setSaving] = useState(false);

@@ -101,7 +101,7 @@ const SuggestInput = forwardRef(function SuggestInput({ value, onChange, suggest
         onKeyDown={keys}
       />
       {visible ? (
-        <Popover anchorRef={anchorRef} onClose={close} autoFocus={false} minWidth={200}>
+        <Popover role="presentation" anchorRef={anchorRef} onClose={close} autoFocus={false} minWidth={200}>
           <ul id={listId} role="listbox" className="ui-suggest-list">
             {shown.map((s, i) => (
               <li

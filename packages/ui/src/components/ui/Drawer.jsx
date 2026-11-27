@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowLeft, X } from '@ui/components/ui/lineIcons';
 
 import { OverlayLayerContext } from './overlayLayer';
 import { confirmDialog } from './notify';
 import useSheetDrag from './useSheetDrag';
 import { openingFocus } from '@ui/picks/round61';
-import { useLayer } from './layerStack';
+import { dismissTopLayerOnEscape, useLayer } from './layerStack';
 
 /* Safari shows :active on a touch only when the page listens for touches: the press feedback needs it. */
 if (typeof document !== 'undefined') document.addEventListener('touchstart', () => {}, { passive: true });
@@ -90,14 +90,6 @@ export default function Drawer({ open, onClose, title, description = '', actions
     if (!open) return undefined;
     returnFocusRef.current = document.activeElement;
 
-    /* `onClose` is commonly declared inline by the screen that owns the
-       drawer. Including it here made this effect run after every controlled
-       input change and focused the panel again, stealing focus from the field
-       after the first character. Opening is the only event that should move
-       focus into the drawer. */
-    /* Round 61 "focusfirst" A: whatever asks with data-autofocus, else the first empty field (not on a touch phone), else the panel. */
-    const wants = openingFocus(panelRef.current);
-    (wants || panelRef.current)?.focus();
     return () => {
       const back = returnFocusRef.current;
       if (back && typeof back.focus === 'function' && document.contains(back)) back.focus();
@@ -109,8 +101,8 @@ export default function Drawer({ open, onClose, title, description = '', actions
 
   if (!open) return null;
 
-  return createPortal(
-    <OverlayLayerContext.Provider value="drawer">
+  return (
+    <Dialog.Root open={open} modal={false}><Dialog.Portal><OverlayLayerContext.Provider value="drawer">
     <div
       ref={scrimRef}
       className={`ui-scrim fixed inset-0 flex justify-end ${closing ? 'ui-out-fade' : ''}`}
@@ -119,10 +111,19 @@ export default function Drawer({ open, onClose, title, description = '', actions
       style={{ zIndex: 'var(--z-drawer)', top: 'var(--platform-bar, 0px)' }}
       onMouseDown={(e) => {
         // The scrim closes; a click inside the panel does not reach here. Not with unsaved edits (spec v1 §5.1).
-        if (e.target === e.currentTarget && !dirtyRef.current) beginClose();
+        if (e.target === e.currentTarget) beginClose();
       }}
     >
-      <div
+      <Dialog.Content
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          // The portal has mounted, so keyboard focus can move directly into the drawer.
+          (openingFocus(panelRef.current) || panelRef.current)?.focus();
+        }}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onEscapeKeyDown={dismissTopLayerOnEscape}
+        onInteractOutside={(e) => e.preventDefault()}
+        aria-describedby={undefined}
         ref={panelRef}
         role="dialog"
         aria-modal="true"
@@ -148,7 +149,7 @@ export default function Drawer({ open, onClose, title, description = '', actions
             </button>
           ) : null}
           <div className="min-w-0 flex-1 basis-48">
-            <h2 className="ui-t-sec truncate">{title}</h2>
+            <Dialog.Title className="ui-t-sec truncate">{title}</Dialog.Title>
             {description ? <p className="text-sm ui-muted mt-0.5">{description}</p> : null}
           </div>
           <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
@@ -163,9 +164,8 @@ export default function Drawer({ open, onClose, title, description = '', actions
 
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
         {footer ? <div className="ui-drawer-footer shrink-0">{footer}</div> : null}
-      </div>
+      </Dialog.Content>
     </div>
-    </OverlayLayerContext.Provider>,
-    document.body
+    </OverlayLayerContext.Provider></Dialog.Portal></Dialog.Root>
   );
 }

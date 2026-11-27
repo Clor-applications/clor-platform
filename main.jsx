@@ -14,6 +14,7 @@ import './packages/ui/src/legibility.css';
 import './packages/ui/src/polish.css';
 /* The Motion kit (DESIGN.md, 24 Nov 2026), switched on app by app; last so it wins. People first. */
 import './packages/ui/src/motion.css';
+import './apps/people/src/people-workspace.css';
 import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
 import TipLayer from './packages/ui/src/components/ui/TipLayer';

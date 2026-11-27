@@ -60,6 +60,31 @@ export function PartsRing({ parts, total, middle, middleWords, label }) {
   );
 }
 
+/** A proportion bar with the value of every visible segment available as text. */
+export function PartsBar({ parts, middle, middleWords, label }) {
+  const shown = parts.filter((part) => part.value > 0);
+  return (
+    <figure className="ui-parts-bar" aria-label={label}>
+      <figcaption className="ui-parts-bar-caption">
+        <strong className="tabular-nums">{middle}</strong>
+        <span>{middleWords}</span>
+      </figcaption>
+      <div className="ui-parts-bar-track" aria-hidden="true">
+        {shown.map((part) => <span key={part.key} data-tone={part.tone} style={{ flexGrow: part.value }} />)}
+      </div>
+      <ul className="ui-parts-bar-key">
+        {shown.map((part) => (
+          <li key={part.key}>
+            <span className="ui-parts-bar-dot" data-tone={part.tone} aria-hidden="true" />
+            <span>{part.label}</span>
+            <strong className="tabular-nums">{part.value}</strong>
+          </li>
+        ))}
+      </ul>
+    </figure>
+  );
+}
+
 /**
  * One figure, four views (style H): a switch picks what to look at, the big figure
  * is the newest value, and the columns are its history with the newest drawn strong.

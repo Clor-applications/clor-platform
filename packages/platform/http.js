@@ -13,6 +13,7 @@ export const API_BASE = import.meta.env?.VITE_API_BASE || '/api';
  * sets. The transport does not read it from a browser store, because a store is
  * shared by every app on the origin and a contract is not.
  */
+import { publishPeopleChange } from './peopleChanges';
 import { orgId as contextOrgId, branchId as contextBranchId, warehouseId as contextWarehouseId } from './context';
 
 function getToken() {
@@ -366,5 +367,9 @@ export async function apiFetch(
     throw err;
   }
 
+  if (!skipAuth && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+    && /^\/orgs\/[^/]+\/(?:people|attendance)(?:\/|$)/.test(path)) {
+    publishPeopleChange(orgId);
+  }
   return asText ? text : data;
 }

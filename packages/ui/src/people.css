@@ -295,11 +295,6 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 :root[data-app='people'] #main-content .ui-settings-row-icon:empty { display: none; }
 :root[data-app='people'] #main-content .ui-settings-row:has(> .ui-settings-row-icon:empty) { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'label' 'note'; }
 
-/* The Settings panel: every group but the open screen's folds to its heading; All settings lists them all. */
-/* Out of view and out of the flow, not display: none: a Fluent colour icon paints from gradients found by id, and the
-   first copy of an id inside a display: none subtree would blank every later copy of that icon on the page. */
-:root[data-app='people'] .ui-split-panel[aria-label='Settings screens'] > div:has(> p.ui-caption):not(:has([aria-current='page'])) > .ui-split-item { position: absolute; visibility: hidden; clip-path: inset(50%); pointer-events: none; }
-
 /* ------------------------------------------------------------------ empty, loading, records, forms */
 
 /* An empty state on the page ground (PEOPLE-52): the picture, a 17px heading, one line, then its routes. */

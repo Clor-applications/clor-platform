@@ -218,7 +218,7 @@ export function FiltersButton({ period, onPeriodChange, dateFrom, dateTo, onDate
 }
 
 /** Page-level actions. Never row actions — those belong on the row. */
-export function MoreButton({ items, onSelect }) {
+export function MoreButton({ items, onSelect, label = 'More' }) {
   const ref = useRef(null);
   const [open, setOpen] = useState(false);
   /* Which submenu is showing. One at a time: two open lists in a menu this
@@ -234,7 +234,7 @@ export function MoreButton({ items, onSelect }) {
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <MoreVertical size={16} aria-hidden="true" /> More
+        <MoreVertical size={16} aria-hidden="true" /> {label}
       </button>
       {open ? (
         <Popover anchorRef={ref} onClose={() => setOpen(false)} minWidth={228}>
@@ -360,11 +360,11 @@ export function ExportButton({ title, fileName, sheetName, columns, rows, subtit
  * do nothing is noise. The page window is five wide, so page 40 of 60 does not
  * render sixty buttons.
  */
-export function Pagination({ total, page, perPage, pageCount, onPage, onPerPage, noun = 'rows', className = '' }) {
+export function Pagination({ total, page, perPage, pageCount, onPage, onPerPage, noun = 'rows', className = '', pageSizes = [10, 25, 50, 100] }) {
   if (total <= perPage && perPage === 10) return null;
   const first = Math.max(1, Math.min(page - 2, pageCount - 4));
   return (
-    <div className={`flex items-center justify-between gap-3 flex-wrap px-4 py-3 ${className}`} style={{ borderTop: '1px solid rgb(var(--border))' }}>
+    <div data-single-page={pageCount <= 1} className={`flex items-center justify-between gap-3 flex-wrap px-4 py-3 ${className}`} style={{ borderTop: '1px solid rgb(var(--border))' }}>
       <span className="ui-subtle text-xs">
         Showing {(total === 0 ? 0 : (page - 1) * perPage + 1).toLocaleString('en-IN')} to {Math.min(page * perPage, total).toLocaleString('en-IN')} of {total.toLocaleString('en-IN')} {noun}
       </span>
@@ -393,7 +393,7 @@ export function Pagination({ total, page, perPage, pageCount, onPage, onPerPage,
           className="ui-select ui-btn-sm w-24 px-2 text-xs ui-ctl-compact"
           aria-label="Rows per page"
         >
-          {[10, 25, 50, 100].map((n) => (
+          {pageSizes.map((n) => (
             <option key={n} value={n}>{n} / page</option>
           ))}
         </select>

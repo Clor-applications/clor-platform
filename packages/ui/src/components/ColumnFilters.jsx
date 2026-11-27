@@ -461,7 +461,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
  * A header cell that carries its own filter, the way a spreadsheet does: the
  * label stays put and a caret on the right opens the panel. No second row.
  */
-export const ColumnHeader = ({ label, col, state, className = '', align = 'left', type = 'text', onResizeStart }) => {
+export const ColumnHeader = ({ label, col, state, className = '', align = 'left', type = 'text', onResizeStart, controlOnly = false }) => {
   const [rect, setRect] = useState(null);
   const [localOpen, setLocalOpen] = useState(false);
   const shared = typeof state?.setOpenKey === 'function';
@@ -492,8 +492,8 @@ export const ColumnHeader = ({ label, col, state, className = '', align = 'left'
 
   /* `relative` positions the resize handle below; `headClass` carries the
      column's alignment, which every cell under it follows. */
-  return (
-    <th scope="col" className={`relative ${headClass}`}>
+  const control = (
+    <>
       <button
         type="button"
         onClick={(e) => {
@@ -552,8 +552,9 @@ export const ColumnHeader = ({ label, col, state, className = '', align = 'left'
           onClose={close}
         />
       ) : null}
-    </th>
+    </>
   );
+  return controlOnly ? control : <th scope="col" aria-sort={sorted ? (state.sort.dir === 'asc' ? 'ascending' : 'descending') : undefined} className={`relative ${headClass}`}>{control}</th>;
 };
 
 export default ColumnHeader;

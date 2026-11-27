@@ -19,9 +19,40 @@ export function resolveModules(app, nav) {
       const items = groups.flatMap((g) => g.items);
       if (!items.length) return null;
       const single = !m.groups && items.length === 1;
-      return { key: m.key, label: m.label, short: m.short, icon: m.icon || items[0].icon, groups, items, single, home: items[0].key };
+      const shortcuts = m.shortcuts?.filter((link) => items.some((item) => item.key === link.key));
+      return { ...(shortcuts ? { shortcuts } : {}), opensHome: m.opensHome, key: m.key, label: m.label, short: m.short, icon: m.icon || items[0].icon, groups, items, single, home: items[0].key };
     })
     .filter(Boolean);
+}
+
+/** The top bar searches the same permitted destinations and issue shortcuts as the navigation. */
+export function searchPages(app, nav, modules) {
+  const pages = new Map();
+  for (const item of nav) {
+    if (item.section || !app?.screens?.[item.key]) continue;
+    const aliases = (app.searchActions || []).filter((action) => !action.appId && action.screen === item.key);
+    pages.set(item.key, { key: `screen:${item.key}`, screen: item.key, label: item.label, group: app.name,
+      icon: item.icon, keywords: [...(item.keywords || []), ...aliases.flatMap((action) => [action.label, ...(action.keywords || [])])] });
+  }
+  if (app?.id !== 'people') return [...pages.values()];
+  const issues = [];
+  for (const module of modules) {
+    for (const group of module.groups) {
+      for (const item of group.items) {
+        const page = pages.get(item.key);
+        if (page) {
+          page.matchWords = true;
+          page.keywords.push(...[module.label, module.short, group.label].filter(Boolean));
+        }
+      }
+    }
+    for (const link of module.shortcuts || []) {
+      const page = pages.get(link.key);
+      if (page) issues.push({ key: `issue:${module.key}:${link.key}`, screen: link.key, label: link.label,
+        group: module.short || module.label, keywords: link.keywords, matchWords: true, icon: page.icon, params: link.params });
+    }
+  }
+  return [...pages.values(), ...issues];
 }
 
 /**
@@ -49,9 +80,14 @@ export function landingScreen(app, nav) {
  * `parent: <its key>`. It carries no permission of its own: it is there when
  * this person may open at least one of them, and gone when they may open none.
  */
-export function withoutEmptyHubs(nav) {
+export function withoutEmptyHubs(nav, modules = []) {
   const parents = new Set(nav.filter((i) => i.parent).map((i) => i.parent));
-  return nav.filter((i) => !i.hub || parents.has(i.key));
+  const keys = new Set(nav.map((item) => item.key));
+  return nav.filter((item) => {
+    if (!item.overviewOf) return !item.hub || parents.has(item.key);
+    const owner = modules.find((module) => module.key === item.overviewOf);
+    return owner?.groups.some((group) => group.items.some((key) => key !== item.key && keys.has(key)));
+  });
 }
 
 export function moduleForScreen(modules, screen, nav = []) {
@@ -59,6 +95,26 @@ export function moduleForScreen(modules, screen, nav = []) {
   if (direct) return direct;
   const parent = (nav || []).find((i) => i.key === screen)?.parent;
   return parent ? modules.find((m) => m.items.some((i) => i.key === parent)) || null : null;
+}
+
+/** Compact path above the People page title. Only link to destinations in the user's navigation. */
+export function peopleBreadcrumbs({ landing, screen, item, module, nav }) {
+  const trail = [{ label: 'People', key: landing }];
+  const report = item?.breadcrumbSection;
+  if (report && nav.some(n => n.key === report.key)) {
+    return [...trail, report];
+  }
+  const parent = item?.parent && nav.find(n => n.key === item.parent);
+  if (module) {
+    trail.push({ label: module.short || module.label, key: module.home });
+  }
+  if (parent && parent.key !== module?.home && parent.key !== screen) {
+    // Employees overview and the directory both use "Employees" in a short path.
+    if (trail.at(-1).label === parent.label) trail.pop();
+    trail.push({ label: parent.label, key: parent.key });
+  }
+  if (trail.length === 1 && item?.label) trail.push({ label: item.label, key: screen });
+  return trail;
 }
 
 /**

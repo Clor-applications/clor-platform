@@ -1,10 +1,4 @@
-/**
- * CSV in and out, dependency-free.
- *
- * Exports are CSV rather than .xlsx for the same reason as ledgerExport: the
- * xlsx packages on npm carry unfixed advisories, and an unformatted grid loses
- * nothing in CSV. A UTF-8 BOM keeps ₹ intact when Excel opens the file.
- */
+import Papa from 'papaparse';
 
 /**
  * A cell a spreadsheet will not execute.
@@ -32,11 +26,6 @@ export const csvSafeValue = (v) => {
   return `'${s}`;
 };
 
-const cell = (v) => {
-  const s = csvSafeValue(v);
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
-
 /** rows: array of objects. columns: [{ key, label }]. */
 export function downloadCsv({ fileName, columns, rows, prefixRows = [], footerRows = [] }) {
   const cols = Array.isArray(columns) ? columns : [];
@@ -47,7 +36,7 @@ export function downloadCsv({ fileName, columns, rows, prefixRows = [], footerRo
     ...(Array.isArray(rows) ? rows : []).map((r) => cols.map((c) => (typeof c.value === 'function' ? c.value(r) : r?.[c.key]))),
     ...(Array.isArray(footerRows) ? footerRows.map((r) => cols.map((c) => (typeof c.value === 'function' ? c.value(r) : r?.[c.key]))) : []),
   ];
-  const csv = '\ufeff' + data.map((row) => row.map(cell).join(',')).join('\r\n');
+  const csv = '\ufeff' + Papa.unparse(data.map((row) => row.map(csvSafeValue)), { newline: '\r\n' });
   const safe = `${String(fileName || 'export').replace(/[\\/:*?"<>|]+/g, '-')}.csv`;
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -85,45 +74,7 @@ export const isCommentRow = (cells) => {
  */
 export function parseCsv(text, { skipComments = false } = {}) {
   const src = String(text || '').replace(/^\ufeff/, '');
-  const rows = [];
-  let row = [];
-  let field = '';
-  let quoted = false;
-
-  for (let i = 0; i < src.length; i += 1) {
-    const ch = src[i];
-    if (quoted) {
-      if (ch === '"') {
-        if (src[i + 1] === '"') {
-          field += '"';
-          i += 1;
-        } else {
-          quoted = false;
-        }
-      } else {
-        field += ch;
-      }
-      continue;
-    }
-    if (ch === '"') {
-      quoted = true;
-    } else if (ch === ',') {
-      row.push(field);
-      field = '';
-    } else if (ch === '\n') {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = '';
-    } else if (ch !== '\r') {
-      field += ch;
-    }
-  }
-  if (field !== '' || row.length) {
-    row.push(field);
-    rows.push(row);
-  }
-
+  const rows = Papa.parse(src, { delimiter: ',' }).data;
   const nonEmpty = rows.filter((r) => r.some((c) => String(c).trim() !== '') && !(skipComments && isCommentRow(r)));
   if (!nonEmpty.length) return { headers: [], rows: [] };
 

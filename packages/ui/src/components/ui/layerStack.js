@@ -31,16 +31,20 @@ const asElement = (t) => (t && typeof t.closest === 'function' ? t : null);
    its own (a base-ui menu, a select's list) that is not on the stack. */
 const leaveToInnerPopup = (layer, target) => layer.kind !== 'popup' && Boolean(target?.closest(FOREIGN_POPUP));
 
+/** Radix captures Escape on document before it can bubble to the shared stack. */
+export function dismissTopLayerOnEscape(event) {
+  const top = stack[stack.length - 1];
+  if (!top || event.defaultPrevented || leaveToInnerPopup(top, asElement(event.target))) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  top.onEscape?.(event);
+}
+
 function onKeyDown(e) {
   if (!stack.length || e.defaultPrevented) return;
   const top = stack[stack.length - 1];
-  const target = asElement(e.target);
-
   if (e.key === 'Escape') {
-    if (leaveToInnerPopup(top, target)) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    top.onEscape?.(e);
+    dismissTopLayerOnEscape(e);
     return;
   }
 

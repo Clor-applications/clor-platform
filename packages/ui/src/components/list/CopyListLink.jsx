@@ -28,7 +28,7 @@ export default function CopyListLink() {
   };
   return (
     <button type="button" className="ui-btn ui-btn-ghost ui-copy-link" onClick={copy}>
-      <Link2 size={15} aria-hidden="true" />Copy link
+      <Link2 size={15} aria-hidden="true" /><span>Copy link</span>
     </button>
   );
 }

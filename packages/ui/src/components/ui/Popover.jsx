@@ -30,7 +30,9 @@ const Popover = ({
   children,
   minWidth = 260,
   maxWidth = 420,
+  align = 'start',
   labelledBy,
+  role = 'dialog',
   onKeyDown,
   /*
    * Whether the panel takes the caret when it opens.
@@ -73,7 +75,9 @@ const Popover = ({
       const wanted = Math.min(panel.scrollHeight, MIN_USEFUL);
       const below = roomBelow >= wanted || roomBelow >= roomAbove;
 
-      const left = Math.min(Math.max(MARGIN, a.left), Math.max(MARGIN, window.innerWidth - w - MARGIN));
+      const rtl = getComputedStyle(anchor).direction === 'rtl';
+      const anchorLeft = (align === 'end') !== rtl ? a.right - w : a.left;
+      const left = Math.min(Math.max(MARGIN, anchorLeft), Math.max(MARGIN, window.innerWidth - w - MARGIN));
       const maxHeight = Math.max(140, (below ? roomBelow : roomAbove) - GAP);
 
       /*
@@ -110,7 +114,7 @@ const Popover = ({
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', place, true);
     };
-  }, [anchorRef, minWidth, maxWidth]);
+  }, [anchorRef, minWidth, maxWidth, align]);
 
   /*
    * The close handler, kept in a ref rather than in the effect's deps.
@@ -228,7 +232,7 @@ const Popover = ({
   return createPortal(
     <div
       ref={panelRef}
-      role="dialog"
+      role={role}
       aria-labelledby={labelledBy}
       tabIndex={-1}
       onKeyDown={onKeyDown}

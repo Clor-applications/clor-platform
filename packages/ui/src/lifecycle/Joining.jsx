@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ListChecks, UserPlus } from '@ui/components/ui/lineIcons';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
-import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import SearchField from '@ui/components/ui/SearchField';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
@@ -13,7 +13,7 @@ import { notify } from '@ui/components/ui/notify';
 import { hasApp } from '@platform/context';
 import { listInvites, sendHeldToPayroll } from '@ui/personnel/api';
 
-import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
+import { CountLine } from '@ui/timeOff/Figures';
 
 import { pageJoiners, pageTasks } from './api';
 import { NextTask, PersonCell, can, crumbs } from './shared';
@@ -30,7 +30,7 @@ import { Button } from '../components/ui/Primitives';
  * plan that never started says so. View, search and page live in the address.
  * New joiners come in through the one Add employee form.
  */
-const VIEWS = [['preparing', 'Before day one'], ['week', 'This week'], ['joined', 'Joined, steps open'], ['forms', 'Forms not back'], ['done', 'Done'], ['all', 'All']];
+const VIEWS = [['preparing', 'Before day one'], ['week', 'This week'], ['joined', 'Joined, steps open'], ['forms', 'Pending forms'], ['done', 'Done'], ['all', 'All']];
 /* A joining form sent and not sent back (FEATURE-UI-AUDIT gap 22): not opened, opened, or the link ran out. */
 const formState = (i) => (i.status === 'EXPIRED' || ((i.status === 'SENT' || i.status === 'STARTED') && new Date(i.expiresAt) < new Date()) ? ['Link ran out', 'ui-pill-neg']
   : i.status === 'STARTED' ? ['Opened, not sent back', 'ui-pill-warn'] : ['Not opened yet', 'ui-pill-neutral']);
@@ -55,6 +55,9 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
   const canForms = can(perms, 'PEOPLE::Lifecycle::VIEW');
   const invites = useRequest(() => (canForms ? listInvites() : Promise.resolve([])), [canForms]);
   const forms = notBack(invites.data || []);
+  const formQuery = String(p.q || '').trim().toLowerCase();
+  const matchingForms = forms.filter((form) => [form.employeeName, form.employeeCode]
+    .some((value) => String(value || '').toLowerCase().includes(formQuery)));
   const held = (invites.data || []).filter((i) => i.statutory?.status === 'HELD');
   const canSendHeld = held.length > 0 && hasApp('payroll') && can(perms, 'PEOPLE::Statutory Details::EDIT');
   const [sending, setSending] = useState(false);
@@ -76,14 +79,8 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
   /* Joining steps past their date, across every joiner (the task queue's own count); a refusal leaves the tile out. */
   const lateSteps = useRequest(() => pageTasks({ view: 'late', kind: 'JOINING', limit: 1 }).catch(() => null), []);
   const lateTotal = lateSteps.data ? Number(lateSteps.data.total || 0) : null;
-  const tab = (k) => () => set({ view: k === 'preparing' ? null : k, page: null }, true);
-  const busy = !list.data && list.loading;
-  const tiles = [
-    { key: 'week', label: 'Joining this week', value: Number(counts.week || 0), sub: `${Number(counts.preparing || 0)} before day one`, accent: 1, Icon: TILE_ICON.people, onClick: tab('week'), busy },
-    { key: 'joined', label: 'Joined, steps open', value: Number(counts.joined || 0), sub: 'Plans still running', accent: 3, Icon: TILE_ICON.team, onClick: tab('joined'), busy },
-    lateTotal == null ? null : { key: 'late', label: 'Steps late', value: lateTotal, tone: lateTotal ? 'warn' : null, accent: lateTotal ? 'warn' : 'neutral', sub: lateTotal ? 'Past their date, still open' : 'Nothing past its date', Icon: TILE_ICON.due, onClick: openScreen ? () => openScreen('checklists', { view: 'late', kind: 'JOINING' }) : null },
-    canForms ? { key: 'forms', label: 'Forms not back', value: forms.length, sub: 'Joining forms sent, not returned', accent: 2, Icon: TILE_ICON.waiting, onClick: tab('forms'), busy: invites.loading && !invites.data } : null,
-  ];
+  const overdue = { key: 'late', label: lateTotal === 1 ? 'overdue step' : 'overdue steps', value: lateTotal, tone: 'warn',
+    onClick: openScreen ? () => openScreen('checklists', { view: 'late', kind: 'JOINING' }) : undefined };
   /* Opened without a view: the first tab that has rows, not an empty "Before day one" beside a tab with forty (People plan 8 Nov 2026, step 2). Once. */
   const steered = useRef(false);
   useEffect(() => {
@@ -104,15 +101,14 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="people-register" data-column-sizing="content">
       <ListHeader
         breadcrumb={crumbs()}
         title="Joining"
-        description="Everyone joining or just joined, with their plan's steps and what comes next."
-        secondary={openScreen && can(perms, 'PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('journeySteps')}><ListChecks size={16} aria-hidden="true" /> Steps</button> : null}
+        secondary={openScreen && can(perms, 'PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('journeySteps')}><ListChecks size={16} aria-hidden="true" /> Joining steps</button> : null}
         primary={canAdd ? { label: 'Add employee', icon: UserPlus, onClick: () => openScreen?.('employeeNew') } : null}
-        strip={<CountLine label="Joining figures" items={tiles} />}
-        toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search joiners" className="w-full sm:w-72" />}
+        strip={<CountLine label="Joining figures" items={[overdue]} />}
+        toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder={view === 'forms' ? 'Search name or ID' : 'Search joiners'} label="Search joiners" className="w-full sm:w-72" />}
         tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' && k !== 'done' ? counts[k] : 0 }))}
         tab={view}
         onTab={(k) => set({ view: k === 'preparing' ? null : k, page: null }, true)}
@@ -123,8 +119,8 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
           They were approved before Payroll was switched on.
         </Alert>
       ) : null}
-      {view === 'forms' ? <FormsNotBack rows={forms} loading={invites.loading} error={invites.error} reload={invites.reload} openScreen={openScreen} /> : (
-      <DataTable
+      {view === 'forms' ? <FormsNotBack rows={matchingForms} query={formQuery} clear={() => set({ q: null, page: null })} loading={invites.loading} error={invites.error} reload={invites.reload} openScreen={openScreen} /> : (
+      <ReviewTable key={JSON.stringify([view, p.q, page, size])} compactActions
         label="Joining"
         columns={columns}
         rows={list.data?.rows || []}
@@ -146,7 +142,7 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
         )}
         empty={list.error ? <ErrorState error={list.error} onRetry={list.reload} />
           : p.q ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => set({ q: null, page: null })} />
-            : <EmptyState icon={UserPlus} title={view === 'week' ? 'Nobody starts this week' : view === 'preparing' ? 'Nobody is joining yet' : view === 'joined' ? 'No joiner has steps open' : 'Nobody here'} description={view === 'preparing' && canAdd ? 'Add an employee with a joining date ahead and their plan starts here.' : undefined} />}
+            : <EmptyState icon={UserPlus} title={view === 'week' ? 'Nobody starts this week' : view === 'preparing' ? 'No upcoming joiners' : view === 'joined' ? 'No joiners with open steps' : view === 'done' ? 'No completed joining plans' : 'No joiners yet'} />}
       />
       )}
       {open ? <PlanDrawer row={open} kind="JOINING" canEdit={can(perms, 'PEOPLE::Employees::EDIT')} canAssign={can(perms, 'PEOPLE::Employees::EDIT')} openScreen={openScreen} onClose={() => setOpen(null)} onChanged={list.reload} /> : null}
@@ -155,7 +151,7 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
 }
 
 /** Joining forms sent and not back: whose, when and how they went, and where each stands. Sending again is on the person's record. */
-function FormsNotBack({ rows, loading, error, reload, openScreen }) {
+function FormsNotBack({ rows, query, clear, loading, error, reload, openScreen }) {
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (i) => <PersonCell person={{ name: i.employeeName }} line={[i.employeeCode, i.dateOfJoining ? `joins ${formatDate(String(i.dateOfJoining).slice(0, 10))}` : null].filter(Boolean).join(' · ')} /> },
     { key: 'sent', label: 'Sent', render: (i) => <span className="whitespace-nowrap"><span className="tabular-nums">{formatDate(istDay(i.createdAt))}</span><span className="block ui-caption">{i.channel === 'SMS' ? 'Link by phone' : `To ${i.sentTo}`}</span></span> },
@@ -163,8 +159,8 @@ function FormsNotBack({ rows, loading, error, reload, openScreen }) {
     { key: 'until', label: 'Link works until', render: (i) => <span className="tabular-nums whitespace-nowrap">{formatDate(istDay(i.expiresAt))}</span> },
   ];
   return (
-    <DataTable
-      label="Forms not back"
+    <ReviewTable key={query} compactActions
+      label="Pending forms"
       columns={columns}
       rows={rows}
       total={rows.length}
@@ -183,7 +179,7 @@ function FormsNotBack({ rows, loading, error, reload, openScreen }) {
           </span>
         );
       }}
-      empty={error ? <ErrorState error={error} onRetry={reload} /> : <EmptyState icon={UserPlus} title="Every joining form sent has come back" description="Send one from a joiner’s record: More → Send joining form." />}
+      empty={error ? <ErrorState error={error} onRetry={reload} /> : query ? <EmptyState kind="filtered" title="No matching forms" onClearFilters={clear} /> : <EmptyState icon={UserPlus} title="No forms awaiting a response" />}
     />
   );
 }

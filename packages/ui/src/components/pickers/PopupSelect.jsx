@@ -46,6 +46,8 @@ const PopupSelect = ({
   actionText = '',
   onAction,
   showValueSubtext = true,
+  panelAlign,
+  panelMinWidth,
   title,
   /* A lucide component drawn inside the control, before the value — the
      field says what it is about without being read. Decorative: the label
@@ -274,7 +276,7 @@ const PopupSelect = ({
       </button>
 
       {open && (
-        <Popover anchorRef={triggerRef} onClose={() => closePopup()} onKeyDown={onKeyDown} autoFocus={showSearch}>
+        <Popover anchorRef={triggerRef} align={panelAlign} minWidth={panelMinWidth} onClose={() => closePopup()} onKeyDown={onKeyDown} autoFocus={showSearch}>
           {showSearch ? (
             <div className="p-2 border-b">
               <input

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 
 import { readFileSync } from 'node:fs';
 
-import { moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from '../packages/shell/splitNav';
+import { moduleForScreen, railAction, readScreenSearch, resolveModules, searchPages, screenSearch, withoutEmptyHubs } from '../packages/shell/splitNav';
 import { attendanceApp } from '../apps/attendance/manifest.jsx';
 import { payrollApp } from '../apps/payroll/manifest.jsx';
 import { peopleApp } from '../apps/people/manifest.jsx';
@@ -20,6 +20,22 @@ const shape = (app) =>
     module: m.label,
     groups: m.groups.map((g) => [g.label, g.items.map((i) => i.label)]),
   }));
+
+it('only offers People issue shortcuts that this role can open', () => {
+  const nav = peopleApp.nav.filter((item) => ['exceptions', 'myDays'].includes(item.key));
+  const time = resolveModules(peopleApp, nav).find((module) => module.key === 'leave');
+  expect(time.shortcuts.map((link) => link.key)).toEqual(['exceptions']);
+});
+
+it('indexes permitted sidebar searches and opens issue results with their filters', () => {
+  const nav = peopleApp.nav.filter((item) => ['documents', 'myDays'].includes(item.key));
+  const results = searchPages(peopleApp, nav, resolveModules(peopleApp, nav));
+  expect(results.filter((item) => item.screen === 'myDays')).toHaveLength(1);
+  expect(results.find((item) => item.label === 'Renew expired documents')).toMatchObject({
+    screen: 'documents', params: { tab: 'expired' }, keywords: expect.arrayContaining(['expired certificate']),
+  });
+  expect(results.some((item) => item.screen === 'payrollReadiness')).toBe(false);
+});
 
 describe('Attendance navigation structure', () => {
   it('has the six business modules in order, then Me', () => {

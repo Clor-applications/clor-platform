@@ -13,6 +13,7 @@ import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHea
 import BulkOutcome from '@ui/components/list/BulkOutcome';
 import { bulkOutcome } from '@ui/picks/round57';
 import DataTable from '@ui/components/ui/DataTable';
+import ReviewTable from '@ui/components/ui/ReviewTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -74,7 +75,7 @@ export function StatusPill({ row }) {
   );
 }
 
-export default function LeaveRequests({ params = {}, updateParams, openScreen, statusFromTab = false }) {
+export default function LeaveRequests({ params = {}, updateParams, openScreen, statusFromTab = false, peopleTimePage = false }) {
   const perms = usePermissions();
   const allowed = (k) => can(perms, k);
   const p = params || {};
@@ -194,25 +195,27 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
   };
 
   const periodOptions = settings.data ? periodChoices(settings.data).map((c) => ({ value: String(c.year), label: c.label })) : [];
-  const typeOptions = [{ value: '', label: 'Every type' }, ...(types.data || []).map((t) => ({ value: t.id, label: t.name }))];
+  const allTypesLabel = peopleTimePage ? 'All leave types' : 'Every type';
+  const typeOptions = [{ value: '', label: allTypesLabel }, ...(types.data || []).map((t) => ({ value: t.id, label: t.name }))];
 
+  const ListTable = peopleTimePage && !waitingTab ? ReviewTable : DataTable;
   return (
     <div className="space-y-6">
       <ListHeader
         breadcrumb={homeCrumbs()}
         title="Leave requests"
-        description="Leave asked for in the employee app or entered here: waiting for a decision, or decided, in the leave period."
+        description={peopleTimePage ? undefined : "Leave asked for in the employee app or entered here: waiting for a decision, or decided, in the leave period."}
         secondary={<>
           {allowed('ATTENDANCE::Leave Requests::EXPORT') || perms?.isAdmin ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportAll}><Download size={16} aria-hidden="true" /> Export</button> : null}
-          {waitingTab && !setUpTypes && allowed('ATTENDANCE::Leave Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAdding(true)} disabled={noTypes}><Plus size={16} aria-hidden="true" /> Enter leave</button> : null}
+          {waitingTab && (!peopleTimePage || chosen.size > 0) && !setUpTypes && allowed('ATTENDANCE::Leave Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAdding(true)} disabled={noTypes}><Plus size={16} aria-hidden="true" /> Enter leave</button> : null}
         </>}
         primary={setUpTypes ? { label: 'Set up leave types', onClick: setUpTypes }
-          : waitingTab ? { label: chosen.size ? `Approve ${chosen.size} chosen` : 'Approve chosen', icon: Check, onClick: approveChosen, disabled: !chosen.size || deciding, title: chosen.size ? undefined : 'Tick the requests to approve' }
+          : waitingTab && (!peopleTimePage || chosen.size > 0) ? { label: chosen.size ? `Approve ${chosen.size} chosen` : 'Approve chosen', icon: Check, onClick: approveChosen, disabled: !chosen.size || deciding, title: chosen.size ? undefined : 'Tick the requests to approve' }
           : allowed('ATTENDANCE::Leave Requests::CREATE') ? { label: 'Enter leave', icon: Plus, onClick: () => setAdding(true), disabled: noTypes, title: noTypes ? 'No leave types yet' : undefined } : null}
         strip={<CountLine label="Leave figures" items={tiles} />}
         toolbar={<>
-          <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name or employee ID" label="Search leave requests" className="w-full sm:w-72" />
-          <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave type" value={p.type || ''} onChange={(v) => set({ type: v || null, page: null })} options={typeOptions} placeholder="Every type" /></div>
+          <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder={peopleTimePage ? 'Search employees' : 'Search name or employee ID'} label="Search leave requests" className="w-full sm:w-72" />
+          <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave type" value={p.type || ''} onChange={(v) => set({ type: v || null, page: null })} options={typeOptions} placeholder={allTypesLabel} panelAlign="end" panelMinWidth={180} /></div>
           {tab === 'PENDING' && (longWaiting.length || onlyLong) ? <button type="button" className={`ui-btn ui-btn-sm ${onlyLong ? 'ui-btn-primary' : 'ui-btn-secondary'} ui-long-wait`} aria-pressed={onlyLong} title={`Waiting more than ${LONG_WAIT_DAYS} days`} onClick={() => set({ long: onlyLong ? null : '1', page: null })}>Waiting too long <span className="tabular-nums">({longWaiting.length})</span></button> : null}
           {periodOptions.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => set({ year: v && Number(v) !== settings.data?.current?.year ? v : null, page: null })} options={periodOptions} /></div> : null}
         </>}
@@ -222,7 +225,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
       />
 
       <BulkOutcome outcome={outcome} verb="approved" onClose={() => setOutcome(null)} />
-      <DataTable
+      <ListTable key={JSON.stringify(query)} mobileSelectAll={peopleTimePage}
         label="Leave requests"
         columns={shownColumns}
         rows={rows}
@@ -259,7 +262,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
           /* The one action is the header's primary; here only the sentence, with the way there as a link. */
           <EmptyState title="No leave types yet" description={<>Leave requests need at least one leave type. Set them up under {setUpTypes ? <button type="button" className="ui-link" onClick={setUpTypes}>Settings › Leave policy</button> : 'Settings › Leave policy'}.</>} />
         ) : tab === 'PENDING' ? (
-          <EmptyState title="Nothing waiting" description="Leave asked for in the employee app, or entered here, waits here for a decision." />
+          <EmptyState title="Nothing waiting" description={peopleTimePage ? undefined : "Leave asked for in the employee app, or entered here, waits here for a decision."} />
         ) : (
           <EmptyState title={`No ${tab === 'all' ? '' : `${STATUS_LABEL[tab].toLowerCase()} `}requests in this period`} />
         )}
@@ -296,7 +299,13 @@ function Fact({ label, children }) {
 }
 
 export function RequestDrawer({ id, allowed, onClose, onDone }) {
-  const req = useRequest(() => getLeaveRequest(id), [id]);
+  const req = useRequest(async () => {
+    const detail = await getLeaveRequest(id);
+    if (!detail?.request || !Array.isArray(detail.alsoAway) || !Array.isArray(detail.history)) {
+      throw new Error('Could not load the leave request details.');
+    }
+    return detail;
+  }, [id]);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [noteError, setNoteError] = useState('');

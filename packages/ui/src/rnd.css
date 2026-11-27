@@ -307,41 +307,38 @@
   :root:not(#rnd):not([data-palette='indigo']) .ui-split:not([data-overlay]),
   :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] {
     position: sticky;
-    top: 4rem;
-    height: calc(100vh - 4rem);
-    height: calc(100dvh - 4rem);
+    top: var(--platform-bar, 52px);
+    height: calc(100vh - var(--platform-bar, 52px));
+    height: calc(100dvh - var(--platform-bar, 52px));
     border-right: 0;
   }
   /* The bar keeps the columns under it (owner, 17 Nov 2026): the logo sits over the rail (5rem), the app
      switch over the screens panel (12rem), and the search starts where the page's content does
      (the panel's edge plus the content's 2rem). The bar's own 0.75rem gap is taken back each time. */
   :root:not(#rnd) .ui-topbar { padding-left: 0; }
-  :root:not(#rnd) .ui-topbar .ui-topbar-logo { width: 5rem; min-width: 5rem; justify-content: center; margin-right: -0.75rem; }
-  /* The switch starts 1rem into the panel's column and the search 1rem past its edge (owner: "dropdown bit right, search bit left"). */
+  :root:not(#rnd) .ui-topbar .ui-topbar-logo { width: var(--workspace-rail-width, 5rem); min-width: var(--workspace-rail-width, 5rem); justify-content: center; margin-right: -0.75rem; }
   :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) { box-sizing: border-box; width: 12rem; padding-left: 1rem; margin-right: 0; }
-  :root:not(#rnd) .ui-topbar .ui-app-switch { margin-left: 0; max-width: 100%; }
+  :root:not(#rnd) .ui-topbar .ui-app-switch:not(.ui-app-launcher) { margin-left: 0; max-width: 100%; }
   :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) + .ui-global-search { margin-left: 0.25rem; }
-  /* Screens panel open (owner, 19 Nov 2026): the switcher sits over the panel, as wide as its name ("reduce
-     width of the app dropdown"), 2rem into the panel's column (owner: "move more to right"); the search
-     starts just past the panel's edge (rail 5rem + panel 12rem + 0.75rem; owner: "move search to left"). */
-  :root:not(#rnd) .ui-topbar[data-panel] .ui-app-switch { margin-left: 2rem; }
-  :root:not(#rnd) .ui-topbar[data-panel] .ui-global-search { position: absolute; left: calc(17rem + 0.75rem); margin-left: 0; }
-  :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 4rem 0 0 5rem; }
-  :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 5rem; }
+  :root:not(#rnd) .ui-topbar[data-panel] .ui-app-switch:not(.ui-app-launcher) { margin-left: 2rem; }
+  :root:not(#rnd) .ui-topbar > .ui-app-context { box-sizing: border-box; width: 12rem; padding-inline: 1rem; }
+  :root:not(#rnd) .ui-topbar > .ui-app-context + .ui-global-search { margin-left: 0.25rem; }
+  :root:not(#rnd) .ui-topbar[data-panel] .ui-global-search { position: absolute; left: calc(var(--workspace-rail-width, 5rem) + 12.75rem); margin-left: 0; }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: var(--platform-bar, 52px) 0 0 var(--workspace-rail-width, 4rem); }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: var(--workspace-rail-width, 5rem); }
 }
 
 :root:not(#rnd) .ui-topbar {
-  height: 4rem;
+  height: var(--platform-bar, 52px);
   padding-right: 2rem;
   gap: 0.75rem;
   background: rgb(var(--surface)) !important;
   border-bottom: 1px solid rgb(var(--border)) !important;
 }
 @media (max-width: 767px) {
-  :root:not(#rnd) .ui-topbar { height: 3.5rem; padding-right: 0.375rem; gap: 0.5rem; }
-  /* Seven 44px controls fill a phone's bar: the app switch keeps its coloured mark and drops the name, or the bar runs
-     past 390px and the whole page scrolls sideways (e2e screen checks). */
+  :root:not(#rnd) .ui-topbar { height: var(--platform-bar, 48px); padding-right: 0.375rem; gap: 0.5rem; }
   :root:not(#rnd) .ui-topbar .ui-app-switch-name { display: none; }
+  :root:not(#rnd) .ui-topbar .ui-app-switch.ui-app-launcher { width: 2.75rem; height: 2.75rem; }
 }
 :root:not(#rnd) .ui-topbar .ui-icon-btn {
   width: 2.25rem;
@@ -375,8 +372,7 @@
   font-size: 0.75rem;
   line-height: 1rem;
 }
-:root:not(#rnd) .ui-app-switch {
-  /* Smaller (owner, 17 Nov 2026: "reduce size of the app dropdown"): 32px tall, a 22px mark, 14px name. */
+:root:not(#rnd) .ui-app-switch:not(.ui-app-launcher) {
   height: 2rem;
   gap: 0.375rem;
   padding: 0 0.5rem 0 0.25rem;
@@ -386,7 +382,14 @@
 }
 :root:not(#rnd) .ui-topbar .ui-app-switch .ui-app-switch-mark { width: 1.375rem; height: 1.375rem; border-radius: 0.375rem; }
 :root:not(#rnd) .ui-topbar .ui-app-switch .ui-app-switch-mark > svg { width: 0.875rem; height: 0.875rem; }
-:root:not(#rnd) .ui-topbar .ui-app-switch .ui-app-switch-name { font-size: 0.875rem; line-height: 1.25rem; }
+:root:not(#rnd) .ui-topbar .ui-app-switch-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
 /* The switcher's mark carries the app's identity hue as a filled tile, glyph in --on-brand: §6.3 allows the hue here and nowhere else. */
 :root:not(#rnd) .ui-app-switch-mark {
   background: rgb(var(--app-color, var(--act)));
@@ -451,8 +454,8 @@
 /* Rail: 80px, white, hairline. Symbol tile 36px. Each module is its icon with its name under it
    (owner, 16 Nov 2026: "sidebar add module names"), 8px radius, 24px icons, 11px names. */
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-rail {
-  width: 5rem;
-  padding: 1rem 0.375rem;
+  width: var(--workspace-rail-width, 5rem);
+  padding: 1rem var(--workspace-rail-gutter, 0.375rem);
   gap: 0.25rem;
   align-items: center;
   /* The rail is the tinted one: a light cool grey beside the white screens panel and page (owner,
@@ -466,7 +469,7 @@
   min-height: 3.75rem;
   height: auto;
   flex: none;
-  padding: 0.5rem 0.125rem 0.4375rem;
+  padding: 0.5rem var(--workspace-rail-item-gutter, 0.125rem) 0.4375rem;
   flex-direction: column;
   justify-content: center;
   gap: 0.3125rem;
@@ -485,7 +488,7 @@
   max-width: 100%;
   white-space: normal;
   text-align: center;
-  font-size: 0.75rem;
+  font-size: var(--workspace-rail-label-size, 0.75rem);
   line-height: 1rem;
   font-weight: 600;
   letter-spacing: 0;
@@ -811,6 +814,7 @@
 @media (pointer: coarse) {
   :root:not(#rnd):not([data-palette='indigo']) .ui-split-item { height: 2.75rem; }
   :root:not(#rnd) .ui-app-switch { height: 2.75rem; }
+  :root:not(#rnd) .ui-app-launcher { width: 2.75rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot { min-height: 2.75rem; }
 }
 

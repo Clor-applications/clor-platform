@@ -35,11 +35,11 @@ describe('monthflow C: the month as a to-do list', () => {
   });
   it('shows the count and links the next step', async () => {
     const onOpen = vi.fn();
-    render(<MonthTodo period={{ name: 'October 2026' }} run={{ status: 'APPROVED' }} onOpen={onOpen} />);
+    render(<MonthTodo period={{ name: 'October 2026' }} run={{ id: 'october-run', status: 'APPROVED' }} onOpen={onOpen} />);
     expect(screen.getByRole('heading', { name: 'October 2026 to-do' })).toBeInTheDocument();
     expect(screen.getByText('3 of 6 done')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Lock the month/ }));
-    expect(onOpen).toHaveBeenCalledWith('payrollRuns');
+    expect(onOpen).toHaveBeenCalledWith('runs', { runId: 'october-run' });
   });
   it('is not drawn without a period', () => {
     const { container } = render(<MonthTodo period={null} run={null} onOpen={() => {}} />);
