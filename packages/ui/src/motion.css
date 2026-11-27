@@ -336,17 +336,32 @@
 :root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops']) .ui-table tbody tr { transition: background-color var(--mo-fade); }
 
 /* Data columns share a centre line from their heading through their values. */
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'])
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'])
   :is(table.ui-table, table.ws-table, table.con-table) > :is(thead, tbody, tfoot) > tr > :is(th, td) {
   text-align: center !important;
   vertical-align: middle;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'])
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'])
   :is(table.ui-table, table.ws-table, table.con-table) :is(.ui-row-open, .ui-th-sort) {
   text-align: center;
   justify-content: center;
 }
-:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='people'], [data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'])
+:root:not(#mo):not(#mo2):not(#mo3):not(#mo4):is([data-app='admin'], [data-app='payroll'], [data-app='attendance'], [data-portal='ops'])
+  :is(table.ui-table, table.ws-table, table.con-table) :is(th, td, .ui-row-open) > .flex:not(.flex-col):not(.justify-between) {
+  justify-content: center;
+}
+
+:where(:root[data-app='people'])
+  :is(table.ui-table, table.ws-table, table.con-table) > :is(thead, tbody, tfoot) > tr > :is(th, td) {
+  text-align: center !important;
+  vertical-align: middle;
+}
+:where(:root[data-app='people'])
+  :is(table.ui-table, table.ws-table, table.con-table) :is(.ui-row-open, .ui-th-sort) {
+  text-align: center;
+  justify-content: center;
+}
+:where(:root[data-app='people'])
   :is(table.ui-table, table.ws-table, table.con-table) :is(th, td, .ui-row-open) > .flex:not(.flex-col):not(.justify-between) {
   justify-content: center;
 }

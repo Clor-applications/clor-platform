@@ -771,3 +771,28 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
   gap: 0 20px;
 }
+
+/* Keep the identifier label on the same reading edge as the name below it. */
+:root[data-app='people'] #main-content .ui-table :is([data-column='person'], [data-column='employee'], [data-column='name']) .ui-row-open {
+  justify-content: flex-start;
+  text-align: start;
+}
+:root[data-app='people'] #main-content[data-people-time] .ui-table:has(td[data-column='employee'] .ui-avatar-initials) [data-column='employee'] {
+  text-align: start !important;
+}
+:root[data-app='people'] #main-content[data-people-time] .ui-table:has(td[data-column='employee'] .ui-avatar-initials) th[data-column='employee'] {
+  padding-inline-start: 3.625rem;
+}
+:root[data-app='people'] #main-content[data-people-time] td[data-column='employee'] .ui-row-open > .flex:has(.ui-avatar-initials) {
+  justify-content: flex-start;
+}
+:root[data-app='people'] #main-content .late-mark-page table.ui-table th[data-column='name'] {
+  padding-inline-start: calc(1rem + 28px + .65rem) !important;
+}
+:root[data-app='people'] #main-content .people-register .ui-table:has(.rg-who) th[data-column='employee'] {
+  padding-inline-start: calc(1rem + 28px + .625rem) !important;
+}
+:root[data-app='people'] #main-content .people-register .ui-table [data-column='ctc'] {
+  text-align: end !important;
+  font-variant-numeric: tabular-nums;
+}
